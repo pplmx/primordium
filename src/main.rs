@@ -6,7 +6,7 @@ fn main() -> Result<()> {
     let mut tui = Tui::new()?;
     tui.init()?;
 
-    let mut app = App::new();
+    let mut app = App::new()?;
     let res = app.run(&mut tui);
 
     tui.exit()?;

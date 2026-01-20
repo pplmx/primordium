@@ -1,25 +1,32 @@
 use crate::model::brain::Brain;
 use rand::Rng;
 use ratatui::style::Color;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
     pub id: Uuid,
+    pub parent_id: Option<Uuid>,
     pub x: f64,
     pub y: f64,
     pub vx: f64,
     pub vy: f64,
-    pub color: Color,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
     pub symbol: char,
     pub energy: f64,
     pub max_energy: f64,
+    pub peak_energy: f64,
     pub generation: u32,
+    pub birth_tick: u64,
+    pub offspring_count: u32,
     pub brain: Brain,
 }
 
 impl Entity {
-    pub fn new(x: f64, y: f64) -> Self {
+    pub fn new(x: f64, y: f64, tick: u64) -> Self {
         let mut rng = rand::thread_rng();
 
         // Random velocity between -0.5 and 0.5
@@ -30,58 +37,66 @@ impl Entity {
         let r = rng.gen_range(100..255);
         let g = rng.gen_range(100..255);
         let b = rng.gen_range(100..255);
-        let color = Color::Rgb(r, g, b);
 
         Self {
             id: Uuid::new_v4(),
+            parent_id: None,
             x,
             y,
             vx,
             vy,
-            color,
+            r,
+            g,
+            b,
             symbol: '●',
             energy: 100.0,
             max_energy: 200.0,
+            peak_energy: 100.0,
             generation: 1,
+            birth_tick: tick,
+            offspring_count: 0,
             brain: Brain::new_random(),
         }
     }
 
-    pub fn reproduce(&mut self) -> Self {
+    pub fn color(&self) -> Color {
+        Color::Rgb(self.r, self.g, self.b)
+    }
+
+    pub fn reproduce(&mut self, tick: u64) -> Self {
         let mut rng = rand::thread_rng();
 
         // Split energy
         let child_energy = self.energy / 2.0;
         self.energy = child_energy;
+        self.offspring_count += 1;
 
         // Clone and mutate brain
         let mut child_brain = self.brain.clone();
         child_brain.mutate();
-
-        // Mutate Color (±15)
-        let (r, g, b) = match self.color {
-            Color::Rgb(r, g, b) => (r, g, b),
-            _ => (255, 255, 255),
-        };
 
         let mut mutate_color = |c: u8| -> u8 {
             let change = rng.gen_range(-15..=15);
             (c as i16 + change).max(0).min(255) as u8
         };
 
-        let child_color = Color::Rgb(mutate_color(r), mutate_color(g), mutate_color(b));
-
         Self {
             id: Uuid::new_v4(),
+            parent_id: Some(self.id),
             x: self.x,
             y: self.y,
-            vx: self.vx, // Inherit current velocity, brain will decide next
+            vx: self.vx,
             vy: self.vy,
-            color: child_color,
+            r: mutate_color(self.r),
+            g: mutate_color(self.g),
+            b: mutate_color(self.b),
             symbol: '●',
             energy: child_energy,
             max_energy: self.max_energy,
+            peak_energy: child_energy,
             generation: self.generation + 1,
+            birth_tick: tick,
+            offspring_count: 0,
             brain: child_brain,
         }
     }

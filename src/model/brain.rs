@@ -1,6 +1,7 @@
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
     pub weights_ih: [f32; 24], // 4 inputs -> 6 hidden
     pub weights_ho: [f32; 18], // 6 hidden -> 3 outputs

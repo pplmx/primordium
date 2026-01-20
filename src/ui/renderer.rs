@@ -54,7 +54,7 @@ impl<'a> Widget for WorldWidget<'a> {
             {
                 let cell = buf.get_mut(x, y);
                 cell.set_symbol(&entity.symbol.to_string());
-                cell.set_fg(entity.color);
+                cell.set_fg(entity.color());
             }
         }
     }

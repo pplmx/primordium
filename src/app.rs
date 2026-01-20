@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::Utc;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Style};
@@ -8,7 +9,8 @@ use std::time::{Duration, Instant};
 use sysinfo::System;
 use uuid::Uuid;
 
-use crate::model::environment::Environment;
+use crate::model::environment::{ClimateState, Environment};
+use crate::model::history::LiveEvent;
 use crate::model::world::World;
 use crate::ui::renderer::WorldWidget;
 use crate::ui::tui::Tui;
@@ -29,18 +31,22 @@ pub struct App {
     // Neural Visualization
     pub show_brain: bool,
     pub selected_entity: Option<Uuid>,
+    // Last climate state for shift logging
+    pub last_climate: Option<ClimateState>,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         let mut sys = System::new_all();
         sys.refresh_all();
 
-        Self {
+        let world = World::new(100, 50, 100)?;
+
+        Ok(Self {
             running: true,
             paused: false,
             tick_count: 0,
-            world: World::new(100, 50, 100),
+            world,
             fps: 0.0,
             frame_count: 0,
             last_fps_update: Instant::now(),
@@ -49,7 +55,8 @@ impl App {
             cpu_history: VecDeque::from(vec![0; 60]),
             show_brain: false,
             selected_entity: None,
-        }
+            last_climate: None,
+        })
     }
 
     pub fn run(&mut self, tui: &mut Tui) -> Result<()> {
@@ -161,7 +168,6 @@ impl App {
 
                 // --- Brain Visualization ---
                 if self.show_brain {
-                    // Try to pick the oldest entity if none selected
                     if self.selected_entity.is_none()
                         || !self
                             .world
@@ -186,10 +192,8 @@ impl App {
                                     entity.generation
                                 ))
                                 .borders(Borders::ALL)
-                                .border_style(Style::default().fg(entity.color));
+                                .border_style(Style::default().fg(entity.color()));
 
-                            // Render brain weights heatmap
-                            // We'll use a simple text-based heatmap for now
                             let mut lines = Vec::new();
                             lines.push(ratatui::text::Line::from("Input -> Hidden Weights:"));
                             for i in 0..4 {
@@ -264,6 +268,19 @@ impl App {
                 self.env.ram_usage_percent = ram_percent;
                 self.env.load_avg = 0.0;
 
+                let current_climate = self.env.climate();
+                if let Some(last) = self.last_climate {
+                    if last != current_climate {
+                        self.world.logger.log_event(LiveEvent::ClimateShift {
+                            from: format!("{:?}", last),
+                            to: format!("{:?}", current_climate),
+                            tick: self.world.tick,
+                            timestamp: Utc::now().to_rfc3339(),
+                        })?;
+                    }
+                }
+                self.last_climate = Some(current_climate);
+
                 self.env.update_events();
                 self.cpu_history.pop_front();
                 self.cpu_history.push_back(cpu_usage as u64);
@@ -297,7 +314,7 @@ impl App {
             // 4. Update State
             if last_tick.elapsed() >= tick_rate {
                 if !self.paused {
-                    self.world.update(&self.env);
+                    self.world.update(&self.env)?;
                 }
                 last_tick = Instant::now();
             }
