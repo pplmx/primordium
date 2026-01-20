@@ -4,42 +4,38 @@
 
 **Primordium** is a hardware-coupled artificial life simulation that lives in your terminal. It bridges the gap between your physical computer and a digital ecosystem, where the laws of nature are shaped by your machine's real-time performance.
 
-![Primordium Concept](https://img.shields.io/badge/Status-Phase%203%20Implemented-green)
-![Rust](https://img.shields.io/badge/Built%20with-Rust-orange)
+![Status](https://img.shields.io/badge/Status-Stable-brightgreen)
+![Built with Rust](https://img.shields.io/badge/Built%20with-Rust-orange)
+![License](https://img.shields.io/badge/License-MIT-blue)
 
 ---
 
 ## 🎯 Vision
 
 Primordium is an experiment in **emergent complexity**. It transforms your host machine into a digital god:
-
-- **CPU temperature** becomes the environmental climate.
-- **RAM pressure** controls resource scarcity.
-- **Evolution** writes the story as organisms adapt to your hardware's workload.
+- **CPU Workload** becomes the environmental climate.
+- **RAM Pressure** controls resource scarcity.
+- **Neural Networks** evolve as organisms adapt to your hardware's unique signature.
 
 ---
 
-## 🌊 How it Works: Hardware Resonance
+## 🌊 Core Mechanics: Hardware Resonance
 
 The simulation environment is directly coupled to your computer's real-time metrics using the `sysinfo` crate.
 
 ### 🌡️ Climate (CPU-Coupled)
-
-Your CPU usage dictates the "Climate State," which directly affects the metabolism speed of all digital organisms.
-
-| CPU Usage | Climate State | Metabolism Multiplier | Effect |
-| ----------- | -------------|--------------- | ----------------------- | -------- |
-| 0-30%     | 🌡️ Temperate  | ×1.0                  | Baseline energy consumption |
-| 30-60%    | 🔥 Warm       | ×1.5                  | Increased energy burn |
-| 60-80%    | 🌋 Hot        | ×2.0                  | High metabolic stress |
-| 80-100%   | ☀️ Scorching  | ×3.0                  | Scorching heat; mass die-offs |
+Your CPU usage dictates the metabolic speed of all digital organisms. High machine load forces life to burn energy faster.
+| CPU Usage | Climate State | Metabolism | Effect |
+|-----------|---------------|------------|--------|
+| 0-30%     | 🌡️ Temperate  | ×1.0       | Baseline survival |
+| 30-60%    | 🔥 Warm       | ×1.5       | Increased energy burn |
+| 60-80%    | 🌋 Hot        | ×2.0       | High metabolic stress |
+| 80-100%   | ☀️ Scorching  | ×3.0       | Rapid starvation risk |
 
 ### 🌾 Resource Scarcity (RAM-Coupled)
-
-Memory usage determines the availability of food in the world.
-
+Memory usage determines the availability of food. High RAM usage simulates a resource-famine environment.
 | RAM Usage | Resource State | Food Spawn Rate |
-| ----------- | ------------- | ---------------- | ----------------- |
+|-----------|----------------|-----------------|
 | 0-50%     | 🌾 Abundant    | ×1.0            |
 | 50-70%    | ⚠️ Strained    | ×0.7            |
 | 70-85%    | 🚨 Scarce      | ×0.4            |
@@ -47,44 +43,61 @@ Memory usage determines the availability of food in the world.
 
 ---
 
-## ✨ Key Features
+## ✨ Features
 
-### 1. Genesis (Physics Foundation)
+### 🧠 Neural Awakening
+Organisms are no longer random. Each entity possesses a **4-layer MLP Neural Network** (42 genes) that processes sensory data:
+- **Inputs**: Nearest food vector, energy reserves, and local crowding.
+- **Outputs**: Movement steering and metabolic speed boosting.
+- **Mutation**: Hereditary DNA mutation and rare genetic drift enable natural selection.
 
-A terminal-based 2D universe where organisms move with momentum.
+### 📜 The Ledger & Blockchain
+- **History Logging**: Every birth, death, and climate shift is recorded in JSONL format.
+- **Legends Archive**: High-fitness organisms (survivors and prolific parents) are archived forever.
+- **Immutable Proof**: Evolution datasets are hashed (SHA-256) and anchored to the **Bitcoin blockchain** via OpenTimestamps.
 
-- **Random Walk with Momentum**: Organisms don't just move randomly; they have velocity and inertia.
-- **Boundary Interaction**: Entities bounce off the edges of their terminal universe.
-- **60 FPS Rendering**: Smooth, high-performance TUI powered by `ratatui`.
-
-### 2. Metabolism & Evolution
-
-Life is a constant struggle for energy.
-
-- **Energy System**: Movement and existence cost energy. Running out of energy means death.
-- **Feeding**: Consume food particles (`*`) to restore energy.
-- **Reproduction**: Once an organism accumulates enough energy, it reproduces asexually.
-- **Heredity & Mutation**: Offspring inherit their parent's traits (color, velocity) with slight mutations, allowing for natural selection.
-
-### 3. Real-time Monitoring
-
-- **Hardware Gauges**: Visual representations of current CPU and RAM usage.
-- **CPU Sparkline**: A 60-second historical graph of your machine's load.
-- **Status Dashboard**: Real-time stats on population, generations, and environmental multipliers.
+### ⚡ Performance & Modes
+- **Spatial Hashing**: Optimized $O(N \log N)$ sensory lookups allow for 500+ entities at 60 FPS.
+- **Flexible Modes**:
+  - **Standard**: Interactive TUI with full stats and brain visualizer.
+  - **Screensaver**: Minimalist, high-efficiency world view.
+  - **Headless**: Pure simulation for background research and logging.
 
 ---
 
 ## 🚀 Quick Start
 
-Ensure you have [Rust and Cargo](https://rustup.rs/) installed.
+Ensure you have [Rust](https://rustup.rs/) installed.
 
 ```bash
-# Clone the repository
+# Clone and enter
 git clone https://github.com/pplmx/primordium.git
 cd primordium
 
-# Build and run
+# Run Standard Mode
 cargo run --release
+
+# Run Screensaver Mode
+cargo run --release -- --mode screensaver
+
+# Run Headless Mode (CLI only)
+cargo run --release -- --mode headless
+```
+
+---
+
+## 🛠️ Analysis & Verification
+
+### Generate Evolution Report
+Rebuild family trees and analyze population dynamics from your session logs.
+```bash
+cargo run --release --bin analyze -- --live-log logs/live.jsonl --output my_report.md
+```
+
+### Validate Blockchain Proof
+Verify that your evolutionary history hasn't been tampered with since anchoring.
+```bash
+cargo run --release --bin verify
 ```
 
 ---
@@ -92,23 +105,17 @@ cargo run --release
 ## ⌨️ Controls
 
 | Key | Action |
-| --- | ------ |
+|-----|--------|
 | `Q` | Quit simulation |
 | `Space` | Pause / Resume |
-
----
-
-## 🗺️ Roadmap
-
-- [x] **Phase 1-3**: Core physics, metabolism, and hardware coupling.
-- [ ] **Phase 4: Neural Awakening**: Replacing random movement with Neural Networks. Organisms will develop "senses" to find food and avoid crowds.
-- [ ] **Phase 5: Historical Archives**: Detailed tracking of lineages and the preservation of "Legendary" organisms.
-- [ ] **Phase 5.5: Blockchain Anchoring**: Cryptographically proving evolutionary history and minting legendary organisms as NFTs.
+| `B` | Toggle Neural Brain Heatmap |
+| `H` | Toggle Help Overlay |
+| `+` / `-`| Increase / Decrease time scale |
 
 ---
 
 ## 🌱 Philosophy
 
-Every run of Primordium is unique. Your machine's specific hardware signature and your daily workflow create a one-of-a-kind evolutionary pressure. Every lineage is precious, and every extinction is a lesson in the primordial soup.
+Every run of Primordium is unique. Your specific hardware workload creates a one-of-a-kind evolutionary pressure. Every lineage is precious, and every extinction is a lesson in the primordial soup.
 
-*Welcome to the original frontier.*
+*Last updated: 2026-01-20*
