@@ -182,9 +182,10 @@ toml = "0.8"
 
 ## 🚀 Future Roadmap (Phase 14+)
 
-### Phase 14: 3D Visualization
-- WebGL / WGPU rendering
-- 3D Terrain and Entity models
+### Phase 14: Documentation & Polish
+- User Manuals (EN/ZH)
+- Detailed Wiki
+- Performance Tuning
 - Network protocol for synchronized worlds
 - Cross-machine organism migration
 - Competitive and cooperative modes

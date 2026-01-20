@@ -43,6 +43,9 @@ Primordium 是一场关于**涌现复杂度**的实验。它将你的宿主机�
 
 ---
 
+- [User Manual (English)](../docs/MANUAL.md)
+- [用户手册 (中文)](../docs/MANUAL_zh.md)
+
 ## ✨ 功能特性
 
 ### 🧠 神经觉醒与自然选择

@@ -39,6 +39,10 @@ Memory usage determines food availability. High RAM usage simulates a resource-f
 
 ---
 
+- [User Manual (English)](./docs/MANUAL.md)
+- [用户手册 (中文)](./docs/MANUAL_zh.md)
+- [Web Guide](./www/README.md)
+
 ## ✨ Features
 
 ### 🧠 Neural Awakening & Selection
