@@ -2,7 +2,7 @@
 name = "primordium"
 version = "0.0.1"
 edition = "2021"
-default-run = "primordium"
+default-run = "primordium-app"
 
 [dependencies]
 # Core rendering
@@ -56,6 +56,10 @@ web-sys = { version = "0.3", features = [
     "MessageEvent",          # NEW: For websocket messages
     "ErrorEvent",            # NEW: For socket errors
 ] }
+
+[[bin]]
+name = "primordium-app"
+path = "src/main.rs"
 
 [[bin]]
 name = "server"
