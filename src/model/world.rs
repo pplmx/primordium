@@ -3,11 +3,36 @@ use crate::model::config::AppConfig;
 use crate::model::entity::Entity;
 use crate::model::environment::Environment;
 use crate::model::food::Food;
-use crate::model::history::{HistoryLogger, Legend, LiveEvent};
+use crate::model::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
 use crate::model::quadtree::SpatialHash;
 use chrono::Utc;
 use rand::Rng;
 use std::collections::HashSet;
+
+pub struct HallOfFame {
+    pub top_living: Vec<(f64, Entity)>,
+}
+
+impl HallOfFame {
+    pub fn new() -> Self {
+        Self {
+            top_living: Vec::with_capacity(3),
+        }
+    }
+    pub fn update(&mut self, entities: &[Entity], tick: u64) {
+        let mut scores: Vec<(f64, Entity)> = entities
+            .iter()
+            .map(|e| {
+                let age = tick - e.birth_tick;
+                let score =
+                    (age as f64 * 0.5) + (e.offspring_count as f64 * 10.0) + (e.peak_energy * 0.2);
+                (score, e.clone())
+            })
+            .collect();
+        scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        self.top_living = scores.into_iter().take(3).collect();
+    }
+}
 
 pub struct World {
     pub width: u16,
@@ -18,6 +43,8 @@ pub struct World {
     pub logger: HistoryLogger,
     pub config: AppConfig,
     pub spatial_hash: SpatialHash,
+    pub pop_stats: PopulationStats,
+    pub hall_of_fame: HallOfFame,
 }
 
 impl World {
@@ -25,12 +52,10 @@ impl World {
         let mut rng = rand::thread_rng();
         let mut entities = Vec::with_capacity(initial_population);
         let mut logger = HistoryLogger::new()?;
-
         for _ in 0..initial_population {
             let x = rng.gen_range(2.0..f64::from(config.world.width - 2));
             let y = rng.gen_range(2.0..f64::from(config.world.height - 2));
             let entity = Entity::new(x, y, 0);
-
             logger.log_event(LiveEvent::Birth {
                 id: entity.id,
                 parent_id: None,
@@ -38,17 +63,14 @@ impl World {
                 tick: 0,
                 timestamp: Utc::now().to_rfc3339(),
             })?;
-
             entities.push(entity);
         }
-
         let mut food = Vec::new();
         for _ in 0..config.world.initial_food {
             let x = rng.gen_range(1..config.world.width - 1);
             let y = rng.gen_range(1..config.world.height - 1);
             food.push(Food::new(x, y));
         }
-
         Ok(Self {
             width: config.world.width,
             height: config.world.height,
@@ -58,6 +80,8 @@ impl World {
             logger,
             config,
             spatial_hash: SpatialHash::new(5.0),
+            pop_stats: PopulationStats::new(),
+            hall_of_fame: HallOfFame::new(),
         })
     }
 
@@ -65,20 +89,16 @@ impl World {
         let mut events = Vec::new();
         self.tick += 1;
         let mut rng = rand::thread_rng();
-
         let width_f = f64::from(self.width);
         let height_f = f64::from(self.height);
-
         let metabolism_mult = env.metabolism_multiplier();
         let food_spawn_mult = env.food_spawn_multiplier();
 
-        // 1. Rebuild Spatial Hash
         self.spatial_hash.clear();
         for (i, e) in self.entities.iter().enumerate() {
             self.spatial_hash.insert(e.x, e.y, i);
         }
 
-        // 2. Food Spawning
         let spawn_chance = 0.0083 * food_spawn_mult;
         if self.food.len() < self.config.world.max_food && rng.gen::<f64>() < spawn_chance {
             let x = rng.gen_range(1..self.width - 1);
@@ -86,82 +106,63 @@ impl World {
             self.food.push(Food::new(x, y));
         }
 
-        // 3. Entity Logic
         let mut new_babies = Vec::new();
         let mut alive_entities = Vec::new();
         let mut killed_ids = HashSet::new();
-
         let mut current_entities = std::mem::take(&mut self.entities);
-
-        // Snapshot for non-conflicting reads
         let entity_snapshots: Vec<(uuid::Uuid, f64, f64, f64, u64, u32)> = current_entities
             .iter()
             .map(|e| (e.id, e.x, e.y, e.energy, e.birth_tick, e.offspring_count))
             .collect();
 
         for i in 0..current_entities.len() {
-            let entity_id = current_entities[i].id;
-            if killed_ids.contains(&entity_id) {
+            if killed_ids.contains(&current_entities[i].id) {
                 continue;
             }
-
-            // --- SENSORY INPUTS ---
-            let (dx_food, dy_food) = self.sense_nearest_food(&current_entities[i]);
-            let cap = 20.0;
-            let dx_input = (dx_food / cap).clamp(-1.0, 1.0) as f32;
-            let dy_input = (dy_food / cap).clamp(-1.0, 1.0) as f32;
-            let energy_input = (current_entities[i].energy / current_entities[i].max_energy) as f32;
-
-            let neighbors_indices =
-                self.spatial_hash
-                    .query(current_entities[i].x, current_entities[i].y, 5.0);
-            let neighbors = neighbors_indices.len().saturating_sub(1);
-            let crowding_input = (neighbors as f32 / 10.0).min(1.0);
-
-            // BRAIN FORWARD
-            let inputs = [dx_input, dy_input, energy_input, crowding_input];
+            let (dx_f, dy_f) = self.sense_nearest_food(&current_entities[i]);
+            let inputs = [
+                (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
+                (dy_f / 20.0).clamp(-1.0, 1.0) as f32,
+                (current_entities[i].energy / current_entities[i].max_energy) as f32,
+                (self
+                    .spatial_hash
+                    .query(current_entities[i].x, current_entities[i].y, 5.0)
+                    .len()
+                    .saturating_sub(1) as f32
+                    / 10.0)
+                    .min(1.0),
+            ];
             let outputs = current_entities[i].brain.forward(inputs);
-
-            let move_x = outputs[0] as f64;
-            let move_y = outputs[1] as f64;
-            let speed_boost = (outputs[2] as f64 + 1.0) / 2.0;
-            let aggression = (outputs[3] as f64 + 1.0) / 2.0;
-
-            let speed = 1.0 + speed_boost;
-            let predation_mode = aggression > 0.5;
-
-            current_entities[i].vx = current_entities[i].vx * 0.8 + move_x * 0.2;
-            current_entities[i].vy = current_entities[i].vy * 0.8 + move_y * 0.2;
-
-            // METABOLISM
+            let speed = 1.0 + (outputs[2] as f64 + 1.0) / 2.0;
+            let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
+            current_entities[i].last_aggression = (outputs[3] + 1.0) / 2.0;
+            current_entities[i].vx = current_entities[i].vx * 0.8 + (outputs[0] as f64) * 0.2;
+            current_entities[i].vy = current_entities[i].vy * 0.8 + (outputs[1] as f64) * 0.2;
             let mut move_cost = self.config.metabolism.base_move_cost * metabolism_mult * speed;
-            let idle_cost = self.config.metabolism.base_idle_cost * metabolism_mult;
             if predation_mode {
                 move_cost *= 2.0;
             }
+            current_entities[i].energy -=
+                move_cost + self.config.metabolism.base_idle_cost * metabolism_mult;
 
-            current_entities[i].energy -= move_cost + idle_cost;
-
-            // DEATH CHECK
             if current_entities[i].energy <= 0.0 {
-                let event = LiveEvent::Death {
+                let age = self.tick - current_entities[i].birth_tick;
+                self.pop_stats.record_death(age);
+                let ev = LiveEvent::Death {
                     id: current_entities[i].id,
-                    age: self.tick - current_entities[i].birth_tick,
+                    age,
                     offspring: current_entities[i].offspring_count,
                     tick: self.tick,
                     timestamp: Utc::now().to_rfc3339(),
                     cause: "starvation".to_string(),
                 };
-                self.logger.log_event(event.clone())?;
-                events.push(event);
+                let _ = self.logger.log_event(ev.clone());
+                events.push(ev);
                 self.archive_if_legend(&current_entities[i]);
                 continue;
             }
-
-            // MOVEMENT
             current_entities[i].x += current_entities[i].vx * speed;
             current_entities[i].y += current_entities[i].vy * speed;
-
             if current_entities[i].x <= 0.0 {
                 current_entities[i].x = 0.0;
                 current_entities[i].vx = -current_entities[i].vx;
@@ -177,42 +178,42 @@ impl World {
                 current_entities[i].vy = -current_entities[i].vy;
             }
 
-            // PREDATION
             if predation_mode {
-                let targets =
+                for t_idx in
                     self.spatial_hash
-                        .query(current_entities[i].x, current_entities[i].y, 1.5);
-                for t_idx in targets {
-                    let (v_id, _vx, _vy, v_energy, v_birth, v_offspring) = entity_snapshots[t_idx];
-                    if v_id != current_entities[i].id && !killed_ids.contains(&v_id) {
-                        if v_energy < current_entities[i].energy {
-                            current_entities[i].energy += v_energy * 0.8;
-                            if current_entities[i].energy > current_entities[i].max_energy {
-                                current_entities[i].energy = current_entities[i].max_energy;
-                            }
-                            killed_ids.insert(v_id);
-
-                            let event = LiveEvent::Death {
-                                id: v_id,
-                                age: self.tick - v_birth,
-                                offspring: v_offspring,
-                                tick: self.tick,
-                                timestamp: Utc::now().to_rfc3339(),
-                                cause: "predation".to_string(),
-                            };
-                            let _ = self.logger.log_event(event.clone());
-                            events.push(event);
+                        .query(current_entities[i].x, current_entities[i].y, 1.5)
+                {
+                    let (v_id, _, _, v_e, v_b, v_o) = entity_snapshots[t_idx];
+                    if v_id != current_entities[i].id
+                        && !killed_ids.contains(&v_id)
+                        && v_e < current_entities[i].energy
+                    {
+                        current_entities[i].energy += v_e * 0.8;
+                        if current_entities[i].energy > current_entities[i].max_energy {
+                            current_entities[i].energy = current_entities[i].max_energy;
                         }
+                        killed_ids.insert(v_id);
+                        let v_age = self.tick - v_b;
+                        self.pop_stats.record_death(v_age);
+                        let ev = LiveEvent::Death {
+                            id: v_id,
+                            age: v_age,
+                            offspring: v_o,
+                            tick: self.tick,
+                            timestamp: Utc::now().to_rfc3339(),
+                            cause: "predation".to_string(),
+                        };
+                        let _ = self.logger.log_event(ev.clone());
+                        events.push(ev);
                     }
                 }
             }
-
-            // EATING FOOD
             let mut eaten_idx = None;
             for (f_idx, f) in self.food.iter().enumerate() {
-                let dx = current_entities[i].x - f64::from(f.x);
-                let dy = current_entities[i].y - f64::from(f.y);
-                if (dx * dx + dy * dy) < 1.5 {
+                if (current_entities[i].x - f64::from(f.x)).powi(2)
+                    + (current_entities[i].y - f64::from(f.y)).powi(2)
+                    < 2.25
+                {
                     eaten_idx = Some(f_idx);
                     break;
                 }
@@ -225,9 +226,7 @@ impl World {
                 self.food.swap_remove(f_idx);
             }
 
-            // REPRODUCTION & GENETIC SYNERGY (Sexual Crossover)
             if current_entities[i].energy > self.config.metabolism.reproduction_threshold {
-                // Look for mate nearby
                 let mate_indices =
                     self.spatial_hash
                         .query(current_entities[i].x, current_entities[i].y, 2.0);
@@ -241,36 +240,30 @@ impl World {
                         break;
                     }
                 }
-
                 let baby = if let Some(m_idx) = mate_idx {
-                    // Sexual Reproduction
-                    let mate = &current_entities[m_idx];
-                    let mut child_brain = Brain::crossover(&current_entities[i].brain, &mate.brain);
-                    child_brain.mutate_with_config(&self.config.evolution);
-
-                    let child = current_entities[i].reproduce_with_mate(self.tick, child_brain);
+                    let mut cb = Brain::crossover(
+                        &current_entities[i].brain,
+                        &current_entities[m_idx].brain,
+                    );
+                    cb.mutate_with_config(&self.config.evolution);
+                    let c = current_entities[i].reproduce_with_mate(self.tick, cb);
                     current_entities[i].energy -= 50.0;
-                    // We don't deduct energy from mate to avoid killing it in the loop (mate might have already run its tick)
-                    child
+                    c
                 } else {
-                    // Asexual fallback
                     current_entities[i].reproduce(self.tick, &self.config.evolution)
                 };
-
-                let event = LiveEvent::Birth {
+                let ev = LiveEvent::Birth {
                     id: baby.id,
                     parent_id: Some(current_entities[i].id),
                     gen: baby.generation,
                     tick: self.tick,
                     timestamp: Utc::now().to_rfc3339(),
                 };
-                let _ = self.logger.log_event(event.clone());
-                events.push(event);
+                let _ = self.logger.log_event(ev.clone());
+                events.push(ev);
                 new_babies.push(baby);
             }
         }
-
-        // Finalize alive entities and archive dead ones
         for e in current_entities {
             if killed_ids.contains(&e.id) {
                 self.archive_if_legend(&e);
@@ -280,20 +273,27 @@ impl World {
                 alive_entities.push(e);
             }
         }
-
         self.entities = alive_entities;
         self.entities.append(&mut new_babies);
-
         if self.entities.is_empty() && self.tick > 0 {
-            let event = LiveEvent::Extinction {
+            let ev = LiveEvent::Extinction {
                 population: 0,
                 tick: self.tick,
                 timestamp: Utc::now().to_rfc3339(),
             };
-            let _ = self.logger.log_event(event.clone());
-            events.push(event);
+            let _ = self.logger.log_event(ev.clone());
+            events.push(ev);
         }
-
+        if self.tick % 60 == 0 {
+            self.hall_of_fame.update(&self.entities, self.tick);
+            let top_fitness = self
+                .hall_of_fame
+                .top_living
+                .first()
+                .map(|(s, _)| *s)
+                .unwrap_or(0.0);
+            self.pop_stats.update_snapshot(&self.entities, top_fitness);
+        }
         Ok(events)
     }
 
@@ -301,7 +301,6 @@ impl World {
         let mut dx_food = 0.0;
         let mut dy_food = 0.0;
         let mut min_dist_sq = f64::MAX;
-
         for f in &self.food {
             let dx = f64::from(f.x) - entity.x;
             let dy = f64::from(f.y) - entity.y;

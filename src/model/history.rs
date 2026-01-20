@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::{HashMap, VecDeque};
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use uuid::Uuid;
@@ -52,6 +53,84 @@ pub struct Legend {
     pub color_rgb: (u8, u8, u8),
 }
 
+pub struct PopulationStats {
+    pub population: usize,
+    pub avg_lifespan: f64,
+    pub avg_brain_entropy: f64,
+    pub species_count: usize,
+    pub top_fitness: f64,
+    recent_deaths: VecDeque<f64>,
+}
+
+impl PopulationStats {
+    pub fn new() -> Self {
+        Self {
+            population: 0,
+            avg_lifespan: 0.0,
+            avg_brain_entropy: 0.0,
+            species_count: 0,
+            top_fitness: 0.0,
+            recent_deaths: VecDeque::with_capacity(100),
+        }
+    }
+
+    pub fn record_death(&mut self, lifespan: u64) {
+        self.recent_deaths.push_back(lifespan as f64);
+        if self.recent_deaths.len() > 100 {
+            self.recent_deaths.pop_front();
+        }
+        self.avg_lifespan =
+            self.recent_deaths.iter().sum::<f64>() / self.recent_deaths.len() as f64;
+    }
+
+    pub fn update_snapshot(&mut self, entities: &[crate::model::entity::Entity], top_fitness: f64) {
+        self.population = entities.len();
+        self.top_fitness = top_fitness;
+
+        if entities.is_empty() {
+            self.avg_brain_entropy = 0.0;
+            self.species_count = 0;
+            return;
+        }
+
+        // 1. Recalculate Entropy (Shannon entropy of sampled brain weights)
+        let mut weight_freq = HashMap::new();
+        for e in entities {
+            // Sample first 8 weights for performance
+            for &w in &e.brain.weights_ih[0..8] {
+                let bin = (w * 5.0).round() as i32; // Bin into 0.2 increments
+                *weight_freq.entry(bin).or_insert(0.0) += 1.0;
+            }
+        }
+        let total_samples = weight_freq.values().sum::<f64>();
+        let mut entropy = 0.0;
+        for &count in weight_freq.values() {
+            let p = count / total_samples;
+            if p > 0.0 {
+                entropy -= p * p.log2();
+            }
+        }
+        self.avg_brain_entropy = entropy;
+
+        // 2. Count Species (Genotype distance clustering)
+        let mut representatives: Vec<&crate::model::brain::Brain> = Vec::new();
+        let threshold = 2.0;
+        for e in entities {
+            let mut found = false;
+            for rep in &representatives {
+                if e.brain.genotype_distance(rep) < threshold {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                representatives.push(&e.brain);
+            }
+        }
+        self.species_count = representatives.len();
+    }
+}
+
 pub struct HistoryLogger {
     live_file: BufWriter<File>,
 }
@@ -88,7 +167,7 @@ impl HistoryLogger {
     pub fn get_all_legends(&self) -> anyhow::Result<Vec<Legend>> {
         let file = match File::open("logs/legends.json") {
             Ok(f) => f,
-            Err(_) => return Ok(vec![]), // No legends yet
+            Err(_) => return Ok(vec![]),
         };
         let reader = BufReader::new(file);
         let mut legends = Vec::new();

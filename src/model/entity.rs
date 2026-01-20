@@ -5,6 +5,14 @@ use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EntityStatus {
+    Starving, // < 20% energy
+    Mating,   // > reproduction threshold
+    Hunting,  // brain aggression > 0.5
+    Foraging, // normal
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
     pub id: Uuid,
@@ -24,6 +32,8 @@ pub struct Entity {
     pub birth_tick: u64,
     pub offspring_count: u32,
     pub brain: Brain,
+    #[serde(skip)]
+    pub last_aggression: f32,
 }
 
 impl Entity {
@@ -55,11 +65,42 @@ impl Entity {
             birth_tick: tick,
             offspring_count: 0,
             brain: Brain::new_random(),
+            last_aggression: 0.0,
         }
     }
 
     pub fn color(&self) -> Color {
         Color::Rgb(self.r, self.g, self.b)
+    }
+
+    pub fn status(&self, reproduction_threshold: f64) -> EntityStatus {
+        if self.energy / self.max_energy < 0.2 {
+            EntityStatus::Starving
+        } else if self.last_aggression > 0.5 {
+            EntityStatus::Hunting
+        } else if self.energy > reproduction_threshold {
+            EntityStatus::Mating
+        } else {
+            EntityStatus::Foraging
+        }
+    }
+
+    pub fn symbol_for_status(&self, status: EntityStatus) -> char {
+        match status {
+            EntityStatus::Starving => '†',
+            EntityStatus::Mating => '♥',
+            EntityStatus::Hunting => '♦',
+            EntityStatus::Foraging => '●',
+        }
+    }
+
+    pub fn color_for_status(&self, status: EntityStatus) -> Color {
+        match status {
+            EntityStatus::Starving => Color::Rgb(150, 50, 50), // Dim Red
+            EntityStatus::Mating => Color::Rgb(255, 105, 180), // Pink
+            EntityStatus::Hunting => Color::Rgb(255, 69, 0),   // Red-Orange
+            EntityStatus::Foraging => self.color(),
+        }
     }
 
     pub fn name(&self) -> String {
@@ -119,6 +160,7 @@ impl Entity {
             birth_tick: tick,
             offspring_count: 0,
             brain: child_brain,
+            last_aggression: 0.0,
         }
     }
 
@@ -145,6 +187,7 @@ impl Entity {
             birth_tick: tick,
             offspring_count: 0,
             brain: child_brain,
+            last_aggression: 0.0,
         }
     }
 }
