@@ -109,4 +109,12 @@ Primordium 支持 **星际移民**。
 - 请留意出现在世界边界的星际移民！
 
 ---
+
+## 📚 技术维基 (Technical Wiki)
+面向高级用户和模组制作者：
+- [遗传学与 HexDNA](../docs/wiki/GENETICS.md)
+- [神经网络架构](../docs/wiki/BRAIN.md)
+- [生态系统公式](../docs/wiki/ECOSYSTEM.md)
+
+---
 *生成时间: 2026-01-21*

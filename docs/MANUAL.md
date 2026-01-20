@@ -109,4 +109,12 @@ Primordium supports **Interstellar Migration**.
 - Look for incoming migrants appearing at your world borders!
 
 ---
+
+## 📚 Technical Wiki
+For advanced users and modders:
+- [Genetics & HexDNA](../docs/wiki/GENETICS.md)
+- [Neural Network Architecture](../docs/wiki/BRAIN.md)
+- [Ecosystem Formulas](../docs/wiki/ECOSYSTEM.md)
+
+---
 *Generated: 2026-01-21*
