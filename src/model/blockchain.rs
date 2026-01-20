@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[async_trait]
@@ -15,18 +15,19 @@ impl BlockchainProvider for OpenTimestampsProvider {
     async fn anchor_hash(&self, hash: &str) -> Result<String> {
         // OpenTimestamps Public Calendar API
         // Typically: POST to https://alice.btc.calendar.opentimestamps.org/digest
-        // with binary digest. 
+        // with binary digest.
         // For simplicity in this sim, we'll use a mocked success or a simple HTTP trigger
-        // if we had the full OTS logic. 
+        // if we had the full OTS logic.
         // Let's implement a real HTTP call to an OTS aggregator.
-        
+
         let client = reqwest::Client::new();
         let digest_bytes = hex::decode(hash)?;
-        
+
         // This is a common public calendar
         let url = "https://alice.btc.calendar.opentimestamps.org/digest";
-        
-        let response = client.post(url)
+
+        let response = client
+            .post(url)
             .body(digest_bytes)
             .header("Content-Type", "application/octet-stream")
             .send()
@@ -35,7 +36,10 @@ impl BlockchainProvider for OpenTimestampsProvider {
         if response.status().is_success() {
             Ok(format!("OTS_SUCCESS_{}", hash[..8].to_string()))
         } else {
-            Err(anyhow::anyhow!("OTS server returned error: {}", response.status()))
+            Err(anyhow::anyhow!(
+                "OTS server returned error: {}",
+                response.status()
+            ))
         }
     }
 }

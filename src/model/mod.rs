@@ -1,9 +1,9 @@
+pub mod blockchain;
 pub mod brain;
+pub mod config;
 pub mod entity;
 pub mod environment;
 pub mod food;
 pub mod history;
-pub mod world;
-pub mod blockchain;
-pub mod config;
 pub mod quadtree;
+pub mod world;

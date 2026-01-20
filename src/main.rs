@@ -1,7 +1,7 @@
-use primordium::ui::tui::Tui;
-use primordium::app::App;
 use anyhow::Result;
 use clap::Parser;
+use primordium::app::App;
+use primordium::ui::tui::Tui;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -40,7 +40,9 @@ async fn main() -> Result<()> {
                 }
                 // Periodic system poll (mocked or reduced frequency in headless)
                 // ... logic to handle headless termination etc.
-                if app.world.entities.is_empty() { break; }
+                if app.world.entities.is_empty() {
+                    break;
+                }
             }
             println!("Headless simulation finished.");
         }
@@ -52,11 +54,11 @@ async fn main() -> Result<()> {
             if matches!(args.mode, Mode::Screensaver) {
                 app.screensaver = true;
             }
-            
+
             let res = app.run(&mut tui).await;
 
             tui.exit()?;
-            
+
             if let Err(e) = res {
                 eprintln!("Application error: {e}");
             } else {
@@ -64,6 +66,6 @@ async fn main() -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }

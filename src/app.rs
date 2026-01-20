@@ -1,21 +1,21 @@
 use anyhow::Result;
+use chrono::Utc;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders, Gauge, Paragraph, Sparkline, Clear};
+use ratatui::widgets::{Block, Borders, Clear, Gauge, Paragraph, Sparkline};
 use std::collections::VecDeque;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::time::{Duration, Instant};
 use sysinfo::System;
 use uuid::Uuid;
-use chrono::Utc;
-use std::fs::OpenOptions;
-use std::io::Write;
 
-use crate::model::environment::{Environment, ClimateState};
-use crate::model::world::World;
-use crate::model::history::{LiveEvent, HistoryLogger};
-use crate::model::blockchain::{BlockchainProvider, OpenTimestampsProvider, AnchorRecord};
+use crate::model::blockchain::{AnchorRecord, BlockchainProvider, OpenTimestampsProvider};
 use crate::model::config::AppConfig;
+use crate::model::environment::{ClimateState, Environment};
+use crate::model::history::{HistoryLogger, LiveEvent};
+use crate::model::world::World;
 use crate::ui::renderer::WorldWidget;
 use crate::ui::tui::Tui;
 
@@ -52,7 +52,7 @@ impl App {
     pub fn new() -> Result<Self> {
         let mut sys = System::new_all();
         sys.refresh_all();
-        
+
         let config = AppConfig::load();
         let world = World::new(config.world.initial_population, config.clone())?;
 
@@ -86,7 +86,8 @@ impl App {
 
         while self.running {
             // Adjust tick rate based on time scale
-            let effective_tick_rate = Duration::from_secs_f64(tick_rate.as_secs_f64() / self.time_scale);
+            let effective_tick_rate =
+                Duration::from_secs_f64(tick_rate.as_secs_f64() / self.time_scale);
 
             // 1. Draw
             tui.terminal.draw(|f| {
@@ -98,7 +99,11 @@ impl App {
                         .direction(Direction::Horizontal)
                         .constraints([
                             Constraint::Min(0),
-                            if self.show_brain { Constraint::Length(40) } else { Constraint::Length(0) },
+                            if self.show_brain {
+                                Constraint::Length(40)
+                            } else {
+                                Constraint::Length(0)
+                            },
                         ])
                         .split(f.size());
 
@@ -131,7 +136,10 @@ impl App {
                         .percent(self.env.cpu_usage as u16)
                         .label(format!("CPU: {:.1}%", self.env.cpu_usage));
                     f.render_widget(cpu_gauge, line1[0]);
-                    f.render_widget(Paragraph::new(format!(" | Climate: {}", self.env.climate().icon())), line1[1]);
+                    f.render_widget(
+                        Paragraph::new(format!(" | Climate: {}", self.env.climate().icon())),
+                        line1[1],
+                    );
 
                     let line2 = Layout::default()
                         .direction(Direction::Horizontal)
@@ -143,9 +151,21 @@ impl App {
                         .percent(self.env.ram_usage_percent as u16)
                         .label(format!("RAM: {:.1}%", self.env.ram_usage_percent));
                     f.render_widget(ram_gauge, line2[0]);
-                    f.render_widget(Paragraph::new(format!(" | Resources: {}", self.env.resource_state().icon())), line2[1]);
+                    f.render_widget(
+                        Paragraph::new(format!(
+                            " | Resources: {}",
+                            self.env.resource_state().icon()
+                        )),
+                        line2[1],
+                    );
 
-                    let max_gen = self.world.entities.iter().map(|e| e.generation).max().unwrap_or(0);
+                    let max_gen = self
+                        .world
+                        .entities
+                        .iter()
+                        .map(|e| e.generation)
+                        .max()
+                        .unwrap_or(0);
                     let anchor_status = if self.is_anchoring { " [ANCHORING...]" } else { "" };
                     let world_stats = format!(
                         "Pop: {} | Gen: {} | Temp: x{:.1} | Food: x{:.1} | FPS: {:.1} | Scale: x{:.1}{}",
@@ -157,11 +177,18 @@ impl App {
                         self.time_scale,
                         anchor_status
                     );
-                    f.render_widget(Paragraph::new(world_stats).style(Style::default().fg(Color::DarkGray)), status_lines[2]);
+                    f.render_widget(
+                        Paragraph::new(world_stats).style(Style::default().fg(Color::DarkGray)),
+                        status_lines[2],
+                    );
 
                     let history_data: Vec<u64> = self.cpu_history.iter().cloned().collect();
                     let sparkline = Sparkline::default()
-                        .block(Block::default().title("CPU Load (60s)").borders(Borders::LEFT | Borders::RIGHT))
+                        .block(
+                            Block::default()
+                                .title("CPU Load (60s)")
+                                .borders(Borders::LEFT | Borders::RIGHT),
+                        )
                         .data(&history_data)
                         .style(Style::default().fg(Color::Yellow));
                     f.render_widget(sparkline, chunks[1]);
@@ -173,19 +200,33 @@ impl App {
                         if let Some(id) = self.selected_entity {
                             if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
                                 let brain_block = Block::default()
-                                    .title(format!(" Brain: {} ", entity.id.to_string()[..8].to_string()))
+                                    .title(format!(
+                                        " Brain: {} ",
+                                        entity.id.to_string()[..8].to_string()
+                                    ))
                                     .borders(Borders::ALL)
                                     .border_style(Style::default().fg(entity.color()));
-                                
+
                                 let mut lines = Vec::new();
                                 lines.push(ratatui::text::Line::from("Input -> Hidden Weights:"));
                                 for i in 0..4 {
                                     let mut spans = Vec::new();
                                     for j in 0..6 {
                                         let w = entity.brain.weights_ih[i * 6 + j];
-                                        let symbol = if w > 0.5 { "█" } else if w > 0.0 { "▓" } else if w > -0.5 { "▒" } else { "░" };
+                                        let symbol = if w > 0.5 {
+                                            "█"
+                                        } else if w > 0.0 {
+                                            "▓"
+                                        } else if w > -0.5 {
+                                            "▒"
+                                        } else {
+                                            "░"
+                                        };
                                         let color = if w > 0.0 { Color::Green } else { Color::Red };
-                                        spans.push(ratatui::text::Span::styled(symbol, Style::default().fg(color)));
+                                        spans.push(ratatui::text::Span::styled(
+                                            symbol,
+                                            Style::default().fg(color),
+                                        ));
                                     }
                                     lines.push(ratatui::text::Line::from(spans));
                                 }
@@ -195,9 +236,20 @@ impl App {
                                     let mut spans = Vec::new();
                                     for j in 0..3 {
                                         let w = entity.brain.weights_ho[i * 3 + j];
-                                        let symbol = if w > 0.5 { "█" } else if w > 0.0 { "▓" } else if w > -0.5 { "▒" } else { "░" };
+                                        let symbol = if w > 0.5 {
+                                            "█"
+                                        } else if w > 0.0 {
+                                            "▓"
+                                        } else if w > -0.5 {
+                                            "▒"
+                                        } else {
+                                            "░"
+                                        };
                                         let color = if w > 0.0 { Color::Green } else { Color::Red };
-                                        spans.push(ratatui::text::Span::styled(symbol, Style::default().fg(color)));
+                                        spans.push(ratatui::text::Span::styled(
+                                            symbol,
+                                            Style::default().fg(color),
+                                        ));
                                     }
                                     lines.push(ratatui::text::Line::from(spans));
                                 }
@@ -205,10 +257,15 @@ impl App {
                             }
                         }
                     }
-                    
+
                     if self.show_help {
                         let area = f.size();
-                        let help_area = Rect::new(area.width / 4, area.height / 4, area.width / 2, area.height / 2);
+                        let help_area = Rect::new(
+                            area.width / 4,
+                            area.height / 4,
+                            area.width / 2,
+                            area.height / 2,
+                        );
                         f.render_widget(Clear, help_area);
                         let help_text = vec![
                             " [Q]     Quit",
@@ -235,8 +292,9 @@ impl App {
                 self.sys.refresh_memory();
                 let cpu_usage = self.sys.global_cpu_info().cpu_usage();
                 self.env.cpu_usage = cpu_usage;
-                self.env.ram_usage_percent = (self.sys.used_memory() as f32 / self.sys.total_memory() as f32) * 100.0;
-                
+                self.env.ram_usage_percent =
+                    (self.sys.used_memory() as f32 / self.sys.total_memory() as f32) * 100.0;
+
                 let current_climate = self.env.climate();
                 if let Some(last) = self.last_climate {
                     if last != current_climate {
@@ -249,17 +307,17 @@ impl App {
                     }
                 }
                 self.last_climate = Some(current_climate);
-                
+
                 self.env.update_events();
                 self.cpu_history.pop_front();
                 self.cpu_history.push_back(cpu_usage as u64);
                 self.last_fps_update = Instant::now();
-                
+
                 // Blockchain Anchoring Check
                 if self.last_anchor_time.elapsed() >= self.anchor_interval && !self.is_anchoring {
                     self.is_anchoring = true;
                     self.last_anchor_time = Instant::now();
-                    
+
                     if let Ok(legends) = self.world.logger.get_all_legends() {
                         if !legends.is_empty() {
                             if let Ok(hash) = HistoryLogger::compute_legends_hash(&legends) {
@@ -272,7 +330,11 @@ impl App {
                                             timestamp: Utc::now().to_rfc3339(),
                                             provider: "OpenTimestamps".to_string(),
                                         };
-                                        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("logs/anchors.jsonl") {
+                                        if let Ok(mut file) = OpenOptions::new()
+                                            .create(true)
+                                            .append(true)
+                                            .open("logs/anchors.jsonl")
+                                        {
                                             if let Ok(json) = serde_json::to_string(&record) {
                                                 let _ = writeln!(file, "{}", json);
                                             }
@@ -296,8 +358,12 @@ impl App {
                             KeyCode::Char(' ') => self.paused = !self.paused,
                             KeyCode::Char('b') => self.show_brain = !self.show_brain,
                             KeyCode::Char('h') => self.show_help = !self.show_help,
-                            KeyCode::Char('+') | KeyCode::Char('=') => self.time_scale = (self.time_scale + 0.5).min(4.0),
-                            KeyCode::Char('-') | KeyCode::Char('_') => self.time_scale = (self.time_scale - 0.5).max(0.5),
+                            KeyCode::Char('+') | KeyCode::Char('=') => {
+                                self.time_scale = (self.time_scale + 0.5).min(4.0)
+                            }
+                            KeyCode::Char('-') | KeyCode::Char('_') => {
+                                self.time_scale = (self.time_scale - 0.5).max(0.5)
+                            }
                             _ => {}
                         }
                     }

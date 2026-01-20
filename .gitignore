@@ -1,3 +1,23 @@
+# --- Rust / Cargo ---
 /target
-.vscode
-.idea
+
+# --- IDEs / Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- Project Runtime Data ---
+# Simulation logs and legendary archives
+logs/
+
+# Local configuration overrides
+config.toml
+
+# --- Generated Artifacts ---
+# Evolutionary reports and family trees
+*_report.md
+report.md
+family_tree.dot
+family_tree.png
