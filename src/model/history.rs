@@ -20,6 +20,8 @@ pub enum LiveEvent {
         offspring: u32,
         tick: u64,
         timestamp: String,
+        #[serde(default)]
+        cause: String,
     },
     ClimateShift {
         from: String,
@@ -117,10 +119,19 @@ impl LiveEvent {
                 format!("Gen {} #{} born", gen, &id.to_string()[..4]),
                 Color::Cyan,
             ),
-            LiveEvent::Death { age, id, .. } => (
-                format!("#{} died at age {}", &id.to_string()[..4], age),
-                Color::Red,
-            ),
+            LiveEvent::Death { age, id, cause, .. } => {
+                let msg = if cause.is_empty() {
+                    format!("#{} died at age {}", &id.to_string()[..4], age)
+                } else {
+                    format!(
+                        "#{} killed by {} at age {}",
+                        &id.to_string()[..4],
+                        cause,
+                        age
+                    )
+                };
+                (msg, Color::Red)
+            }
             LiveEvent::ClimateShift { to, .. } => (format!("Climate: {}", to), Color::Yellow),
             LiveEvent::Extinction { tick, .. } => {
                 (format!("Extinction at tick {}", tick), Color::Magenta)

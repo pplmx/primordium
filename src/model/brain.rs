@@ -4,18 +4,18 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
     pub weights_ih: [f32; 24], // 4 inputs -> 6 hidden
-    pub weights_ho: [f32; 18], // 6 hidden -> 3 outputs
+    pub weights_ho: [f32; 24], // 6 hidden -> 4 outputs (added aggression)
     pub bias_h: [f32; 6],
-    pub bias_o: [f32; 3],
+    pub bias_o: [f32; 4],
 }
 
 impl Brain {
     pub fn new_random() -> Self {
         let mut rng = rand::thread_rng();
         let mut weights_ih = [0.0; 24];
-        let mut weights_ho = [0.0; 18];
+        let mut weights_ho = [0.0; 24];
         let mut bias_h = [0.0; 6];
-        let mut bias_o = [0.0; 3];
+        let mut bias_o = [0.0; 4];
 
         for w in weights_ih.iter_mut() {
             *w = rng.gen_range(-1.0..1.0);
@@ -38,7 +38,7 @@ impl Brain {
         }
     }
 
-    pub fn forward(&self, inputs: [f32; 4]) -> [f32; 3] {
+    pub fn forward(&self, inputs: [f32; 4]) -> [f32; 4] {
         // Input to Hidden
         let mut hidden = [0.0; 6];
         for i in 0..6 {
@@ -50,11 +50,11 @@ impl Brain {
         }
 
         // Hidden to Output
-        let mut output = [0.0; 3];
-        for i in 0..3 {
+        let mut output = [0.0; 4];
+        for i in 0..4 {
             let mut sum = self.bias_o[i];
             for j in 0..6 {
-                sum += hidden[j] * self.weights_ho[j * 3 + i];
+                sum += hidden[j] * self.weights_ho[j * 4 + i];
             }
             output[i] = sum.tanh();
         }
@@ -103,5 +103,44 @@ impl Brain {
             sum_sq += (b1 - b2).powi(2);
         }
         sum_sq.sqrt()
+    }
+
+    pub fn to_hex(&self) -> String {
+        let bytes = serde_json::to_vec(self).unwrap_or_default();
+        hex::encode(bytes)
+    }
+
+    pub fn from_hex(hex_str: &str) -> anyhow::Result<Self> {
+        let bytes = hex::decode(hex_str)?;
+        let brain = serde_json::from_slice(&bytes)?;
+        Ok(brain)
+    }
+
+    pub fn crossover(parent1: &Brain, parent2: &Brain) -> Self {
+        let mut rng = rand::thread_rng();
+        let mut child = parent1.clone();
+
+        // Randomly pick weights from either parent
+        for i in 0..child.weights_ih.len() {
+            if rng.gen_bool(0.5) {
+                child.weights_ih[i] = parent2.weights_ih[i];
+            }
+        }
+        for i in 0..child.weights_ho.len() {
+            if rng.gen_bool(0.5) {
+                child.weights_ho[i] = parent2.weights_ho[i];
+            }
+        }
+        for i in 0..child.bias_h.len() {
+            if rng.gen_bool(0.5) {
+                child.bias_h[i] = parent2.bias_h[i];
+            }
+        }
+        for i in 0..child.bias_o.len() {
+            if rng.gen_bool(0.5) {
+                child.bias_o[i] = parent2.bias_o[i];
+            }
+        }
+        child
     }
 }

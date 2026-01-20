@@ -121,4 +121,30 @@ impl Entity {
             brain: child_brain,
         }
     }
+
+    pub fn reproduce_with_mate(&mut self, tick: u64, child_brain: Brain) -> Self {
+        let child_energy = self.energy / 2.0;
+        self.energy = child_energy;
+        self.offspring_count += 1;
+
+        Self {
+            id: Uuid::new_v4(),
+            parent_id: Some(self.id),
+            x: self.x,
+            y: self.y,
+            vx: self.vx,
+            vy: self.vy,
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            symbol: '●',
+            energy: child_energy,
+            max_energy: self.max_energy,
+            peak_energy: child_energy,
+            generation: self.generation + 1,
+            birth_tick: tick,
+            offspring_count: 0,
+            brain: child_brain,
+        }
+    }
 }

@@ -15,7 +15,6 @@
 ## 🎯 Vision
 
 Primordium is an experiment in **emergent complexity**. It transforms your host machine into a digital god:
-
 - **CPU Workload** becomes the environmental climate.
 - **RAM Pressure** controls resource scarcity.
 - **Neural Networks** evolve as organisms adapt to your hardware's unique signature.
@@ -27,9 +26,7 @@ Primordium is an experiment in **emergent complexity**. It transforms your host 
 The simulation environment is directly coupled to your computer's real-time metrics.
 
 ### 🌡️ Climate (CPU-Coupled)
-
 Your CPU usage dictates metabolic speed. High machine load forces life to burn energy faster.
-
 | CPU Usage | Climate State | Metabolism | Effect |
 |-----------|---------------|------------|--------|
 | 0-30%     | 🌡️ Temperate  | ×1.0       | Baseline survival |
@@ -38,7 +35,6 @@ Your CPU usage dictates metabolic speed. High machine load forces life to burn e
 | 80-100%   | ☀️ Scorching  | ×3.0       | Rapid starvation risk |
 
 ### 🌾 Resource Scarcity (RAM-Coupled)
-
 Memory usage determines food availability. High RAM usage simulates a resource-famine environment.
 
 ---
@@ -46,19 +42,15 @@ Memory usage determines food availability. High RAM usage simulates a resource-f
 ## ✨ Features
 
 ### 🧠 Neural Awakening & Selection
-
 Each entity possesses a **4-layer Neural Network** brain. Through natural selection, organisms learn to hunt, navigate, and manage energy.
-
 - **Interactive Selection**: Use the **Mouse** to click and inspect specific organisms.
 - **Genotype Clustering**: Organisms are automatically classified into species based on neural weight similarity.
 
 ### 📜 The Ledger & Blockchain
-
 - **History Logging**: Continuous streaming of life events to JSONL.
 - **Immutable Proof**: Datasets are anchored to the **Bitcoin blockchain** via OpenTimestamps for cryptographic proof of evolution.
 
 ### ⚡ Performance
-
 - **Spatial Hashing**: Optimized $O(N \log N)$ sensory lookups for high-density populations.
 
 ---
