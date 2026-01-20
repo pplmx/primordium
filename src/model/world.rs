@@ -4,6 +4,7 @@ use crate::model::entity::Entity;
 use crate::model::environment::Environment;
 use crate::model::food::Food;
 use crate::model::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
+use crate::model::pheromone::{PheromoneGrid, PheromoneType};
 use crate::model::quadtree::SpatialHash;
 use crate::model::terrain::TerrainGrid;
 use chrono::Utc;
@@ -47,6 +48,7 @@ pub struct World {
     pub pop_stats: PopulationStats,
     pub hall_of_fame: HallOfFame,
     pub terrain: TerrainGrid,
+    pub pheromones: PheromoneGrid, // NEW: Pheromone layer
 }
 
 impl World {
@@ -83,6 +85,8 @@ impl World {
                 .unwrap_or(42),
         );
 
+        let pheromones = PheromoneGrid::new(config.world.width, config.world.height);
+
         Ok(Self {
             width: config.world.width,
             height: config.world.height,
@@ -95,6 +99,7 @@ impl World {
             pop_stats: PopulationStats::new(),
             hall_of_fame: HallOfFame::new(),
             terrain,
+            pheromones,
         })
     }
 
@@ -111,6 +116,9 @@ impl World {
         for (i, e) in self.entities.iter().enumerate() {
             self.spatial_hash.insert(e.x, e.y, i);
         }
+
+        // Decay pheromones each tick
+        self.pheromones.decay();
 
         // Terrain-aware food spawning
         let base_spawn_chance = 0.0083 * food_spawn_mult;
@@ -141,22 +149,31 @@ impl World {
                 continue;
             }
             let (dx_f, dy_f) = self.sense_nearest_food(&current_entities[i]);
+
+            // Count same-tribe entities nearby
+            let nearby_indices = self.spatial_hash.query(current_entities[i].x, current_entities[i].y, 5.0);
+            let tribe_count = nearby_indices.iter().filter(|&&idx| {
+                idx != i && current_entities[i].same_tribe(&current_entities[idx])
+            }).count();
+
+            // Sense pheromones
+            let (pheromone_food, _pheromone_danger) = self.pheromones.sense(
+                current_entities[i].x, current_entities[i].y, 3.0
+            );
+
             let inputs = [
                 (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
                 (dy_f / 20.0).clamp(-1.0, 1.0) as f32,
                 (current_entities[i].energy / current_entities[i].max_energy) as f32,
-                (self
-                    .spatial_hash
-                    .query(current_entities[i].x, current_entities[i].y, 5.0)
-                    .len()
-                    .saturating_sub(1) as f32
-                    / 10.0)
-                    .min(1.0),
+                (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
+                pheromone_food,                      // NEW: Pheromone food input
+                (tribe_count as f32 / 5.0).min(1.0), // NEW: Tribe density input
             ];
             let outputs = current_entities[i].brain.forward(inputs);
             let speed = 1.0 + (outputs[2] as f64 + 1.0) / 2.0;
             let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
             current_entities[i].last_aggression = (outputs[3] + 1.0) / 2.0;
+            current_entities[i].last_share_intent = (outputs[4] + 1.0) / 2.0; // NEW: Share intent
             current_entities[i].vx = current_entities[i].vx * 0.8 + (outputs[0] as f64) * 0.2;
             current_entities[i].vy = current_entities[i].vy * 0.8 + (outputs[1] as f64) * 0.2;
             let mut move_cost = self.config.metabolism.base_move_cost * metabolism_mult * speed;
@@ -204,21 +221,28 @@ impl World {
                 current_entities[i].vy = -current_entities[i].vy;
             }
 
+            // Predation with tribe protection
             if predation_mode {
+                let territorial_bonus = current_entities[i].territorial_aggression();
                 for t_idx in
                     self.spatial_hash
                         .query(current_entities[i].x, current_entities[i].y, 1.5)
                 {
                     let (v_id, _, _, v_e, v_b, v_o) = entity_snapshots[t_idx];
+                    // Don't attack same-tribe members
                     if v_id != current_entities[i].id
                         && !killed_ids.contains(&v_id)
-                        && v_e < current_entities[i].energy
+                        && v_e < current_entities[i].energy * territorial_bonus
+                        && !current_entities[i].same_tribe(&current_entities[t_idx])
                     {
                         current_entities[i].energy += v_e * 0.8;
                         if current_entities[i].energy > current_entities[i].max_energy {
                             current_entities[i].energy = current_entities[i].max_energy;
                         }
                         killed_ids.insert(v_id);
+                        // Deposit danger pheromone at kill site
+                        self.pheromones.deposit(current_entities[i].x, current_entities[i].y,
+                                                PheromoneType::Danger, 0.5);
                         let v_age = self.tick - v_b;
                         self.pop_stats.record_death(v_age);
                         let ev = LiveEvent::Death {
@@ -249,6 +273,9 @@ impl World {
                 if current_entities[i].energy > current_entities[i].max_energy {
                     current_entities[i].energy = current_entities[i].max_energy;
                 }
+                // Deposit food pheromone when eating
+                self.pheromones.deposit(current_entities[i].x, current_entities[i].y,
+                                        PheromoneType::Food, 0.3);
                 self.food.swap_remove(f_idx);
             }
 

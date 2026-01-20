@@ -1,34 +1,38 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+/// Neural network brain with 6 inputs -> 6 hidden -> 5 outputs
+///
+/// Inputs:
+/// 0. Food direction X (-1 to 1)
+/// 1. Food direction Y (-1 to 1)
+/// 2. Energy level (0 to 1)
+/// 3. Neighbor density (0 to 1)
+/// 4. Pheromone food strength (0 to 1) [NEW]
+/// 5. Tribe density nearby (0 to 1) [NEW]
+///
+/// Outputs:
+/// 0. Movement X (-1 to 1)
+/// 1. Movement Y (-1 to 1)
+/// 2. Speed (-1 to 1)
+/// 3. Aggression (-1 to 1)
+/// 4. Share intent (-1 to 1) [NEW]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
-    pub weights_ih: [f32; 24], // 4 inputs -> 6 hidden
-    pub weights_ho: [f32; 24], // 6 hidden -> 4 outputs (added aggression)
-    pub bias_h: [f32; 6],
-    pub bias_o: [f32; 4],
+    pub weights_ih: Vec<f32>, // 6 inputs -> 6 hidden (36 weights)
+    pub weights_ho: Vec<f32>, // 6 hidden -> 5 outputs (30 weights)
+    pub bias_h: Vec<f32>,     // 6 hidden biases
+    pub bias_o: Vec<f32>,     // 5 output biases
 }
 
 impl Brain {
     pub fn new_random() -> Self {
         let mut rng = rand::thread_rng();
-        let mut weights_ih = [0.0; 24];
-        let mut weights_ho = [0.0; 24];
-        let mut bias_h = [0.0; 6];
-        let mut bias_o = [0.0; 4];
 
-        for w in weights_ih.iter_mut() {
-            *w = rng.gen_range(-1.0..1.0);
-        }
-        for w in weights_ho.iter_mut() {
-            *w = rng.gen_range(-1.0..1.0);
-        }
-        for b in bias_h.iter_mut() {
-            *b = rng.gen_range(-1.0..1.0);
-        }
-        for b in bias_o.iter_mut() {
-            *b = rng.gen_range(-1.0..1.0);
-        }
+        let weights_ih: Vec<f32> = (0..36).map(|_| rng.gen_range(-1.0..1.0)).collect();
+        let weights_ho: Vec<f32> = (0..30).map(|_| rng.gen_range(-1.0..1.0)).collect();
+        let bias_h: Vec<f32> = (0..6).map(|_| rng.gen_range(-1.0..1.0)).collect();
+        let bias_o: Vec<f32> = (0..5).map(|_| rng.gen_range(-1.0..1.0)).collect();
 
         Self {
             weights_ih,
@@ -38,23 +42,23 @@ impl Brain {
         }
     }
 
-    pub fn forward(&self, inputs: [f32; 4]) -> [f32; 4] {
-        // Input to Hidden
+    pub fn forward(&self, inputs: [f32; 6]) -> [f32; 5] {
+        // Input to Hidden (6 inputs -> 6 hidden)
         let mut hidden = [0.0; 6];
         for i in 0..6 {
             let mut sum = self.bias_h[i];
-            for j in 0..4 {
+            for j in 0..6 {
                 sum += inputs[j] * self.weights_ih[j * 6 + i];
             }
             hidden[i] = sum.tanh();
         }
 
-        // Hidden to Output
-        let mut output = [0.0; 4];
-        for i in 0..4 {
+        // Hidden to Output (6 hidden -> 5 outputs)
+        let mut output = [0.0; 5];
+        for i in 0..5 {
             let mut sum = self.bias_o[i];
             for j in 0..6 {
-                sum += hidden[j] * self.weights_ho[j * 4 + i];
+                sum += hidden[j] * self.weights_ho[j * 5 + i];
             }
             output[i] = sum.tanh();
         }

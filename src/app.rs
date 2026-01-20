@@ -301,15 +301,18 @@ impl App {
                                 ]));
                                 lines.push(ratatui::text::Line::from(""));
                                 lines.push(ratatui::text::Line::from(" Neural Network Weights:"));
-                                for i in 0..4 {
+                                // 6 inputs -> 6 hidden
+                                for i in 0..6 {
                                     let mut spans = Vec::new();
                                     spans.push(ratatui::text::Span::raw(format!(
                                         "  {} ",
                                         match i {
-                                            0 => "FX",
-                                            1 => "FY",
-                                            2 => "NR",
-                                            3 => "CR",
+                                            0 => "FX",  // Food X
+                                            1 => "FY",  // Food Y
+                                            2 => "EN",  // Energy
+                                            3 => "NB",  // Neighbors
+                                            4 => "PH",  // Pheromone (NEW)
+                                            5 => "TR",  // Tribe (NEW)
                                             _ => "??",
                                         }
                                     )));
@@ -336,11 +339,12 @@ impl App {
                                     lines.push(ratatui::text::Line::from(spans));
                                 }
                                 lines.push(ratatui::text::Line::from(""));
+                                // 6 hidden -> 5 outputs
                                 for i in 0..6 {
                                     let mut spans = Vec::new();
                                     spans.push(ratatui::text::Span::raw("    "));
-                                    for j in 0..4 {
-                                        let w = entity.brain.weights_ho[i * 4 + j];
+                                    for j in 0..5 {
+                                        let w = entity.brain.weights_ho[i * 5 + j];
                                         let symbol = if w > 0.5 {
                                             "█"
                                         } else if w > 0.0 {
@@ -359,7 +363,7 @@ impl App {
                                             }),
                                         ));
                                     }
-                                    if i < 4 {
+                                    if i < 5 {
                                         spans.push(ratatui::text::Span::raw(format!(
                                             "  <- {}",
                                             match i {
@@ -367,6 +371,7 @@ impl App {
                                                 1 => "Move Y",
                                                 2 => "Boost",
                                                 3 => "Aggro",
+                                                4 => "Share", // NEW
                                                 _ => "",
                                             }
                                         )));

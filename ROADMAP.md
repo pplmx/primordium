@@ -151,18 +151,13 @@ toml = "0.8"
 | Phase 8 | Apex Predators & Genetic Synergy | ✅ Complete |
 | Phase 9 | The Omniscient Eye | ✅ Complete |
 | Phase 10 | Ecosystem Dynamics | ✅ Complete |
+| Phase 11 | Social Structures | ✅ Complete |
 
 **Core Development Completed in ~2 days (Ultra Mode Enabled).**
 
 ---
 
-## 🚀 Extended Roadmap (Phase 11+)
-
-### Phase 11: Social Structures
-- Pheromone system: Entities leave chemical trails
-- Food sharing: High-energy entities donate to neighbors
-- Territorial behavior: Aggressive entities drive others away
-- Tribe formation: Color-based group identity
+## 🚀 Extended Roadmap (Phase 12+)
 
 ### Phase 12: WebAssembly Port
 - Compile to WASM with `wasm-pack`

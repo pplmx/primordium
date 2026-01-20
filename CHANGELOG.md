@@ -6,6 +6,36 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 11: Social Structures] - 2026-01-21
+
+### Evolutionary Leap: Pheromones, Tribes & Cooperation
+
+This phase introduces emergent social behaviors through chemical communication, kin recognition, and cooperative behaviors.
+
+#### ✨ Features
+
+- **Pheromone System**: Entities leave persistent chemical trails:
+  - **Food Pheromones**: Deposited when eating, attract foragers
+  - **Danger Pheromones**: Deposited at kill sites, warn of predators
+  - Pheromones decay over time (0.5% per tick)
+- **Tribe Formation**: Color-based kin recognition:
+  - Entities with similar colors (RGB distance < 60) form tribes
+  - Same-tribe members never attack each other
+- **Territorial Behavior**: Entities are 50% more aggressive near birth location
+- **Energy Sharing**: High-energy entities can share energy with starving neighbors
+  - New "Sharing" status (♣) indicates active sharing
+- **Expanded Neural Network**: 6 inputs → 6 hidden → 5 outputs:
+  - New inputs: Pheromone strength, Tribe density
+  - New output: Share intent
+
+#### 🛠️ Technical Achievements
+
+- **PheromoneGrid**: Efficient grid-based pheromone storage with decay
+- **Vec-based Brain**: Arrays converted to Vec for serde compatibility
+- **Social Symbols**: New sharing symbol (♣) and green status color
+
+---
+
 ## [Phase 10: Ecosystem Dynamics] - 2026-01-21
 
 ### Evolutionary Leap: Terrain, Geography & Seasons

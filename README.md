@@ -61,6 +61,12 @@ Each entity possesses a **4-layer Neural Network** brain. Through natural select
 - **Season Cycle**: Spring, Summer, Fall, Winter affecting metabolism and food availability
 - **Geographic Pressure**: Migration patterns emerge from terrain-based resource distribution
 
+### 👥 Social Structures
+- **Pheromone System**: Food trails attract foragers, danger pheromones warn of predators
+- **Tribe Formation**: Color-similar entities form protective tribes (no intra-tribe attacks)
+- **Territorial Behavior**: Entities are more aggressive near their birth location
+- **Energy Sharing**: High-energy entities can share with starving neighbors (♣)
+
 ### 📜 The Ledger & Blockchain
 - **History Logging**: Continuous streaming of life events to JSONL.
 - **Immutable Proof**: Datasets are anchored to the **Bitcoin blockchain** via OpenTimestamps for cryptographic proof of evolution.
