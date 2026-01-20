@@ -183,4 +183,4 @@ Primordium is an experiment in **emergent complexity**. You provide the rules, t
 Every run is unique. Every lineage is precious. Every extinction teaches us something.
 
 *Last updated: 2026-01-21*
-*Version: 1.1.0-stable*
+*Version: 0.0.1*

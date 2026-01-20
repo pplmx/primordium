@@ -1,0 +1,23 @@
+# Primordium Configuration Example
+# Copy this file to config.toml and customize as needed
+
+target_fps = 60
+
+[world]
+width = 100
+height = 50
+initial_population = 100
+initial_food = 30
+max_food = 50
+
+[metabolism]
+base_move_cost = 1.0
+base_idle_cost = 0.5
+reproduction_threshold = 150.0
+food_value = 50.0
+
+[evolution]
+mutation_rate = 0.1
+mutation_amount = 0.2
+drift_rate = 0.01
+drift_amount = 0.5

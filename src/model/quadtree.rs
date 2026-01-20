@@ -42,6 +42,7 @@ impl SpatialHash {
 }
 
 // Keeping Rect as it might be useful for future features
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Rect {
     pub x: f64,
