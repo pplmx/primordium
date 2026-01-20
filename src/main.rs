@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
-use primordium::app::App;
-use primordium::ui::tui::Tui;
+use primordium_lib::app::App;
+use primordium_lib::ui::tui::Tui;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -59,10 +59,10 @@ async fn main() -> Result<()> {
             // Override game mode from CLI
             match args.gamemode.to_lowercase().as_str() {
                 "coop" | "cooperative" => {
-                    app.world.config.game_mode = primordium::model::config::GameMode::Cooperative
+                    app.world.config.game_mode = primordium_lib::model::config::GameMode::Cooperative
                 }
                 "battle" | "battleroyale" => {
-                    app.world.config.game_mode = primordium::model::config::GameMode::BattleRoyale
+                    app.world.config.game_mode = primordium_lib::model::config::GameMode::BattleRoyale
                 }
                 _ => {}
             }

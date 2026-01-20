@@ -1,6 +1,6 @@
 use clap::Parser;
-use primordium::model::blockchain::AnchorRecord;
-use primordium::model::history::{HistoryLogger, Legend};
+use primordium_lib::model::blockchain::AnchorRecord;
+use primordium_lib::model::history::{HistoryLogger, Legend};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 

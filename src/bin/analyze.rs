@@ -1,6 +1,6 @@
 use clap::Parser;
 use petgraph::graph::DiGraph;
-use primordium::model::history::{Legend, LiveEvent};
+use primordium_lib::model::history::{Legend, LiveEvent};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
