@@ -516,40 +516,78 @@ fn sense_nearest_food(&self, entity: &Entity) -> (f64, f64) {
 ### TerrainGrid：地形影响
 
 ```rust
-pub struct TerrainGrid {
-    cells: Vec<TerrainType>,
-    width: usize,
-    height: usize,
-}
-
 pub enum TerrainType {
     Plains,     // 平原：移动 ×1.0，食物 ×1.0
-    Mountains,  // 山地：移动 ×0.3，食物 ×0.2
-    Rivers,     // 河流：移动 ×1.5，食物 ×0.8
-    Oasis,      // 绿洲：移动 ×1.0，食物 ×2.0
+    Mountain,   // 山脉：移动 ×0.5，食物 ×0.0（无食物）
+    River,      // 河流：移动 ×1.5，食物 ×0.8
+    Oasis,      // 绿洲：移动 ×1.0，食物 ×3.0
 }
 
-impl TerrainGrid {
-    pub fn movement_modifier(&self, x: f64, y: f64) -> f64 {
-        let cell_x = x.floor() as usize;
-        let cell_y = y.floor() as usize;
-        match self.cells[cell_y * self.width + cell_x] {
-            TerrainType::Mountains => 0.3,
-            TerrainType::Rivers => 1.5,
-            _ => 1.0,
-        }
-    }
+pub struct TerrainGrid {
+    cells: Vec<Vec<TerrainCell>>,
+    pub width: u16,
+    pub height: u16,
+}
+```
 
-    pub fn food_spawn_modifier(&self, x: f64, y: f64) -> f64 {
-        // ... 类似逻辑
+**地形生成：噪声算法**
+```rust
+fn value_noise(x: f32, y: f32, seed: u64) -> f32 {
+    // 多八度噪声叠加
+    let noise1 = hash_noise(x * 0.1, y * 0.1, seed) * 0.5;
+    let noise2 = hash_noise(x * 0.05, y * 0.05, seed + 1) * 0.3;
+    let noise3 = hash_noise(x * 0.02, y * 0.02, seed + 2) * 0.2;
+    (noise1 + noise2 + noise3).clamp(0.0, 1.0)
+}
+
+// 海拔阈值映射
+if elevation > 0.7 { TerrainType::Mountain }
+else if elevation < 0.25 { TerrainType::River }
+else { TerrainType::Plains }
+```
+
+**可视化符号：**
+| 地形 | 符号 | 颜色 |
+|------|------|------|
+| 平原 | ` ` | 默认 |
+| 山脉 | `▲` | 灰色 (100,100,100) |
+| 河流 | `≈` | 钢蓝 (70,130,180) |
+| 绿洲 | `◊` | 青绿 (50,205,50) |
+
+**设计经验：**
+- **噪声叠加**：多频率噪声产生自然地形分布
+- **绿洲散布**：随机放置于平原区域，密度约 1/200
+- **生态压力**：地形驱动资源分布不均，促进迁移行为
+
+---
+
+### Season：季节循环
+
+```rust
+pub enum Season {
+    Spring,   // 🌸 食物 ×1.5，代谢 ×0.8
+    Summer,   // ☀️ 食物 ×1.0，代谢 ×1.2
+    Fall,     // 🍂 食物 ×1.2，代谢 ×1.0
+    Winter,   // ❄️ 食物 ×0.5，代谢 ×1.5
+}
+```
+
+**季节循环逻辑：**
+```rust
+pub fn update_era(&mut self, tick: u64, pop_stats: &PopulationStats) {
+    self.season_tick += 1;
+    if self.season_tick >= self.season_duration {  // 默认 10000 ticks
+        self.season_tick = 0;
+        self.current_season = self.current_season.next();
     }
 }
 ```
 
-**设计经验：**
-- **地形生成**：使用 Perlin Noise 或 Simplex Noise 生成自然地形
-- **可视化**：不同地形用不同字符表示（▲山地，≈河流，◊绿洲）
-- **生态压力**：地形创造资源不均匀分布，驱动迁移行为
+**生态影响：**
+- **春天**：繁殖季，食物丰富，代谢缓慢 → 种群扩张
+- **夏天**：活跃期，代谢加速 → 竞争加剧
+- **秋天**：收获期，食物充足 → 储备能量
+- **冬天**：生存期，食物稀缺，代谢高 → 自然选择
 
 ---
 
@@ -847,7 +885,7 @@ Primordium 的代理系统是一个平衡**简单性**和**复杂性**的框架�
 **复杂性：**
 - 从 68 个参数涌现出复杂行为
 - 硬件耦合创造独特的进化压力
-- 多层系统（地形、季节、Era）交互
+- 多层系统（地形、季节、Era）交互产生涌现行为
 
 **关键经验：**
 1. **性能优先**：空间哈希、批量更新、采样优化
