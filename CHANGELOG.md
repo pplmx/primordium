@@ -6,6 +6,38 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 9: The Omniscient Eye] - 2026-01-21
+
+### Evolutionary Leap: Deep Analytics & Visual Narratives
+
+This phase introduces comprehensive world analytics and narrative systems to bring the simulation to life.
+
+#### ✨ Features
+
+- **Era System**: Integrated a population-driven state machine that narrates world progression epochs (Genesis, Expansion, Golden Age, Decline, etc.).
+- **Hall of Fame**: Real-time leaderboard tracking the top 3 fittest organisms across the simulation.
+- **Visual Narratives**: Status-aware symbols (†♥♦●) and dynamic color mapping for physiological states.
+- **Advanced Analytics**: Rolling brain entropy (Shannon entropy) and average lifespan metrics for monitoring biodiversity.
+- **Population Dynamics**: Dual-sparkline system visualizing real-time population health versus hardware stress.
+
+---
+
+## [Phase 8: Apex Predators & Genetic Synergy] - 2026-01-20
+
+### Evolutionary Leap: Predation, Sexual Reproduction & Data Portability
+
+This phase elevates the simulation with predator-prey dynamics and genetic exchange mechanisms.
+
+#### ✨ Features
+
+- **Evolved Predation**: Added a 4th neural output 'Aggression' enabling organisms to consume others for massive energy gain (80% yield).
+- **Sexual Reproduction**: Implemented genetic crossover allowing organisms to combine neural traits with local mates.
+- **HexDNA Protocol**: Robust serialization format for exporting (`C` key) and infusing (`V` key) organisms via text files.
+- **Advanced Senses**: Refactored the sensory system to handle multi-pass world updates without borrow checker conflicts.
+- **Enhanced Chronicles**: UI event log now narrates predation events and genetic surges.
+
+---
+
 ## [Phase 7: Divine Interface] - 2026-01-20
 
 ### Evolutionary Leap: Interactivity & Taxonomy

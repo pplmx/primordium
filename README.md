@@ -46,6 +46,16 @@ Each entity possesses a **4-layer Neural Network** brain. Through natural select
 - **Interactive Selection**: Use the **Mouse** to click and inspect specific organisms.
 - **Genotype Clustering**: Organisms are automatically classified into species based on neural weight similarity.
 
+### 🦁 Apex Predators & Sexual Reproduction
+- **Predatory Dynamics**: Organisms can evolve aggression to hunt and consume others for massive energy gains.
+- **Genetic Crossover**: Sexual reproduction enables neural trait exchange with nearby mates.
+- **HexDNA Protocol**: Export (`C`) and import (`V`) organism genomes as portable text files.
+
+### 📊 The Omniscient Eye
+- **Era System**: Population-driven narrative engine tracks world epochs (Genesis, Expansion, Decline, etc.).
+- **Hall of Fame**: Real-time leaderboard of the top 3 fittest organisms.
+- **Advanced Analytics**: Brain entropy, average lifespan, and dual-sparkline population dynamics.
+
 ### 📜 The Ledger & Blockchain
 - **History Logging**: Continuous streaming of life events to JSONL.
 - **Immutable Proof**: Datasets are anchored to the **Bitcoin blockchain** via OpenTimestamps for cryptographic proof of evolution.
@@ -80,6 +90,8 @@ cargo run --release -- --mode screensaver
 | `B` | Toggle Neural Brain Heatmap |
 | `H` | Toggle Help Overlay |
 | `X` | Trigger **Genetic Surge** (Global Mutation) |
+| `C` | Export selected organism's HexDNA |
+| `V` | Infuse organism from HexDNA file |
 | `+` / `-`| Increase / Decrease time scale |
 | `Left Click` | Select Organism |
 | `Right Click`| Inject Food Cluster |
