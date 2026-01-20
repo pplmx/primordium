@@ -1,11 +1,12 @@
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Gauge, Paragraph, Sparkline};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use sysinfo::System;
+use uuid::Uuid;
 
 use crate::model::environment::Environment;
 use crate::model::world::World;
@@ -25,6 +26,9 @@ pub struct App {
     pub sys: System,
     pub env: Environment,
     pub cpu_history: VecDeque<u64>,
+    // Neural Visualization
+    pub show_brain: bool,
+    pub selected_entity: Option<Uuid>,
 }
 
 impl App {
@@ -43,6 +47,8 @@ impl App {
             sys,
             env: Environment::default(),
             cpu_history: VecDeque::from(vec![0; 60]),
+            show_brain: false,
+            selected_entity: None,
         }
     }
 
@@ -53,44 +59,28 @@ impl App {
         while self.running {
             // 1. Draw
             tui.terminal.draw(|f| {
-                let chunks = Layout::default()
-                    .direction(Direction::Vertical)
+                let main_layout = Layout::default()
+                    .direction(Direction::Horizontal)
                     .constraints([
-                        Constraint::Length(5), // New 3-line Status Bar + Padding
-                        Constraint::Length(3), // Sparkline area
-                        Constraint::Min(0),    // World area
+                        Constraint::Min(0),
+                        if self.show_brain {
+                            Constraint::Length(40)
+                        } else {
+                            Constraint::Length(0)
+                        },
                     ])
                     .split(f.size());
 
-                // --- LINE 1: CPU & Climate ---
-                let cpu_chunks = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .split(chunks[0].inner(&ratatui::layout::Margin {
-                        horizontal: 1,
-                        vertical: 0,
-                    }));
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Length(5),
+                        Constraint::Length(3),
+                        Constraint::Min(0),
+                    ])
+                    .split(main_layout[0]);
 
-                let cpu_gauge = Gauge::default()
-                    .block(Block::default().title(format!("CPU: {:.1}%", self.env.cpu_usage)))
-                    .gauge_style(
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .bg(Color::Black)
-                            .add_modifier(Modifier::BOLD),
-                    )
-                    .percent(self.env.cpu_usage as u16);
-                f.render_widget(cpu_gauge, cpu_chunks[0]);
-
-                let climate_text = format!(
-                    "Climate: {} (x{:.1} metabolism)",
-                    self.env.climate().icon(),
-                    self.env.metabolism_multiplier()
-                );
-                f.render_widget(Paragraph::new(climate_text), cpu_chunks[1]);
-
-                // --- LINE 2: RAM & Resources ---
-                // We'll reuse vertical chunks inside chunks[0] for cleaner 3-line look
+                // --- STATUS BAR ---
                 let status_lines = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -100,8 +90,6 @@ impl App {
                     ])
                     .split(chunks[0]);
 
-                // Line 1 (CPU already handled above, let's re-arrange properly)
-                // Redo Status Bar properly
                 let line1 = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
@@ -117,7 +105,6 @@ impl App {
                     line1[1],
                 );
 
-                // Line 2 (RAM)
                 let line2 = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
@@ -136,7 +123,6 @@ impl App {
                     line2[1],
                 );
 
-                // Line 3 (World Stats)
                 let max_gen = self
                     .world
                     .entities
@@ -172,6 +158,92 @@ impl App {
                 // --- World ---
                 let world_widget = WorldWidget::new(&self.world);
                 f.render_widget(world_widget, chunks[2]);
+
+                // --- Brain Visualization ---
+                if self.show_brain {
+                    // Try to pick the oldest entity if none selected
+                    if self.selected_entity.is_none()
+                        || !self
+                            .world
+                            .entities
+                            .iter()
+                            .any(|e| Some(e.id) == self.selected_entity)
+                    {
+                        self.selected_entity = self
+                            .world
+                            .entities
+                            .iter()
+                            .max_by_key(|e| e.generation)
+                            .map(|e| e.id);
+                    }
+
+                    if let Some(id) = self.selected_entity {
+                        if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
+                            let brain_block = Block::default()
+                                .title(format!(
+                                    " Brain: {} (Gen {}) ",
+                                    entity.id.to_string().get(0..8).unwrap_or(""),
+                                    entity.generation
+                                ))
+                                .borders(Borders::ALL)
+                                .border_style(Style::default().fg(entity.color));
+
+                            // Render brain weights heatmap
+                            // We'll use a simple text-based heatmap for now
+                            let mut lines = Vec::new();
+                            lines.push(ratatui::text::Line::from("Input -> Hidden Weights:"));
+                            for i in 0..4 {
+                                let mut spans = Vec::new();
+                                for j in 0..6 {
+                                    let w = entity.brain.weights_ih[i * 6 + j];
+                                    let symbol = if w > 0.5 {
+                                        "█"
+                                    } else if w > 0.0 {
+                                        "▓"
+                                    } else if w > -0.5 {
+                                        "▒"
+                                    } else {
+                                        "░"
+                                    };
+                                    let color = if w > 0.0 { Color::Green } else { Color::Red };
+                                    spans.push(ratatui::text::Span::styled(
+                                        symbol,
+                                        Style::default().fg(color),
+                                    ));
+                                }
+                                lines.push(ratatui::text::Line::from(spans));
+                            }
+                            lines.push(ratatui::text::Line::from(""));
+                            lines.push(ratatui::text::Line::from("Hidden -> Output Weights:"));
+                            for i in 0..6 {
+                                let mut spans = Vec::new();
+                                for j in 0..3 {
+                                    let w = entity.brain.weights_ho[i * 3 + j];
+                                    let symbol = if w > 0.5 {
+                                        "█"
+                                    } else if w > 0.0 {
+                                        "▓"
+                                    } else if w > -0.5 {
+                                        "▒"
+                                    } else {
+                                        "░"
+                                    };
+                                    let color = if w > 0.0 { Color::Green } else { Color::Red };
+                                    spans.push(ratatui::text::Span::styled(
+                                        symbol,
+                                        Style::default().fg(color),
+                                    ));
+                                }
+                                lines.push(ratatui::text::Line::from(spans));
+                            }
+
+                            f.render_widget(
+                                Paragraph::new(lines).block(brain_block),
+                                main_layout[1],
+                            );
+                        }
+                    }
+                }
             })?;
 
             // 2. Hardware Polling & FPS Calculation (1s interval)
@@ -180,7 +252,6 @@ impl App {
                 self.fps = self.frame_count as f64;
                 self.frame_count = 0;
 
-                // Poll Hardware
                 self.sys.refresh_cpu();
                 self.sys.refresh_memory();
 
@@ -191,15 +262,9 @@ impl App {
 
                 self.env.cpu_usage = cpu_usage;
                 self.env.ram_usage_percent = ram_percent;
-                // sysinfo 0.30: load_average is on global system, not method on instance
-                // Actually it depends on the version, but the error said it's an associated function
-                // Let's try to just use global_cpu_info if load_avg is problematic
-                self.env.load_avg = 0.0; // Temporary bypass for load_avg to fix build
+                self.env.load_avg = 0.0;
 
-                // Update Events
                 self.env.update_events();
-
-                // Update history
                 self.cpu_history.pop_front();
                 self.cpu_history.push_back(cpu_usage as u64);
 
@@ -220,6 +285,9 @@ impl App {
                         match key.code {
                             KeyCode::Char('q') => self.running = false,
                             KeyCode::Char(' ') => self.paused = !self.paused,
+                            KeyCode::Char('b') | KeyCode::Char('B') => {
+                                self.show_brain = !self.show_brain
+                            }
                             _ => {}
                         }
                     }

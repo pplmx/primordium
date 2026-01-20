@@ -1,3 +1,4 @@
+use crate::model::brain::Brain;
 use rand::Rng;
 use ratatui::style::Color;
 use uuid::Uuid;
@@ -14,6 +15,7 @@ pub struct Entity {
     pub energy: f64,
     pub max_energy: f64,
     pub generation: u32,
+    pub brain: Brain,
 }
 
 impl Entity {
@@ -41,6 +43,7 @@ impl Entity {
             energy: 100.0,
             max_energy: 200.0,
             generation: 1,
+            brain: Brain::new_random(),
         }
     }
 
@@ -51,18 +54,14 @@ impl Entity {
         let child_energy = self.energy / 2.0;
         self.energy = child_energy;
 
-        // Mutate velocity (±10%)
-        let mut child_vx = self.vx + rng.gen_range(-0.05..0.05);
-        let mut child_vy = self.vy + rng.gen_range(-0.05..0.05);
-
-        // Clamp velocity to reasonable limits (-1.0 to 1.0) to prevent explosion
-        child_vx = child_vx.max(-1.0).min(1.0);
-        child_vy = child_vy.max(-1.0).min(1.0);
+        // Clone and mutate brain
+        let mut child_brain = self.brain.clone();
+        child_brain.mutate();
 
         // Mutate Color (±15)
         let (r, g, b) = match self.color {
             Color::Rgb(r, g, b) => (r, g, b),
-            _ => (255, 255, 255), // Fallback if somehow not RGB
+            _ => (255, 255, 255),
         };
 
         let mut mutate_color = |c: u8| -> u8 {
@@ -74,15 +73,16 @@ impl Entity {
 
         Self {
             id: Uuid::new_v4(),
-            x: self.x, // Spawn at parent location (will move next tick)
+            x: self.x,
             y: self.y,
-            vx: child_vx,
-            vy: child_vy,
+            vx: self.vx, // Inherit current velocity, brain will decide next
+            vy: self.vy,
             color: child_color,
             symbol: '●',
             energy: child_energy,
             max_energy: self.max_energy,
             generation: self.generation + 1,
+            brain: child_brain,
         }
     }
 }
