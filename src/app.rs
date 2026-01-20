@@ -4,7 +4,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind, MouseEvent, MouseButt
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style, Modifier};
 use ratatui::widgets::{Block, Borders, Clear, Gauge, Paragraph, Sparkline};
-use std::collections::{VecDeque, HashMap};
+use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use sysinfo::System;
 use uuid::Uuid;
@@ -224,10 +224,23 @@ impl App {
                 self.cpu_history.pop_front();
                 self.cpu_history.push_back(cpu_usage as u64);
                 
-                // Simple Species Count (by color similarity)
-                let mut colors = HashMap::new();
-                for e in &self.world.entities { *colors.entry((e.r, e.g, e.b)).or_insert(0) += 1; }
-                self.species_count = colors.len();
+                // Genotype-based Species Counting
+                let mut representatives: Vec<&crate::model::brain::Brain> = Vec::new();
+                let threshold = 5.0; // Distance threshold for new species
+                
+                for e in &self.world.entities {
+                    let mut found = false;
+                    for rep in &representatives {
+                        if e.brain.genotype_distance(rep) < threshold {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        representatives.push(&e.brain);
+                    }
+                }
+                self.species_count = representatives.len();
 
                 self.last_fps_update = Instant::now();
                 // Anchoring logic ...

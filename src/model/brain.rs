@@ -87,4 +87,21 @@ impl Brain {
             mutate_val(b);
         }
     }
+
+    pub fn genotype_distance(&self, other: &Brain) -> f32 {
+        let mut sum_sq = 0.0;
+        for (w1, w2) in self.weights_ih.iter().zip(other.weights_ih.iter()) {
+            sum_sq += (w1 - w2).powi(2);
+        }
+        for (w1, w2) in self.weights_ho.iter().zip(other.weights_ho.iter()) {
+            sum_sq += (w1 - w2).powi(2);
+        }
+        for (b1, b2) in self.bias_h.iter().zip(other.bias_h.iter()) {
+            sum_sq += (b1 - b2).powi(2);
+        }
+        for (b1, b2) in self.bias_o.iter().zip(other.bias_o.iter()) {
+            sum_sq += (b1 - b2).powi(2);
+        }
+        sum_sq.sqrt()
+    }
 }
