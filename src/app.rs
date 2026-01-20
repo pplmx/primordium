@@ -1,8 +1,10 @@
 use anyhow::Result;
 use chrono::Utc;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, MouseEvent, MouseButton, MouseEventKind};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEventKind, MouseButton, MouseEvent, MouseEventKind,
+};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Style, Modifier};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders, Clear, Gauge, Paragraph, Sparkline};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -88,7 +90,8 @@ impl App {
         let tick_rate = Duration::from_millis(16);
 
         while self.running {
-            let effective_tick_rate = Duration::from_secs_f64(tick_rate.as_secs_f64() / self.time_scale);
+            let effective_tick_rate =
+                Duration::from_secs_f64(tick_rate.as_secs_f64() / self.time_scale);
 
             // 1. Draw
             tui.terminal.draw(|f| {
@@ -103,10 +106,10 @@ impl App {
                 let left_layout = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Length(5), 
-                        Constraint::Length(3), 
-                        Constraint::Min(0),    
-                        Constraint::Length(7), 
+                        Constraint::Length(5),
+                        Constraint::Length(3),
+                        Constraint::Min(0),
+                        Constraint::Length(7),
                     ])
                     .split(main_layout[0]);
 
@@ -209,11 +212,17 @@ impl App {
                 self.sys.refresh_memory();
                 let cpu_usage = self.sys.global_cpu_info().cpu_usage();
                 self.env.cpu_usage = cpu_usage;
-                self.env.ram_usage_percent = (self.sys.used_memory() as f32 / self.sys.total_memory() as f32) * 100.0;
+                self.env.ram_usage_percent =
+                    (self.sys.used_memory() as f32 / self.sys.total_memory() as f32) * 100.0;
                 let current_climate = self.env.climate();
                 if let Some(last) = self.last_climate {
                     if last != current_climate {
-                        let ev = LiveEvent::ClimateShift { from: format!("{:?}", last), to: format!("{:?}", current_climate), tick: self.world.tick, timestamp: Utc::now().to_rfc3339() };
+                        let ev = LiveEvent::ClimateShift {
+                            from: format!("{:?}", last),
+                            to: format!("{:?}", current_climate),
+                            tick: self.world.tick,
+                            timestamp: Utc::now().to_rfc3339(),
+                        };
                         let _ = self.world.logger.log_event(ev.clone());
                         let (msg, color) = ev.to_ui_message();
                         self.event_log.push_back((msg, color));
@@ -223,11 +232,11 @@ impl App {
                 self.env.update_events();
                 self.cpu_history.pop_front();
                 self.cpu_history.push_back(cpu_usage as u64);
-                
+
                 // Genotype-based Species Counting
                 let mut representatives: Vec<&crate::model::brain::Brain> = Vec::new();
                 let threshold = 5.0; // Distance threshold for new species
-                
+
                 for e in &self.world.entities {
                     let mut found = false;
                     for rep in &representatives {
@@ -249,22 +258,29 @@ impl App {
             // 3. Handle Events
             while event::poll(Duration::ZERO)? {
                 match event::read()? {
-                    Event::Key(key) if key.kind == KeyEventKind::Press => {
-                        match key.code {
-                            KeyCode::Char('q') => self.running = false,
-                            KeyCode::Char(' ') => self.paused = !self.paused,
-                            KeyCode::Char('b') => self.show_brain = !self.show_brain,
-                            KeyCode::Char('h') => self.show_help = !self.show_help,
-                            KeyCode::Char('+') | KeyCode::Char('=') => self.time_scale = (self.time_scale + 0.5).min(4.0),
-                            KeyCode::Char('-') | KeyCode::Char('_') => self.time_scale = (self.time_scale - 0.5).max(0.5),
-                            KeyCode::Char('x') | KeyCode::Char('X') => {
-                                for entity in &mut self.world.entities { entity.brain.mutate_with_config(&self.config.evolution); }
-                                self.event_log.push_back(("GENETIC SURGE!".to_string(), Color::Red));
-                            }
-                            _ => {}
+                    Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
+                        KeyCode::Char('q') => self.running = false,
+                        KeyCode::Char(' ') => self.paused = !self.paused,
+                        KeyCode::Char('b') => self.show_brain = !self.show_brain,
+                        KeyCode::Char('h') => self.show_help = !self.show_help,
+                        KeyCode::Char('+') | KeyCode::Char('=') => {
+                            self.time_scale = (self.time_scale + 0.5).min(4.0)
                         }
+                        KeyCode::Char('-') | KeyCode::Char('_') => {
+                            self.time_scale = (self.time_scale - 0.5).max(0.5)
+                        }
+                        KeyCode::Char('x') | KeyCode::Char('X') => {
+                            for entity in &mut self.world.entities {
+                                entity.brain.mutate_with_config(&self.config.evolution);
+                            }
+                            self.event_log
+                                .push_back(("GENETIC SURGE!".to_string(), Color::Red));
+                        }
+                        _ => {}
+                    },
+                    Event::Mouse(mouse) => {
+                        self.handle_mouse(mouse);
                     }
-                    Event::Mouse(mouse) => { self.handle_mouse(mouse); }
                     _ => {}
                 }
             }
@@ -276,7 +292,9 @@ impl App {
                     for ev in events {
                         let (msg, color) = ev.to_ui_message();
                         self.event_log.push_back((msg, color));
-                        if self.event_log.len() > 15 { self.event_log.pop_front(); }
+                        if self.event_log.len() > 15 {
+                            self.event_log.pop_front();
+                        }
                     }
                 }
                 last_tick = Instant::now();
@@ -288,26 +306,45 @@ impl App {
     fn handle_mouse(&mut self, mouse: MouseEvent) {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                if let Some((wx, wy)) = WorldWidget::screen_to_world(mouse.column, mouse.row, self.last_world_rect, self.screensaver) {
+                if let Some((wx, wy)) = WorldWidget::screen_to_world(
+                    mouse.column,
+                    mouse.row,
+                    self.last_world_rect,
+                    self.screensaver,
+                ) {
                     let indices = self.world.spatial_hash.query(wx, wy, 2.0);
                     let mut min_dist = f64::MAX;
                     let mut closest_id = None;
                     for idx in indices {
-                        if idx >= self.world.entities.len() { continue; }
+                        if idx >= self.world.entities.len() {
+                            continue;
+                        }
                         let entity = &self.world.entities[idx];
                         let dx = entity.x - wx;
                         let dy = entity.y - wy;
-                        let dist = (dx*dx + dy*dy).sqrt();
-                        if dist < min_dist { min_dist = dist; closest_id = Some(entity.id); }
+                        let dist = (dx * dx + dy * dy).sqrt();
+                        if dist < min_dist {
+                            min_dist = dist;
+                            closest_id = Some(entity.id);
+                        }
                     }
-                    if let Some(id) = closest_id { self.selected_entity = Some(id); self.show_brain = true; }
+                    if let Some(id) = closest_id {
+                        self.selected_entity = Some(id);
+                        self.show_brain = true;
+                    }
                 }
             }
             MouseEventKind::Down(MouseButton::Right) => {
-                if let Some((wx, wy)) = WorldWidget::screen_to_world(mouse.column, mouse.row, self.last_world_rect, self.screensaver) {
+                if let Some((wx, wy)) = WorldWidget::screen_to_world(
+                    mouse.column,
+                    mouse.row,
+                    self.last_world_rect,
+                    self.screensaver,
+                ) {
                     use crate::model::food::Food;
                     self.world.food.push(Food::new(wx as u16, wy as u16));
-                    self.event_log.push_back(("Divine Food Injected".to_string(), Color::Green));
+                    self.event_log
+                        .push_back(("Divine Food Injected".to_string(), Color::Green));
                 }
             }
             _ => {}
