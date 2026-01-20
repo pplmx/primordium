@@ -1,11 +1,10 @@
-use crate::model::brain::Brain;
 use crate::model::entity::Entity;
 use crate::model::world::World;
 use rand::Rng;
 
 impl World {
     /// Spawn an entity migrating from another world
-    pub fn import_migrant(&mut self, dna: String, energy: f32, generation: u32) {
+    pub fn import_migrant(&mut self, _dna: String, energy: f32, generation: u32) {
         let mut rng = rand::thread_rng();
 
         // Spawn at random edge

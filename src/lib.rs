@@ -9,20 +9,15 @@ pub mod ui;
 
 #[cfg(target_arch = "wasm32")]
 use crate::client::manager::NetworkManager;
-use crate::model::config::AppConfig;
 #[cfg(target_arch = "wasm32")]
 use crate::model::environment::Environment;
-use crate::model::environment::Environment;
-use crate::model::world::World;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
 use crate::model::network::NetMessage;
 
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
