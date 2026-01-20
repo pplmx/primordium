@@ -27,6 +27,25 @@ Primordium now supports distributed simulations where entities can migrate betwe
 
 ---
 
+## [Phase 14: Gameplay & Polish] - 2026-01-21
+
+### Evolutionary Leap: Divergent Realities
+
+The simulation now supports distinct game modes and has been highly optimized.
+
+#### ✨ Features
+
+- **Game Modes**:
+  - **Cooperative (`--gamemode coop`)**: Global peace enforced; ideal for colony growth.
+  - **Battle Royale (`--gamemode battle`)**: Shrinking world borders force conflict.
+- **Documentation**:
+  - Comprehensive **User Manuals** (EN/ZH).
+  - **Technical Wiki** covering Genetics, Brains, and Ecosystems.
+- **Performance**:
+  - Enabled **LTO** (Link Time Optimization) for release builds.
+
+---
+
 ## [Phase 12: WebAssembly Port] - 2026-01-21
 
 ### Evolutionary Leap: Breaking the Terminal Barrier

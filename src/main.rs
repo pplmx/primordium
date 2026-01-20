@@ -13,6 +13,10 @@ struct Args {
     /// Custom config file path
     #[arg(short, long, default_value = "config.toml")]
     config: String,
+
+    /// Game rules mode (Standard, Cooperative, BattleRoyale)
+    #[arg(long, default_value = "standard")]
+    gamemode: String,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -51,6 +55,13 @@ async fn main() -> Result<()> {
             tui.init()?;
 
             let mut app = App::new()?;
+
+            // Override game mode from CLI
+            match args.gamemode.to_lowercase().as_str() {
+                "coop" | "cooperative" => app.world.config.game_mode = primordium::model::config::GameMode::Cooperative,
+                "battle" | "battleroyale" => app.world.config.game_mode = primordium::model::config::GameMode::BattleRoyale,
+                _ => {},
+            }
             if matches!(args.mode, Mode::Screensaver) {
                 app.screensaver = true;
             }

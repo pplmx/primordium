@@ -102,6 +102,28 @@ Occasional random events or user-triggered catastrophes (if Divine Mode enabled)
 
 ---
 
+## ⚔️ Game Modes
+
+Launch Primordium with different rulesets using `--gamemode`:
+
+### Standard
+`--gamemode standard`
+The classic Darwinian struggle. Entities fight, cooperate, and evolve naturally.
+
+### Cooperative
+`--gamemode coop`
+**Global Peace**. Attack behaviors are disabled. The goal is to maximize population and efficiency.
+- Ideal for studying swarm dynamics and altruism.
+
+### Battle Royale
+`--gamemode battle`
+**Survival of the Fittest Tribe**.
+- The "Safe Zone" shrinks over time.
+- Entities outside the safe zone take massive damage.
+- Forces conflict in the center.
+
+---
+
 ## 🌌 Multiplayer (New!)
 Primordium supports **Interstellar Migration**.
 - If an entity travels off the edge of the screen while "Online", it migrates to the server.

@@ -26,12 +26,20 @@ pub struct EvolutionConfig {
     pub drift_amount: f32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum GameMode {
+    Standard,
+    Cooperative,
+    BattleRoyale,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AppConfig {
     pub world: WorldConfig,
     pub metabolism: MetabolismConfig,
     pub evolution: EvolutionConfig,
     pub target_fps: u64,
+    pub game_mode: GameMode, // NEW
 }
 
 impl Default for AppConfig {
@@ -57,6 +65,7 @@ impl Default for AppConfig {
                 drift_amount: 0.5,
             },
             target_fps: 60,
+            game_mode: GameMode::Standard,
         }
     }
 }
