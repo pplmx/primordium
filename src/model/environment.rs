@@ -50,10 +50,10 @@ impl ResourceState {
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Season {
     #[default]
-    Spring,   // Food ×1.5, Metabolism ×0.8
-    Summer,   // Food ×1.0, Metabolism ×1.2
-    Fall,     // Food ×1.2, Metabolism ×1.0
-    Winter,   // Food ×0.5, Metabolism ×1.5
+    Spring, // Food ×1.5, Metabolism ×0.8
+    Summer, // Food ×1.0, Metabolism ×1.2
+    Fall,   // Food ×1.2, Metabolism ×1.0
+    Winter, // Food ×0.5, Metabolism ×1.5
 }
 
 impl Season {

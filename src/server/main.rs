@@ -14,8 +14,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio::sync::broadcast;
-use uuid::Uuid;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use uuid::Uuid;
 
 // Re-use the shared network protocol
 #[path = "../model/network.rs"]
@@ -107,7 +107,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         // Ideally we pick a random target or neighbour
                         tracing::info!("Relaying migration from {}", id_clone);
                         let _ = tx.send(text); // Broadcast the raw wrapper
-                    },
+                    }
                     _ => {}
                 }
             }

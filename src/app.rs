@@ -307,12 +307,12 @@ impl App {
                                     spans.push(ratatui::text::Span::raw(format!(
                                         "  {} ",
                                         match i {
-                                            0 => "FX",  // Food X
-                                            1 => "FY",  // Food Y
-                                            2 => "EN",  // Energy
-                                            3 => "NB",  // Neighbors
-                                            4 => "PH",  // Pheromone (NEW)
-                                            5 => "TR",  // Tribe (NEW)
+                                            0 => "FX", // Food X
+                                            1 => "FY", // Food Y
+                                            2 => "EN", // Energy
+                                            3 => "NB", // Neighbors
+                                            4 => "PH", // Pheromone (NEW)
+                                            5 => "TR", // Tribe (NEW)
                                             _ => "??",
                                         }
                                     )));

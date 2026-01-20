@@ -8,11 +8,11 @@ use uuid::Uuid;
 /// Status symbols for entity states
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EntityStatus {
-    Starving,  // < 20% energy
-    Sharing,   // High energy, sharing with neighbors [NEW]
-    Mating,    // > reproduction threshold
-    Hunting,   // brain aggression > 0.5
-    Foraging,  // normal
+    Starving, // < 20% energy
+    Sharing,  // High energy, sharing with neighbors [NEW]
+    Mating,   // > reproduction threshold
+    Hunting,  // brain aggression > 0.5
+    Foraging, // normal
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -74,7 +74,7 @@ impl Entity {
             brain: Brain::new_random(),
             last_aggression: 0.0,
             last_share_intent: 0.0,
-            home_x: x,  // Birth location is home
+            home_x: x, // Birth location is home
             home_y: y,
         }
     }
@@ -87,7 +87,7 @@ impl Entity {
         if self.energy / self.max_energy < 0.2 {
             EntityStatus::Starving
         } else if self.last_share_intent > 0.5 && self.can_share() {
-            EntityStatus::Sharing  // NEW: Sharing status
+            EntityStatus::Sharing // NEW: Sharing status
         } else if self.last_aggression > 0.5 {
             EntityStatus::Hunting
         } else if self.energy > reproduction_threshold {
@@ -100,7 +100,7 @@ impl Entity {
     pub fn symbol_for_status(&self, status: EntityStatus) -> char {
         match status {
             EntityStatus::Starving => '†',
-            EntityStatus::Sharing => '♣',  // NEW: Sharing symbol
+            EntityStatus::Sharing => '♣', // NEW: Sharing symbol
             EntityStatus::Mating => '♥',
             EntityStatus::Hunting => '♦',
             EntityStatus::Foraging => '●',
@@ -109,10 +109,10 @@ impl Entity {
 
     pub fn color_for_status(&self, status: EntityStatus) -> Color {
         match status {
-            EntityStatus::Starving => Color::Rgb(150, 50, 50),   // Dim Red
-            EntityStatus::Sharing => Color::Rgb(100, 200, 100),  // Green [NEW]
-            EntityStatus::Mating => Color::Rgb(255, 105, 180),   // Pink
-            EntityStatus::Hunting => Color::Rgb(255, 69, 0),     // Red-Orange
+            EntityStatus::Starving => Color::Rgb(150, 50, 50), // Dim Red
+            EntityStatus::Sharing => Color::Rgb(100, 200, 100), // Green [NEW]
+            EntityStatus::Mating => Color::Rgb(255, 105, 180), // Pink
+            EntityStatus::Hunting => Color::Rgb(255, 69, 0),   // Red-Orange
             EntityStatus::Foraging => self.color(),
         }
     }
@@ -133,10 +133,10 @@ impl Entity {
 
     /// Calculate territorial aggression bonus based on distance from home
     pub fn territorial_aggression(&self) -> f64 {
-        let dist_from_home = ((self.x - self.home_x).powi(2) +
-                              (self.y - self.home_y).powi(2)).sqrt();
+        let dist_from_home =
+            ((self.x - self.home_x).powi(2) + (self.y - self.home_y).powi(2)).sqrt();
         if dist_from_home < 8.0 {
-            1.5  // 50% more aggressive near home
+            1.5 // 50% more aggressive near home
         } else {
             1.0
         }
@@ -144,10 +144,10 @@ impl Entity {
 
     /// Check if another entity is in the same tribe (similar color)
     pub fn same_tribe(&self, other: &Entity) -> bool {
-        let color_dist = (self.r as i32 - other.r as i32).abs() +
-                         (self.g as i32 - other.g as i32).abs() +
-                         (self.b as i32 - other.b as i32).abs();
-        color_dist < 60  // Threshold for same tribe
+        let color_dist = (self.r as i32 - other.r as i32).abs()
+            + (self.g as i32 - other.g as i32).abs()
+            + (self.b as i32 - other.b as i32).abs();
+        color_dist < 60 // Threshold for same tribe
     }
 
     pub fn name(&self) -> String {
@@ -209,7 +209,7 @@ impl Entity {
             brain: child_brain,
             last_aggression: 0.0,
             last_share_intent: 0.0,
-            home_x: self.x,  // Child's home is birth location
+            home_x: self.x, // Child's home is birth location
             home_y: self.y,
         }
     }

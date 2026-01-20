@@ -5,7 +5,7 @@ use ratatui::style::Color;
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum TerrainType {
     #[default]
-    Plains,   // Default terrain, no modifiers
+    Plains, // Default terrain, no modifiers
     Mountain, // Slows movement by 50%, no food spawns
     River,    // Speeds movement by 50%, normal food
     Oasis,    // Normal movement, food spawn ×3
@@ -28,7 +28,7 @@ impl TerrainType {
             TerrainType::Plains => 1.0,
             TerrainType::Mountain => 0.0, // No food on mountains
             TerrainType::River => 0.8,
-            TerrainType::Oasis => 3.0,    // 3x food in oases
+            TerrainType::Oasis => 3.0, // 3x food in oases
         }
     }
 
@@ -46,9 +46,9 @@ impl TerrainType {
     pub fn color(&self) -> Color {
         match self {
             TerrainType::Plains => Color::Reset,
-            TerrainType::Mountain => Color::Rgb(100, 100, 100),  // Gray
-            TerrainType::River => Color::Rgb(70, 130, 180),      // Steel Blue
-            TerrainType::Oasis => Color::Rgb(50, 205, 50),       // Lime Green
+            TerrainType::Mountain => Color::Rgb(100, 100, 100), // Gray
+            TerrainType::River => Color::Rgb(70, 130, 180),     // Steel Blue
+            TerrainType::Oasis => Color::Rgb(50, 205, 50),      // Lime Green
         }
     }
 }
@@ -124,7 +124,11 @@ impl TerrainGrid {
             attempts += 1;
         }
 
-        Self { cells, width, height }
+        Self {
+            cells,
+            width,
+            height,
+        }
     }
 
     /// Simple value noise function for terrain generation

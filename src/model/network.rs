@@ -6,9 +6,7 @@ use uuid::Uuid;
 #[serde(tag = "type", content = "payload")]
 pub enum NetMessage {
     /// Client -> Server: Handshake on connect
-    Handshake {
-        client_id: Uuid,
-    },
+    Handshake { client_id: Uuid },
     /// Server -> Client: Acknowledge handshake
     Welcome {
         server_message: String,
@@ -20,11 +18,11 @@ pub enum NetMessage {
         energy: f32,
         generation: u32,
         species_name: String, // Basic metadata
-        // We don't send position as it spawns randomly on edge
+                              // We don't send position as it spawns randomly on edge
     },
     /// Server -> All Clients: Broadcast stats
     StatsUpdate {
         online_count: usize,
         total_migrations: usize,
-    }
+    },
 }

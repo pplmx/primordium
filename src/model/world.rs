@@ -119,11 +119,15 @@ impl World {
                 let shrink_amount = (self.tick as f64 / 100.0).min(width_f / 2.0 - 5.0);
                 // Entities outside this range take massive damage
                 for e in &mut self.entities {
-                    if e.x < shrink_amount || e.x > width_f - shrink_amount || e.y < shrink_amount || e.y > height_f - shrink_amount {
+                    if e.x < shrink_amount
+                        || e.x > width_f - shrink_amount
+                        || e.y < shrink_amount
+                        || e.y > height_f - shrink_amount
+                    {
                         e.energy -= 10.0; // The fog hurts
                     }
                 }
-            },
+            }
             _ => {}
         }
 
@@ -166,15 +170,18 @@ impl World {
             let (dx_f, dy_f) = self.sense_nearest_food(&current_entities[i]);
 
             // Count same-tribe entities nearby
-            let nearby_indices = self.spatial_hash.query(current_entities[i].x, current_entities[i].y, 5.0);
-            let tribe_count = nearby_indices.iter().filter(|&&idx| {
-                idx != i && current_entities[i].same_tribe(&current_entities[idx])
-            }).count();
+            let nearby_indices =
+                self.spatial_hash
+                    .query(current_entities[i].x, current_entities[i].y, 5.0);
+            let tribe_count = nearby_indices
+                .iter()
+                .filter(|&&idx| idx != i && current_entities[i].same_tribe(&current_entities[idx]))
+                .count();
 
             // Sense pheromones
-            let (pheromone_food, _pheromone_danger) = self.pheromones.sense(
-                current_entities[i].x, current_entities[i].y, 3.0
-            );
+            let (pheromone_food, _pheromone_danger) =
+                self.pheromones
+                    .sense(current_entities[i].x, current_entities[i].y, 3.0);
 
             let inputs = [
                 (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
@@ -215,10 +222,9 @@ impl World {
                 continue;
             }
             // Apply terrain movement modifier
-            let terrain_speed_mod = self.terrain.movement_modifier(
-                current_entities[i].x,
-                current_entities[i].y,
-            );
+            let terrain_speed_mod = self
+                .terrain
+                .movement_modifier(current_entities[i].x, current_entities[i].y);
             current_entities[i].x += current_entities[i].vx * speed * terrain_speed_mod;
             current_entities[i].y += current_entities[i].vy * speed * terrain_speed_mod;
             if current_entities[i].x <= 0.0 {
@@ -263,8 +269,12 @@ impl World {
                         }
                         killed_ids.insert(v_id);
                         // Deposit danger pheromone at kill site
-                        self.pheromones.deposit(current_entities[i].x, current_entities[i].y,
-                                                PheromoneType::Danger, 0.5);
+                        self.pheromones.deposit(
+                            current_entities[i].x,
+                            current_entities[i].y,
+                            PheromoneType::Danger,
+                            0.5,
+                        );
                         let v_age = self.tick - v_b;
                         self.pop_stats.record_death(v_age);
                         let ev = LiveEvent::Death {
@@ -296,8 +306,12 @@ impl World {
                     current_entities[i].energy = current_entities[i].max_energy;
                 }
                 // Deposit food pheromone when eating
-                self.pheromones.deposit(current_entities[i].x, current_entities[i].y,
-                                        PheromoneType::Food, 0.3);
+                self.pheromones.deposit(
+                    current_entities[i].x,
+                    current_entities[i].y,
+                    PheromoneType::Food,
+                    0.3,
+                );
                 self.food.swap_remove(f_idx);
             }
 

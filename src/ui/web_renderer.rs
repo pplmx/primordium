@@ -1,7 +1,7 @@
-use crate::model::world::World;
-use crate::model::terrain::TerrainType;
 use crate::model::entity::EntityStatus;
 use crate::model::pheromone::PheromoneType;
+use crate::model::terrain::TerrainType;
+use crate::model::world::World;
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
@@ -44,12 +44,7 @@ impl WebRenderer {
                 }
 
                 ctx.set_fill_style(&JsValue::from_str(color));
-                ctx.fill_rect(
-                    x as f64 * scale_x,
-                    y as f64 * scale_y,
-                    scale_x,
-                    scale_y
-                );
+                ctx.fill_rect(x as f64 * scale_x, y as f64 * scale_y, scale_x, scale_y);
             }
         }
 
@@ -65,8 +60,9 @@ impl WebRenderer {
                 food.y as f64 * scale_y + scale_y / 2.0,
                 scale_x / 2.0,
                 0.0,
-                std::f64::consts::PI * 2.0
-            ).unwrap();
+                std::f64::consts::PI * 2.0,
+            )
+            .unwrap();
             ctx.fill();
         }
 
@@ -74,26 +70,26 @@ impl WebRenderer {
         for entity in &world.entities {
             let color = match entity.status() {
                 EntityStatus::Dead => "#555555",
-                EntityStatus::Mating => "#ff69b4", // Pink
+                EntityStatus::Mating => "#ff69b4",   // Pink
                 EntityStatus::Fighting => "#ff0000", // Red
-                EntityStatus::Eating => "#ffff00", // Yellow
-                EntityStatus::Sharing => "#00ffff", // Cyan
+                EntityStatus::Eating => "#ffff00",   // Yellow
+                EntityStatus::Sharing => "#00ffff",  // Cyan
                 EntityStatus::Alive => {
-                     // Check if part of a large tribe (could visualize here or just use green)
-                     "#00ff00"
+                    // Check if part of a large tribe (could visualize here or just use green)
+                    "#00ff00"
                 }
             };
 
             // Use entity specific color if alive
             let mut final_color = color.to_string();
             if matches!(entity.status(), EntityStatus::Alive) {
-                 // Convert Color enum to hex or use simple hash?
-                 // Entity color is Ratatui Color, we need RGB.
-                 // Let's use RGB generated from brain or ID for now if we want variety,
-                 // or just green for simplicity as confirmed in V1.
-                 // Actually, entity has a color() method but it returns Ratatui Color.
-                 // For now, let's stick to status colors, or maybe implement a helper.
-                 final_color = "#00cc00".to_string();
+                // Convert Color enum to hex or use simple hash?
+                // Entity color is Ratatui Color, we need RGB.
+                // Let's use RGB generated from brain or ID for now if we want variety,
+                // or just green for simplicity as confirmed in V1.
+                // Actually, entity has a color() method but it returns Ratatui Color.
+                // For now, let's stick to status colors, or maybe implement a helper.
+                final_color = "#00cc00".to_string();
             }
 
             ctx.set_fill_style(&JsValue::from_str(&final_color));
@@ -103,7 +99,8 @@ impl WebRenderer {
             let size = scale_x * 0.8; // Slightly smaller than cell
 
             ctx.begin_path();
-            ctx.arc(ex, ey, size, 0.0, std::f64::consts::PI * 2.0).unwrap();
+            ctx.arc(ex, ey, size, 0.0, std::f64::consts::PI * 2.0)
+                .unwrap();
             ctx.fill();
 
             // Draw territorial range or interaction if needed? No, too cluttered.
