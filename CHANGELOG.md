@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 12: WebAssembly Port] - 2026-01-21
+
+### Evolutionary Leap: Breaking the Terminal Barrier
+
+Primordium can now run in modern web browsers via WebAssembly and HTML5 Canvas.
+
+#### ✨ Features
+
+- **WASM Support**: Core simulation compiled to WebAssembly via `wasm-pack`.
+- **Canvas Rendering**: New `WebRenderer` replaces TUI for 60 FPS browser visualization.
+- **Web Interface**: Modern "Glassmorphism" UI with real-time stats and controls.
+- **Dual Target**: Project supports both native CLI (TUI) and Web (Canvas) builds.
+
+#### 🛠️ Technical Achievements
+
+- **Library Refactoring**: Extracted core logic into `lib.rs` for dual-target support.
+- **Conditional Compilation**: Usage of `#[cfg(target_arch = "wasm32")]` to maintaining native compatibility.
+- **JS Interop**: Exposed `Simulation` struct and `draw` method to JavaScript via `wasm-bindgen`.
+
+---
+
 ## [Phase 11: Social Structures] - 2026-01-21
 
 ### Evolutionary Leap: Pheromones, Tribes & Cooperation

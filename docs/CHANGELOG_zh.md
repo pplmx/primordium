@@ -6,6 +6,27 @@
 
 ---
 
+## [阶段 12: WebAssembly 移植 (WebAssembly Port)] - 2026-01-21
+
+### 进化跃迁：打破终端壁垒
+
+Primordium 现在可以通过 WebAssembly 和 HTML5 Canvas 在现代网络浏览器中运行。
+
+#### ✨ 新特性
+
+- **WASM 支持**：核心模拟通过 `wasm-pack` 编译为 WebAssembly。
+- **Canvas 渲染**：新增 `WebRenderer` 替代 TUI，实现 60 FPS 浏览器可视化。
+- **Web 界面**：具有实时统计和控制功能的现代“玻璃拟态 (Glassmorphism)” UI。
+- **双目标支持**：项目同时支持原生 CLI (TUI) 和 Web (Canvas) 构建。
+
+#### 🛠️ 技术成就
+
+- **库重构**：将核心逻辑提取到 `lib.rs` 以支持双目标。
+- **条件编译**：使用 `#[cfg(target_arch = "wasm32")]` 保持原生兼容性。
+- **JS 互操作**：通过 `wasm-bindgen` 将 `Simulation` 结构体和 `draw` 方法暴露给 JavaScript。
+
+---
+
 ## [阶段 11: 社会结构 (Social Structures)] - 2026-01-21
 
 ### 进化跃迁：信息素、部落与合作

@@ -134,6 +134,17 @@ toml = "0.8"
 - Advanced Analytics: Brain entropy, average lifespan metrics
 - Population Dynamics: Dual-sparkline health vs hardware stress visualization
 
+### Phase 10: Ecosystem Dynamics ✅
+- Terrain & Geography: Mountains (slow), Rivers (fast), Oases (food)
+- Environmental Heterogeneity for emergent migration patterns
+- Weather systems: Seasons, storms, and climate shifts
+
+### Phase 11: Social Structures ✅
+- Pheromone system: Entities leave chemical trails
+- Food sharing: High-energy entities donate to neighbors
+- Territorial behavior: Aggressive entities drive others away
+- Tribe formation: Color-based group identity
+
 ---
 
 ## 📊 Development Timeline
@@ -152,17 +163,13 @@ toml = "0.8"
 | Phase 9 | The Omniscient Eye | ✅ Complete |
 | Phase 10 | Ecosystem Dynamics | ✅ Complete |
 | Phase 11 | Social Structures | ✅ Complete |
+| Phase 12 | WebAssembly Port | ✅ Complete |
 
 **Core Development Completed in ~2 days (Ultra Mode Enabled).**
 
 ---
 
-## 🚀 Extended Roadmap (Phase 12+)
-
-### Phase 12: WebAssembly Port
-- Compile to WASM with `wasm-pack`
-- Canvas-based rendering (no terminal)
-- Share simulations via URL
+## 🚀 Extended Roadmap (Phase 13+)
 
 ### Phase 13: Multiplayer Primordium
 - Network protocol for synchronized worlds

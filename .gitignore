@@ -21,3 +21,9 @@ config.toml
 report.md
 family_tree.dot
 family_tree.png
+
+# --- Web / WASM ---
+www/pkg/
+www/node_modules/
+www/dist/
+.DS_Store
