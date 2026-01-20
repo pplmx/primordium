@@ -62,6 +62,30 @@ impl Entity {
         Color::Rgb(self.r, self.g, self.b)
     }
 
+    pub fn name(&self) -> String {
+        let id_str = self.id.to_string();
+        let bytes = id_str.as_bytes();
+
+        let syllables = [
+            "ae", "ba", "co", "da", "el", "fa", "go", "ha", "id", "jo", "ka", "lu", "ma", "na",
+            "os", "pe", "qu", "ri", "sa", "tu", "vi", "wu", "xi", "yo", "ze",
+        ];
+        let prefix = [
+            "Aethel", "Bel", "Cor", "Dag", "Eld", "Fin", "Grom", "Had", "Ith", "Jor", "Kael",
+            "Luv", "Mor", "Nar", "Oth", "Pyr", "Quas", "Rhun", "Syl", "Tor", "Val", "Wun", "Xer",
+            "Yor", "Zan",
+        ];
+
+        let p_idx = (bytes[0] as usize) % prefix.len();
+        let s1_idx = (bytes[1] as usize) % syllables.len();
+        let s2_idx = (bytes[2] as usize) % syllables.len();
+
+        format!(
+            "{}{}{}-Gen{}",
+            prefix[p_idx], syllables[s1_idx], syllables[s2_idx], self.generation
+        )
+    }
+
     pub fn reproduce(&mut self, tick: u64, config: &EvolutionConfig) -> Self {
         let mut rng = rand::thread_rng();
 

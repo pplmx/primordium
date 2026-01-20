@@ -59,7 +59,8 @@ impl World {
         })
     }
 
-    pub fn update(&mut self, env: &Environment) -> anyhow::Result<()> {
+    pub fn update(&mut self, env: &Environment) -> anyhow::Result<Vec<LiveEvent>> {
+        let mut events = Vec::new();
         self.tick += 1;
         let mut rng = rand::thread_rng();
 
@@ -92,8 +93,6 @@ impl World {
             entity.peak_energy = entity.peak_energy.max(entity.energy);
 
             // SENSORY INPUTS
-            // A. Nearest Food (Optimizable with spatial hash too, but currently only for entities)
-            // Let's just do naive for food as there are few (50 max)
             let mut dx_food = 0.0;
             let mut dy_food = 0.0;
             let mut min_dist_sq = f64::MAX;
@@ -114,9 +113,7 @@ impl World {
             let dy_input = (dy_food / cap).clamp(-1.0, 1.0) as f32;
             let energy_input = (entity.energy / entity.max_energy) as f32;
 
-            // C. Crowding (Optimized with Spatial Hash)
             let neighbors_indices = self.spatial_hash.query(entity.x, entity.y, 5.0);
-            // Result includes self, so subtract 1 if possible
             let neighbors = neighbors_indices.len().saturating_sub(1);
             let crowding_input = (neighbors as f32 / 10.0).min(1.0);
 
@@ -137,13 +134,15 @@ impl World {
             entity.energy -= move_cost + idle_cost;
 
             if entity.energy <= 0.0 {
-                self.logger.log_event(LiveEvent::Death {
+                let event = LiveEvent::Death {
                     id: entity.id,
                     age: self.tick - entity.birth_tick,
                     offspring: entity.offspring_count,
                     tick: self.tick,
                     timestamp: Utc::now().to_rfc3339(),
-                })?;
+                };
+                self.logger.log_event(event.clone())?;
+                events.push(event);
 
                 let lifespan = self.tick - entity.birth_tick;
                 if lifespan > 1000 || entity.offspring_count > 10 || entity.peak_energy > 300.0 {
@@ -205,13 +204,15 @@ impl World {
             // Reproduction
             if entity.energy > self.config.metabolism.reproduction_threshold {
                 let baby = entity.reproduce(self.tick, &self.config.evolution);
-                self.logger.log_event(LiveEvent::Birth {
+                let event = LiveEvent::Birth {
                     id: baby.id,
                     parent_id: Some(entity.id),
                     gen: baby.generation,
                     tick: self.tick,
                     timestamp: Utc::now().to_rfc3339(),
-                })?;
+                };
+                self.logger.log_event(event.clone())?;
+                events.push(event);
                 new_babies.push(baby);
             }
             alive_entities.push(entity);
@@ -221,13 +222,15 @@ impl World {
         self.entities.append(&mut new_babies);
 
         if self.entities.is_empty() && self.tick > 0 {
-            self.logger.log_event(LiveEvent::Extinction {
+            let event = LiveEvent::Extinction {
                 population: 0,
                 tick: self.tick,
                 timestamp: Utc::now().to_rfc3339(),
-            })?;
+            };
+            self.logger.log_event(event.clone())?;
+            events.push(event);
         }
 
-        Ok(())
+        Ok(events)
     }
 }

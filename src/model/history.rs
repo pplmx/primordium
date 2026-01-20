@@ -4,7 +4,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "event")]
 pub enum LiveEvent {
     Birth {
@@ -101,12 +101,30 @@ impl HistoryLogger {
     }
 
     pub fn compute_legends_hash(legends: &[Legend]) -> anyhow::Result<String> {
-        // Deterministic serialization (legends.json is currently JSONL,
-        // we'll serialize the whole Vec to a standard JSON for hashing)
         let json = serde_json::to_string(legends)?;
         let mut hasher = Sha256::new();
         hasher.update(json.as_bytes());
         let hash = hasher.finalize();
         Ok(hex::encode(hash))
+    }
+}
+
+impl LiveEvent {
+    pub fn to_ui_message(&self) -> (String, ratatui::style::Color) {
+        use ratatui::style::Color;
+        match self {
+            LiveEvent::Birth { gen, id, .. } => (
+                format!("Gen {} #{} born", gen, &id.to_string()[..4]),
+                Color::Cyan,
+            ),
+            LiveEvent::Death { age, id, .. } => (
+                format!("#{} died at age {}", &id.to_string()[..4], age),
+                Color::Red,
+            ),
+            LiveEvent::ClimateShift { to, .. } => (format!("Climate: {}", to), Color::Yellow),
+            LiveEvent::Extinction { tick, .. } => {
+                (format!("Extinction at tick {}", tick), Color::Magenta)
+            }
+        }
     }
 }
