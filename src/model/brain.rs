@@ -61,19 +61,15 @@ impl Brain {
         output
     }
 
-    pub fn mutate(&mut self) {
+    pub fn mutate_with_config(&mut self, config: &crate::model::config::EvolutionConfig) {
         let mut rng = rand::thread_rng();
-        let mutation_rate = 0.1;
-        let mutation_amount = 0.2;
-        let drift_rate = 0.01;
-        let drift_amount = 0.5;
 
         let mut mutate_val = |v: &mut f32| {
             let r = rng.gen::<f32>();
-            if r < drift_rate {
-                *v += rng.gen_range(-drift_amount..drift_amount);
-            } else if r < mutation_rate {
-                *v += rng.gen_range(-mutation_amount..mutation_amount);
+            if r < config.drift_rate {
+                *v += rng.gen_range(-config.drift_amount..config.drift_amount);
+            } else if r < config.mutation_rate {
+                *v += rng.gen_range(-config.mutation_amount..config.mutation_amount);
             }
             *v = v.clamp(-2.0, 2.0);
         };

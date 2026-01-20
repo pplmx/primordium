@@ -1,7 +1,9 @@
+use crate::model::config::AppConfig;
 use crate::model::entity::Entity;
 use crate::model::environment::Environment;
 use crate::model::food::Food;
 use crate::model::history::{HistoryLogger, Legend, LiveEvent};
+use crate::model::quadtree::SpatialHash;
 use chrono::Utc;
 use rand::Rng;
 
@@ -12,17 +14,19 @@ pub struct World {
     pub food: Vec<Food>,
     pub tick: u64,
     pub logger: HistoryLogger,
+    pub config: AppConfig,
+    pub spatial_hash: SpatialHash,
 }
 
 impl World {
-    pub fn new(width: u16, height: u16, initial_population: usize) -> anyhow::Result<Self> {
+    pub fn new(initial_population: usize, config: AppConfig) -> anyhow::Result<Self> {
         let mut rng = rand::thread_rng();
         let mut entities = Vec::with_capacity(initial_population);
         let mut logger = HistoryLogger::new()?;
 
         for _ in 0..initial_population {
-            let x = rng.gen_range(2.0..f64::from(width - 2));
-            let y = rng.gen_range(2.0..f64::from(height - 2));
+            let x = rng.gen_range(2.0..f64::from(config.world.width - 2));
+            let y = rng.gen_range(2.0..f64::from(config.world.height - 2));
             let entity = Entity::new(x, y, 0);
 
             logger.log_event(LiveEvent::Birth {
@@ -37,19 +41,21 @@ impl World {
         }
 
         let mut food = Vec::new();
-        for _ in 0..30 {
-            let x = rng.gen_range(1..width - 1);
-            let y = rng.gen_range(1..height - 1);
+        for _ in 0..config.world.initial_food {
+            let x = rng.gen_range(1..config.world.width - 1);
+            let y = rng.gen_range(1..config.world.height - 1);
             food.push(Food::new(x, y));
         }
 
         Ok(Self {
-            width,
-            height,
+            width: config.world.width,
+            height: config.world.height,
             entities,
             food,
             tick: 0,
             logger,
+            config,
+            spatial_hash: SpatialHash::new(5.0),
         })
     }
 
@@ -63,19 +69,22 @@ impl World {
         let metabolism_mult = env.metabolism_multiplier();
         let food_spawn_mult = env.food_spawn_multiplier();
 
-        // 1. Food Spawning
+        // 1. Rebuild Spatial Hash
+        self.spatial_hash.clear();
+        for (i, e) in self.entities.iter().enumerate() {
+            self.spatial_hash.insert(e.x, e.y, i);
+        }
+
+        // 2. Food Spawning
         let spawn_chance = 0.0083 * food_spawn_mult;
-        if self.food.len() < 50 && rng.gen::<f64>() < spawn_chance {
+        if self.food.len() < self.config.world.max_food && rng.gen::<f64>() < spawn_chance {
             let x = rng.gen_range(1..self.width - 1);
             let y = rng.gen_range(1..self.height - 1);
             self.food.push(Food::new(x, y));
         }
 
-        // 2. Entity Logic
+        // 3. Entity Logic
         let mut new_babies = Vec::new();
-        let entity_positions: Vec<(f64, f64)> = self.entities.iter().map(|e| (e.x, e.y)).collect();
-
-        // Use a filter pattern to track deaths
         let mut alive_entities = Vec::new();
         let old_entities = std::mem::take(&mut self.entities);
 
@@ -83,6 +92,8 @@ impl World {
             entity.peak_energy = entity.peak_energy.max(entity.energy);
 
             // SENSORY INPUTS
+            // A. Nearest Food (Optimizable with spatial hash too, but currently only for entities)
+            // Let's just do naive for food as there are few (50 max)
             let mut dx_food = 0.0;
             let mut dy_food = 0.0;
             let mut min_dist_sq = f64::MAX;
@@ -103,14 +114,10 @@ impl World {
             let dy_input = (dy_food / cap).clamp(-1.0, 1.0) as f32;
             let energy_input = (entity.energy / entity.max_energy) as f32;
 
-            let mut neighbors = 0;
-            for (nx, ny) in &entity_positions {
-                let dx = nx - entity.x;
-                let dy = ny - entity.y;
-                if dx * dx + dy * dy < 25.0 {
-                    neighbors += 1;
-                }
-            }
+            // C. Crowding (Optimized with Spatial Hash)
+            let neighbors_indices = self.spatial_hash.query(entity.x, entity.y, 5.0);
+            // Result includes self, so subtract 1 if possible
+            let neighbors = neighbors_indices.len().saturating_sub(1);
             let crowding_input = (neighbors as f32 / 10.0).min(1.0);
 
             // BRAIN
@@ -125,12 +132,11 @@ impl World {
             entity.vy = entity.vy * 0.8 + move_y * 0.2;
 
             // METABOLISM
-            let move_cost = 1.0 * metabolism_mult * speed;
-            let idle_cost = 0.5 * metabolism_mult;
+            let move_cost = self.config.metabolism.base_move_cost * metabolism_mult * speed;
+            let idle_cost = self.config.metabolism.base_idle_cost * metabolism_mult;
             entity.energy -= move_cost + idle_cost;
 
             if entity.energy <= 0.0 {
-                // LOG DEATH
                 self.logger.log_event(LiveEvent::Death {
                     id: entity.id,
                     age: self.tick - entity.birth_tick,
@@ -139,7 +145,6 @@ impl World {
                     timestamp: Utc::now().to_rfc3339(),
                 })?;
 
-                // CHECK LEGEND
                 let lifespan = self.tick - entity.birth_tick;
                 if lifespan > 1000 || entity.offspring_count > 10 || entity.peak_energy > 300.0 {
                     self.logger.archive_legend(Legend {
@@ -151,7 +156,7 @@ impl World {
                         generation: entity.generation,
                         offspring_count: entity.offspring_count,
                         peak_energy: entity.peak_energy,
-                        birth_timestamp: "".to_string(), // Could track this if needed
+                        birth_timestamp: "".to_string(),
                         death_timestamp: Utc::now().to_rfc3339(),
                         brain_dna: entity.brain.clone(),
                         color_rgb: (entity.r, entity.g, entity.b),
@@ -190,7 +195,7 @@ impl World {
             }
 
             if let Some(f_idx) = eaten_idx {
-                entity.energy += self.food[f_idx].value;
+                entity.energy += self.config.metabolism.food_value;
                 if entity.energy > entity.max_energy {
                     entity.energy = entity.max_energy;
                 }
@@ -198,8 +203,8 @@ impl World {
             }
 
             // Reproduction
-            if entity.energy > 150.0 {
-                let baby = entity.reproduce(self.tick);
+            if entity.energy > self.config.metabolism.reproduction_threshold {
+                let baby = entity.reproduce(self.tick, &self.config.evolution);
                 self.logger.log_event(LiveEvent::Birth {
                     id: baby.id,
                     parent_id: Some(entity.id),

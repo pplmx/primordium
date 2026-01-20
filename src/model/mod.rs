@@ -5,3 +5,5 @@ pub mod food;
 pub mod history;
 pub mod world;
 pub mod blockchain;
+pub mod config;
+pub mod quadtree;

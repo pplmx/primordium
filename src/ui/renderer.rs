@@ -6,22 +6,27 @@ use crate::model::world::World;
 
 pub struct WorldWidget<'a> {
     world: &'a World,
+    screensaver: bool,
 }
 
 impl<'a> WorldWidget<'a> {
-    pub fn new(world: &'a World) -> Self {
-        Self { world }
+    pub fn new(world: &'a World, screensaver: bool) -> Self {
+        Self { world, screensaver }
     }
 }
 
 impl<'a> Widget for WorldWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // Draw border
-        let block = Block::default()
-            .title(format!("World (Gen: {})", self.world.tick))
-            .borders(Borders::ALL);
-        let inner_area = block.inner(area);
-        block.render(area, buf);
+        let inner_area = if self.screensaver {
+            area
+        } else {
+            let block = Block::default()
+                .title(format!("World (Tick: {})", self.world.tick))
+                .borders(Borders::ALL);
+            let inner = block.inner(area);
+            block.render(area, buf);
+            inner
+        };
 
         // 1. Render Food (Green '*')
         for food in &self.world.food {
@@ -39,7 +44,7 @@ impl<'a> Widget for WorldWidget<'a> {
             }
         }
 
-        // 2. Render Entities (Circles)
+        // 2. Optimized Entity Rendering
         for entity in &self.world.entities {
             let screen_x = inner_area.x as f64 + entity.x;
             let screen_y = inner_area.y as f64 + entity.y;

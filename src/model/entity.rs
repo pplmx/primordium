@@ -1,4 +1,5 @@
 use crate::model::brain::Brain;
+use crate::model::config::EvolutionConfig;
 use rand::Rng;
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
@@ -29,11 +30,9 @@ impl Entity {
     pub fn new(x: f64, y: f64, tick: u64) -> Self {
         let mut rng = rand::thread_rng();
 
-        // Random velocity between -0.5 and 0.5
         let vx = rng.gen_range(-0.5..0.5);
         let vy = rng.gen_range(-0.5..0.5);
 
-        // Random bright RGB color
         let r = rng.gen_range(100..255);
         let g = rng.gen_range(100..255);
         let b = rng.gen_range(100..255);
@@ -63,17 +62,15 @@ impl Entity {
         Color::Rgb(self.r, self.g, self.b)
     }
 
-    pub fn reproduce(&mut self, tick: u64) -> Self {
+    pub fn reproduce(&mut self, tick: u64, config: &EvolutionConfig) -> Self {
         let mut rng = rand::thread_rng();
 
-        // Split energy
         let child_energy = self.energy / 2.0;
         self.energy = child_energy;
         self.offspring_count += 1;
 
-        // Clone and mutate brain
         let mut child_brain = self.brain.clone();
-        child_brain.mutate();
+        child_brain.mutate_with_config(config);
 
         let mut mutate_color = |c: u8| -> u8 {
             let change = rng.gen_range(-15..=15);
