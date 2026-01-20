@@ -4,3 +4,4 @@ pub mod environment;
 pub mod food;
 pub mod history;
 pub mod world;
+pub mod blockchain;

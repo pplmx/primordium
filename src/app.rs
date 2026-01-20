@@ -1,5 +1,4 @@
 use anyhow::Result;
-use chrono::Utc;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Style};
@@ -8,10 +7,14 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use sysinfo::System;
 use uuid::Uuid;
+use chrono::Utc;
+use std::fs::OpenOptions;
+use std::io::Write;
 
-use crate::model::environment::{ClimateState, Environment};
-use crate::model::history::LiveEvent;
+use crate::model::environment::{Environment, ClimateState};
 use crate::model::world::World;
+use crate::model::history::{LiveEvent, HistoryLogger};
+use crate::model::blockchain::{BlockchainProvider, OpenTimestampsProvider, AnchorRecord};
 use crate::ui::renderer::WorldWidget;
 use crate::ui::tui::Tui;
 
@@ -33,13 +36,17 @@ pub struct App {
     pub selected_entity: Option<Uuid>,
     // Last climate state for shift logging
     pub last_climate: Option<ClimateState>,
+    // Blockchain Anchoring
+    pub last_anchor_time: Instant,
+    pub anchor_interval: Duration,
+    pub is_anchoring: bool,
 }
 
 impl App {
     pub fn new() -> Result<Self> {
         let mut sys = System::new_all();
         sys.refresh_all();
-
+        
         let world = World::new(100, 50, 100)?;
 
         Ok(Self {
@@ -56,10 +63,13 @@ impl App {
             show_brain: false,
             selected_entity: None,
             last_climate: None,
+            last_anchor_time: Instant::now(),
+            anchor_interval: Duration::from_secs(3600), // 1 hour
+            is_anchoring: false,
         })
     }
 
-    pub fn run(&mut self, tui: &mut Tui) -> Result<()> {
+    pub async fn run(&mut self, tui: &mut Tui) -> Result<()> {
         let mut last_tick = Instant::now();
         let tick_rate = Duration::from_millis(16); // ~60 FPS
 
@@ -137,13 +147,16 @@ impl App {
                     .map(|e| e.generation)
                     .max()
                     .unwrap_or(0);
+                
+                let anchor_status = if self.is_anchoring { " [ANCHORING...]" } else { "" };
                 let world_stats = format!(
-                    "Pop: {} | Gen: {} | Temp: x{:.1} | Food: x{:.1} | FPS: {:.1}",
+                    "Pop: {} | Gen: {} | Temp: x{:.1} | Food: x{:.1} | FPS: {:.1}{}",
                     self.world.entities.len(),
                     max_gen,
                     self.env.metabolism_multiplier(),
                     self.env.food_spawn_multiplier(),
-                    self.fps
+                    self.fps,
+                    anchor_status
                 );
                 f.render_widget(
                     Paragraph::new(world_stats).style(Style::default().fg(Color::DarkGray)),
@@ -200,20 +213,9 @@ impl App {
                                 let mut spans = Vec::new();
                                 for j in 0..6 {
                                     let w = entity.brain.weights_ih[i * 6 + j];
-                                    let symbol = if w > 0.5 {
-                                        "█"
-                                    } else if w > 0.0 {
-                                        "▓"
-                                    } else if w > -0.5 {
-                                        "▒"
-                                    } else {
-                                        "░"
-                                    };
+                                    let symbol = if w > 0.5 { "█" } else if w > 0.0 { "▓" } else if w > -0.5 { "▒" } else { "░" };
                                     let color = if w > 0.0 { Color::Green } else { Color::Red };
-                                    spans.push(ratatui::text::Span::styled(
-                                        symbol,
-                                        Style::default().fg(color),
-                                    ));
+                                    spans.push(ratatui::text::Span::styled(symbol, Style::default().fg(color)));
                                 }
                                 lines.push(ratatui::text::Line::from(spans));
                             }
@@ -223,28 +225,14 @@ impl App {
                                 let mut spans = Vec::new();
                                 for j in 0..3 {
                                     let w = entity.brain.weights_ho[i * 3 + j];
-                                    let symbol = if w > 0.5 {
-                                        "█"
-                                    } else if w > 0.0 {
-                                        "▓"
-                                    } else if w > -0.5 {
-                                        "▒"
-                                    } else {
-                                        "░"
-                                    };
+                                    let symbol = if w > 0.5 { "█" } else if w > 0.0 { "▓" } else if w > -0.5 { "▒" } else { "░" };
                                     let color = if w > 0.0 { Color::Green } else { Color::Red };
-                                    spans.push(ratatui::text::Span::styled(
-                                        symbol,
-                                        Style::default().fg(color),
-                                    ));
+                                    spans.push(ratatui::text::Span::styled(symbol, Style::default().fg(color)));
                                 }
                                 lines.push(ratatui::text::Line::from(spans));
                             }
 
-                            f.render_widget(
-                                Paragraph::new(lines).block(brain_block),
-                                main_layout[1],
-                            );
+                            f.render_widget(Paragraph::new(lines).block(brain_block), main_layout[1]);
                         }
                     }
                 }
@@ -271,12 +259,12 @@ impl App {
                 let current_climate = self.env.climate();
                 if let Some(last) = self.last_climate {
                     if last != current_climate {
-                        self.world.logger.log_event(LiveEvent::ClimateShift {
+                        let _ = self.world.logger.log_event(LiveEvent::ClimateShift {
                             from: format!("{:?}", last),
                             to: format!("{:?}", current_climate),
                             tick: self.world.tick,
                             timestamp: Utc::now().to_rfc3339(),
-                        })?;
+                        });
                     }
                 }
                 self.last_climate = Some(current_climate);
@@ -286,6 +274,43 @@ impl App {
                 self.cpu_history.push_back(cpu_usage as u64);
 
                 self.last_fps_update = Instant::now();
+                
+                // Blockchain Anchoring Check
+                if self.last_anchor_time.elapsed() >= self.anchor_interval && !self.is_anchoring {
+                    self.is_anchoring = true;
+                    self.last_anchor_time = Instant::now();
+                    
+                    // Snapshot legends and compute hash
+                    if let Ok(legends) = self.world.logger.get_all_legends() {
+                        if !legends.is_empty() {
+                            if let Ok(hash) = HistoryLogger::compute_legends_hash(&legends) {
+                                // Spawn background anchor task
+                                tokio::spawn(async move {
+                                    let provider = OpenTimestampsProvider;
+                                    match provider.anchor_hash(&hash).await {
+                                        Ok(tx_id) => {
+                                            let record = AnchorRecord {
+                                                hash,
+                                                tx_id,
+                                                timestamp: Utc::now().to_rfc3339(),
+                                                provider: "OpenTimestamps".to_string(),
+                                            };
+                                            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open("logs/anchors.jsonl") {
+                                                if let Ok(json) = serde_json::to_string(&record) {
+                                                    let _ = writeln!(file, "{}", json);
+                                                }
+                                            }
+                                        }
+                                        Err(_e) => {
+                                            // Handle error (could log to a separate system log)
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    self.is_anchoring = false; // Reset status (simplified)
+                }
             }
 
             // 3. Handle Events

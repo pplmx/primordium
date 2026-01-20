@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -80,5 +81,32 @@ impl HistoryLogger {
         let json = serde_json::to_string(&legend)?;
         writeln!(file, "{}", json)?;
         Ok(())
+    }
+
+    pub fn get_all_legends(&self) -> anyhow::Result<Vec<Legend>> {
+        let file = match File::open("logs/legends.json") {
+            Ok(f) => f,
+            Err(_) => return Ok(vec![]), // No legends yet
+        };
+        let reader = BufReader::new(file);
+        let mut legends = Vec::new();
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                if let Ok(legend) = serde_json::from_str::<Legend>(&l) {
+                    legends.push(legend);
+                }
+            }
+        }
+        Ok(legends)
+    }
+
+    pub fn compute_legends_hash(legends: &[Legend]) -> anyhow::Result<String> {
+        // Deterministic serialization (legends.json is currently JSONL,
+        // we'll serialize the whole Vec to a standard JSON for hashing)
+        let json = serde_json::to_string(legends)?;
+        let mut hasher = Sha256::new();
+        hasher.update(json.as_bytes());
+        let hash = hasher.finalize();
+        Ok(hex::encode(hash))
     }
 }
