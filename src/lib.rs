@@ -1,5 +1,11 @@
-pub mod app;
+#[cfg(target_arch = "wasm32")]
+pub mod client;
+
+// These must be available to server too!
 pub mod model;
+#[cfg(target_arch = "wasm32")]
+pub mod app;
+#[cfg(target_arch = "wasm32")]
 pub mod ui;
 
 #[cfg(target_arch = "wasm32")]
@@ -10,12 +16,22 @@ use crate::model::world::World;
 use crate::model::config::AppConfig;
 #[cfg(target_arch = "wasm32")]
 use crate::model::environment::Environment;
+#[cfg(target_arch = "wasm32")]
+use crate::client::manager::NetworkManager;
+
+#[cfg(target_arch = "wasm32")]
+use crate::model::network::NetMessage;
+
+#[cfg(feature = "wee_alloc")]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub struct Simulation {
     world: World,
     env: Environment,
+    network: Option<NetworkManager>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -31,12 +47,53 @@ impl Simulation {
         Ok(Simulation {
             world,
             env: Environment::default(),
+            network: None,
         })
+    }
+
+    pub fn connect(&mut self, url: &str) {
+        self.network = Some(NetworkManager::new(url));
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
         self.world.update(&self.env)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        // Network Logic
+        if let Some(net) = &self.network {
+            // 1. Process incoming migrations
+            for msg in net.pop_pending() {
+                if let NetMessage::MigrateEntity { dna, energy, generation, .. } = msg {
+                    self.world.import_migrant(dna, energy, generation);
+                    #[cfg(target_arch = "wasm32")]
+                    web_sys::console::log_1(&JsValue::from_str("Entity migrated into this universe!"));
+                }
+            }
+
+            // 2. Check for outgoing migrations
+             let mut migrants = Vec::new();
+             self.world.entities.retain(|e| {
+                 let leaving = e.x < 1.0 || e.x > (self.world.width as f64 - 2.0) ||
+                               e.y < 1.0 || e.y > (self.world.height as f64 - 2.0);
+
+                 if leaving {
+                     migrants.push(NetMessage::MigrateEntity {
+                         dna: "DNA_PLACEHOLDER".to_string(), // In real impl, serialize brain
+                         energy: e.energy,
+                         generation: e.generation,
+                         species_name: "Primordial".to_string(),
+                     });
+                 }
+                 !leaving
+             });
+
+             for msg in migrants {
+                 net.send(&msg);
+                 #[cfg(target_arch = "wasm32")]
+                 web_sys::console::log_1(&JsValue::from_str("Entity migrated to another universe!"));
+             }
+        }
+
         Ok(())
     }
 

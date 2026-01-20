@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 13: Multiplayer Primordium] - 2026-01-21
+
+### Evolutionary Leap: Interstellar Migration
+
+Primordium now supports distributed simulations where entities can migrate between different users' "universes" via a relay server.
+
+#### ✨ Features
+
+- **Relay Server**: New `primordium-server` binary using `axum` and WebSockets to route traffic.
+- **Client Networking**: WASM client can connect to relay server and send/receive entities.
+- **Inter-World Migration**: Entities hitting the world edge are serialized and sent to other connected clients.
+- **Real-time Visualization**: Web UI indicates connection status and network events.
+
+#### 🛠️ Technical Achievements
+
+- **WebSocket Protocol**: Custom JSON-based protocol for handshake and entity transfer.
+- **Multi-Crate Workspace**: Project structure updated to support `bin` (server) and `lib/wasm` (client) targets.
+- **Entity Serialization**: DNA and stats are preserved during network transit.
+
+---
+
 ## [Phase 12: WebAssembly Port] - 2026-01-21
 
 ### Evolutionary Leap: Breaking the Terminal Barrier

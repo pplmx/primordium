@@ -52,4 +52,20 @@ web-sys = { version = "0.3", features = [
     "CanvasRenderingContext2d",
     "Performance",
     "console",
+    "WebSocket",             # NEW: For client-side networking
+    "MessageEvent",          # NEW: For websocket messages
+    "ErrorEvent",            # NEW: For socket errors
 ] }
+
+[[bin]]
+name = "server"
+path = "src/server/main.rs"
+
+# Server dependencies (optional, will be ignored by wasm32 build but good to have)
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = "0.3"

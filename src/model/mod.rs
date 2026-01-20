@@ -7,5 +7,7 @@ pub mod food;
 pub mod history;
 pub mod quadtree;
 pub mod pheromone;
+pub mod network;
+pub mod migration;
 pub mod terrain;
 pub mod world;

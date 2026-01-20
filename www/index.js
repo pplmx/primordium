@@ -109,4 +109,23 @@ btnReset.addEventListener('click', () => {
     simulation = Simulation.new();
 });
 
+const btnConnect = document.getElementById('btn-connect');
+const statusEl = document.getElementById('status');
+
+btnConnect.addEventListener('click', () => {
+    if (simulation) {
+        statusEl.innerText = "Connecting...";
+        try {
+            // Assumes server is running on localhost:3000
+            simulation.connect("ws://localhost:3000/ws");
+            statusEl.innerText = "Connected (Relay active)";
+            statusEl.style.color = "#00ff9d";
+            btnConnect.style.display = 'none';
+        } catch (e) {
+            statusEl.innerText = "Connection Failed: " + e;
+            statusEl.style.color = "#ff4444";
+        }
+    }
+});
+
 start();
