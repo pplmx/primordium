@@ -6,6 +6,33 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 10: Ecosystem Dynamics] - 2026-01-21
+
+### Evolutionary Leap: Terrain, Geography & Seasons
+
+This phase introduces environmental heterogeneity through terrain systems and seasonal cycles, enabling emergent migration patterns.
+
+#### ✨ Features
+
+- **Terrain System**: Procedurally generated world terrain with distinct biomes:
+  - **Mountains** (▲): Slows movement by 50%, no food spawns
+  - **Rivers** (≈): Speeds movement by 50%
+  - **Oases** (◊): 3× food spawn rate, attracts migration
+- **Season Cycle**: Dynamic 4-season system affecting ecosystem balance:
+  - **Spring**: Food ×1.5, Metabolism ×0.8 (growth period)
+  - **Summer**: Food ×1.0, Metabolism ×1.2 (active period)
+  - **Fall**: Food ×1.2, Metabolism ×1.0 (harvest period)
+  - **Winter**: Food ×0.5, Metabolism ×1.5 (survival period)
+- **Terrain-Aware AI**: Entities adapt movement speed based on terrain underfoot
+- **Geographic Food Distribution**: Food clusters naturally around oases
+
+#### 🛠️ Technical Achievements
+
+- **Noise-Based Generation**: Multi-octave value noise for natural terrain distribution
+- **Layered Rendering**: Terrain drawn as background layer before entities
+
+---
+
 ## [Phase 9: The Omniscient Eye] - 2026-01-21
 
 ### Evolutionary Leap: Deep Analytics & Visual Narratives

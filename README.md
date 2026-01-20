@@ -56,6 +56,11 @@ Each entity possesses a **4-layer Neural Network** brain. Through natural select
 - **Hall of Fame**: Real-time leaderboard of the top 3 fittest organisms.
 - **Advanced Analytics**: Brain entropy, average lifespan, and dual-sparkline population dynamics.
 
+### 🏔️ Ecosystem Dynamics
+- **Terrain System**: Mountains (▲ slow), Rivers (≈ fast), Oases (◊ food-rich)
+- **Season Cycle**: Spring, Summer, Fall, Winter affecting metabolism and food availability
+- **Geographic Pressure**: Migration patterns emerge from terrain-based resource distribution
+
 ### 📜 The Ledger & Blockchain
 - **History Logging**: Continuous streaming of life events to JSONL.
 - **Immutable Proof**: Datasets are anchored to the **Bitcoin blockchain** via OpenTimestamps for cryptographic proof of evolution.
