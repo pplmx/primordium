@@ -5,6 +5,7 @@ use crate::model::environment::Environment;
 use crate::model::food::Food;
 use crate::model::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
 use crate::model::quadtree::SpatialHash;
+use crate::model::terrain::TerrainGrid;
 use chrono::Utc;
 use rand::Rng;
 use std::collections::HashSet;
@@ -45,6 +46,7 @@ pub struct World {
     pub spatial_hash: SpatialHash,
     pub pop_stats: PopulationStats,
     pub hall_of_fame: HallOfFame,
+    pub terrain: TerrainGrid,
 }
 
 impl World {
@@ -71,6 +73,16 @@ impl World {
             let y = rng.gen_range(1..config.world.height - 1);
             food.push(Food::new(x, y));
         }
+        // Generate terrain with tick-based seed for variety
+        let terrain = TerrainGrid::generate(
+            config.world.width,
+            config.world.height,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(42),
+        );
+
         Ok(Self {
             width: config.world.width,
             height: config.world.height,
@@ -82,6 +94,7 @@ impl World {
             spatial_hash: SpatialHash::new(5.0),
             pop_stats: PopulationStats::new(),
             hall_of_fame: HallOfFame::new(),
+            terrain,
         })
     }
 
@@ -99,11 +112,19 @@ impl World {
             self.spatial_hash.insert(e.x, e.y, i);
         }
 
-        let spawn_chance = 0.0083 * food_spawn_mult;
-        if self.food.len() < self.config.world.max_food && rng.gen::<f64>() < spawn_chance {
-            let x = rng.gen_range(1..self.width - 1);
-            let y = rng.gen_range(1..self.height - 1);
-            self.food.push(Food::new(x, y));
+        // Terrain-aware food spawning
+        let base_spawn_chance = 0.0083 * food_spawn_mult;
+        if self.food.len() < self.config.world.max_food {
+            // Try multiple times with terrain weighting
+            for _ in 0..3 {
+                let x = rng.gen_range(1..self.width - 1);
+                let y = rng.gen_range(1..self.height - 1);
+                let terrain_mod = self.terrain.food_spawn_modifier(f64::from(x), f64::from(y));
+                if terrain_mod > 0.0 && rng.gen::<f64>() < base_spawn_chance * terrain_mod {
+                    self.food.push(Food::new(x, y));
+                    break;
+                }
+            }
         }
 
         let mut new_babies = Vec::new();
@@ -161,8 +182,13 @@ impl World {
                 self.archive_if_legend(&current_entities[i]);
                 continue;
             }
-            current_entities[i].x += current_entities[i].vx * speed;
-            current_entities[i].y += current_entities[i].vy * speed;
+            // Apply terrain movement modifier
+            let terrain_speed_mod = self.terrain.movement_modifier(
+                current_entities[i].x,
+                current_entities[i].y,
+            );
+            current_entities[i].x += current_entities[i].vx * speed * terrain_speed_mod;
+            current_entities[i].y += current_entities[i].vy * speed * terrain_speed_mod;
             if current_entities[i].x <= 0.0 {
                 current_entities[i].x = 0.0;
                 current_entities[i].vx = -current_entities[i].vx;

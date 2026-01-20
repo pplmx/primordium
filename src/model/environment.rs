@@ -46,6 +46,57 @@ impl ResourceState {
     }
 }
 
+/// Seasons that affect metabolism and food spawning
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Season {
+    #[default]
+    Spring,   // Food ×1.5, Metabolism ×0.8
+    Summer,   // Food ×1.0, Metabolism ×1.2
+    Fall,     // Food ×1.2, Metabolism ×1.0
+    Winter,   // Food ×0.5, Metabolism ×1.5
+}
+
+impl Season {
+    pub fn icon(&self) -> &'static str {
+        match self {
+            Season::Spring => "🌸 Spring",
+            Season::Summer => "☀️ Summer",
+            Season::Fall => "🍂 Fall",
+            Season::Winter => "❄️ Winter",
+        }
+    }
+
+    /// Food spawn multiplier for this season
+    pub fn food_multiplier(&self) -> f64 {
+        match self {
+            Season::Spring => 1.5,
+            Season::Summer => 1.0,
+            Season::Fall => 1.2,
+            Season::Winter => 0.5,
+        }
+    }
+
+    /// Metabolism multiplier for this season
+    pub fn metabolism_multiplier(&self) -> f64 {
+        match self {
+            Season::Spring => 0.8,
+            Season::Summer => 1.2,
+            Season::Fall => 1.0,
+            Season::Winter => 1.5,
+        }
+    }
+
+    /// Get next season in the cycle
+    pub fn next(&self) -> Season {
+        match self {
+            Season::Spring => Season::Summer,
+            Season::Summer => Season::Fall,
+            Season::Fall => Season::Winter,
+            Season::Winter => Season::Spring,
+        }
+    }
+}
+
 pub struct Environment {
     pub cpu_usage: f32,
     pub ram_usage_percent: f32,
@@ -56,6 +107,10 @@ pub struct Environment {
     pub abundance_timer: u32,
     // Era System
     pub current_era: Era,
+    // Season System
+    pub current_season: Season,
+    pub season_tick: u64,
+    pub season_duration: u64, // Ticks per season (default: 10000)
 }
 
 impl Default for Environment {
@@ -68,6 +123,9 @@ impl Default for Environment {
             ice_age_timer: 0,
             abundance_timer: 0,
             current_era: Era::Primordial,
+            current_season: Season::Spring,
+            season_tick: 0,
+            season_duration: 10000,
         }
     }
 }
@@ -94,7 +152,14 @@ impl Environment {
     }
 
     pub fn update_era(&mut self, tick: u64, pop_stats: &crate::model::history::PopulationStats) {
-        // Transition Logic
+        // Season cycling
+        self.season_tick += 1;
+        if self.season_tick >= self.season_duration {
+            self.season_tick = 0;
+            self.current_season = self.current_season.next();
+        }
+
+        // Era Transition Logic
         if self.current_era == Era::Primordial {
             if tick > 5000 && pop_stats.avg_lifespan > 200.0 {
                 self.current_era = Era::DawnOfLife;
@@ -153,15 +218,18 @@ impl Environment {
     }
 
     pub fn metabolism_multiplier(&self) -> f64 {
-        if self.is_ice_age() {
-            return 0.5;
-        }
-        match self.climate() {
-            ClimateState::Temperate => 1.0,
-            ClimateState::Warm => 1.5,
-            ClimateState::Hot => 2.0,
-            ClimateState::Scorching => 3.0,
-        }
+        let base = if self.is_ice_age() {
+            0.5
+        } else {
+            match self.climate() {
+                ClimateState::Temperate => 1.0,
+                ClimateState::Warm => 1.5,
+                ClimateState::Hot => 2.0,
+                ClimateState::Scorching => 3.0,
+            }
+        };
+        // Apply season modifier
+        base * self.current_season.metabolism_multiplier()
     }
 
     pub fn food_spawn_multiplier(&self) -> f64 {
@@ -177,6 +245,7 @@ impl Environment {
         if self.is_abundance() {
             base *= 2.0;
         }
-        base
+        // Apply season modifier
+        base * self.current_season.food_multiplier()
     }
 }

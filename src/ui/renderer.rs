@@ -2,6 +2,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Block, Borders, Widget};
 
+use crate::model::terrain::TerrainType;
 use crate::model::world::World;
 
 pub struct WorldWidget<'a> {
@@ -64,6 +65,25 @@ impl<'a> Widget for WorldWidget<'a> {
                 .title(format!("World (Tick: {})", self.world.tick))
                 .borders(Borders::ALL);
             block.render(area, buf);
+        }
+
+        let inner = Self::get_inner_area(area, self.screensaver);
+
+        // 0. Render Terrain Layer (background)
+        for y in 0..inner.height.min(self.world.terrain.height) {
+            for x in 0..inner.width.min(self.world.terrain.width) {
+                let terrain = self.world.terrain.get_cell(x, y);
+                // Only render non-plains terrain to avoid clutter
+                if terrain.terrain_type != TerrainType::Plains {
+                    let screen_x = inner.x + x;
+                    let screen_y = inner.y + y;
+                    if screen_x < inner.right() && screen_y < inner.bottom() {
+                        let cell = buf.get_mut(screen_x, screen_y);
+                        cell.set_symbol(&terrain.terrain_type.symbol().to_string());
+                        cell.set_fg(terrain.terrain_type.color());
+                    }
+                }
+            }
         }
 
         // 1. Render Food (Green '*')

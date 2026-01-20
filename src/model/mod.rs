@@ -6,4 +6,5 @@ pub mod environment;
 pub mod food;
 pub mod history;
 pub mod quadtree;
+pub mod terrain;
 pub mod world;
