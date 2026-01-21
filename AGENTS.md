@@ -23,6 +23,10 @@ This file contains critical project-specific knowledge for AI agents working on 
   - `input.rs`: Event handling (Key/Mouse).
   - `onboarding.rs`: First-run tutorial screens.
   - `help.rs`: Tabbed help system.
+- `src/model/`: Simulation core.
+  - `world.rs`: Systemic decomposition (Perception, Action, Biological, Social).
+  - `entity.rs`: Component-based entity structure (Physics, Metabolism, Health, Intel).
+  - `brain.rs`: Neural network with Rayon-parallelized inference.
 
 ## 🔗 Hardware Resonance Logic
 
@@ -79,6 +83,7 @@ This file contains critical project-specific knowledge for AI agents working on 
 1. **Clippy Sensitivity**: In tests, avoid `let mut x = X::default(); x.field = val;`. Prefer `let mut x = X { field: val, ..X::default() };` to avoid `field_reassign_with_default`.
 2. **DNA Serialization**: `import_migrant` requires actual HexDNA string parsing via `Brain::from_hex`.
 3. **TUI Layout**: Always check `f.size()` and provide minimum dimensions for modals to avoid panic on small terminals.
+4. **Parallel Updates**: When using `Rayon` for entity updates, use the `EntitySnapshot` pattern in `World::update` to allow parallel perception/decision while avoiding mutable borrow conflicts during the interaction phase.
 
 ## 🛠️ Tooling & Productivity
 

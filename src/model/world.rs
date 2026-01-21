@@ -9,7 +9,17 @@ use crate::model::quadtree::SpatialHash;
 use crate::model::terrain::TerrainGrid;
 use chrono::Utc;
 use rand::Rng;
+use rayon::prelude::*;
 use std::collections::HashSet;
+
+pub struct EntitySnapshot {
+    pub id: uuid::Uuid,
+    pub x: f64,
+    pub y: f64,
+    pub energy: f64,
+    pub birth_tick: u64,
+    pub offspring_count: u32,
+}
 
 pub struct HallOfFame {
     pub top_living: Vec<(f64, Entity)>,
@@ -31,9 +41,10 @@ impl HallOfFame {
         let mut scores: Vec<(f64, Entity)> = entities
             .iter()
             .map(|e| {
-                let age = tick - e.birth_tick;
-                let score =
-                    (age as f64 * 0.5) + (e.offspring_count as f64 * 10.0) + (e.peak_energy * 0.2);
+                let age = tick - e.metabolism.birth_tick;
+                let score = (age as f64 * 0.5)
+                    + (e.metabolism.offspring_count as f64 * 10.0)
+                    + (e.metabolism.peak_energy * 0.2);
                 (score, e.clone())
             })
             .collect();
@@ -55,7 +66,7 @@ pub struct World {
     pub hall_of_fame: HallOfFame,
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
-    pub active_pathogens: Vec<crate::model::pathogen::Pathogen>, // NEW
+    pub active_pathogens: Vec<crate::model::pathogen::Pathogen>,
 }
 
 impl World {
@@ -70,7 +81,7 @@ impl World {
             logger.log_event(LiveEvent::Birth {
                 id: entity.id,
                 parent_id: None,
-                gen: entity.generation,
+                gen: entity.metabolism.generation,
                 tick: 0,
                 timestamp: Utc::now().to_rfc3339(),
             })?;
@@ -115,41 +126,193 @@ impl World {
         let mut events = Vec::new();
         self.tick += 1;
         let mut rng = rand::thread_rng();
-        let width_f = f64::from(self.width);
-        let height_f = f64::from(self.height);
-        let metabolism_mult = env.metabolism_multiplier();
-        let food_spawn_mult = env.food_spawn_multiplier();
 
-        // Game Mode Logic
-        if self.config.game_mode == crate::model::config::GameMode::BattleRoyale {
-            // Shrinking border: Reduce safe area by 0.1 every 10 ticks (example)
-            let shrink_amount = (self.tick as f64 / 100.0).min(width_f / 2.0 - 5.0);
-            // Entities outside this range take massive damage
-            for e in &mut self.entities {
-                if e.x < shrink_amount
-                    || e.x > width_f - shrink_amount
-                    || e.y < shrink_amount
-                    || e.y > height_f - shrink_amount
-                {
-                    e.energy -= 10.0; // The fog hurts
-                }
+        // 1. World Systems
+        self.handle_game_modes();
+        self.pheromones.decay();
+        self.terrain.update();
+        self.handle_pathogen_emergence(&mut rng);
+        self.spawn_food(env, &mut rng);
+
+        // 2. Entity Snapshots & Spatial Partitioning
+        let mut current_entities = std::mem::take(&mut self.entities);
+        self.spatial_hash.clear();
+        for (i, e) in current_entities.iter().enumerate() {
+            self.spatial_hash.insert(e.physics.x, e.physics.y, i);
+        }
+
+        let entity_snapshots: Vec<EntitySnapshot> = current_entities
+            .iter()
+            .map(|e| EntitySnapshot {
+                id: e.id,
+                x: e.physics.x,
+                y: e.physics.y,
+                energy: e.metabolism.energy,
+                birth_tick: e.metabolism.birth_tick,
+                offspring_count: e.metabolism.offspring_count,
+            })
+            .collect();
+
+        // 3. Systemic Entity Update
+        let mut killed_ids = HashSet::new();
+        let mut new_babies = Vec::new();
+        let mut alive_entities = Vec::new();
+
+        // A. Perception System (Parallel)
+        let perception_inputs: Vec<[f32; 6]> = current_entities
+            .par_iter()
+            .enumerate()
+            .map(|(i, e)| self.perception_system(i, e, &current_entities))
+            .collect();
+
+        // B. Neural System (Parallel)
+        let decisions: Vec<[f32; 5]> = current_entities
+            .par_iter()
+            .zip(perception_inputs.par_iter())
+            .map(|(e, inputs)| e.intel.brain.forward(*inputs))
+            .collect();
+
+        for i in 0..current_entities.len() {
+            if killed_ids.contains(&current_entities[i].id) {
+                continue;
+            }
+
+            // C. Action & Metabolism System
+            self.action_system(&mut current_entities[i], decisions[i], env);
+
+            // D. Health & Biological System
+            if current_entities[i].metabolism.energy <= 0.0 {
+                self.handle_death(i, &mut current_entities, &mut events, "starvation");
+                continue;
+            }
+
+            self.biological_system(&mut current_entities[i], &mut rng);
+            self.handle_infection(i, &mut current_entities, &killed_ids, &mut rng);
+
+            // E. Social & Trophic Interaction System
+            let predation_mode = (decisions[i][3] as f64 + 1.0) / 2.0 > 0.5;
+            if predation_mode {
+                self.handle_predation(
+                    i,
+                    &mut current_entities,
+                    &entity_snapshots,
+                    &mut killed_ids,
+                    &mut events,
+                );
+            }
+
+            self.handle_feeding(i, &mut current_entities);
+
+            // F. Reproduction System
+            if let Some(baby) = self.handle_reproduction(i, &mut current_entities, &killed_ids) {
+                let ev = LiveEvent::Birth {
+                    id: baby.id,
+                    parent_id: Some(current_entities[i].id),
+                    gen: baby.metabolism.generation,
+                    tick: self.tick,
+                    timestamp: Utc::now().to_rfc3339(),
+                };
+                let _ = self.logger.log_event(ev.clone());
+                events.push(ev);
+                new_babies.push(baby);
             }
         }
 
-        // Decay pheromones each tick
-        self.pheromones.decay();
-        self.terrain.update(); // Recover fertility and update Barren state
+        // 4. Cleanup & Post-processing
+        for e in current_entities {
+            if killed_ids.contains(&e.id) {
+                self.archive_if_legend(&e);
+                continue;
+            }
+            if e.metabolism.energy > 0.0 {
+                alive_entities.push(e);
+            }
+        }
+        self.entities = alive_entities;
+        self.entities.append(&mut new_babies);
 
-        // Pathogen Emergence & Spread
+        self.handle_extinction(&mut events);
+        self.update_stats();
+
+        Ok(events)
+    }
+
+    fn perception_system(&self, idx: usize, entity: &Entity, all_entities: &[Entity]) -> [f32; 6] {
+        let (dx_f, dy_f) = self.sense_nearest_food(entity);
+        let nearby_indices = self
+            .spatial_hash
+            .query(entity.physics.x, entity.physics.y, 5.0);
+        let (pheromone_food, _) = self
+            .pheromones
+            .sense(entity.physics.x, entity.physics.y, 3.0);
+        let tribe_count = nearby_indices
+            .iter()
+            .filter(|&&n_idx| n_idx != idx && entity.same_tribe(&all_entities[n_idx]))
+            .count();
+
+        [
+            (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
+            (dy_f / 20.0).clamp(-1.0, 1.0) as f32,
+            (entity.metabolism.energy / entity.metabolism.max_energy) as f32,
+            (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
+            pheromone_food,
+            (tribe_count as f32 / 5.0).min(1.0),
+        ]
+    }
+
+    fn action_system(&mut self, entity: &mut Entity, outputs: [f32; 5], env: &Environment) {
+        let speed_mult = 1.0 + (outputs[2] as f64 + 1.0) / 2.0;
+        let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
+
+        entity.intel.last_aggression = (outputs[3] + 1.0) / 2.0;
+        entity.intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
+
+        entity.physics.vx = entity.physics.vx * 0.8 + (outputs[0] as f64) * 0.2;
+        entity.physics.vy = entity.physics.vy * 0.8 + (outputs[1] as f64) * 0.2;
+
+        let metabolism_mult = env.metabolism_multiplier();
+        let mut move_cost = self.config.metabolism.base_move_cost * metabolism_mult * speed_mult;
+        if predation_mode {
+            move_cost *= 2.0;
+        }
+        entity.metabolism.energy -=
+            move_cost + self.config.metabolism.base_idle_cost * metabolism_mult;
+
+        self.handle_movement(entity, speed_mult);
+    }
+
+    fn biological_system(&mut self, entity: &mut Entity, _rng: &mut impl Rng) {
+        entity.process_infection();
+    }
+
+    fn handle_game_modes(&mut self) {
+        if self.config.game_mode == crate::model::config::GameMode::BattleRoyale {
+            let width_f = f64::from(self.width);
+            let height_f = f64::from(self.height);
+            let shrink_amount = (self.tick as f64 / 100.0).min(width_f / 2.0 - 5.0);
+            for e in &mut self.entities {
+                if e.physics.x < shrink_amount
+                    || e.physics.x > width_f - shrink_amount
+                    || e.physics.y < shrink_amount
+                    || e.physics.y > height_f - shrink_amount
+                {
+                    e.metabolism.energy -= 10.0;
+                }
+            }
+        }
+    }
+
+    fn handle_pathogen_emergence(&mut self, rng: &mut impl Rng) {
         if rng.gen_bool(0.0001) {
-            // New random pathogen emerges
             self.active_pathogens
                 .push(crate::model::pathogen::Pathogen::new_random());
         }
+    }
 
+    fn spawn_food(&mut self, env: &Environment, rng: &mut impl Rng) {
+        let food_spawn_mult = env.food_spawn_multiplier();
         let base_spawn_chance = 0.0083 * food_spawn_mult * env.light_level() as f64;
         if self.food.len() < self.config.world.max_food {
-            // Try multiple times with terrain weighting
             for _ in 0..3 {
                 let x = rng.gen_range(1..self.width - 1);
                 let y = rng.gen_range(1..self.height - 1);
@@ -160,270 +323,227 @@ impl World {
                 }
             }
         }
+    }
 
-        let mut new_babies = Vec::new();
-        let mut alive_entities = Vec::new();
-        let mut killed_ids = HashSet::new();
-        let mut current_entities = std::mem::take(&mut self.entities);
+    fn handle_death(
+        &mut self,
+        idx: usize,
+        entities: &mut [Entity],
+        events: &mut Vec<LiveEvent>,
+        cause: &str,
+    ) {
+        let age = self.tick - entities[idx].metabolism.birth_tick;
+        self.pop_stats.record_death(age);
+        let ev = LiveEvent::Death {
+            id: entities[idx].id,
+            age,
+            offspring: entities[idx].metabolism.offspring_count,
+            tick: self.tick,
+            timestamp: Utc::now().to_rfc3339(),
+            cause: cause.to_string(),
+        };
+        let _ = self.logger.log_event(ev.clone());
+        events.push(ev);
+        self.archive_if_legend(&entities[idx]);
+    }
 
-        // Re-populate spatial hash with current entities for sensory and collision logic
-        self.spatial_hash.clear();
-        for (i, e) in current_entities.iter().enumerate() {
-            self.spatial_hash.insert(e.x, e.y, i);
+    fn handle_movement(&self, entity: &mut Entity, speed: f64) {
+        let terrain_speed_mod = self
+            .terrain
+            .movement_modifier(entity.physics.x, entity.physics.y);
+        entity.physics.x += entity.physics.vx * speed * terrain_speed_mod;
+        entity.physics.y += entity.physics.vy * speed * terrain_speed_mod;
+
+        let width_f = f64::from(self.width);
+        let height_f = f64::from(self.height);
+
+        if entity.physics.x <= 0.0 {
+            entity.physics.x = 0.0;
+            entity.physics.vx = -entity.physics.vx;
+        } else if entity.physics.x >= width_f {
+            entity.physics.x = width_f - 0.1;
+            entity.physics.vx = -entity.physics.vx;
+        }
+        if entity.physics.y <= 0.0 {
+            entity.physics.y = 0.0;
+            entity.physics.vy = -entity.physics.vy;
+        } else if entity.physics.y >= height_f {
+            entity.physics.y = height_f - 0.1;
+            entity.physics.vy = -entity.physics.vy;
+        }
+    }
+
+    fn handle_infection(
+        &self,
+        idx: usize,
+        entities: &mut [Entity],
+        killed_ids: &HashSet<uuid::Uuid>,
+        rng: &mut impl Rng,
+    ) {
+        entities[idx].process_infection();
+
+        // Environment infection
+        for p in &self.active_pathogens {
+            if rng.gen_bool(0.005) {
+                entities[idx].try_infect(p);
+            }
         }
 
-        let entity_snapshots: Vec<(uuid::Uuid, f64, f64, f64, u64, u32)> = current_entities
-            .iter()
-            .map(|e| (e.id, e.x, e.y, e.energy, e.birth_tick, e.offspring_count))
-            .collect();
-
-        for i in 0..current_entities.len() {
-            if killed_ids.contains(&current_entities[i].id) {
-                continue;
-            }
-            let (dx_f, dy_f) = self.sense_nearest_food(&current_entities[i]);
-
-            // Count same-tribe entities nearby
-            let nearby_indices =
+        // Transmission
+        if let Some(p) = entities[idx].health.pathogen.clone() {
+            for n_idx in
                 self.spatial_hash
-                    .query(current_entities[i].x, current_entities[i].y, 5.0);
-
-            // Chance to be infected by active environmental pathogens
-            for p in &self.active_pathogens {
-                if rng.gen_bool(0.005) {
-                    current_entities[i].try_infect(p);
-                }
-            }
-
-            let tribe_count = nearby_indices
-                .iter()
-                .filter(|&&idx| idx != i && current_entities[i].same_tribe(&current_entities[idx]))
-                .count();
-
-            // Sense pheromones
-            let (pheromone_food, _pheromone_danger) =
-                self.pheromones
-                    .sense(current_entities[i].x, current_entities[i].y, 3.0);
-
-            let inputs = [
-                (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
-                (dy_f / 20.0).clamp(-1.0, 1.0) as f32,
-                (current_entities[i].energy / current_entities[i].max_energy) as f32,
-                (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
-                pheromone_food,                      // NEW: Pheromone food input
-                (tribe_count as f32 / 5.0).min(1.0), // NEW: Tribe density input
-            ];
-            let outputs = current_entities[i].brain.forward(inputs);
-            let speed = 1.0 + (outputs[2] as f64 + 1.0) / 2.0;
-            let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
-            current_entities[i].last_aggression = (outputs[3] + 1.0) / 2.0;
-            current_entities[i].last_share_intent = (outputs[4] + 1.0) / 2.0; // NEW: Share intent
-            current_entities[i].vx = current_entities[i].vx * 0.8 + (outputs[0] as f64) * 0.2;
-            current_entities[i].vy = current_entities[i].vy * 0.8 + (outputs[1] as f64) * 0.2;
-            let mut move_cost = self.config.metabolism.base_move_cost * metabolism_mult * speed;
-            if predation_mode {
-                move_cost *= 2.0;
-            }
-            current_entities[i].energy -=
-                move_cost + self.config.metabolism.base_idle_cost * metabolism_mult;
-
-            if current_entities[i].energy <= 0.0 {
-                let age = self.tick - current_entities[i].birth_tick;
-                self.pop_stats.record_death(age);
-                let ev = LiveEvent::Death {
-                    id: current_entities[i].id,
-                    age,
-                    offspring: current_entities[i].offspring_count,
-                    tick: self.tick,
-                    timestamp: Utc::now().to_rfc3339(),
-                    cause: "starvation".to_string(),
-                };
-                let _ = self.logger.log_event(ev.clone());
-                events.push(ev);
-                self.archive_if_legend(&current_entities[i]);
-                continue;
-            }
-            // Apply terrain movement modifier
-            let terrain_speed_mod = self
-                .terrain
-                .movement_modifier(current_entities[i].x, current_entities[i].y);
-            current_entities[i].x += current_entities[i].vx * speed * terrain_speed_mod;
-            current_entities[i].y += current_entities[i].vy * speed * terrain_speed_mod;
-
-            // Disease Processing & Transmission
-            current_entities[i].process_infection();
-            if let Some(p) = current_entities[i].pathogen.clone() {
-                // Try to infect neighbors
-                for n_idx in
-                    self.spatial_hash
-                        .query(current_entities[i].x, current_entities[i].y, 2.0)
-                {
-                    if n_idx != i
-                        && !killed_ids.contains(&current_entities[n_idx].id)
-                        && current_entities[n_idx].try_infect(&p)
-                    {
-                        // Successfully infected neighbor!
-                    }
-                }
-            }
-
-            if current_entities[i].x <= 0.0 {
-                current_entities[i].x = 0.0;
-                current_entities[i].vx = -current_entities[i].vx;
-            } else if current_entities[i].x >= width_f {
-                current_entities[i].x = width_f - 0.1;
-                current_entities[i].vx = -current_entities[i].vx;
-            }
-            if current_entities[i].y <= 0.0 {
-                current_entities[i].y = 0.0;
-                current_entities[i].vy = -current_entities[i].vy;
-            } else if current_entities[i].y >= height_f {
-                current_entities[i].y = height_f - 0.1;
-                current_entities[i].vy = -current_entities[i].vy;
-            }
-
-            // Predation with tribe protection
-            if predation_mode {
-                let territorial_bonus = current_entities[i].territorial_aggression();
-                for t_idx in
-                    self.spatial_hash
-                        .query(current_entities[i].x, current_entities[i].y, 1.5)
-                {
-                    let (v_id, _, _, v_e, v_b, v_o) = entity_snapshots[t_idx];
-                    // Don't attack same-tribe members
-                    // Cooperate Mode: No attacks at all
-                    let can_attack = !matches!(
-                        self.config.game_mode,
-                        crate::model::config::GameMode::Cooperative
-                    );
-
-                    if can_attack
-                        && v_id != current_entities[i].id
-                        && !killed_ids.contains(&v_id)
-                        && v_e < current_entities[i].energy * territorial_bonus
-                        && !current_entities[i].same_tribe(&current_entities[t_idx])
-                    {
-                        let gain_mult = match current_entities[i].role {
-                            crate::model::entity::EntityRole::Carnivore => 1.2,
-                            crate::model::entity::EntityRole::Herbivore => 0.2, // Herbivores are bad hunters
-                        };
-                        current_entities[i].energy += v_e * gain_mult;
-                        if current_entities[i].energy > current_entities[i].max_energy {
-                            current_entities[i].energy = current_entities[i].max_energy;
-                        }
-                        killed_ids.insert(v_id);
-                        // Deposit danger pheromone at kill site
-                        self.pheromones.deposit(
-                            current_entities[i].x,
-                            current_entities[i].y,
-                            PheromoneType::Danger,
-                            0.5,
-                        );
-                        let v_age = self.tick - v_b;
-                        self.pop_stats.record_death(v_age);
-                        let ev = LiveEvent::Death {
-                            id: v_id,
-                            age: v_age,
-                            offspring: v_o,
-                            tick: self.tick,
-                            timestamp: Utc::now().to_rfc3339(),
-                            cause: "predation".to_string(),
-                        };
-                        let _ = self.logger.log_event(ev.clone());
-                        events.push(ev);
-                    }
-                }
-            }
-            let can_eat_food = matches!(
-                current_entities[i].role,
-                crate::model::entity::EntityRole::Herbivore
-            );
-            if can_eat_food {
-                let mut eaten_idx = None;
-                for (f_idx, f) in self.food.iter().enumerate() {
-                    if (current_entities[i].x - f64::from(f.x)).powi(2)
-                        + (current_entities[i].y - f64::from(f.y)).powi(2)
-                        < 2.25
-                    {
-                        eaten_idx = Some(f_idx);
-                        break;
-                    }
-                }
-                if let Some(f_idx) = eaten_idx {
-                    current_entities[i].energy += self.config.metabolism.food_value;
-                    if current_entities[i].energy > current_entities[i].max_energy {
-                        current_entities[i].energy = current_entities[i].max_energy;
-                    }
-                    // Deplete terrain health when food is eaten
-                    self.terrain
-                        .deplete(current_entities[i].x, current_entities[i].y, 0.4);
-
-                    // Deposit food pheromone when eating
-                    self.pheromones.deposit(
-                        current_entities[i].x,
-                        current_entities[i].y,
-                        PheromoneType::Food,
-                        0.3,
-                    );
-                    self.food.swap_remove(f_idx);
-                }
-            }
-
-            if current_entities[i].is_mature(self.tick, self.config.metabolism.maturity_age)
-                && current_entities[i].energy > self.config.metabolism.reproduction_threshold
+                    .query(entities[idx].physics.x, entities[idx].physics.y, 2.0)
             {
-                let mate_indices =
-                    self.spatial_hash
-                        .query(current_entities[i].x, current_entities[i].y, 2.0);
-                let mut mate_idx = None;
-                for m_idx in mate_indices {
-                    if m_idx != i
-                        && !killed_ids.contains(&current_entities[m_idx].id)
-                        && current_entities[m_idx].energy > 100.0
-                    {
-                        mate_idx = Some(m_idx);
-                        break;
-                    }
+                if n_idx != idx
+                    && !killed_ids.contains(&entities[n_idx].id)
+                    && entities[n_idx].try_infect(&p)
+                {
+                    // Successfully infected
                 }
-                let baby = if let Some(m_idx) = mate_idx {
-                    let mut cb = Brain::crossover(
-                        &current_entities[i].brain,
-                        &current_entities[m_idx].brain,
-                    );
-                    cb.mutate_with_config(&self.config.evolution);
-                    let c = current_entities[i].reproduce_with_mate(
-                        self.tick,
-                        cb,
-                        self.config.evolution.speciation_rate,
-                    );
-                    current_entities[i].energy -= 50.0;
-                    c
-                } else {
-                    current_entities[i].reproduce(self.tick, &self.config.evolution)
+            }
+        }
+    }
+
+    fn handle_predation(
+        &mut self,
+        idx: usize,
+        entities: &mut [Entity],
+        snapshots: &[EntitySnapshot],
+        killed_ids: &mut HashSet<uuid::Uuid>,
+        events: &mut Vec<LiveEvent>,
+    ) {
+        let territorial_bonus = entities[idx].territorial_aggression();
+        let targets =
+            self.spatial_hash
+                .query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
+
+        for t_idx in targets {
+            let v_id = snapshots[t_idx].id;
+            let v_e = snapshots[t_idx].energy;
+            let v_b = snapshots[t_idx].birth_tick;
+            let v_o = snapshots[t_idx].offspring_count;
+
+            let can_attack = !matches!(
+                self.config.game_mode,
+                crate::model::config::GameMode::Cooperative
+            );
+
+            if can_attack
+                && v_id != entities[idx].id
+                && !killed_ids.contains(&v_id)
+                && v_e < entities[idx].metabolism.energy * territorial_bonus
+                && !entities[idx].same_tribe(&entities[t_idx])
+            {
+                let gain_mult = match entities[idx].metabolism.role {
+                    crate::model::entity::EntityRole::Carnivore => 1.2,
+                    crate::model::entity::EntityRole::Herbivore => 0.2,
                 };
-                let ev = LiveEvent::Birth {
-                    id: baby.id,
-                    parent_id: Some(current_entities[i].id),
-                    gen: baby.generation,
+                entities[idx].metabolism.energy = (entities[idx].metabolism.energy
+                    + v_e * gain_mult)
+                    .min(entities[idx].metabolism.max_energy);
+                killed_ids.insert(v_id);
+
+                self.pheromones.deposit(
+                    entities[idx].physics.x,
+                    entities[idx].physics.y,
+                    PheromoneType::Danger,
+                    0.5,
+                );
+
+                let v_age = self.tick - v_b;
+                self.pop_stats.record_death(v_age);
+                let ev = LiveEvent::Death {
+                    id: v_id,
+                    age: v_age,
+                    offspring: v_o,
                     tick: self.tick,
                     timestamp: Utc::now().to_rfc3339(),
+                    cause: "predation".to_string(),
                 };
                 let _ = self.logger.log_event(ev.clone());
                 events.push(ev);
-                new_babies.push(baby);
             }
         }
-        for e in current_entities {
-            if killed_ids.contains(&e.id) {
-                self.archive_if_legend(&e);
-                continue;
-            }
-            if e.energy > 0.0 {
-                alive_entities.push(e);
+    }
+
+    fn handle_feeding(&mut self, idx: usize, entities: &mut [Entity]) {
+        if !matches!(
+            entities[idx].metabolism.role,
+            crate::model::entity::EntityRole::Herbivore
+        ) {
+            return;
+        }
+
+        let mut eaten_idx = None;
+        for (f_idx, f) in self.food.iter().enumerate() {
+            if (entities[idx].physics.x - f64::from(f.x)).powi(2)
+                + (entities[idx].physics.y - f64::from(f.y)).powi(2)
+                < 2.25
+            {
+                eaten_idx = Some(f_idx);
+                break;
             }
         }
-        self.entities = alive_entities;
-        self.entities.append(&mut new_babies);
+
+        if let Some(f_idx) = eaten_idx {
+            entities[idx].metabolism.energy = (entities[idx].metabolism.energy
+                + self.config.metabolism.food_value)
+                .min(entities[idx].metabolism.max_energy);
+            self.terrain
+                .deplete(entities[idx].physics.x, entities[idx].physics.y, 0.4);
+            self.pheromones.deposit(
+                entities[idx].physics.x,
+                entities[idx].physics.y,
+                PheromoneType::Food,
+                0.3,
+            );
+            self.food.swap_remove(f_idx);
+        }
+    }
+
+    fn handle_reproduction(
+        &mut self,
+        idx: usize,
+        entities: &mut [Entity],
+        killed_ids: &HashSet<uuid::Uuid>,
+    ) -> Option<Entity> {
+        if !entities[idx].is_mature(self.tick, self.config.metabolism.maturity_age)
+            || entities[idx].metabolism.energy <= self.config.metabolism.reproduction_threshold
+        {
+            return None;
+        }
+
+        let mate_indices =
+            self.spatial_hash
+                .query(entities[idx].physics.x, entities[idx].physics.y, 2.0);
+        let mut mate_idx = None;
+        for m_idx in mate_indices {
+            if m_idx != idx
+                && !killed_ids.contains(&entities[m_idx].id)
+                && entities[m_idx].metabolism.energy > 100.0
+            {
+                mate_idx = Some(m_idx);
+                break;
+            }
+        }
+
+        if let Some(m_idx) = mate_idx {
+            let mut cb = Brain::crossover(&entities[idx].intel.brain, &entities[m_idx].intel.brain);
+            cb.mutate_with_config(&self.config.evolution);
+            let child = entities[idx].reproduce_with_mate(
+                self.tick,
+                cb,
+                self.config.evolution.speciation_rate,
+            );
+            entities[idx].metabolism.energy -= 50.0;
+            Some(child)
+        } else {
+            Some(entities[idx].reproduce(self.tick, &self.config.evolution))
+        }
+    }
+
+    fn handle_extinction(&mut self, events: &mut Vec<LiveEvent>) {
         if self.entities.is_empty() && self.tick > 0 {
             let ev = LiveEvent::Extinction {
                 population: 0,
@@ -433,6 +553,9 @@ impl World {
             let _ = self.logger.log_event(ev.clone());
             events.push(ev);
         }
+    }
+
+    fn update_stats(&mut self) {
         if self.tick % 60 == 0 {
             self.hall_of_fame.update(&self.entities, self.tick);
             let top_fitness = self
@@ -443,7 +566,6 @@ impl World {
                 .unwrap_or(0.0);
             self.pop_stats.update_snapshot(&self.entities, top_fitness);
         }
-        Ok(events)
     }
 
     fn sense_nearest_food(&self, entity: &Entity) -> (f64, f64) {
@@ -451,8 +573,8 @@ impl World {
         let mut dy_food = 0.0;
         let mut min_dist_sq = f64::MAX;
         for f in &self.food {
-            let dx = f64::from(f.x) - entity.x;
-            let dy = f64::from(f.y) - entity.y;
+            let dx = f64::from(f.x) - entity.physics.x;
+            let dy = f64::from(f.y) - entity.physics.y;
             let dist_sq = dx * dx + dy * dy;
             if dist_sq < min_dist_sq {
                 min_dist_sq = dist_sq;
@@ -464,21 +586,24 @@ impl World {
     }
 
     fn archive_if_legend(&self, entity: &Entity) {
-        let lifespan = self.tick - entity.birth_tick;
-        if lifespan > 1000 || entity.offspring_count > 10 || entity.peak_energy > 300.0 {
+        let lifespan = self.tick - entity.metabolism.birth_tick;
+        if lifespan > 1000
+            || entity.metabolism.offspring_count > 10
+            || entity.metabolism.peak_energy > 300.0
+        {
             let _ = self.logger.archive_legend(Legend {
                 id: entity.id,
                 parent_id: entity.parent_id,
-                birth_tick: entity.birth_tick,
+                birth_tick: entity.metabolism.birth_tick,
                 death_tick: self.tick,
                 lifespan,
-                generation: entity.generation,
-                offspring_count: entity.offspring_count,
-                peak_energy: entity.peak_energy,
+                generation: entity.metabolism.generation,
+                offspring_count: entity.metabolism.offspring_count,
+                peak_energy: entity.metabolism.peak_energy,
                 birth_timestamp: "".to_string(),
                 death_timestamp: Utc::now().to_rfc3339(),
-                brain_dna: entity.brain.clone(),
-                color_rgb: (entity.r, entity.g, entity.b),
+                brain_dna: entity.intel.brain.clone(),
+                color_rgb: (entity.physics.r, entity.physics.g, entity.physics.b),
             });
         }
     }

@@ -84,8 +84,8 @@ impl WebRenderer {
 
             ctx.set_fill_style(&JsValue::from_str(color));
 
-            let ex = entity.x * scale_x;
-            let ey = entity.y * scale_y;
+            let ex = entity.physics.x * scale_x;
+            let ey = entity.physics.y * scale_y;
             let size = scale_x * 0.8; // Slightly smaller than cell
 
             ctx.begin_path();

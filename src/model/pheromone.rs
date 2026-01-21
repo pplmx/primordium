@@ -44,7 +44,7 @@ pub struct PheromoneGrid {
     cells: Vec<Vec<PheromoneCell>>,
     pub width: u16,
     pub height: u16,
-    decay_rate: f32, // Per-tick decay multiplier (e.g., 0.995)
+    decay_rate: f32, // Per-tick decay multiplier (e.physics.g., 0.995)
 }
 
 impl PheromoneGrid {

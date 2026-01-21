@@ -53,7 +53,10 @@ pub struct Rect {
 
 impl Rect {
     pub fn contains_entity(&self, e: &Entity) -> bool {
-        e.x >= self.x && e.x < self.x + self.w && e.y >= self.y && e.y < self.y + self.h
+        e.physics.x >= self.x
+            && e.physics.x < self.x + self.w
+            && e.physics.y >= self.y
+            && e.physics.y < self.y + self.h
     }
 }
 

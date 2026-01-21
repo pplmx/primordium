@@ -46,7 +46,10 @@ impl App {
             }
             KeyCode::Char('x') | KeyCode::Char('X') => {
                 for entity in &mut self.world.entities {
-                    entity.brain.mutate_with_config(&self.config.evolution);
+                    entity
+                        .intel
+                        .brain
+                        .mutate_with_config(&self.config.evolution);
                 }
                 self.event_log
                     .push_back(("GENETIC SURGE!".to_string(), Color::Red));
@@ -54,7 +57,7 @@ impl App {
             KeyCode::Char('c') | KeyCode::Char('C') => {
                 if let Some(id) = self.selected_entity {
                     if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
-                        let dna = entity.brain.to_hex();
+                        let dna = entity.intel.brain.to_hex();
                         let _ = fs::write("exported_dna.txt", &dna);
                         self.event_log.push_back((
                             "DNA exported to exported_dna.txt".to_string(),
@@ -67,7 +70,7 @@ impl App {
                 if let Ok(dna) = fs::read_to_string("dna_infuse.txt") {
                     if let Ok(brain) = Brain::from_hex(dna.trim()) {
                         let mut e = crate::model::entity::Entity::new(50.0, 25.0, self.world.tick);
-                        e.brain = brain;
+                        e.intel.brain = brain;
                         self.world.entities.push(e);
                         self.event_log.push_back((
                             "AVATAR INFUSED from dna_infuse.txt".to_string(),
@@ -110,8 +113,8 @@ impl App {
                             continue;
                         }
                         let entity = &self.world.entities[idx];
-                        let dx = entity.x - wx;
-                        let dy = entity.y - wy;
+                        let dx = entity.physics.x - wx;
+                        let dy = entity.physics.y - wy;
                         let dist = (dx * dx + dy * dy).sqrt();
                         if dist < min_dist {
                             min_dist = dist;

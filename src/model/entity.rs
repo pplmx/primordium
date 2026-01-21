@@ -24,10 +24,7 @@ pub enum EntityRole {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Entity {
-    pub id: Uuid,
-    pub parent_id: Option<Uuid>,
-    pub role: EntityRole, // Trophic role
+pub struct Physics {
     pub x: f64,
     pub y: f64,
     pub vx: f64,
@@ -36,24 +33,45 @@ pub struct Entity {
     pub g: u8,
     pub b: u8,
     pub symbol: char,
+    pub home_x: f64,
+    pub home_y: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Metabolism {
+    pub role: EntityRole,
     pub energy: f64,
     pub max_energy: f64,
     pub peak_energy: f64,
-    pub generation: u32,
     pub birth_tick: u64,
+    pub generation: u32,
     pub offspring_count: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Health {
+    pub pathogen: Option<crate::model::pathogen::Pathogen>,
+    pub infection_timer: u32,
+    pub immunity: f32, // 0.0 to 1.0 resistance
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Intel {
     pub brain: Brain,
     #[serde(skip)]
     pub last_aggression: f32,
     #[serde(skip)]
     pub last_share_intent: f32,
-    // Territorial behavior
-    pub home_x: f64,
-    pub home_y: f64,
-    // Pathogen system [NEW]
-    pub pathogen: Option<crate::model::pathogen::Pathogen>,
-    pub infection_timer: u32,
-    pub immunity: f32, // 0.0 to 1.0 resistance
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Entity {
+    pub id: Uuid,
+    pub parent_id: Option<Uuid>,
+    pub physics: Physics,
+    pub metabolism: Metabolism,
+    pub health: Health,
+    pub intel: Intel,
 }
 
 impl Entity {
@@ -76,34 +94,42 @@ impl Entity {
         Self {
             id: Uuid::new_v4(),
             parent_id: None,
-            role,
-            x,
-            y,
-            vx,
-            vy,
-            r,
-            g,
-            b,
-            symbol: '●',
-            energy: 100.0,
-            max_energy: 200.0,
-            peak_energy: 100.0,
-            generation: 1,
-            birth_tick: tick,
-            offspring_count: 0,
-            brain: Brain::new_random(),
-            last_aggression: 0.0,
-            last_share_intent: 0.0,
-            home_x: x, // Birth location is home
-            home_y: y,
-            pathogen: None,
-            infection_timer: 0,
-            immunity: rng.gen_range(0.0..0.3), // Starting immunity
+            physics: Physics {
+                x,
+                y,
+                vx,
+                vy,
+                r,
+                g,
+                b,
+                symbol: '●',
+                home_x: x,
+                home_y: y,
+            },
+            metabolism: Metabolism {
+                role,
+                energy: 100.0,
+                max_energy: 200.0,
+                peak_energy: 100.0,
+                birth_tick: tick,
+                generation: 1,
+                offspring_count: 0,
+            },
+            health: Health {
+                pathogen: None,
+                infection_timer: 0,
+                immunity: rng.gen_range(0.0..0.3),
+            },
+            intel: Intel {
+                brain: Brain::new_random(),
+                last_aggression: 0.0,
+                last_share_intent: 0.0,
+            },
         }
     }
 
     pub fn color(&self) -> Color {
-        Color::Rgb(self.r, self.g, self.b)
+        Color::Rgb(self.physics.r, self.physics.g, self.physics.b)
     }
 
     pub fn status(
@@ -112,17 +138,17 @@ impl Entity {
         current_tick: u64,
         maturity_age: u64,
     ) -> EntityStatus {
-        if self.energy / self.max_energy < 0.2 {
+        if self.metabolism.energy / self.metabolism.max_energy < 0.2 {
             EntityStatus::Starving
-        } else if self.pathogen.is_some() {
+        } else if self.health.pathogen.is_some() {
             EntityStatus::Infected // NEW: Infected status
-        } else if (current_tick - self.birth_tick) < maturity_age {
+        } else if (current_tick - self.metabolism.birth_tick) < maturity_age {
             EntityStatus::Juvenile // NEW: Juvenile state
-        } else if self.last_share_intent > 0.5 && self.can_share() {
+        } else if self.intel.last_share_intent > 0.5 && self.can_share() {
             EntityStatus::Sharing
-        } else if self.last_aggression > 0.5 {
+        } else if self.intel.last_aggression > 0.5 {
             EntityStatus::Hunting
-        } else if self.energy > reproduction_threshold {
+        } else if self.metabolism.energy > reproduction_threshold {
             EntityStatus::Mating
         } else {
             EntityStatus::Foraging
@@ -154,36 +180,36 @@ impl Entity {
     }
 
     pub fn is_mature(&self, current_tick: u64, maturity_age: u64) -> bool {
-        (current_tick - self.birth_tick) >= maturity_age
+        (current_tick - self.metabolism.birth_tick) >= maturity_age
     }
 
     // === PATHOGEN METHODS ===
 
     pub fn try_infect(&mut self, pathogen: &crate::model::pathogen::Pathogen) -> bool {
-        if self.pathogen.is_some() {
+        if self.health.pathogen.is_some() {
             return false;
         }
 
         let mut rng = rand::thread_rng();
         // Roll for infection: virulence vs immunity
-        let chance = (pathogen.virulence - self.immunity).max(0.01);
+        let chance = (pathogen.virulence - self.health.immunity).max(0.01);
         if rng.gen::<f32>() < chance {
-            self.pathogen = Some(pathogen.clone());
-            self.infection_timer = pathogen.duration;
+            self.health.pathogen = Some(pathogen.clone());
+            self.health.infection_timer = pathogen.duration;
             return true;
         }
         false
     }
 
     pub fn process_infection(&mut self) {
-        if let Some(p) = &self.pathogen {
-            self.energy -= p.lethality as f64;
-            if self.infection_timer > 0 {
-                self.infection_timer -= 1;
+        if let Some(p) = &self.health.pathogen {
+            self.metabolism.energy -= p.lethality as f64;
+            if self.health.infection_timer > 0 {
+                self.health.infection_timer -= 1;
             } else {
                 // Recovered! Gain immunity
-                self.pathogen = None;
-                self.immunity = (self.immunity + 0.1).min(1.0);
+                self.health.pathogen = None;
+                self.health.immunity = (self.health.immunity + 0.1).min(1.0);
             }
         }
     }
@@ -192,20 +218,21 @@ impl Entity {
 
     /// Check if entity can share energy (>70% full)
     pub fn can_share(&self) -> bool {
-        self.energy > self.max_energy * 0.7
+        self.metabolism.energy > self.metabolism.max_energy * 0.7
     }
 
     /// Share energy with another entity, returns amount shared
     pub fn share_energy(&mut self, max_amount: f64) -> f64 {
-        let share = max_amount.min(self.energy * 0.15); // Share up to 15%
-        self.energy -= share;
+        let share = max_amount.min(self.metabolism.energy * 0.15); // Share up to 15%
+        self.metabolism.energy -= share;
         share
     }
 
     /// Calculate territorial aggression bonus based on distance from home
     pub fn territorial_aggression(&self) -> f64 {
-        let dist_from_home =
-            ((self.x - self.home_x).powi(2) + (self.y - self.home_y).powi(2)).sqrt();
+        let dist_from_home = ((self.physics.x - self.physics.home_x).powi(2)
+            + (self.physics.y - self.physics.home_y).powi(2))
+        .sqrt();
         if dist_from_home < 8.0 {
             1.5 // 50% more aggressive near home
         } else {
@@ -215,9 +242,9 @@ impl Entity {
 
     /// Check if another entity is in the same tribe (similar color)
     pub fn same_tribe(&self, other: &Entity) -> bool {
-        let color_dist = (self.r as i32 - other.r as i32).abs()
-            + (self.g as i32 - other.g as i32).abs()
-            + (self.b as i32 - other.b as i32).abs();
+        let color_dist = (self.physics.r as i32 - other.physics.r as i32).abs()
+            + (self.physics.g as i32 - other.physics.g as i32).abs()
+            + (self.physics.b as i32 - other.physics.b as i32).abs();
         color_dist < 60 // Threshold for same tribe
     }
 
@@ -239,43 +266,47 @@ impl Entity {
         let s1_idx = (bytes[1] as usize) % syllables.len();
         let s2_idx = (bytes[2] as usize) % syllables.len();
 
-        let role_prefix = match self.role {
+        let role_prefix = match self.metabolism.role {
             EntityRole::Herbivore => "H-",
             EntityRole::Carnivore => "C-",
         };
 
         format!(
             "{}{}{}{}-Gen{}",
-            role_prefix, prefix[p_idx], syllables[s1_idx], syllables[s2_idx], self.generation
+            role_prefix,
+            prefix[p_idx],
+            syllables[s1_idx],
+            syllables[s2_idx],
+            self.metabolism.generation
         )
     }
 
     pub fn reproduce(&mut self, tick: u64, config: &EvolutionConfig) -> Self {
         let mut rng = rand::thread_rng();
 
-        let child_energy = self.energy / 2.0;
-        self.energy = child_energy;
-        self.offspring_count += 1;
+        let child_energy = self.metabolism.energy / 2.0;
+        self.metabolism.energy = child_energy;
+        self.metabolism.offspring_count += 1;
 
-        let mut child_brain = self.brain.clone();
+        let mut child_brain = self.intel.brain.clone();
         child_brain.mutate_with_config(config);
 
         let r = {
             let change = rng.gen_range(-15..=15);
-            (self.r as i16 + change).clamp(0, 255) as u8
+            (self.physics.r as i16 + change).clamp(0, 255) as u8
         };
         let g = {
             let change = rng.gen_range(-15..=15);
-            (self.g as i16 + change).clamp(0, 255) as u8
+            (self.physics.g as i16 + change).clamp(0, 255) as u8
         };
         let b = {
             let change = rng.gen_range(-15..=15);
-            (self.b as i16 + change).clamp(0, 255) as u8
+            (self.physics.b as i16 + change).clamp(0, 255) as u8
         };
 
-        let mut child_role = self.role;
+        let mut child_role = self.metabolism.role;
         if rng.gen::<f32>() < config.speciation_rate {
-            child_role = match self.role {
+            child_role = match self.metabolism.role {
                 EntityRole::Herbivore => EntityRole::Carnivore,
                 EntityRole::Carnivore => EntityRole::Herbivore,
             };
@@ -284,29 +315,37 @@ impl Entity {
         Self {
             id: Uuid::new_v4(),
             parent_id: Some(self.id),
-            role: child_role,
-            x: self.x,
-            y: self.y,
-            vx: self.vx,
-            vy: self.vy,
-            r,
-            g,
-            b,
-            symbol: '●',
-            energy: child_energy,
-            max_energy: self.max_energy,
-            peak_energy: child_energy,
-            generation: self.generation + 1,
-            birth_tick: tick,
-            offspring_count: 0,
-            brain: child_brain,
-            last_aggression: 0.0,
-            last_share_intent: 0.0,
-            home_x: self.x, // Child's home is birth location
-            home_y: self.y,
-            pathogen: None,
-            infection_timer: 0,
-            immunity: (self.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+            physics: Physics {
+                x: self.physics.x,
+                y: self.physics.y,
+                vx: self.physics.vx,
+                vy: self.physics.vy,
+                r,
+                g,
+                b,
+                symbol: '●',
+                home_x: self.physics.x,
+                home_y: self.physics.y,
+            },
+            metabolism: Metabolism {
+                role: child_role,
+                energy: child_energy,
+                max_energy: self.metabolism.max_energy,
+                peak_energy: child_energy,
+                birth_tick: tick,
+                generation: self.metabolism.generation + 1,
+                offspring_count: 0,
+            },
+            health: Health {
+                pathogen: None,
+                infection_timer: 0,
+                immunity: (self.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+            },
+            intel: Intel {
+                brain: child_brain,
+                last_aggression: 0.0,
+                last_share_intent: 0.0,
+            },
         }
     }
 
@@ -317,13 +356,13 @@ impl Entity {
         speciation_rate: f32,
     ) -> Self {
         let mut rng = rand::thread_rng();
-        let child_energy = self.energy / 2.0;
-        self.energy = child_energy;
-        self.offspring_count += 1;
+        let child_energy = self.metabolism.energy / 2.0;
+        self.metabolism.energy = child_energy;
+        self.metabolism.offspring_count += 1;
 
-        let mut child_role = self.role;
+        let mut child_role = self.metabolism.role;
         if rng.gen::<f32>() < speciation_rate {
-            child_role = match self.role {
+            child_role = match self.metabolism.role {
                 EntityRole::Herbivore => EntityRole::Carnivore,
                 EntityRole::Carnivore => EntityRole::Herbivore,
             };
@@ -332,29 +371,37 @@ impl Entity {
         Self {
             id: Uuid::new_v4(),
             parent_id: Some(self.id),
-            role: child_role,
-            x: self.x,
-            y: self.y,
-            vx: self.vx,
-            vy: self.vy,
-            r: self.r,
-            g: self.g,
-            b: self.b,
-            symbol: '●',
-            energy: child_energy,
-            max_energy: self.max_energy,
-            peak_energy: child_energy,
-            generation: self.generation + 1,
-            birth_tick: tick,
-            offspring_count: 0,
-            brain: child_brain,
-            last_aggression: 0.0,
-            last_share_intent: 0.0,
-            home_x: self.x,
-            home_y: self.y,
-            pathogen: None,
-            infection_timer: 0,
-            immunity: (self.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+            physics: Physics {
+                x: self.physics.x,
+                y: self.physics.y,
+                vx: self.physics.vx,
+                vy: self.physics.vy,
+                r: self.physics.r,
+                g: self.physics.g,
+                b: self.physics.b,
+                symbol: '●',
+                home_x: self.physics.x,
+                home_y: self.physics.y,
+            },
+            metabolism: Metabolism {
+                role: child_role,
+                energy: child_energy,
+                max_energy: self.metabolism.max_energy,
+                peak_energy: child_energy,
+                birth_tick: tick,
+                generation: self.metabolism.generation + 1,
+                offspring_count: 0,
+            },
+            health: Health {
+                pathogen: None,
+                infection_timer: 0,
+                immunity: (self.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+            },
+            intel: Intel {
+                brain: child_brain,
+                last_aggression: 0.0,
+                last_share_intent: 0.0,
+            },
         }
     }
 }
@@ -367,13 +414,13 @@ mod tests {
     fn test_entity_new_has_valid_initial_state() {
         let entity = Entity::new(50.0, 25.0, 100);
 
-        assert_eq!(entity.x, 50.0);
-        assert_eq!(entity.y, 25.0);
-        assert_eq!(entity.birth_tick, 100);
-        assert_eq!(entity.generation, 1);
-        assert_eq!(entity.energy, 100.0);
-        assert_eq!(entity.max_energy, 200.0);
-        assert_eq!(entity.offspring_count, 0);
+        assert_eq!(entity.physics.x, 50.0);
+        assert_eq!(entity.physics.y, 25.0);
+        assert_eq!(entity.metabolism.birth_tick, 100);
+        assert_eq!(entity.metabolism.generation, 1);
+        assert_eq!(entity.metabolism.energy, 100.0);
+        assert_eq!(entity.metabolism.max_energy, 200.0);
+        assert_eq!(entity.metabolism.offspring_count, 0);
         assert!(entity.parent_id.is_none());
     }
 
@@ -388,17 +435,23 @@ mod tests {
         };
 
         let mut parent = Entity::new(50.0, 25.0, 0);
-        parent.energy = 200.0;
+        parent.metabolism.energy = 200.0;
 
         let child = parent.reproduce(100, &config);
 
         // Energy should be split
-        assert_eq!(parent.energy, 100.0, "Parent should have half energy");
-        assert_eq!(child.energy, 100.0, "Child should have half energy");
+        assert_eq!(
+            parent.metabolism.energy, 100.0,
+            "Parent should have half energy"
+        );
+        assert_eq!(
+            child.metabolism.energy, 100.0,
+            "Child should have half energy"
+        );
 
         // Parent stats updated
         assert_eq!(
-            parent.offspring_count, 1,
+            parent.metabolism.offspring_count, 1,
             "Parent offspring count should increase"
         );
 
@@ -408,9 +461,12 @@ mod tests {
             Some(parent.id),
             "Child should reference parent"
         );
-        assert_eq!(child.generation, 2, "Child generation should be parent+1");
         assert_eq!(
-            child.birth_tick, 100,
+            child.metabolism.generation, 2,
+            "Child generation should be parent+1"
+        );
+        assert_eq!(
+            child.metabolism.birth_tick, 100,
             "Child birth tick should be current tick"
         );
     }
@@ -418,7 +474,7 @@ mod tests {
     #[test]
     fn test_entity_status_starving() {
         let mut entity = Entity::new(50.0, 25.0, 0);
-        entity.energy = 10.0; // 5% of max (200)
+        entity.metabolism.energy = 10.0; // 5% of max (200)
 
         let status = entity.status(150.0, 200, 150);
         assert_eq!(status, EntityStatus::Starving);
@@ -427,7 +483,7 @@ mod tests {
     #[test]
     fn test_entity_status_juvenile() {
         let mut entity = Entity::new(50.0, 25.0, 100);
-        entity.energy = 100.0;
+        entity.metabolism.energy = 100.0;
 
         // Current tick 200, born at 100, maturity 150 -> age 100 < 150
         let status = entity.status(150.0, 200, 150);
@@ -438,8 +494,8 @@ mod tests {
     #[test]
     fn test_entity_status_mature_hunting() {
         let mut entity = Entity::new(50.0, 25.0, 0);
-        entity.energy = 100.0;
-        entity.last_aggression = 0.8;
+        entity.metabolism.energy = 100.0;
+        entity.intel.last_aggression = 0.8;
 
         // Age 200 > maturity 150
         let status = entity.status(150.0, 200, 150);
@@ -458,10 +514,10 @@ mod tests {
         };
 
         let mut parent = Entity::new(0.0, 0.0, 0);
-        parent.role = EntityRole::Carnivore;
+        parent.metabolism.role = EntityRole::Carnivore;
 
         let child = parent.reproduce(100, &config);
-        assert_eq!(child.role, EntityRole::Carnivore);
+        assert_eq!(child.metabolism.role, EntityRole::Carnivore);
     }
 
     #[test]
@@ -475,23 +531,23 @@ mod tests {
         };
 
         let mut parent = Entity::new(0.0, 0.0, 0);
-        parent.role = EntityRole::Herbivore;
+        parent.metabolism.role = EntityRole::Herbivore;
 
         let child = parent.reproduce(100, &config);
-        assert_eq!(child.role, EntityRole::Carnivore);
+        assert_eq!(child.metabolism.role, EntityRole::Carnivore);
     }
 
     #[test]
     fn test_entity_same_tribe_similar_colors() {
         let mut entity1 = Entity::new(0.0, 0.0, 0);
-        entity1.r = 100;
-        entity1.g = 100;
-        entity1.b = 100;
+        entity1.physics.r = 100;
+        entity1.physics.g = 100;
+        entity1.physics.b = 100;
 
         let mut entity2 = Entity::new(0.0, 0.0, 0);
-        entity2.r = 110; // Diff 10
-        entity2.g = 105; // Diff 5
-        entity2.b = 120; // Diff 20 = Total 35 < 60
+        entity2.physics.r = 110; // Diff 10
+        entity2.physics.g = 105; // Diff 5
+        entity2.physics.b = 120; // Diff 20 = Total 35 < 60
 
         assert!(
             entity1.same_tribe(&entity2),
@@ -502,14 +558,14 @@ mod tests {
     #[test]
     fn test_entity_different_tribe_different_colors() {
         let mut entity1 = Entity::new(0.0, 0.0, 0);
-        entity1.r = 100;
-        entity1.g = 100;
-        entity1.b = 100;
+        entity1.physics.r = 100;
+        entity1.physics.g = 100;
+        entity1.physics.b = 100;
 
         let mut entity2 = Entity::new(0.0, 0.0, 0);
-        entity2.r = 200; // Diff 100
-        entity2.g = 50; // Diff 50
-        entity2.b = 150; // Diff 50 = Total 200 > 60
+        entity2.physics.r = 200; // Diff 100
+        entity2.physics.g = 50; // Diff 50
+        entity2.physics.b = 150; // Diff 50 = Total 200 > 60
 
         assert!(
             !entity1.same_tribe(&entity2),
@@ -520,7 +576,7 @@ mod tests {
     #[test]
     fn test_entity_can_share_high_energy() {
         let mut entity = Entity::new(0.0, 0.0, 0);
-        entity.energy = 160.0; // 80% of 200
+        entity.metabolism.energy = 160.0; // 80% of 200
 
         assert!(
             entity.can_share(),
@@ -531,7 +587,7 @@ mod tests {
     #[test]
     fn test_entity_cannot_share_low_energy() {
         let mut entity = Entity::new(0.0, 0.0, 0);
-        entity.energy = 100.0; // 50% of 200
+        entity.metabolism.energy = 100.0; // 50% of 200
 
         assert!(!entity.can_share(), "Low energy entity should not share");
     }
@@ -539,10 +595,10 @@ mod tests {
     #[test]
     fn test_entity_territorial_aggression_near_home() {
         let mut entity = Entity::new(50.0, 50.0, 0);
-        entity.home_x = 50.0;
-        entity.home_y = 50.0;
-        entity.x = 52.0; // 2 units from home
-        entity.y = 52.0;
+        entity.physics.home_x = 50.0;
+        entity.physics.home_y = 50.0;
+        entity.physics.x = 52.0; // 2 units from home
+        entity.physics.y = 52.0;
 
         let bonus = entity.territorial_aggression();
         assert_eq!(bonus, 1.5, "Should have 1.5x aggression near home");
@@ -551,10 +607,10 @@ mod tests {
     #[test]
     fn test_entity_territorial_aggression_far_from_home() {
         let mut entity = Entity::new(50.0, 50.0, 0);
-        entity.home_x = 50.0;
-        entity.home_y = 50.0;
-        entity.x = 70.0; // 20 units from home
-        entity.y = 50.0;
+        entity.physics.home_x = 50.0;
+        entity.physics.home_y = 50.0;
+        entity.physics.x = 70.0; // 20 units from home
+        entity.physics.y = 50.0;
 
         let bonus = entity.territorial_aggression();
         assert_eq!(bonus, 1.0, "Should have normal aggression far from home");

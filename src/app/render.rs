@@ -96,7 +96,7 @@ impl App {
                 .world
                 .entities
                 .iter()
-                .map(|e| e.generation)
+                .map(|e| e.metabolism.generation)
                 .max()
                 .unwrap_or(0);
             let world_stats = format!(
@@ -212,7 +212,7 @@ impl App {
             Style::default().fg(Color::DarkGray),
         )));
         for (score, e) in &self.world.hall_of_fame.top_living {
-            let age = self.world.tick - e.birth_tick;
+            let age = self.world.tick - e.metabolism.birth_tick;
             let style = if Some(e.id) == self.selected_entity {
                 Style::default()
                     .fg(Color::Yellow)
@@ -232,7 +232,7 @@ impl App {
             ho_lines.push(ratatui::text::Line::from(ratatui::text::Span::styled(
                 format!(
                     "   Age:{} Kids:{} Peak:{:.0}",
-                    age, e.offspring_count, e.peak_energy
+                    age, e.metabolism.offspring_count, e.metabolism.peak_energy
                 ),
                 Style::default().fg(Color::DarkGray),
             )));
@@ -253,7 +253,7 @@ impl App {
                     ),
                     ratatui::text::Span::raw(format!(
                         "{:.1}/{:.1}",
-                        entity.energy, entity.max_energy
+                        entity.metabolism.energy, entity.metabolism.max_energy
                     )),
                 ]));
                 lines.push(ratatui::text::Line::from(vec![
@@ -263,7 +263,7 @@ impl App {
                     ),
                     ratatui::text::Span::raw(format!(
                         "{} ticks",
-                        self.world.tick - entity.birth_tick
+                        self.world.tick - entity.metabolism.birth_tick
                     )),
                 ]));
                 lines.push(ratatui::text::Line::from(vec![
@@ -271,14 +271,14 @@ impl App {
                         " Role:   ",
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
-                    ratatui::text::Span::raw(format!("{:?}", entity.role)),
+                    ratatui::text::Span::raw(format!("{:?}", entity.metabolism.role)),
                 ]));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
                         " Offspring: ",
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
-                    ratatui::text::Span::raw(format!("{}", entity.offspring_count)),
+                    ratatui::text::Span::raw(format!("{}", entity.metabolism.offspring_count)),
                 ]));
                 lines.push(ratatui::text::Line::from(""));
                 lines.push(ratatui::text::Line::from(" Neural Network Weights:"));
@@ -299,7 +299,7 @@ impl App {
                         }
                     )));
                     for j in 0..6 {
-                        let w = entity.brain.weights_ih[i * 6 + j];
+                        let w = entity.intel.brain.weights_ih[i * 6 + j];
                         let symbol = if w > 0.5 {
                             "█"
                         } else if w > 0.0 {
@@ -321,7 +321,7 @@ impl App {
                     let mut spans = Vec::new();
                     spans.push(ratatui::text::Span::raw("    "));
                     for j in 0..5 {
-                        let w = entity.brain.weights_ho[i * 5 + j];
+                        let w = entity.intel.brain.weights_ho[i * 5 + j];
                         let symbol = if w > 0.5 {
                             "█"
                         } else if w > 0.0 {
@@ -353,7 +353,7 @@ impl App {
                 }
 
                 lines.push(ratatui::text::Line::from(""));
-                let dna_short = &entity.brain.to_hex()[..16];
+                let dna_short = &entity.intel.brain.to_hex()[..16];
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
                         " [C] Export DNA ",

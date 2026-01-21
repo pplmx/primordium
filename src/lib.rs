@@ -73,16 +73,16 @@ impl Simulation {
             // 2. Check for outgoing migrations
             let mut migrants = Vec::new();
             self.world.entities.retain(|e| {
-                let leaving = e.x < 1.0
-                    || e.x > (self.world.width as f64 - 2.0)
-                    || e.y < 1.0
-                    || e.y > (self.world.height as f64 - 2.0);
+                let leaving = e.physics.x < 1.0
+                    || e.physics.x > (self.world.width as f64 - 2.0)
+                    || e.physics.y < 1.0
+                    || e.physics.y > (self.world.height as f64 - 2.0);
 
                 if leaving {
                     migrants.push(NetMessage::MigrateEntity {
                         dna: "DNA_PLACEHOLDER".to_string(), // In real impl, serialize brain
-                        energy: e.energy,
-                        generation: e.generation,
+                        energy: e.metabolism.energy,
+                        generation: e.metabolism.generation,
                         species_name: "Primordial".to_string(),
                     });
                 }

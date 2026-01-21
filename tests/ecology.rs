@@ -15,12 +15,12 @@ fn test_terrain_fertility_cycle() {
     env.world_time = env.day_cycle_ticks / 4; // Midday to ensure high metabolism and light
 
     // Set entity position and stop movement
-    world.entities[0].x = 10.5;
-    world.entities[0].y = 10.5;
-    world.entities[0].vx = 0.0;
-    world.entities[0].vy = 0.0;
-    world.entities[0].role = EntityRole::Herbivore;
-    world.entities[0].energy = 100.0;
+    world.entities[0].physics.x = 10.5;
+    world.entities[0].physics.y = 10.5;
+    world.entities[0].physics.vx = 0.0;
+    world.entities[0].physics.vy = 0.0;
+    world.entities[0].metabolism.role = EntityRole::Herbivore;
+    world.entities[0].metabolism.energy = 100.0;
 
     // Place food at same cell
     let ix = 10;
@@ -120,10 +120,10 @@ fn test_trophic_diet_restrictions() {
 
     // 1. Carnivore should NOT eat plants
     let mut carnivore = primordium_lib::model::entity::Entity::new(10.5, 10.5, 0);
-    carnivore.vx = 0.0;
-    carnivore.vy = 0.0;
-    carnivore.role = EntityRole::Carnivore;
-    carnivore.energy = 50.0;
+    carnivore.physics.vx = 0.0;
+    carnivore.physics.vy = 0.0;
+    carnivore.metabolism.role = EntityRole::Carnivore;
+    carnivore.metabolism.energy = 50.0;
     world.entities.push(carnivore);
     world
         .food
@@ -139,10 +139,10 @@ fn test_trophic_diet_restrictions() {
     // 2. Herbivore SHOULD eat plants
     world.entities.clear();
     let mut herbivore = primordium_lib::model::entity::Entity::new(10.5, 10.5, 0);
-    herbivore.vx = 0.0;
-    herbivore.vy = 0.0;
-    herbivore.role = EntityRole::Herbivore;
-    herbivore.energy = 50.0;
+    herbivore.physics.vx = 0.0;
+    herbivore.physics.vy = 0.0;
+    herbivore.metabolism.role = EntityRole::Herbivore;
+    herbivore.metabolism.energy = 50.0;
     world.entities.push(herbivore);
 
     world.update(&env).expect("Update failed");

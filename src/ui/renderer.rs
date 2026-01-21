@@ -99,7 +99,8 @@ impl<'a> Widget for WorldWidget<'a> {
 
         // 2. Optimized Entity Rendering
         for entity in &self.world.entities {
-            if let Some((x, y)) = Self::world_to_screen(entity.x, entity.y, area, self.screensaver)
+            if let Some((x, y)) =
+                Self::world_to_screen(entity.physics.x, entity.physics.y, area, self.screensaver)
             {
                 let status = entity.status(
                     self.world.config.metabolism.reproduction_threshold,

@@ -160,6 +160,50 @@ toml = "0.8"
 - User Manuals (EN/ZH)
 - Detailed Wiki
 
+### Phase 15: Life Cycles & Maturity ✅
+- Juvenile state for new offspring
+- Maturity age requirement for reproduction
+- Age-based visual differentiation
+
+### Phase 16: Trophic Levels & Dietary Niche ✅
+- Herbivores (plant-eaters) vs Carnivores (predators)
+- Energy gain multipliers based on role
+- Speciation mechanism for role evolution
+
+### Phase 17: Ecological Succession & Terrain Health ✅
+- Dynamic soil fertility (depletes when overgrazed)
+- Barren terrain state with recovery cycles
+- Forced migration patterns due to resource depletion
+
+### Phase 18: Pathogens & Immunity Evolution ✅
+- Proximity-based contagion system
+- Adaptive immunity through survival
+- Transgenerational resistance inheritance
+
+### Phase 19: Circadian Rhythms & Temporal Ecology ✅
+- Day/Night cycle affecting light and metabolism
+- Light-dependent plant growth
+- Rest-state energy conservation
+
+---
+
+## 🚀 Future Horizons
+
+### Phase 20: Cognitive Synthesis & Systemic Refactor ✅
+- **Component grouping**: Refactored `Entity` struct into Physics, Metabolism, Health, and Intel.
+- **Systemic Decomposition**: Decomposed monolithic `World::update` into modular Perception, Action, Biological, and Social systems.
+- **Rayon Integration**: Multi-threaded brain processing and perception lookups for 5000+ entities.
+
+### Phase 21: Environmental Fluidity & Disasters
+- **Dynamic Terrain**: Rivers that dry up, fires that spread through barren land.
+- **Natural Disasters**: Meteor strikes, floods, and magnetic storms affecting neural weights.
+- **Physical Barriers**: Pathfinding requirements through impassable obstacles.
+
+### Phase 22: Parallel Evolution & Global Hive
+- **Rayon Integration**: Multi-threaded brain processing for 5000+ entities.
+- **Global Migration**: Peer-to-peer universe connections without a central relay.
+- **Genetic Databases**: Web-based registry for legendary genotypes.
+
 ---
 
 ## 📊 Development Timeline
@@ -181,6 +225,14 @@ toml = "0.8"
 | Phase 12 | WebAssembly Port | ✅ Complete |
 | Phase 13 | Multiplayer Primordium | ✅ Complete |
 | Phase 14 | Gameplay & Polish | ✅ Complete |
+| Phase 15 | Life Cycles | ✅ Complete |
+| Phase 16 | Trophic Levels | ✅ Complete |
+| Phase 17 | Ecological Succession | ✅ Complete |
+| Phase 18 | Pathogens & Immunity | ✅ Complete |
+| Phase 19 | Circadian Rhythms | ✅ Complete |
+| Phase 20 | Cognitive Synthesis | ✅ Complete |
+| Phase 21 | Environmental Fluidity | 📅 Planned |
+| Phase 22 | Parallel Evolution | 📅 Planned |
 
 ---
 

@@ -41,7 +41,7 @@ fn test_reproduction_and_genetics() {
 
     // Force high energy on all entities to trigger reproduction
     for entity in &mut world.entities {
-        entity.energy = 200.0;
+        entity.metabolism.energy = 200.0;
     }
 
     // Run ticks - some should reproduce
@@ -77,8 +77,8 @@ fn test_predation_efficiency() {
 
     // 1. Carnivore eats Herbivore
     let mut carnivore = primordium_lib::model::entity::Entity::new(10.0, 10.0, 0);
-    carnivore.role = EntityRole::Carnivore;
-    carnivore.energy = 100.0;
+    carnivore.metabolism.role = EntityRole::Carnivore;
+    carnivore.metabolism.energy = 100.0;
     // We need to force predation_mode. Since it's from brain, we just use a hacky way
     // or test the logic that uses it.
 
@@ -86,8 +86,8 @@ fn test_predation_efficiency() {
     // Let's just verify the logic by running ticks.
 
     let mut herbivore = primordium_lib::model::entity::Entity::new(10.1, 10.1, 0);
-    herbivore.role = EntityRole::Herbivore;
-    herbivore.energy = 50.0;
+    herbivore.metabolism.role = EntityRole::Herbivore;
+    herbivore.metabolism.energy = 50.0;
 
     world.entities.push(carnivore);
     world.entities.push(herbivore);
@@ -98,7 +98,7 @@ fn test_predation_efficiency() {
         world.update(&env).expect("Update failed");
         if world.entities.len() == 1 {
             let predator = &world.entities[0];
-            if predator.energy > 130.0 {
+            if predator.metabolism.energy > 130.0 {
                 // 100 + 50*1.2 - costs
                 _predation_success = true;
                 break;

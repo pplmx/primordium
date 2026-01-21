@@ -29,12 +29,12 @@ impl World {
         };
 
         let mut entity = Entity::new(x, y, self.tick);
-        entity.energy = energy as f64;
-        entity.generation = generation;
+        entity.metabolism.energy = energy as f64;
+        entity.metabolism.generation = generation;
 
         // Deserialize DNA (Brain)
         if let Ok(brain) = crate::model::brain::Brain::from_hex(&dna) {
-            entity.brain = brain;
+            entity.intel.brain = brain;
         }
 
         self.entities.push(entity);
