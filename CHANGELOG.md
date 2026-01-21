@@ -59,6 +59,35 @@ The simulation now supports distinct game modes and has reached peak stability t
 
 ---
 
+## [Phase 15-17: Biological & Ecological Depth] - 2026-01-21
+
+### Evolutionary Leap: Life Cycles, Trophic Levels, and Soil Health
+
+The digital ecosystem has evolved into a complex web of life with developmental stages, dietary specializations, and environmental feedback loops.
+
+#### ✨ Features
+
+- **Phase 15: Life Cycles**:
+  - **Juvenile State (◦)**: Entities now start as immatures and must survive 150 ticks before reaching adulthood.
+  - **Maturity Gate**: Reproduction is disabled for juveniles, creating a vulnerable early-life period.
+- **Phase 16: Trophic Levels**:
+  - **Herbivores (H-)**: Specialized in plant consumption; inefficient hunters (0.2x energy yield from predation).
+  - **Carnivores (C-)**: Obligate predators; cannot eat plants but highly efficient hunters (1.2x energy yield).
+  - **Speciation**: Genomes can now flip trophic roles during reproduction via a specific speciation rate.
+- **Phase 17: Ecological Succession**:
+  - **Terrain Health (Fertility)**: Land now has a fertility level that depletes when plants are consumed.
+  - **Barren Terrain (░)**: Overgrazed land turns barren, stopping food production and slowing movement until it recovers.
+  - **Natural Recovery**: Soil fertility slowly regenerates over time, forcing population migration.
+
+#### 🛠️ Technical Achievements
+
+- **Enhanced Brain**: Expanded neural network (6-6-5) to handle social and environmental cues.
+- **Ecology Logic**: Integrated fertility depletion into the world update loop.
+- **Visual Feedback**: New TUI symbols and colors for Juveniles and Barren terrain.
+- **Validation**: Added `tests/ecology.rs` covering fertility cycles and trophic restrictions.
+
+---
+
 ## [Phase 12: WebAssembly Port] - 2026-01-21
 
 ### Evolutionary Leap: Breaking the Terminal Barrier
