@@ -258,10 +258,11 @@ impl World {
                     self.spatial_hash
                         .query(current_entities[i].x, current_entities[i].y, 2.0)
                 {
-                    if n_idx != i && !killed_ids.contains(&current_entities[n_idx].id) {
-                        if current_entities[n_idx].try_infect(&p) {
-                            // Successfully infected neighbor!
-                        }
+                    if n_idx != i
+                        && !killed_ids.contains(&current_entities[n_idx].id)
+                        && current_entities[n_idx].try_infect(&p)
+                    {
+                        // Successfully infected neighbor!
                     }
                 }
             }

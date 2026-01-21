@@ -93,14 +93,14 @@ fn test_predation_efficiency() {
     world.entities.push(herbivore);
 
     // Run multiple ticks to ensure a random brain eventually triggers 'Hunting'
-    let mut predation_success = false;
+    let mut _predation_success = false;
     for _ in 0..100 {
         world.update(&env).expect("Update failed");
         if world.entities.len() == 1 {
             let predator = &world.entities[0];
             if predator.energy > 130.0 {
                 // 100 + 50*1.2 - costs
-                predation_success = true;
+                _predation_success = true;
                 break;
             }
         }
