@@ -46,7 +46,8 @@ Memory usage determines food availability. High RAM usage simulates a resource-f
 ## ✨ Features
 
 ### 🧠 Neural Awakening & Selection
-Each entity possesses a **4-layer Neural Network** brain. Through natural selection, organisms learn to hunt, navigate, and manage energy.
+Each entity possesses a **6-6-5 Neural Network** brain integrated into a modular **Intel** component. Through natural selection, organisms learn to hunt, navigate, and manage energy.
+- **Parallel Inference**: Neural processing is multi-threaded using **Rayon**, enabling massive population scaling.
 - **Interactive Selection**: Use the **Mouse** to click and inspect specific organisms.
 - **Genotype Clustering**: Organisms are automatically classified into species based on neural weight similarity.
 
@@ -76,8 +77,10 @@ Each entity possesses a **4-layer Neural Network** brain. Through natural select
 - **Immutable Proof**: Datasets are anchored to the **Bitcoin blockchain** via OpenTimestamps for cryptographic proof of evolution.
 
 ### ⚡ Performance & Stability
-- **Modular Architecture**: Clean separation of concerns between state management, rendering, and simulation logic.
-- **Strict Quality Gate**: 100% Clippy compliance and 30+ tests ensuring digital stability.
+- **Component-Based Entity (CBE)**: Logical grouping of attributes into Physics, Metabolism, Health, and Intel for better data locality and isolation.
+- **Systemic Decomposition**: Monolithic update logic split into specialized systems (Perception, Action, Biological, Social).
+- **Parallel Processing**: Multi-core acceleration via **Rayon** for perception lookups and neural decisions.
+- **Strict Quality Gate**: 100% Clippy compliance and 40+ tests ensuring digital stability.
 - **Spatial Hashing**: Optimized $O(N \log N)$ sensory lookups for high-density populations.
 
 ---
