@@ -94,10 +94,17 @@ Entities leave chemical trails:
 
 ## 🌍 Ecosystem
 
-### Weather
-Seasons change cyclically, affecting food growth rates and metabolism.
-- **Spring/Summer**: Abundant food.
-- **Winter**: Scarcity, higher metabolism cost.
+### Weather & Cycles
+- **Seasons**: Change cyclically, affecting food growth rates and metabolism (Spring, Summer, Fall, Winter).
+- **Circadian Rhythms**: A Day/Night cycle pulses through the world. [NEW]
+  - **Day**: Peak light levels drive maximum food growth.
+  - **Night**: Minimal growth; entities enter a "Resting" state with 40% lower idle metabolism.
+
+### Pathogens & Immunity [NEW]
+Microscopic threats can emerge and spread:
+- **Infection**: Entities carrying the `☣` symbol lose energy constantly.
+- **Contagion**: Disease spreads through proximity (Spatial Hash queries).
+- **Evolution**: Surviving an infection boosts `Immunity`, which is passed to offspring with minor mutations.
 
 ### Disaster (The Divine Interface)
 Occasional random events or user-triggered catastrophes (if Divine Mode enabled) can reshape the population.
