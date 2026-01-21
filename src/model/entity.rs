@@ -9,7 +9,8 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EntityStatus {
     Starving, // < 20% energy
-    Juvenile, // NEW: Too young to reproduce
+    Juvenile, // Too young to reproduce
+    Infected, // Carrying a pathogen [NEW]
     Sharing,  // High energy, sharing with neighbors
     Mating,   // > reproduction threshold
     Hunting,  // brain aggression > 0.5
@@ -26,7 +27,7 @@ pub enum EntityRole {
 pub struct Entity {
     pub id: Uuid,
     pub parent_id: Option<Uuid>,
-    pub role: EntityRole, // NEW: Trophic role
+    pub role: EntityRole, // Trophic role
     pub x: f64,
     pub y: f64,
     pub vx: f64,
@@ -45,10 +46,14 @@ pub struct Entity {
     #[serde(skip)]
     pub last_aggression: f32,
     #[serde(skip)]
-    pub last_share_intent: f32, // NEW: Share intent output
+    pub last_share_intent: f32,
     // Territorial behavior
-    pub home_x: f64, // NEW: Birth location X
-    pub home_y: f64, // NEW: Birth location Y
+    pub home_x: f64,
+    pub home_y: f64,
+    // Pathogen system [NEW]
+    pub pathogen: Option<crate::model::pathogen::Pathogen>,
+    pub infection_timer: u32,
+    pub immunity: f32, // 0.0 to 1.0 resistance
 }
 
 impl Entity {
@@ -91,6 +96,9 @@ impl Entity {
             last_share_intent: 0.0,
             home_x: x, // Birth location is home
             home_y: y,
+            pathogen: None,
+            infection_timer: 0,
+            immunity: rng.gen_range(0.0..0.3), // Starting immunity
         }
     }
 
@@ -106,6 +114,8 @@ impl Entity {
     ) -> EntityStatus {
         if self.energy / self.max_energy < 0.2 {
             EntityStatus::Starving
+        } else if self.pathogen.is_some() {
+            EntityStatus::Infected // NEW: Infected status
         } else if (current_tick - self.birth_tick) < maturity_age {
             EntityStatus::Juvenile // NEW: Juvenile state
         } else if self.last_share_intent > 0.5 && self.can_share() {
@@ -122,6 +132,7 @@ impl Entity {
     pub fn symbol_for_status(&self, status: EntityStatus) -> char {
         match status {
             EntityStatus::Starving => '†',
+            EntityStatus::Infected => '☣', // NEW: Biohazard symbol
             EntityStatus::Juvenile => '◦', // NEW: Juvenile symbol
             EntityStatus::Sharing => '♣',
             EntityStatus::Mating => '♥',
@@ -133,6 +144,7 @@ impl Entity {
     pub fn color_for_status(&self, status: EntityStatus) -> Color {
         match status {
             EntityStatus::Starving => Color::Rgb(150, 50, 50), // Dim Red
+            EntityStatus::Infected => Color::Rgb(154, 205, 50), // Yellow Green
             EntityStatus::Juvenile => Color::Rgb(200, 200, 255), // Light Blue/Silver
             EntityStatus::Sharing => Color::Rgb(100, 200, 100), // Green
             EntityStatus::Mating => Color::Rgb(255, 105, 180), // Pink
@@ -143,6 +155,37 @@ impl Entity {
 
     pub fn is_mature(&self, current_tick: u64, maturity_age: u64) -> bool {
         (current_tick - self.birth_tick) >= maturity_age
+    }
+
+    // === PATHOGEN METHODS ===
+
+    pub fn try_infect(&mut self, pathogen: &crate::model::pathogen::Pathogen) -> bool {
+        if self.pathogen.is_some() {
+            return false;
+        }
+
+        let mut rng = rand::thread_rng();
+        // Roll for infection: virulence vs immunity
+        let chance = (pathogen.virulence - self.immunity).max(0.01);
+        if rng.gen::<f32>() < chance {
+            self.pathogen = Some(pathogen.clone());
+            self.infection_timer = pathogen.duration;
+            return true;
+        }
+        false
+    }
+
+    pub fn process_infection(&mut self) {
+        if let Some(p) = &self.pathogen {
+            self.energy -= p.lethality as f64;
+            if self.infection_timer > 0 {
+                self.infection_timer -= 1;
+            } else {
+                // Recovered! Gain immunity
+                self.pathogen = None;
+                self.immunity = (self.immunity + 0.1).min(1.0);
+            }
+        }
     }
 
     // === NEW SOCIAL METHODS ===
@@ -261,6 +304,9 @@ impl Entity {
             last_share_intent: 0.0,
             home_x: self.x, // Child's home is birth location
             home_y: self.y,
+            pathogen: None,
+            infection_timer: 0,
+            immunity: (self.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
         }
     }
 
@@ -306,6 +352,9 @@ impl Entity {
             last_share_intent: 0.0,
             home_x: self.x,
             home_y: self.y,
+            pathogen: None,
+            infection_timer: 0,
+            immunity: (self.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
         }
     }
 }

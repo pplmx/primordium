@@ -44,6 +44,10 @@ This file contains critical project-specific knowledge for AI agents working on 
   - **Herbivores (H-)**: Primary consumers. Eat plant food (`*`). 0.2x predation gain.
   - **Carnivores (C-)**: Predators. Cannot eat plants. 1.2x predation gain.
 - **Terrain Health**: Each cell has a fertility level. Eating food depletes fertility. If fertility < 0.2, the cell becomes **Barren** (░) and stops spawning food until it recovers.
+- **Pathogens**: Microscopic threats that spread between nearby entities.
+  - **Transmission**: Depends on virulence vs host immunity.
+  - **Effects**: Constant energy drain.
+  - **Immunity**: Gained through survival and inherited with minor mutation.
 
 ## 🧪 Testing Strategy
 

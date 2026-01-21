@@ -30,13 +30,30 @@ fn test_terrain_fertility_cycle() {
     // 1. Check initial fertility
     let initial_fertility = world.terrain.get_cell(ix, iy).fertility;
 
-    // 2. Run update to eat food and deplete fertility
-    world.update(&env).expect("Update failed");
+    // 2. Run update until food is eaten
+    let mut food_eaten = false;
+    for _ in 0..50 {
+        world.update(&env).expect("Update failed");
+        if world.food.is_empty() {
+            food_eaten = true;
+            break;
+        }
+    }
+
+    assert!(food_eaten, "Food should have been eaten by herbivore");
 
     let depleted_fertility = world.terrain.get_cell(ix, iy).fertility;
+    println!(
+        "Initial: {}, Depleted: {}, Food count: {}",
+        initial_fertility,
+        depleted_fertility,
+        world.food.len()
+    );
     assert!(
         depleted_fertility < initial_fertility,
-        "Fertility should decrease after eating"
+        "Fertility should decrease after eating. Initial: {}, After: {}",
+        initial_fertility,
+        depleted_fertility
     );
 
     // 3. Test recovery over many ticks

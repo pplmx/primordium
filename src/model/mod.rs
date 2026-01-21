@@ -7,6 +7,7 @@ pub mod food;
 pub mod history;
 pub mod migration;
 pub mod network;
+pub mod pathogen;
 pub mod pheromone;
 pub mod quadtree;
 pub mod terrain;

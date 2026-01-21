@@ -79,6 +79,8 @@ pub struct Brain {
 ```rust
 pub enum EntityStatus {
     Starving,   // 能量 < 20%
+    Infected,   // 携带病原体 [NEW]
+    Juvenile,   // 幼体阶段 (◦) [NEW]
     Mating,     // 能量 > 繁殖阈值
     Hunting,    // 攻击性 > 0.5
     Sharing,    // 分享能量中 (♣)
@@ -88,8 +90,23 @@ pub enum EntityStatus {
 
 ---
 
-## 项目组织结构
+## 核心系统
 
+### 1. 病原体与免疫系统 (Pathogen System)
+
+- **传播机制**: 感染者通过空间哈希查询邻近实体，根据 `transmission` 概率和对方 `immunity` 进行传染。
+- **环境风险**: 模拟世界会偶尔产生新的随机病原体，增加环境压力。
+- **免疫演化**: 实体在感染痊愈后会获得免疫力提升，且免疫力水平会以微小突变的形式遗传给后代。
+- **生存代价**: 感染状态下实体会持续损失能量。
+
+### 2. 生命周期 (Life Cycles)
+- **幼体 gate**: 实体出生后 150 ticks 内为幼体，无法繁殖，符号为 `◦`。
+- **成熟判定**: `is_mature` 方法结合当前 tick 和出生 tick 判定。
+
+### 3. 营养级分化 (Trophic Levels)
+- **角色定义**: Herbivore (食草) vs Carnivore (食肉)。
+- **饮食限制**: 食肉动物无法吃植物食物，只能通过捕食获取能量。
+- **收益差异**: 食肉动物捕食收益系数 1.2x，食草动物仅 0.2x。
 从 Phase 14 开始，项目进行了深度的模块化重构：
 
 ### 1. `src/app/`：应用层

@@ -54,7 +54,8 @@ pub struct World {
     pub pop_stats: PopulationStats,
     pub hall_of_fame: HallOfFame,
     pub terrain: TerrainGrid,
-    pub pheromones: PheromoneGrid, // NEW: Pheromone layer
+    pub pheromones: PheromoneGrid,
+    pub active_pathogens: Vec<crate::model::pathogen::Pathogen>, // NEW
 }
 
 impl World {
@@ -106,6 +107,7 @@ impl World {
             hall_of_fame: HallOfFame::new(),
             terrain,
             pheromones,
+            active_pathogens: Vec::new(),
         })
     }
 
@@ -134,16 +136,17 @@ impl World {
             }
         }
 
-        self.spatial_hash.clear();
-        for (i, e) in self.entities.iter().enumerate() {
-            self.spatial_hash.insert(e.x, e.y, i);
-        }
-
         // Decay pheromones each tick
         self.pheromones.decay();
         self.terrain.update(); // Recover fertility and update Barren state
 
-        // Terrain-aware food spawning
+        // Pathogen Emergence & Spread
+        if rng.gen_bool(0.0001) {
+            // New random pathogen emerges
+            self.active_pathogens
+                .push(crate::model::pathogen::Pathogen::new_random());
+        }
+
         let base_spawn_chance = 0.0083 * food_spawn_mult;
         if self.food.len() < self.config.world.max_food {
             // Try multiple times with terrain weighting
@@ -162,6 +165,13 @@ impl World {
         let mut alive_entities = Vec::new();
         let mut killed_ids = HashSet::new();
         let mut current_entities = std::mem::take(&mut self.entities);
+
+        // Re-populate spatial hash with current entities for sensory and collision logic
+        self.spatial_hash.clear();
+        for (i, e) in current_entities.iter().enumerate() {
+            self.spatial_hash.insert(e.x, e.y, i);
+        }
+
         let entity_snapshots: Vec<(uuid::Uuid, f64, f64, f64, u64, u32)> = current_entities
             .iter()
             .map(|e| (e.id, e.x, e.y, e.energy, e.birth_tick, e.offspring_count))
@@ -177,6 +187,14 @@ impl World {
             let nearby_indices =
                 self.spatial_hash
                     .query(current_entities[i].x, current_entities[i].y, 5.0);
+
+            // Chance to be infected by active environmental pathogens
+            for p in &self.active_pathogens {
+                if rng.gen_bool(0.005) {
+                    current_entities[i].try_infect(p);
+                }
+            }
+
             let tribe_count = nearby_indices
                 .iter()
                 .filter(|&&idx| idx != i && current_entities[i].same_tribe(&current_entities[idx]))
@@ -231,6 +249,23 @@ impl World {
                 .movement_modifier(current_entities[i].x, current_entities[i].y);
             current_entities[i].x += current_entities[i].vx * speed * terrain_speed_mod;
             current_entities[i].y += current_entities[i].vy * speed * terrain_speed_mod;
+
+            // Disease Processing & Transmission
+            current_entities[i].process_infection();
+            if let Some(p) = current_entities[i].pathogen.clone() {
+                // Try to infect neighbors
+                for n_idx in
+                    self.spatial_hash
+                        .query(current_entities[i].x, current_entities[i].y, 2.0)
+                {
+                    if n_idx != i && !killed_ids.contains(&current_entities[n_idx].id) {
+                        if current_entities[n_idx].try_infect(&p) {
+                            // Successfully infected neighbor!
+                        }
+                    }
+                }
+            }
+
             if current_entities[i].x <= 0.0 {
                 current_entities[i].x = 0.0;
                 current_entities[i].vx = -current_entities[i].vx;

@@ -59,6 +59,36 @@ The simulation now supports distinct game modes and has reached peak stability t
 
 ---
 
+## [Phase 15-18: Biological & Ecological Depth] - 2026-01-21
+
+### Evolutionary Leap: Life Cycles, Trophic Levels, and Pathogen Evolution
+
+The digital ecosystem has evolved into a complex web of life with developmental stages, dietary specializations, and immunological defense mechanisms.
+
+#### ✨ Features
+
+- **Phase 15: Life Cycles**:
+  - **Juvenile State (◦)**: Entities now start as immatures and must survive 150 ticks before reaching adulthood.
+  - **Maturity Gate**: Reproduction is disabled for juveniles, creating a vulnerable early-life period.
+- **Phase 16: Trophic Levels**:
+  - **Herbivores (H-)**: Specialized in plant consumption; inefficient hunters.
+  - **Carnivores (C-)**: Obligate predators; highly efficient hunters (1.2x yield).
+- **Phase 17: Ecological Succession**:
+  - **Terrain Health (Fertility)**: Land fertility depletes when plants are consumed.
+  - **Barren Terrain (░)**: Overgrazed land turns barren, stopping food production.
+- **Phase 18: Pathogens & Immunity**:
+  - **Contagion Simulation**: Pathogens spread through proximity, factoring in virulence and host immunity.
+  - **Immunity Evolution**: Entities gain resistance after recovery and pass it to offspring with minor mutations.
+  - **Environmental Outbreaks**: Randomly emerging pathogens add dynamic selective pressure.
+
+#### 🛠️ Technical Achievements
+
+- **Spatial Logic Refactor**: Fixed indexing in `World::update` to ensure spatial hashing works correctly with `std::mem::take` for entity snapshots.
+- **Pathogen Model**: Introduced a new `Pathogen` module with custom transmission and lethality dynamics.
+- **Comprehensive Testing**: Added `tests/pathogens.rs` and reached 40+ total tests.
+
+---
+
 ## [Phase 15-17: Biological & Ecological Depth] - 2026-01-21
 
 ### Evolutionary Leap: Life Cycles, Trophic Levels, and Soil Health

@@ -67,6 +67,7 @@ impl App {
                 " ♥  Mating    - Ready to reproduce",
                 " †  Starving  - Energy < 20%",
                 " ◦  Juvenile  - Too young to mate",
+                " ☣  Infected  - Carrying pathogen",
                 " ♣  Sharing   - Giving energy",
                 "",
                 " 🗺️  TERRAIN TYPES",
