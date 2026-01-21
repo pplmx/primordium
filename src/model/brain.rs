@@ -206,6 +206,7 @@ mod tests {
             mutation_amount: 0.5,
             drift_rate: 0.5,
             drift_amount: 0.1,
+            speciation_rate: 0.0,
         };
 
         // Mutate many times

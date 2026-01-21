@@ -118,6 +118,8 @@ impl App {
                 ratatui::text::Span::raw("Mate "),
                 ratatui::text::Span::styled("† ", Style::default().fg(Color::Rgb(150, 50, 50))),
                 ratatui::text::Span::raw("Starve "),
+                ratatui::text::Span::styled("◦ ", Style::default().fg(Color::Rgb(200, 200, 255))),
+                ratatui::text::Span::raw("Juvenile "),
                 ratatui::text::Span::styled("♣ ", Style::default().fg(Color::Rgb(100, 200, 100))),
                 ratatui::text::Span::raw("Share"),
                 ratatui::text::Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
@@ -257,6 +259,13 @@ impl App {
                         "{} ticks",
                         self.world.tick - entity.birth_tick
                     )),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Role:   ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(format!("{:?}", entity.role)),
                 ]));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(

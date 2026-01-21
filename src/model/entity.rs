@@ -9,16 +9,24 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EntityStatus {
     Starving, // < 20% energy
-    Sharing,  // High energy, sharing with neighbors [NEW]
+    Juvenile, // NEW: Too young to reproduce
+    Sharing,  // High energy, sharing with neighbors
     Mating,   // > reproduction threshold
     Hunting,  // brain aggression > 0.5
     Foraging, // normal
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum EntityRole {
+    Herbivore, // Eats plants, low aggression
+    Carnivore, // Eats entities, high aggression
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
     pub id: Uuid,
     pub parent_id: Option<Uuid>,
+    pub role: EntityRole, // NEW: Trophic role
     pub x: f64,
     pub y: f64,
     pub vx: f64,
@@ -54,9 +62,16 @@ impl Entity {
         let g = rng.gen_range(100..255);
         let b = rng.gen_range(100..255);
 
+        let role = if rng.gen_bool(0.8) {
+            EntityRole::Herbivore
+        } else {
+            EntityRole::Carnivore
+        };
+
         Self {
             id: Uuid::new_v4(),
             parent_id: None,
+            role,
             x,
             y,
             vx,
@@ -83,11 +98,18 @@ impl Entity {
         Color::Rgb(self.r, self.g, self.b)
     }
 
-    pub fn status(&self, reproduction_threshold: f64) -> EntityStatus {
+    pub fn status(
+        &self,
+        reproduction_threshold: f64,
+        current_tick: u64,
+        maturity_age: u64,
+    ) -> EntityStatus {
         if self.energy / self.max_energy < 0.2 {
             EntityStatus::Starving
+        } else if (current_tick - self.birth_tick) < maturity_age {
+            EntityStatus::Juvenile // NEW: Juvenile state
         } else if self.last_share_intent > 0.5 && self.can_share() {
-            EntityStatus::Sharing // NEW: Sharing status
+            EntityStatus::Sharing
         } else if self.last_aggression > 0.5 {
             EntityStatus::Hunting
         } else if self.energy > reproduction_threshold {
@@ -100,7 +122,8 @@ impl Entity {
     pub fn symbol_for_status(&self, status: EntityStatus) -> char {
         match status {
             EntityStatus::Starving => '†',
-            EntityStatus::Sharing => '♣', // NEW: Sharing symbol
+            EntityStatus::Juvenile => '◦', // NEW: Juvenile symbol
+            EntityStatus::Sharing => '♣',
             EntityStatus::Mating => '♥',
             EntityStatus::Hunting => '♦',
             EntityStatus::Foraging => '●',
@@ -110,11 +133,16 @@ impl Entity {
     pub fn color_for_status(&self, status: EntityStatus) -> Color {
         match status {
             EntityStatus::Starving => Color::Rgb(150, 50, 50), // Dim Red
-            EntityStatus::Sharing => Color::Rgb(100, 200, 100), // Green [NEW]
+            EntityStatus::Juvenile => Color::Rgb(200, 200, 255), // Light Blue/Silver
+            EntityStatus::Sharing => Color::Rgb(100, 200, 100), // Green
             EntityStatus::Mating => Color::Rgb(255, 105, 180), // Pink
             EntityStatus::Hunting => Color::Rgb(255, 69, 0),   // Red-Orange
             EntityStatus::Foraging => self.color(),
         }
+    }
+
+    pub fn is_mature(&self, current_tick: u64, maturity_age: u64) -> bool {
+        (current_tick - self.birth_tick) >= maturity_age
     }
 
     // === NEW SOCIAL METHODS ===
@@ -168,9 +196,14 @@ impl Entity {
         let s1_idx = (bytes[1] as usize) % syllables.len();
         let s2_idx = (bytes[2] as usize) % syllables.len();
 
+        let role_prefix = match self.role {
+            EntityRole::Herbivore => "H-",
+            EntityRole::Carnivore => "C-",
+        };
+
         format!(
-            "{}{}{}-Gen{}",
-            prefix[p_idx], syllables[s1_idx], syllables[s2_idx], self.generation
+            "{}{}{}{}-Gen{}",
+            role_prefix, prefix[p_idx], syllables[s1_idx], syllables[s2_idx], self.generation
         )
     }
 
@@ -184,21 +217,38 @@ impl Entity {
         let mut child_brain = self.brain.clone();
         child_brain.mutate_with_config(config);
 
-        let mut mutate_color = |c: u8| -> u8 {
+        let r = {
             let change = rng.gen_range(-15..=15);
-            (c as i16 + change).clamp(0, 255) as u8
+            (self.r as i16 + change).clamp(0, 255) as u8
         };
+        let g = {
+            let change = rng.gen_range(-15..=15);
+            (self.g as i16 + change).clamp(0, 255) as u8
+        };
+        let b = {
+            let change = rng.gen_range(-15..=15);
+            (self.b as i16 + change).clamp(0, 255) as u8
+        };
+
+        let mut child_role = self.role;
+        if rng.gen::<f32>() < config.speciation_rate {
+            child_role = match self.role {
+                EntityRole::Herbivore => EntityRole::Carnivore,
+                EntityRole::Carnivore => EntityRole::Herbivore,
+            };
+        }
 
         Self {
             id: Uuid::new_v4(),
             parent_id: Some(self.id),
+            role: child_role,
             x: self.x,
             y: self.y,
             vx: self.vx,
             vy: self.vy,
-            r: mutate_color(self.r),
-            g: mutate_color(self.g),
-            b: mutate_color(self.b),
+            r,
+            g,
+            b,
             symbol: '●',
             energy: child_energy,
             max_energy: self.max_energy,
@@ -214,14 +264,29 @@ impl Entity {
         }
     }
 
-    pub fn reproduce_with_mate(&mut self, tick: u64, child_brain: Brain) -> Self {
+    pub fn reproduce_with_mate(
+        &mut self,
+        tick: u64,
+        child_brain: Brain,
+        speciation_rate: f32,
+    ) -> Self {
+        let mut rng = rand::thread_rng();
         let child_energy = self.energy / 2.0;
         self.energy = child_energy;
         self.offspring_count += 1;
 
+        let mut child_role = self.role;
+        if rng.gen::<f32>() < speciation_rate {
+            child_role = match self.role {
+                EntityRole::Herbivore => EntityRole::Carnivore,
+                EntityRole::Carnivore => EntityRole::Herbivore,
+            };
+        }
+
         Self {
             id: Uuid::new_v4(),
             parent_id: Some(self.id),
+            role: child_role,
             x: self.x,
             y: self.y,
             vx: self.vx,
@@ -270,6 +335,7 @@ mod tests {
             mutation_amount: 0.0,
             drift_rate: 0.0,
             drift_amount: 0.0,
+            speciation_rate: 0.0,
         };
 
         let mut parent = Entity::new(50.0, 25.0, 0);
@@ -305,28 +371,65 @@ mod tests {
         let mut entity = Entity::new(50.0, 25.0, 0);
         entity.energy = 10.0; // 5% of max (200)
 
-        let status = entity.status(150.0);
+        let status = entity.status(150.0, 200, 150);
         assert_eq!(status, EntityStatus::Starving);
     }
 
     #[test]
-    fn test_entity_status_hunting() {
-        let mut entity = Entity::new(50.0, 25.0, 0);
+    fn test_entity_status_juvenile() {
+        let mut entity = Entity::new(50.0, 25.0, 100);
         entity.energy = 100.0;
-        entity.last_aggression = 0.8; // > 0.5
 
-        let status = entity.status(150.0);
-        assert_eq!(status, EntityStatus::Hunting);
+        // Current tick 200, born at 100, maturity 150 -> age 100 < 150
+        let status = entity.status(150.0, 200, 150);
+        assert_eq!(status, EntityStatus::Juvenile);
+        assert!(!entity.is_mature(200, 150));
     }
 
     #[test]
-    fn test_entity_status_mating() {
+    fn test_entity_status_mature_hunting() {
         let mut entity = Entity::new(50.0, 25.0, 0);
-        entity.energy = 160.0; // > threshold 150
-        entity.last_aggression = 0.0;
+        entity.energy = 100.0;
+        entity.last_aggression = 0.8;
 
-        let status = entity.status(150.0);
-        assert_eq!(status, EntityStatus::Mating);
+        // Age 200 > maturity 150
+        let status = entity.status(150.0, 200, 150);
+        assert_eq!(status, EntityStatus::Hunting);
+        assert!(entity.is_mature(200, 150));
+    }
+
+    #[test]
+    fn test_entity_role_inheritance() {
+        let config = crate::model::config::EvolutionConfig {
+            mutation_rate: 0.0,
+            mutation_amount: 0.0,
+            drift_rate: 0.0,
+            drift_amount: 0.0,
+            speciation_rate: 0.0, // No role switching
+        };
+
+        let mut parent = Entity::new(0.0, 0.0, 0);
+        parent.role = EntityRole::Carnivore;
+
+        let child = parent.reproduce(100, &config);
+        assert_eq!(child.role, EntityRole::Carnivore);
+    }
+
+    #[test]
+    fn test_entity_speciation() {
+        let config = crate::model::config::EvolutionConfig {
+            mutation_rate: 0.0,
+            mutation_amount: 0.0,
+            drift_rate: 0.0,
+            drift_amount: 0.0,
+            speciation_rate: 1.0, // Guaranteed role switching
+        };
+
+        let mut parent = Entity::new(0.0, 0.0, 0);
+        parent.role = EntityRole::Herbivore;
+
+        let child = parent.reproduce(100, &config);
+        assert_eq!(child.role, EntityRole::Carnivore);
     }
 
     #[test]

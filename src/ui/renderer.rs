@@ -101,9 +101,14 @@ impl<'a> Widget for WorldWidget<'a> {
         for entity in &self.world.entities {
             if let Some((x, y)) = Self::world_to_screen(entity.x, entity.y, area, self.screensaver)
             {
+                let status = entity.status(
+                    self.world.config.metabolism.reproduction_threshold,
+                    self.world.tick,
+                    self.world.config.metabolism.maturity_age,
+                );
                 let cell = buf.get_mut(x, y);
-                cell.set_symbol(&entity.symbol.to_string());
-                cell.set_fg(entity.color());
+                cell.set_symbol(&entity.symbol_for_status(status).to_string());
+                cell.set_fg(entity.color_for_status(status));
             }
         }
     }

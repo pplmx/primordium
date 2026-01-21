@@ -16,6 +16,7 @@ pub struct MetabolismConfig {
     pub base_idle_cost: f64,
     pub reproduction_threshold: f64,
     pub food_value: f64,
+    pub maturity_age: u64, // NEW: Age in ticks before an entity can reproduce
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -24,6 +25,7 @@ pub struct EvolutionConfig {
     pub mutation_amount: f32,
     pub drift_rate: f32,
     pub drift_amount: f32,
+    pub speciation_rate: f32, // NEW: Chance for offspring to flip trophic role
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -57,12 +59,14 @@ impl Default for AppConfig {
                 base_idle_cost: 0.5,
                 reproduction_threshold: 150.0,
                 food_value: 50.0,
+                maturity_age: 150, // Default 150 ticks to reach adulthood
             },
             evolution: EvolutionConfig {
                 mutation_rate: 0.1,
                 mutation_amount: 0.2,
                 drift_rate: 0.01,
                 drift_amount: 0.5,
+                speciation_rate: 0.02, // 2% chance to switch role
             },
             target_fps: 60,
             game_mode: GameMode::Standard,

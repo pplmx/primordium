@@ -34,6 +34,7 @@ fn test_reproduction_and_genetics() {
     let mut config = AppConfig::default();
     // High energy start to encourage reproduction
     config.world.initial_population = 10;
+    config.metabolism.maturity_age = 10; // Rapid maturity for test
 
     let mut world = World::new(10, config).expect("Failed to create world");
     let env = Environment::default();
@@ -57,6 +58,9 @@ fn test_reproduction_and_genetics() {
         }
     }
 
-    assert!(total_births > 0, "No births occurred even with high energy");
+    assert!(
+        total_births > 0,
+        "No births occurred even with high energy and rapid maturity"
+    );
     println!("Total births in 50 ticks: {}", total_births);
 }

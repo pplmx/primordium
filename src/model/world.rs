@@ -266,7 +266,11 @@ impl World {
                         && v_e < current_entities[i].energy * territorial_bonus
                         && !current_entities[i].same_tribe(&current_entities[t_idx])
                     {
-                        current_entities[i].energy += v_e * 0.8;
+                        let gain_mult = match current_entities[i].role {
+                            crate::model::entity::EntityRole::Carnivore => 1.2,
+                            crate::model::entity::EntityRole::Herbivore => 0.2, // Herbivores are bad hunters
+                        };
+                        current_entities[i].energy += v_e * gain_mult;
                         if current_entities[i].energy > current_entities[i].max_energy {
                             current_entities[i].energy = current_entities[i].max_energy;
                         }
@@ -293,32 +297,40 @@ impl World {
                     }
                 }
             }
-            let mut eaten_idx = None;
-            for (f_idx, f) in self.food.iter().enumerate() {
-                if (current_entities[i].x - f64::from(f.x)).powi(2)
-                    + (current_entities[i].y - f64::from(f.y)).powi(2)
-                    < 2.25
-                {
-                    eaten_idx = Some(f_idx);
-                    break;
+            let can_eat_food = matches!(
+                current_entities[i].role,
+                crate::model::entity::EntityRole::Herbivore
+            );
+            if can_eat_food {
+                let mut eaten_idx = None;
+                for (f_idx, f) in self.food.iter().enumerate() {
+                    if (current_entities[i].x - f64::from(f.x)).powi(2)
+                        + (current_entities[i].y - f64::from(f.y)).powi(2)
+                        < 2.25
+                    {
+                        eaten_idx = Some(f_idx);
+                        break;
+                    }
                 }
-            }
-            if let Some(f_idx) = eaten_idx {
-                current_entities[i].energy += self.config.metabolism.food_value;
-                if current_entities[i].energy > current_entities[i].max_energy {
-                    current_entities[i].energy = current_entities[i].max_energy;
+                if let Some(f_idx) = eaten_idx {
+                    current_entities[i].energy += self.config.metabolism.food_value;
+                    if current_entities[i].energy > current_entities[i].max_energy {
+                        current_entities[i].energy = current_entities[i].max_energy;
+                    }
+                    // Deposit food pheromone when eating
+                    self.pheromones.deposit(
+                        current_entities[i].x,
+                        current_entities[i].y,
+                        PheromoneType::Food,
+                        0.3,
+                    );
+                    self.food.swap_remove(f_idx);
                 }
-                // Deposit food pheromone when eating
-                self.pheromones.deposit(
-                    current_entities[i].x,
-                    current_entities[i].y,
-                    PheromoneType::Food,
-                    0.3,
-                );
-                self.food.swap_remove(f_idx);
             }
 
-            if current_entities[i].energy > self.config.metabolism.reproduction_threshold {
+            if current_entities[i].is_mature(self.tick, self.config.metabolism.maturity_age)
+                && current_entities[i].energy > self.config.metabolism.reproduction_threshold
+            {
                 let mate_indices =
                     self.spatial_hash
                         .query(current_entities[i].x, current_entities[i].y, 2.0);
@@ -338,7 +350,11 @@ impl World {
                         &current_entities[m_idx].brain,
                     );
                     cb.mutate_with_config(&self.config.evolution);
-                    let c = current_entities[i].reproduce_with_mate(self.tick, cb);
+                    let c = current_entities[i].reproduce_with_mate(
+                        self.tick,
+                        cb,
+                        self.config.evolution.speciation_rate,
+                    );
                     current_entities[i].energy -= 50.0;
                     c
                 } else {

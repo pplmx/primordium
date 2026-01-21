@@ -66,6 +66,7 @@ impl App {
                 " ♦  Hunting   - Attacking others",
                 " ♥  Mating    - Ready to reproduce",
                 " †  Starving  - Energy < 20%",
+                " ◦  Juvenile  - Too young to mate",
                 " ♣  Sharing   - Giving energy",
                 "",
                 " 🗺️  TERRAIN TYPES",
