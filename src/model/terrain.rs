@@ -9,6 +9,7 @@ pub enum TerrainType {
     Mountain, // Slows movement by 50%, no food spawns
     River,    // Speeds movement by 50%, normal food
     Oasis,    // Normal movement, food spawn ×3
+    Barren,   // NEW: Overgrazed terrain, no food spawns, movement slow
 }
 
 impl TerrainType {
@@ -19,6 +20,7 @@ impl TerrainType {
             TerrainType::Mountain => 0.5,
             TerrainType::River => 1.5,
             TerrainType::Oasis => 1.0,
+            TerrainType::Barren => 0.7, // Slightly slow
         }
     }
 
@@ -26,9 +28,10 @@ impl TerrainType {
     pub fn food_spawn_modifier(&self) -> f64 {
         match self {
             TerrainType::Plains => 1.0,
-            TerrainType::Mountain => 0.0, // No food on mountains
+            TerrainType::Mountain => 0.0,
             TerrainType::River => 0.8,
-            TerrainType::Oasis => 3.0, // 3x food in oases
+            TerrainType::Oasis => 3.0,
+            TerrainType::Barren => 0.1, // Very low food
         }
     }
 
@@ -39,6 +42,7 @@ impl TerrainType {
             TerrainType::Mountain => '▲',
             TerrainType::River => '≈',
             TerrainType::Oasis => '◊',
+            TerrainType::Barren => '░',
         }
     }
 
@@ -46,9 +50,10 @@ impl TerrainType {
     pub fn color(&self) -> Color {
         match self {
             TerrainType::Plains => Color::Reset,
-            TerrainType::Mountain => Color::Rgb(100, 100, 100), // Gray
-            TerrainType::River => Color::Rgb(70, 130, 180),     // Steel Blue
-            TerrainType::Oasis => Color::Rgb(50, 205, 50),      // Lime Green
+            TerrainType::Mountain => Color::Rgb(100, 100, 100),
+            TerrainType::River => Color::Rgb(70, 130, 180),
+            TerrainType::Oasis => Color::Rgb(50, 205, 50),
+            TerrainType::Barren => Color::Rgb(139, 69, 19), // Saddle Brown
         }
     }
 }
@@ -57,14 +62,18 @@ impl TerrainType {
 #[derive(Debug, Clone, Copy)]
 pub struct TerrainCell {
     pub terrain_type: TerrainType,
-    pub elevation: f32, // 0.0 - 1.0, used for generation
+    pub original_type: TerrainType, // For recovery
+    pub elevation: f32,
+    pub fertility: f32, // 0.0 - 1.0
 }
 
 impl Default for TerrainCell {
     fn default() -> Self {
         Self {
             terrain_type: TerrainType::Plains,
+            original_type: TerrainType::Plains,
             elevation: 0.5,
+            fertility: 1.0,
         }
     }
 }
@@ -102,8 +111,10 @@ impl TerrainGrid {
 
                 if elevation > mountain_threshold {
                     cell.terrain_type = TerrainType::Mountain;
+                    cell.original_type = TerrainType::Mountain;
                 } else if elevation < river_threshold {
                     cell.terrain_type = TerrainType::River;
+                    cell.original_type = TerrainType::River;
                 }
             }
         }
@@ -119,6 +130,7 @@ impl TerrainGrid {
 
             if cells[y][x].terrain_type == TerrainType::Plains {
                 cells[y][x].terrain_type = TerrainType::Oasis;
+                cells[y][x].original_type = TerrainType::Oasis;
                 placed += 1;
             }
             attempts += 1;
@@ -129,6 +141,32 @@ impl TerrainGrid {
             width,
             height,
         }
+    }
+
+    pub fn update(&mut self) {
+        for row in &mut self.cells {
+            for cell in row {
+                // Recover fertility slowly
+                cell.fertility = (cell.fertility + 0.001).min(1.0);
+
+                // Barren logic
+                if cell.terrain_type != TerrainType::Mountain
+                    && cell.terrain_type != TerrainType::River
+                {
+                    if cell.fertility < 0.2 {
+                        cell.terrain_type = TerrainType::Barren;
+                    } else if cell.terrain_type == TerrainType::Barren && cell.fertility > 0.5 {
+                        cell.terrain_type = cell.original_type;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn deplete(&mut self, x: f64, y: f64, amount: f32) {
+        let ix = (x as usize).min(self.width as usize - 1);
+        let iy = (y as usize).min(self.height as usize - 1);
+        self.cells[iy][ix].fertility = (self.cells[iy][ix].fertility - amount).max(0.0);
     }
 
     /// Simple value noise function for terrain generation

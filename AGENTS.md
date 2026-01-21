@@ -37,6 +37,14 @@ This file contains critical project-specific knowledge for AI agents working on 
   - 70-90%: Scarce
   - > 90%: Famine (Death/Starvation risk high)
 
+## 🧬 Biology & Ecology
+
+- **Life Cycles**: Entities are born as **Juveniles** (◦). They must survive for `maturity_age` (default 150 ticks) before reaching adulthood. Only adults can reproduce.
+- **Trophic Levels**:
+  - **Herbivores (H-)**: Primary consumers. Eat plant food (`*`). 0.2x predation gain.
+  - **Carnivores (C-)**: Predators. Cannot eat plants. 1.2x predation gain.
+- **Terrain Health**: Each cell has a fertility level. Eating food depletes fertility. If fertility < 0.2, the cell becomes **Barren** (░) and stops spawning food until it recovers.
+
 ## 🧪 Testing Strategy
 
 - **Unit Tests**: Located in `src/model/*.rs`. Fast, isolated.
@@ -51,6 +59,13 @@ This file contains critical project-specific knowledge for AI agents working on 
 - **pre-commit**: `cargo test` + `cargo fmt --all -- --check` + `cargo clippy --all-targets --all-features -- -D warnings`.
 - **pre-push**: Full `cargo test` suite.
 - **commit-msg**: Conventional Commits enforcement (`feat`, `fix`, `docs`, `refactor`, etc.).
+
+## 📝 Maintenance Protocol
+
+- **Synchronous Updates**: Whenever adding new features or changing functionality, you **MUST**:
+  1.  Update existing tests or add new tests to cover the changes.
+  2.  Update all relevant documentation in both **English and Chinese** (README, MANUAL, ARCHITECTURE, etc.).
+  3.  Reflect any core logic changes in this `AGENTS.md` file.
 
 ## 💡 Lessons Learned & Gotchas
 

@@ -141,6 +141,7 @@ impl World {
 
         // Decay pheromones each tick
         self.pheromones.decay();
+        self.terrain.update(); // Recover fertility and update Barren state
 
         // Terrain-aware food spawning
         let base_spawn_chance = 0.0083 * food_spawn_mult;
@@ -317,6 +318,10 @@ impl World {
                     if current_entities[i].energy > current_entities[i].max_energy {
                         current_entities[i].energy = current_entities[i].max_energy;
                     }
+                    // Deplete terrain health when food is eaten
+                    self.terrain
+                        .deplete(current_entities[i].x, current_entities[i].y, 0.4);
+
                     // Deposit food pheromone when eating
                     self.pheromones.deposit(
                         current_entities[i].x,
