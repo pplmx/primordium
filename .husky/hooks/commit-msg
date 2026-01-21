@@ -1,0 +1,23 @@
+#!/bin/sh
+# husky-rs commit-msg hook
+
+commit_msg_file="$1"
+commit_msg=$(cat "$commit_msg_file")
+
+# 1. Check minimum message length
+if [ ${#commit_msg} -lt 10 ]; then
+    echo "❌ Commit message too short (minimum 10 characters)"
+    exit 1
+fi
+
+# 2. Check for conventional commits format (with optional scope)
+# Allowed: feat(ui): add button, fix: bug, docs(readme): update
+if ! echo "$commit_msg" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|ci|perf|revert)(\(.+\))?: .+$"; then
+    echo "❌ Commit message must follow conventional commits format"
+    echo "   Format: <type>(<scope>): <subject>"
+    echo "   Example: feat(ui): add sidebar legend"
+    echo "   Example: fix: resolved memory leak in world update"
+    exit 1
+fi
+
+echo "✓ Commit message valid"

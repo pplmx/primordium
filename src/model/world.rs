@@ -15,6 +15,12 @@ pub struct HallOfFame {
     pub top_living: Vec<(f64, Entity)>,
 }
 
+impl Default for HallOfFame {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HallOfFame {
     pub fn new() -> Self {
         Self {
@@ -113,22 +119,19 @@ impl World {
         let food_spawn_mult = env.food_spawn_multiplier();
 
         // Game Mode Logic
-        match self.config.game_mode {
-            crate::model::config::GameMode::BattleRoyale => {
-                // Shrinking border: Reduce safe area by 0.1 every 10 ticks (example)
-                let shrink_amount = (self.tick as f64 / 100.0).min(width_f / 2.0 - 5.0);
-                // Entities outside this range take massive damage
-                for e in &mut self.entities {
-                    if e.x < shrink_amount
-                        || e.x > width_f - shrink_amount
-                        || e.y < shrink_amount
-                        || e.y > height_f - shrink_amount
-                    {
-                        e.energy -= 10.0; // The fog hurts
-                    }
+        if self.config.game_mode == crate::model::config::GameMode::BattleRoyale {
+            // Shrinking border: Reduce safe area by 0.1 every 10 ticks (example)
+            let shrink_amount = (self.tick as f64 / 100.0).min(width_f / 2.0 - 5.0);
+            // Entities outside this range take massive damage
+            for e in &mut self.entities {
+                if e.x < shrink_amount
+                    || e.x > width_f - shrink_amount
+                    || e.y < shrink_amount
+                    || e.y > height_f - shrink_amount
+                {
+                    e.energy -= 10.0; // The fog hurts
                 }
             }
-            _ => {}
         }
 
         self.spatial_hash.clear();
@@ -252,10 +255,10 @@ impl World {
                     let (v_id, _, _, v_e, v_b, v_o) = entity_snapshots[t_idx];
                     // Don't attack same-tribe members
                     // Cooperate Mode: No attacks at all
-                    let can_attack = match self.config.game_mode {
-                        crate::model::config::GameMode::Cooperative => false,
-                        _ => true,
-                    };
+                    let can_attack = !matches!(
+                        self.config.game_mode,
+                        crate::model::config::GameMode::Cooperative
+                    );
 
                     if can_attack
                         && v_id != current_entities[i].id

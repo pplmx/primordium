@@ -41,25 +41,25 @@ Primordium runs in two environments:
 ## 👁️ Interface Guide
 
 ### Entities & Status
-Entities are represented by symbols indicating their current state:
-- `@` **Idle/Alive**: Healthy entity roaming the world.
-- `F` **Fighting**: Currently engaged in combat.
-- `E` **Eating**: Consuming food or prey.
-- `M` **Mating**: Reproducing with another entity.
-- `♣` **Sharing**: Cooperating/Sharing energy with tribe members.
-- `†` **Dead**: A corpse that will decompose into organic matter.
+Entities are represented by symbols indicating their current physiological state:
+- `●` **Foraging**: Standard state, searching for resources.
+- `♦` **Hunting**: Aggressive state, attempting to consume other entities.
+- `♥` **Mating**: High-energy state, ready to reproduce.
+- `†` **Starving**: Critical energy state (< 20%), high risk of death.
+- `♣` **Sharing**: Altruistic state, giving energy to nearby tribe members.
 
 ### Colors (Tribes)
 Entities are colored based on their **genetic tribe**.
 - Entities with similar colors (RGB distance < 60) belong to the same **Tribe**.
 - Tribe members do **not** attack each other.
-- Tribe members may share food if altruism gene is active.
+- Tribe members may share energy if their neural "Share" output is high.
 
 ### Terrain
-- `.` **Plains**: Standard movement speed.
-- `~` **River** (Blue): Faster movement (currents), higher energy cost.
-- `▲` **Mountain** (Gray): Slow movement, defense bonus.
-- `*` **Food** (Green): Plant matter to be eaten.
+- ` ` **Plains**: Standard movement speed.
+- `≈` **River** (Blue): Faster movement (1.5x), represents water currents.
+- `▲` **Mountain** (Gray): Slow movement (0.5x), no food growth.
+- `◊` **Oasis** (Green): Prime real estate with 3x food spawn rate.
+- `*` **Food** (Green): Energy source spawned based on RAM usage.
 
 ---
 

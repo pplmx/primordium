@@ -1,4 +1,4 @@
-/// Pheromone system for inter-entity chemical communication
+//! Pheromone system for inter-entity chemical communication
 
 /// Types of pheromones entities can deposit
 #[derive(Debug, Clone, Copy, PartialEq)]

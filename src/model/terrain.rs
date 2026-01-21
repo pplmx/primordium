@@ -84,11 +84,11 @@ impl TerrainGrid {
 
         // Simple noise-based terrain generation
         // Phase 1: Generate elevation map using value noise
-        for y in 0..height as usize {
-            for x in 0..width as usize {
+        for (y, row) in cells.iter_mut().enumerate().take(height as usize) {
+            for (x, cell) in row.iter_mut().enumerate().take(width as usize) {
                 // Simple pseudo-random elevation based on position and seed
                 let noise = Self::value_noise(x as f32, y as f32, seed);
-                cells[y][x].elevation = noise;
+                cell.elevation = noise;
             }
         }
 
@@ -96,14 +96,14 @@ impl TerrainGrid {
         let mountain_threshold = 0.7;
         let river_threshold = 0.25;
 
-        for y in 0..height as usize {
-            for x in 0..width as usize {
-                let elevation = cells[y][x].elevation;
+        for row in cells.iter_mut().take(height as usize) {
+            for cell in row.iter_mut().take(width as usize) {
+                let elevation = cell.elevation;
 
                 if elevation > mountain_threshold {
-                    cells[y][x].terrain_type = TerrainType::Mountain;
+                    cell.terrain_type = TerrainType::Mountain;
                 } else if elevation < river_threshold {
-                    cells[y][x].terrain_type = TerrainType::River;
+                    cell.terrain_type = TerrainType::River;
                 }
             }
         }

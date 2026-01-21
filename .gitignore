@@ -11,6 +11,7 @@
 # --- Project Runtime Data ---
 # Simulation logs and legendary archives
 logs/
+.primordium_onboarded
 
 # Local configuration overrides
 config.toml

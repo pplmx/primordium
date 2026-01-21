@@ -45,22 +45,22 @@ impl Brain {
     pub fn forward(&self, inputs: [f32; 6]) -> [f32; 5] {
         // Input to Hidden (6 inputs -> 6 hidden)
         let mut hidden = [0.0; 6];
-        for i in 0..6 {
+        for (i, h) in hidden.iter_mut().enumerate() {
             let mut sum = self.bias_h[i];
-            for j in 0..6 {
-                sum += inputs[j] * self.weights_ih[j * 6 + i];
+            for (j, &input) in inputs.iter().enumerate() {
+                sum += input * self.weights_ih[j * 6 + i];
             }
-            hidden[i] = sum.tanh();
+            *h = sum.tanh();
         }
 
         // Hidden to Output (6 hidden -> 5 outputs)
         let mut output = [0.0; 5];
-        for i in 0..5 {
+        for (i, o) in output.iter_mut().enumerate() {
             let mut sum = self.bias_o[i];
-            for j in 0..6 {
-                sum += hidden[j] * self.weights_ho[j * 5 + i];
+            for (j, &h) in hidden.iter().enumerate() {
+                sum += h * self.weights_ho[j * 5 + i];
             }
-            output[i] = sum.tanh();
+            *o = sum.tanh();
         }
         output
     }
@@ -146,5 +146,139 @@ impl Brain {
             }
         }
         child
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_brain_new_random_has_correct_dimensions() {
+        let brain = Brain::new_random();
+        assert_eq!(
+            brain.weights_ih.len(),
+            36,
+            "Should have 6x6=36 input-hidden weights"
+        );
+        assert_eq!(
+            brain.weights_ho.len(),
+            30,
+            "Should have 6x5=30 hidden-output weights"
+        );
+        assert_eq!(brain.bias_h.len(), 6, "Should have 6 hidden biases");
+        assert_eq!(brain.bias_o.len(), 5, "Should have 5 output biases");
+    }
+
+    #[test]
+    fn test_brain_forward_is_deterministic() {
+        let brain = Brain::new_random();
+        let inputs = [0.5, -0.5, 0.3, 0.0, 0.1, 0.2];
+
+        let output1 = brain.forward(inputs);
+        let output2 = brain.forward(inputs);
+
+        assert_eq!(output1, output2, "Same inputs should produce same outputs");
+    }
+
+    #[test]
+    fn test_brain_forward_output_in_valid_range() {
+        let brain = Brain::new_random();
+        let inputs = [1.0, -1.0, 0.5, 0.5, 0.0, 1.0];
+
+        let outputs = brain.forward(inputs);
+
+        for (i, &out) in outputs.iter().enumerate() {
+            assert!(
+                (-1.0..=1.0).contains(&out),
+                "Output {} should be in [-1, 1], got {}",
+                i,
+                out
+            );
+        }
+    }
+
+    #[test]
+    fn test_brain_mutate_keeps_weights_in_range() {
+        let mut brain = Brain::new_random();
+        let config = crate::model::config::EvolutionConfig {
+            mutation_rate: 1.0, // Always mutate
+            mutation_amount: 0.5,
+            drift_rate: 0.5,
+            drift_amount: 0.1,
+        };
+
+        // Mutate many times
+        for _ in 0..100 {
+            brain.mutate_with_config(&config);
+        }
+
+        // All weights should still be in [-2, 2]
+        for w in &brain.weights_ih {
+            assert!(
+                *w >= -2.0 && *w <= 2.0,
+                "Weight should be clamped to [-2, 2]"
+            );
+        }
+        for w in &brain.weights_ho {
+            assert!(
+                *w >= -2.0 && *w <= 2.0,
+                "Weight should be clamped to [-2, 2]"
+            );
+        }
+    }
+
+    #[test]
+    fn test_brain_crossover_produces_valid_child() {
+        let parent1 = Brain::new_random();
+        let parent2 = Brain::new_random();
+
+        let child = Brain::crossover(&parent1, &parent2);
+
+        // Child should have correct dimensions
+        assert_eq!(child.weights_ih.len(), 36);
+        assert_eq!(child.weights_ho.len(), 30);
+
+        // Each weight should come from either parent
+        for i in 0..child.weights_ih.len() {
+            assert!(
+                child.weights_ih[i] == parent1.weights_ih[i]
+                    || child.weights_ih[i] == parent2.weights_ih[i],
+                "Child weight should come from a parent"
+            );
+        }
+    }
+
+    #[test]
+    fn test_brain_genotype_distance_self_is_zero() {
+        let brain = Brain::new_random();
+        let distance = brain.genotype_distance(&brain);
+        assert!(
+            (distance - 0.0).abs() < 0.0001,
+            "Distance to self should be 0"
+        );
+    }
+
+    #[test]
+    fn test_brain_genotype_distance_is_symmetric() {
+        let brain1 = Brain::new_random();
+        let brain2 = Brain::new_random();
+
+        let d1 = brain1.genotype_distance(&brain2);
+        let d2 = brain2.genotype_distance(&brain1);
+
+        assert!((d1 - d2).abs() < 0.0001, "Distance should be symmetric");
+    }
+
+    #[test]
+    fn test_brain_hex_roundtrip() {
+        let original = Brain::new_random();
+        let hex = original.to_hex();
+        let restored = Brain::from_hex(&hex).expect("Should decode successfully");
+
+        assert_eq!(original.weights_ih, restored.weights_ih);
+        assert_eq!(original.weights_ho, restored.weights_ho);
+        assert_eq!(original.bias_h, restored.bias_h);
+        assert_eq!(original.bias_o, restored.bias_o);
     }
 }

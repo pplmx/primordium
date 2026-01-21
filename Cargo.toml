@@ -4,60 +4,16 @@ version = "0.0.1"
 edition = "2021"
 default-run = "primordium"
 
-[dependencies]
-# Core rendering
-ratatui = "0.26"
-crossterm = "0.27"
-
-# System monitoring
-sysinfo = "0.30"
-
-# Simulation
-rand = "0.8"
-
-# Data persistence
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-chrono = "0.4"
-uuid = { version = "1.0", features = ["v4", "serde"] }
-
-# Error handling
-anyhow = "1.0"
-
-# CLI & Analysis
-clap = { version = "4.0", features = ["derive"] }
-petgraph = "0.6"
-toml = "0.8"
-
-# Blockchain & Crypto
-sha2 = "0.10"
-hex = "0.4"
-tokio = { version = "1.0", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] }
-futures = "0.3"
-async-trait = "0.1"
-
+# ============================================================================
+# Library Configuration
+# ============================================================================
 [lib]
 name = "primordium_lib"
 crate-type = ["cdylib", "rlib"]
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2"
-js-sys = "0.3"
-console_error_panic_hook = "0.1"
-web-sys = { version = "0.3", features = [
-    "Document",
-    "Window",
-    "Element",
-    "HtmlCanvasElement",
-    "CanvasRenderingContext2d",
-    "Performance",
-    "console",
-    "WebSocket",             # NEW: For client-side networking
-    "MessageEvent",          # NEW: For websocket messages
-    "ErrorEvent",            # NEW: For socket errors
-] }
-
+# ============================================================================
+# Binary Targets
+# ============================================================================
 [[bin]]
 name = "primordium"
 path = "src/main.rs"
@@ -66,18 +22,96 @@ path = "src/main.rs"
 name = "server"
 path = "src/server/main.rs"
 
-# Server dependencies (optional, will be ignored by wasm32 build but good to have)
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-axum = { version = "0.7", features = ["ws"] }
+# ============================================================================
+# Common Dependencies
+# ============================================================================
+[dependencies]
+# Error handling
+anyhow = "1.0"
+
+# Serialization & Data
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = "0.4"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# CLI & Configuration
+clap = { version = "4.0", features = ["derive"] }
+toml = "0.8"
+
+# Algorithms & Data Structures
+petgraph = "0.6"
+rand = "0.8"
+
+# Cryptography
+sha2 = "0.10"
+hex = "0.4"
+
+# Async Runtime & Networking (shared)
 tokio = { version = "1.0", features = ["full"] }
-tower-http = { version = "0.5", features = ["fs", "cors"] }
+reqwest = { version = "0.11", features = ["json"] }
 futures = "0.3"
+async-trait = "0.1"
+
+# Terminal UI (non-WASM only in practice, but listed here)
+ratatui = "0.26"
+crossterm = "0.27"
+sysinfo = "0.30"
+
+# ============================================================================
+# Development Dependencies
+# ============================================================================
+[dev-dependencies]
+husky-rs = "0.2.2"
+
+# ============================================================================
+# WASM-specific Dependencies
+# ============================================================================
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+console_error_panic_hook = "0.1"
+
+web-sys = { version = "0.3", features = [
+    # Core DOM
+    "Document",
+    "Window",
+    "Element",
+
+    # Canvas
+    "HtmlCanvasElement",
+    "CanvasRenderingContext2d",
+
+    # Utilities
+    "Performance",
+    "console",
+
+    # Networking
+    "WebSocket",
+    "MessageEvent",
+    "ErrorEvent",
+] }
+
+# ============================================================================
+# Server-specific Dependencies (non-WASM)
+# ============================================================================
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Web framework
+axum = { version = "0.7", features = ["ws"] }
+
+# HTTP utilities
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+
+# Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# ============================================================================
+# Release Profile Optimization
+# ============================================================================
 [profile.release]
-strip = true
-opt-level = 3
-lto = "fat"
-codegen-units = 1
-panic = "abort"
+strip = true           # 移除调试符号
+opt-level = 3          # 最大优化
+lto = "fat"            # 链接时优化
+codegen-units = 1      # 单个代码生成单元以提高优化效果
+panic = "abort"        # panic 时直接终止，减小二进制大小

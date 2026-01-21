@@ -59,10 +59,12 @@ async fn main() -> Result<()> {
             // Override game mode from CLI
             match args.gamemode.to_lowercase().as_str() {
                 "coop" | "cooperative" => {
-                    app.world.config.game_mode = primordium_lib::model::config::GameMode::Cooperative
+                    app.world.config.game_mode =
+                        primordium_lib::model::config::GameMode::Cooperative
                 }
                 "battle" | "battleroyale" => {
-                    app.world.config.game_mode = primordium_lib::model::config::GameMode::BattleRoyale
+                    app.world.config.game_mode =
+                        primordium_lib::model::config::GameMode::BattleRoyale
                 }
                 _ => {}
             }

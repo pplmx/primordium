@@ -34,7 +34,7 @@ impl BlockchainProvider for OpenTimestampsProvider {
             .await?;
 
         if response.status().is_success() {
-            Ok(format!("OTS_SUCCESS_{}", hash[..8].to_string()))
+            Ok(format!("OTS_SUCCESS_{}", &hash[..8]))
         } else {
             Err(anyhow::anyhow!(
                 "OTS server returned error: {}",

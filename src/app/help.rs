@@ -1,0 +1,129 @@
+use crate::app::state::App;
+use ratatui::layout::Rect;
+use ratatui::style::{Color, Style};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::Frame;
+
+impl App {
+    pub fn render_help(&self, f: &mut Frame) {
+        if !self.show_help {
+            return;
+        }
+
+        let area = f.size();
+        let help_width = 60.min(area.width - 4);
+        let help_height = 20.min(area.height - 4);
+        let help_area = Rect::new(
+            (area.width - help_width) / 2,
+            (area.height - help_height) / 2,
+            help_width,
+            help_height,
+        );
+        f.render_widget(Clear, help_area);
+
+        // Tab titles
+        let tab_titles = ["[1]Controls", "[2]Symbols", "[3]Concepts", "[4]Eras"];
+        let mut tab_spans = Vec::new();
+        for (i, title) in tab_titles.iter().enumerate() {
+            if i == self.help_tab as usize {
+                tab_spans.push(ratatui::text::Span::styled(
+                    format!(" {} ", title),
+                    Style::default().bg(Color::Cyan).fg(Color::Black),
+                ));
+            } else {
+                tab_spans.push(ratatui::text::Span::styled(
+                    format!(" {} ", title),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+        }
+
+        // Content based on tab
+        let help_content: Vec<&str> = match self.help_tab {
+            0 => vec![
+                "",
+                " ⌨️  KEYBOARD CONTROLS",
+                " ─────────────────────────────────",
+                " [Q]       Quit simulation",
+                " [Space]   Pause / Resume",
+                " [B]       Toggle Brain panel",
+                " [H]       Toggle this Help",
+                " [+/-]     Speed up / Slow down",
+                " [X]       Genetic Surge (mutate all)",
+                " [C]       Export selected DNA",
+                " [V]       Import DNA from file",
+                "",
+                " 🖱️  MOUSE CONTROLS",
+                " ─────────────────────────────────",
+                " Left Click   Select organism",
+                " Right Click  Spawn food cluster",
+            ],
+            1 => vec![
+                "",
+                " 🧬 ENTITY STATUS SYMBOLS",
+                " ─────────────────────────────────",
+                " ●  Foraging  - Normal behavior",
+                " ♦  Hunting   - Attacking others",
+                " ♥  Mating    - Ready to reproduce",
+                " †  Starving  - Energy < 20%",
+                " ♣  Sharing   - Giving energy",
+                "",
+                " 🗺️  TERRAIN TYPES",
+                " ─────────────────────────────────",
+                " ▲  Mountain  - Slow movement",
+                " ≈  River     - Fast movement",
+                " ◊  Oasis     - 3x food spawn",
+                " *  Food      - Energy source",
+            ],
+            2 => vec![
+                "",
+                " 🔗 HARDWARE COUPLING",
+                " ─────────────────────────────────",
+                " Your CPU load = World climate",
+                "   Low CPU  → Temperate (×1.0)",
+                "   High CPU → Scorching (×3.0)",
+                "",
+                " Your RAM usage = Resource scarcity",
+                "   Low RAM  → Abundant food",
+                "   High RAM → Famine conditions",
+                "",
+                " 🧠 NEURAL EVOLUTION",
+                " ─────────────────────────────────",
+                " Each entity has a neural network",
+                " that evolves through reproduction.",
+                " Fittest organisms survive longer!",
+            ],
+            3 => vec![
+                "",
+                " 📜 WORLD ERAS",
+                " ─────────────────────────────────",
+                " 🌀 Primordial  - Tick < 5000",
+                "    Chaos period, adaptation",
+                "",
+                " 🌱 DawnOfLife  - AvgLife > 200",
+                "    Stable population emerges",
+                "",
+                " 🌸 Flourishing - Pop>200, Sp>3",
+                "    High diversity, many species",
+                "",
+                " ⚔️  DominanceWar - CPU > 70%",
+                "    Environmental stress",
+                "",
+                " 👑 ApexEra     - Fitness > 5000",
+                "    Peak evolution achieved",
+            ],
+            _ => vec![""],
+        };
+
+        let mut lines: Vec<ratatui::text::Line> = Vec::new();
+        lines.push(ratatui::text::Line::from(tab_spans));
+        for line in help_content {
+            lines.push(ratatui::text::Line::from(line));
+        }
+
+        f.render_widget(
+            Paragraph::new(lines).block(Block::default().title(" 📖 Help ").borders(Borders::ALL)),
+            help_area,
+        );
+    }
+}

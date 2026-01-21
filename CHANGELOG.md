@@ -29,20 +29,33 @@ Primordium now supports distributed simulations where entities can migrate betwe
 
 ## [Phase 14: Gameplay & Polish] - 2026-01-21
 
-### Evolutionary Leap: Divergent Realities
+### Evolutionary Leap: Divergent Realities & Digital Stability
 
-The simulation now supports distinct game modes and has been highly optimized.
+The simulation now supports distinct game modes and has reached peak stability through a massive architectural refactor and comprehensive quality enforcement.
 
 #### ✨ Features
 
 - **Game Modes**:
   - **Cooperative (`--gamemode coop`)**: Global peace enforced; ideal for colony growth.
   - **Battle Royale (`--gamemode battle`)**: Shrinking world borders force conflict.
+- **Enhanced TUI**:
+  - **Legend Bar**: Added a dedicated reference line for entity status and terrain symbols.
+  - **Help System**: New 4-tab tabbed help guide (Controls, Symbols, Concepts, Eras).
+  - **Onboarding**: A 3-screen tutorial for new gods entering the Primordium.
 - **Documentation**:
   - Comprehensive **User Manuals** (EN/ZH).
   - **Technical Wiki** covering Genetics, Brains, and Ecosystems.
+  - **Agent Memory**: New `AGENTS.md` to assist AI pair programmers.
+
+#### 🛠️ Technical Achievements
+
+- **Modular Refactor**: Decomposed the 870-line `app.rs` into a clean, modular structure under `src/app/`.
+- **Quality Gate**: Established a strict pre-commit pipeline using Husky (Fmt, Check, Clippy, Test).
+- **Comprehensive Testing**: Added 30+ tests covering unit logic (Brain, Entity, Quadtree) and integration workflows (Life cycles, DNA flow, Era transitions).
 - **Performance**:
   - Enabled **LTO** (Link Time Optimization) for release builds.
+  - Replaced $O(N^2)$ bottlenecks with optimized iterators and spatial hashing.
+- **Robustness**: 100% Clippy compliance and automated log directory management.
 
 ---
 

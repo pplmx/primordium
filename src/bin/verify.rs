@@ -23,11 +23,9 @@ fn main() -> anyhow::Result<()> {
     let file = File::open(&args.input)?;
     let reader = BufReader::new(file);
     let mut legends = Vec::new();
-    for line in reader.lines() {
-        if let Ok(l) = line {
-            if let Ok(legend) = serde_json::from_str::<Legend>(&l) {
-                legends.push(legend);
-            }
+    for l in reader.lines().map_while(Result::ok) {
+        if let Ok(legend) = serde_json::from_str::<Legend>(&l) {
+            legends.push(legend);
         }
     }
 
@@ -44,17 +42,15 @@ fn main() -> anyhow::Result<()> {
     let anchor_reader = BufReader::new(anchor_file);
     let mut found = false;
 
-    for line in anchor_reader.lines() {
-        if let Ok(l) = line {
-            if let Ok(record) = serde_json::from_str::<AnchorRecord>(&l) {
-                if record.hash == current_hash {
-                    println!("\n✅ VERIFICATION SUCCESSFUL!");
-                    println!("Provider: {}", record.provider);
-                    println!("Timestamp: {}", record.timestamp);
-                    println!("Proof ID: {}", record.tx_id);
-                    found = true;
-                    break;
-                }
+    for l in anchor_reader.lines().map_while(Result::ok) {
+        if let Ok(record) = serde_json::from_str::<AnchorRecord>(&l) {
+            if record.hash == current_hash {
+                println!("\n✅ VERIFICATION SUCCESSFUL!");
+                println!("Provider: {}", record.provider);
+                println!("Timestamp: {}", record.timestamp);
+                println!("Proof ID: {}", record.tx_id);
+                found = true;
+                break;
             }
         }
     }

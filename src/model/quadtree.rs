@@ -56,3 +56,90 @@ impl Rect {
         e.x >= self.x && e.x < self.x + self.w && e.y >= self.y && e.y < self.y + self.h
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_spatial_hash_insert_and_query_same_cell() {
+        let mut hash = SpatialHash::new(10.0);
+        hash.insert(5.0, 5.0, 0);
+        hash.insert(7.0, 8.0, 1);
+
+        let results = hash.query(6.0, 6.0, 5.0);
+
+        assert!(results.contains(&0), "Should find entity 0");
+        assert!(results.contains(&1), "Should find entity 1");
+    }
+
+    #[test]
+    fn test_spatial_hash_query_finds_nearby() {
+        let mut hash = SpatialHash::new(5.0);
+        hash.insert(10.0, 10.0, 0); // Cell (2, 2)
+        hash.insert(12.0, 10.0, 1); // Cell (2, 2) - same cell
+        hash.insert(100.0, 100.0, 2); // Cell (20, 20) - far away
+
+        let results = hash.query(11.0, 10.0, 5.0);
+
+        assert!(results.contains(&0), "Should find nearby entity 0");
+        assert!(results.contains(&1), "Should find nearby entity 1");
+        assert!(!results.contains(&2), "Should NOT find distant entity 2");
+    }
+
+    #[test]
+    fn test_spatial_hash_query_empty() {
+        let hash = SpatialHash::new(10.0);
+        let results = hash.query(50.0, 50.0, 10.0);
+        assert!(results.is_empty(), "Empty hash should return empty results");
+    }
+
+    #[test]
+    fn test_spatial_hash_clear() {
+        let mut hash = SpatialHash::new(10.0);
+        hash.insert(5.0, 5.0, 0);
+        hash.insert(15.0, 15.0, 1);
+
+        assert!(!hash.cells.is_empty(), "Should have cells before clear");
+
+        hash.clear();
+
+        assert!(hash.cells.is_empty(), "Should be empty after clear");
+    }
+
+    #[test]
+    fn test_spatial_hash_query_crosses_cell_boundary() {
+        let mut hash = SpatialHash::new(10.0);
+        // Entity at (9, 9) is in cell (0, 0)
+        hash.insert(9.0, 9.0, 0);
+        // Entity at (11, 11) is in cell (1, 1)
+        hash.insert(11.0, 11.0, 1);
+
+        // Query centered at (10, 10) with radius 5 should find both
+        let results = hash.query(10.0, 10.0, 5.0);
+
+        assert!(
+            results.contains(&0),
+            "Should find entity across cell boundary"
+        );
+        assert!(
+            results.contains(&1),
+            "Should find entity across cell boundary"
+        );
+    }
+
+    #[test]
+    fn test_spatial_hash_negative_coordinates() {
+        let mut hash = SpatialHash::new(10.0);
+        hash.insert(-5.0, -5.0, 0); // Cell (-1, -1)
+        hash.insert(-15.0, -15.0, 1); // Cell (-2, -2)
+
+        let results = hash.query(-5.0, -5.0, 5.0);
+
+        assert!(
+            results.contains(&0),
+            "Should find entity at negative coords"
+        );
+        assert!(!results.contains(&1), "Should not find distant entity");
+    }
+}

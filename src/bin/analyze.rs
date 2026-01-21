@@ -65,11 +65,9 @@ fn main() -> anyhow::Result<()> {
     let mut legends = Vec::new();
     if let Ok(legends_file) = File::open(&args.legends_log) {
         let reader = BufReader::new(legends_file);
-        for line in reader.lines() {
-            if let Ok(l) = line {
-                if let Ok(legend) = serde_json::from_str::<Legend>(&l) {
-                    legends.push(legend);
-                }
+        for l in reader.lines().map_while(Result::ok) {
+            if let Ok(legend) = serde_json::from_str::<Legend>(&l) {
+                legends.push(legend);
             }
         }
     }
@@ -102,7 +100,7 @@ fn main() -> anyhow::Result<()> {
                 format!(
                     "{}. **{}** - Gen: {}, Lifespan: {}, Offspring: {}\n",
                     i + 1,
-                    l.id.to_string()[..8].to_string(),
+                    &l.id.to_string()[..8],
                     l.generation,
                     l.lifespan,
                     l.offspring_count

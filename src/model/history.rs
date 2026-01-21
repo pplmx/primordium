@@ -62,6 +62,12 @@ pub struct PopulationStats {
     recent_deaths: VecDeque<f64>,
 }
 
+impl Default for PopulationStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PopulationStats {
     pub fn new() -> Self {
         Self {
@@ -137,6 +143,9 @@ pub struct HistoryLogger {
 
 impl HistoryLogger {
     pub fn new() -> anyhow::Result<Self> {
+        if !std::path::Path::new("logs").exists() {
+            std::fs::create_dir_all("logs")?;
+        }
         let file = OpenOptions::new()
             .create(true)
             .append(true)
@@ -171,11 +180,9 @@ impl HistoryLogger {
         };
         let reader = BufReader::new(file);
         let mut legends = Vec::new();
-        for line in reader.lines() {
-            if let Ok(l) = line {
-                if let Ok(legend) = serde_json::from_str::<Legend>(&l) {
-                    legends.push(legend);
-                }
+        for l in reader.lines().map_while(Result::ok) {
+            if let Ok(legend) = serde_json::from_str::<Legend>(&l) {
+                legends.push(legend);
             }
         }
         Ok(legends)
@@ -211,7 +218,27 @@ impl LiveEvent {
                 };
                 (msg, Color::Red)
             }
-            LiveEvent::ClimateShift { to, .. } => (format!("Climate: {}", to), Color::Yellow),
+            LiveEvent::ClimateShift { from, to, .. } => {
+                // Provide context on what the climate change means
+                let effect = match to.as_str() {
+                    "Temperate" => "☀️ Temperate - Metabolism ×1.0 (stable)",
+                    "Warm" => "🔥 Warm - Metabolism ×1.5 (faster drain)",
+                    "Hot" => "🌋 Hot - Metabolism ×2.0 (high stress)",
+                    "Scorching" => "☀️ SCORCHING - Metabolism ×3.0 (DANGER!)",
+                    _ => to.as_str(),
+                };
+                let direction = if from == "Temperate" && to != "Temperate" {
+                    "⬆️"
+                } else if to == "Temperate" {
+                    "⬇️"
+                } else {
+                    "→"
+                };
+                (
+                    format!("{} Climate {} {}", direction, direction, effect),
+                    Color::Yellow,
+                )
+            }
             LiveEvent::Extinction { tick, .. } => {
                 (format!("Extinction at tick {}", tick), Color::Magenta)
             }

@@ -1,0 +1,27 @@
+#!/bin/sh
+# husky-rs pre-commit hook
+
+echo "🔍 Running full pre-commit verification..."
+
+# 1. Run all tests
+echo "   [1/3] Running tests..."
+cargo test --quiet || {
+    echo "❌ Tests failed! Fix them before committing."
+    exit 1
+}
+
+# 2. Format check
+echo "   [2/3] Checking format..."
+cargo fmt --all -- --check || {
+    echo "❌ Code is not formatted. Run: cargo fmt --all"
+    exit 1
+}
+
+# 3. Comprehensive Lint check (Clippy)
+echo "   [3/3] Running clippy..."
+cargo clippy --all-targets --all-features -- -D warnings || {
+    echo "❌ Clippy found issues! Fix them before committing."
+    exit 1
+}
+
+echo "✅ All pre-commit checks passed!"

@@ -9,7 +9,6 @@ use axum::{
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use std::{
-    collections::HashSet,
     net::SocketAddr,
     sync::{Arc, Mutex},
 };
@@ -82,7 +81,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut rx = state.tx.subscribe();
 
     // Loop
-    let mut send_task = tokio::spawn(async move {
+    let send_task = tokio::spawn(async move {
         while let Ok(msg) = rx.recv().await {
             // In a real app we'd filter messages so we don't send back to self if needed
             // For now, relay everything (simplified)
@@ -100,16 +99,12 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     while let Some(Ok(result)) = receiver.next().await {
         if let Message::Text(text) = result {
             // Attempt to parse
-            if let Ok(net_msg) = serde_json::from_str::<NetMessage>(&text) {
-                match net_msg {
-                    NetMessage::MigrateEntity { .. } => {
-                        // Forward migration to ALL other clients (simplified broadcast)
-                        // Ideally we pick a random target or neighbour
-                        tracing::info!("Relaying migration from {}", id_clone);
-                        let _ = tx.send(text); // Broadcast the raw wrapper
-                    }
-                    _ => {}
-                }
+            if let Ok(NetMessage::MigrateEntity { .. }) = serde_json::from_str::<NetMessage>(&text)
+            {
+                // Forward migration to ALL other clients (simplified broadcast)
+                // Ideally we pick a random target or neighbour
+                tracing::info!("Relaying migration from {}", id_clone);
+                let _ = tx.send(text); // Broadcast the raw wrapper
             }
         }
     }

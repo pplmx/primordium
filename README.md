@@ -75,7 +75,9 @@ Each entity possesses a **4-layer Neural Network** brain. Through natural select
 - **History Logging**: Continuous streaming of life events to JSONL.
 - **Immutable Proof**: Datasets are anchored to the **Bitcoin blockchain** via OpenTimestamps for cryptographic proof of evolution.
 
-### ⚡ Performance
+### ⚡ Performance & Stability
+- **Modular Architecture**: Clean separation of concerns between state management, rendering, and simulation logic.
+- **Strict Quality Gate**: 100% Clippy compliance and 30+ tests ensuring digital stability.
 - **Spatial Hashing**: Optimized $O(N \log N)$ sensory lookups for high-density populations.
 
 ---

@@ -1,0 +1,13 @@
+#!/bin/sh
+# husky-rs pre-push hook
+
+echo "🚀 Running pre-push checks..."
+
+# Run full tests including integration tests
+echo "🧪 Running all tests (unit + integration)..."
+cargo test --quiet || {
+    echo "❌ Tests failed! Fix before pushing."
+    exit 1
+}
+
+echo "✅ All checks passed! Pushing..."

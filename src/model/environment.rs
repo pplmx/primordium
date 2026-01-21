@@ -168,10 +168,8 @@ impl Environment {
             if pop_stats.population > 200 && pop_stats.species_count > 3 {
                 self.current_era = Era::Flourishing;
             }
-        } else if self.current_era == Era::Flourishing {
-            if self.cpu_usage > 70.0 {
-                self.current_era = Era::DominanceWar;
-            }
+        } else if self.current_era == Era::Flourishing && self.cpu_usage > 70.0 {
+            self.current_era = Era::DominanceWar;
         }
 
         if pop_stats.top_fitness > 5000.0 {
@@ -192,9 +190,7 @@ impl Environment {
     pub fn climate(&self) -> ClimateState {
         if self.is_heat_wave() {
             ClimateState::Scorching
-        } else if self.is_ice_age() {
-            ClimateState::Temperate
-        } else if self.cpu_usage < 30.0 {
+        } else if self.is_ice_age() || self.cpu_usage < 30.0 {
             ClimateState::Temperate
         } else if self.cpu_usage < 60.0 {
             ClimateState::Warm

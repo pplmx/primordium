@@ -186,7 +186,7 @@ impl Entity {
 
         let mut mutate_color = |c: u8| -> u8 {
             let change = rng.gen_range(-15..=15);
-            (c as i16 + change).max(0).min(255) as u8
+            (c as i16 + change).clamp(0, 255) as u8
         };
 
         Self {
@@ -242,5 +242,179 @@ impl Entity {
             home_x: self.x,
             home_y: self.y,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_entity_new_has_valid_initial_state() {
+        let entity = Entity::new(50.0, 25.0, 100);
+
+        assert_eq!(entity.x, 50.0);
+        assert_eq!(entity.y, 25.0);
+        assert_eq!(entity.birth_tick, 100);
+        assert_eq!(entity.generation, 1);
+        assert_eq!(entity.energy, 100.0);
+        assert_eq!(entity.max_energy, 200.0);
+        assert_eq!(entity.offspring_count, 0);
+        assert!(entity.parent_id.is_none());
+    }
+
+    #[test]
+    fn test_entity_reproduce_splits_energy() {
+        let config = crate::model::config::EvolutionConfig {
+            mutation_rate: 0.0,
+            mutation_amount: 0.0,
+            drift_rate: 0.0,
+            drift_amount: 0.0,
+        };
+
+        let mut parent = Entity::new(50.0, 25.0, 0);
+        parent.energy = 200.0;
+
+        let child = parent.reproduce(100, &config);
+
+        // Energy should be split
+        assert_eq!(parent.energy, 100.0, "Parent should have half energy");
+        assert_eq!(child.energy, 100.0, "Child should have half energy");
+
+        // Parent stats updated
+        assert_eq!(
+            parent.offspring_count, 1,
+            "Parent offspring count should increase"
+        );
+
+        // Child properties
+        assert_eq!(
+            child.parent_id,
+            Some(parent.id),
+            "Child should reference parent"
+        );
+        assert_eq!(child.generation, 2, "Child generation should be parent+1");
+        assert_eq!(
+            child.birth_tick, 100,
+            "Child birth tick should be current tick"
+        );
+    }
+
+    #[test]
+    fn test_entity_status_starving() {
+        let mut entity = Entity::new(50.0, 25.0, 0);
+        entity.energy = 10.0; // 5% of max (200)
+
+        let status = entity.status(150.0);
+        assert_eq!(status, EntityStatus::Starving);
+    }
+
+    #[test]
+    fn test_entity_status_hunting() {
+        let mut entity = Entity::new(50.0, 25.0, 0);
+        entity.energy = 100.0;
+        entity.last_aggression = 0.8; // > 0.5
+
+        let status = entity.status(150.0);
+        assert_eq!(status, EntityStatus::Hunting);
+    }
+
+    #[test]
+    fn test_entity_status_mating() {
+        let mut entity = Entity::new(50.0, 25.0, 0);
+        entity.energy = 160.0; // > threshold 150
+        entity.last_aggression = 0.0;
+
+        let status = entity.status(150.0);
+        assert_eq!(status, EntityStatus::Mating);
+    }
+
+    #[test]
+    fn test_entity_same_tribe_similar_colors() {
+        let mut entity1 = Entity::new(0.0, 0.0, 0);
+        entity1.r = 100;
+        entity1.g = 100;
+        entity1.b = 100;
+
+        let mut entity2 = Entity::new(0.0, 0.0, 0);
+        entity2.r = 110; // Diff 10
+        entity2.g = 105; // Diff 5
+        entity2.b = 120; // Diff 20 = Total 35 < 60
+
+        assert!(
+            entity1.same_tribe(&entity2),
+            "Similar colors should be same tribe"
+        );
+    }
+
+    #[test]
+    fn test_entity_different_tribe_different_colors() {
+        let mut entity1 = Entity::new(0.0, 0.0, 0);
+        entity1.r = 100;
+        entity1.g = 100;
+        entity1.b = 100;
+
+        let mut entity2 = Entity::new(0.0, 0.0, 0);
+        entity2.r = 200; // Diff 100
+        entity2.g = 50; // Diff 50
+        entity2.b = 150; // Diff 50 = Total 200 > 60
+
+        assert!(
+            !entity1.same_tribe(&entity2),
+            "Different colors should be different tribe"
+        );
+    }
+
+    #[test]
+    fn test_entity_can_share_high_energy() {
+        let mut entity = Entity::new(0.0, 0.0, 0);
+        entity.energy = 160.0; // 80% of 200
+
+        assert!(
+            entity.can_share(),
+            "High energy entity should be able to share"
+        );
+    }
+
+    #[test]
+    fn test_entity_cannot_share_low_energy() {
+        let mut entity = Entity::new(0.0, 0.0, 0);
+        entity.energy = 100.0; // 50% of 200
+
+        assert!(!entity.can_share(), "Low energy entity should not share");
+    }
+
+    #[test]
+    fn test_entity_territorial_aggression_near_home() {
+        let mut entity = Entity::new(50.0, 50.0, 0);
+        entity.home_x = 50.0;
+        entity.home_y = 50.0;
+        entity.x = 52.0; // 2 units from home
+        entity.y = 52.0;
+
+        let bonus = entity.territorial_aggression();
+        assert_eq!(bonus, 1.5, "Should have 1.5x aggression near home");
+    }
+
+    #[test]
+    fn test_entity_territorial_aggression_far_from_home() {
+        let mut entity = Entity::new(50.0, 50.0, 0);
+        entity.home_x = 50.0;
+        entity.home_y = 50.0;
+        entity.x = 70.0; // 20 units from home
+        entity.y = 50.0;
+
+        let bonus = entity.territorial_aggression();
+        assert_eq!(bonus, 1.0, "Should have normal aggression far from home");
+    }
+
+    #[test]
+    fn test_entity_name_is_deterministic() {
+        let entity = Entity::new(0.0, 0.0, 0);
+        let name1 = entity.name();
+        let name2 = entity.name();
+
+        assert_eq!(name1, name2, "Same entity should have same name");
+        assert!(name1.contains("-Gen"), "Name should contain generation");
     }
 }
