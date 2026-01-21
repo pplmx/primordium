@@ -98,6 +98,7 @@ impl App {
     }
 
     fn update_world(&mut self) -> Result<()> {
+        self.env.tick(); // [NEW] Progress circadian rhythm
         let events = self.world.update(&self.env)?;
         for ev in events {
             let (msg, color) = ev.to_ui_message();

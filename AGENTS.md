@@ -48,6 +48,9 @@ This file contains critical project-specific knowledge for AI agents working on 
   - **Transmission**: Depends on virulence vs host immunity.
   - **Effects**: Constant energy drain.
   - **Immunity**: Gained through survival and inherited with minor mutation.
+- **Circadian Rhythms**: A Day/Night cycle (default 2000 ticks) that governs the world.
+  - **Light Levels**: Higher food growth during the day; minimal growth at night.
+  - **Metabolism**: Energy cost is reduced by 40% at night (rest period).
 
 ## 🧪 Testing Strategy
 

@@ -85,7 +85,28 @@ The digital ecosystem has evolved into a complex web of life with developmental 
 
 - **Spatial Logic Refactor**: Fixed indexing in `World::update` to ensure spatial hashing works correctly with `std::mem::take` for entity snapshots.
 - **Pathogen Model**: Introduced a new `Pathogen` module with custom transmission and lethality dynamics.
-- **Comprehensive Testing**: Added `tests/pathogens.rs` and reached 40+ total tests.
+- **Comprehensive Testing**: Added `tests/pathogens.rs` and reached 41 total tests.
+
+---
+
+## [Phase 19: Circadian Rhythms] - 2026-01-21
+
+### Evolutionary Leap: The Temporal Dimension
+
+The digital ecosystem now pulses with the cycle of Day and Night, affecting both plant life and organism metabolism.
+
+#### ✨ Features
+
+- **Circadian Cycle**: A global world clock transitioning between Day and Night.
+- **Light-Dependent Growth**: Food spawn rates are tied to the `light_level`. Midday sees peak growth.
+- **Resting Metabolism**: Organisms have a resting state at night, reducing idle energy consumption by 40%.
+- **TUI Visualization**: Real-time Day/Night icons (☀️/🌙) added to the dashboard.
+
+#### 🛠️ Technical Achievements
+
+- **Environment Ticking**: Implemented a per-tick update mechanism for the `Environment` state.
+- **Physics Coupling**: Integrated light levels and circadian multipliers into the core metabolic formulas.
+- **Verification**: Added `test_light_dependent_food_growth` to the integration suite.
 
 ---
 

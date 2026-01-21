@@ -67,7 +67,11 @@ impl App {
                 ));
             f.render_widget(cpu_gauge, line1[0]);
             f.render_widget(
-                Paragraph::new(format!(" | Climate: {}", self.env.climate().icon())),
+                Paragraph::new(format!(
+                    " | Climate: {} | Time: {}",
+                    self.env.climate().icon(),
+                    self.env.time_of_day().icon()
+                )),
                 line1[1],
             );
 

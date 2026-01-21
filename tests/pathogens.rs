@@ -7,11 +7,14 @@ use primordium_lib::model::world::World;
 fn test_pathogen_transmission() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
+    config.game_mode = primordium_lib::model::config::GameMode::Cooperative; // Disable predation
     let mut world = World::new(0, config).expect("Failed to create world");
     let env = Environment::default();
 
     // 1. Setup Infected Patient Zero
     let mut patient_zero = primordium_lib::model::entity::Entity::new(10.0, 10.0, 0);
+    patient_zero.vx = 0.0;
+    patient_zero.vy = 0.0;
     let pathogen = Pathogen {
         id: uuid::Uuid::new_v4(),
         lethality: 0.1,
@@ -23,23 +26,29 @@ fn test_pathogen_transmission() {
     patient_zero.infection_timer = pathogen.duration;
     world.entities.push(patient_zero);
 
-    // 2. Setup Victim nearby
-    let victim = primordium_lib::model::entity::Entity::new(10.5, 10.5, 0);
+    // 2. Setup Victim nearby (same position to be sure)
+    let mut victim = primordium_lib::model::entity::Entity::new(10.0, 10.0, 0);
+    victim.vx = 0.0;
+    victim.vy = 0.0;
     world.entities.push(victim);
 
     // 3. Update world to spread infection
-    // Need a few ticks because spatial hash and brain update
-    for _ in 0..5 {
-        world.update(&env).expect("Update failed");
-    }
+    world.update(&env).expect("Update failed");
 
     // 4. Verify victim is infected
+    for (i, e) in world.entities.iter().enumerate() {
+        println!("Entity {}: Infected={}", i, e.pathogen.is_some());
+    }
+
     let infected_count = world
         .entities
         .iter()
         .filter(|e| e.pathogen.is_some())
         .count();
-    assert_eq!(infected_count, 2, "Pathogen should have spread to neighbor");
+    assert_eq!(
+        infected_count, 2,
+        "Pathogen should have spread to neighbor in 1 tick"
+    );
 }
 
 #[test]

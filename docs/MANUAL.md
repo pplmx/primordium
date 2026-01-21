@@ -46,6 +46,8 @@ Entities are represented by symbols indicating their current physiological state
 - `♦` **Hunting**: Aggressive state, attempting to consume other entities.
 - `♥` **Mating**: High-energy state, ready to reproduce.
 - `†` **Starving**: Critical energy state (< 20%), high risk of death.
+- `◦` **Juvenile**: Immature state, unable to reproduce. [NEW]
+- `☣` **Infected**: Carrying a pathogen, loses energy and spreads disease. [NEW]
 - `♣` **Sharing**: Altruistic state, giving energy to nearby tribe members.
 
 ### Colors (Tribes)

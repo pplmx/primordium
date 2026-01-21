@@ -97,6 +97,21 @@ impl Season {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TimeOfDay {
+    Day,
+    Night,
+}
+
+impl TimeOfDay {
+    pub fn icon(&self) -> &'static str {
+        match self {
+            TimeOfDay::Day => "☀️ Day",
+            TimeOfDay::Night => "🌙 Night",
+        }
+    }
+}
+
 pub struct Environment {
     pub cpu_usage: f32,
     pub ram_usage_percent: f32,
@@ -111,6 +126,9 @@ pub struct Environment {
     pub current_season: Season,
     pub season_tick: u64,
     pub season_duration: u64, // Ticks per season (default: 10000)
+    // Circadian System
+    pub world_time: u64,      // 0 to day_cycle_ticks
+    pub day_cycle_ticks: u64, // Default: 2000
 }
 
 impl Default for Environment {
@@ -126,11 +144,40 @@ impl Default for Environment {
             current_season: Season::Spring,
             season_tick: 0,
             season_duration: 10000,
+            world_time: 0,
+            day_cycle_ticks: 2000,
         }
     }
 }
 
 impl Environment {
+    pub fn tick(&mut self) {
+        self.world_time = (self.world_time + 1) % self.day_cycle_ticks;
+    }
+
+    pub fn time_of_day(&self) -> TimeOfDay {
+        if self.world_time < self.day_cycle_ticks / 2 {
+            TimeOfDay::Day
+        } else {
+            TimeOfDay::Night
+        }
+    }
+
+    /// Light level from 0.0 (darkest night) to 1.0 (brightest day)
+    pub fn light_level(&self) -> f32 {
+        let half_cycle = self.day_cycle_ticks as f32 / 2.0;
+        let progress = (self.world_time as f32 % self.day_cycle_ticks as f32) / half_cycle;
+
+        if progress < 1.0 {
+            // Day: peak at middle of day
+            let x = progress - 0.5;
+            1.0 - (x * x * 4.0) // Simple parabolic arc
+        } else {
+            // Night: very low light
+            0.1
+        }
+    }
+
     pub fn update_events(&mut self) {
         if self.cpu_usage > 80.0 {
             self.heat_wave_timer += 1;
@@ -224,8 +271,16 @@ impl Environment {
                 ClimateState::Scorching => 3.0,
             }
         };
+
+        // Apply circadian mult (rest at night)
+        let circadian = if matches!(self.time_of_day(), TimeOfDay::Night) {
+            0.6 // 40% reduction at night
+        } else {
+            1.0
+        };
+
         // Apply season modifier
-        base * self.current_season.metabolism_multiplier()
+        base * self.current_season.metabolism_multiplier() * circadian
     }
 
     pub fn food_spawn_multiplier(&self) -> f64 {
@@ -243,5 +298,56 @@ impl Environment {
         }
         // Apply season modifier
         base * self.current_season.food_multiplier()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_circadian_cycle_progression() {
+        let mut env = Environment {
+            day_cycle_ticks: 100,
+            ..Environment::default()
+        };
+
+        // Initially day
+        assert_eq!(env.time_of_day(), TimeOfDay::Day);
+
+        // Midday (ticks/4 = 25)
+        env.world_time = 25;
+        assert!(env.light_level() > 0.9);
+
+        // Progress to night
+        for _ in 0..50 {
+            env.tick(); // Now 75
+        }
+        assert_eq!(env.time_of_day(), TimeOfDay::Night);
+        assert_eq!(env.light_level(), 0.1);
+
+        // Reset to day
+        for _ in 0..50 {
+            env.tick(); // Now 125 % 100 = 25
+        }
+        assert_eq!(env.time_of_day(), TimeOfDay::Day);
+    }
+
+    #[test]
+    fn test_circadian_metabolism() {
+        let mut env = Environment {
+            day_cycle_ticks: 100,
+            ..Environment::default()
+        };
+
+        // Day metabolism
+        env.world_time = 0;
+        let day_met = env.metabolism_multiplier();
+
+        // Night metabolism
+        env.world_time = 60;
+        let night_met = env.metabolism_multiplier();
+
+        assert!(night_met < day_met, "Metabolism should be lower at night");
     }
 }

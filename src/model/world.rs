@@ -147,7 +147,7 @@ impl World {
                 .push(crate::model::pathogen::Pathogen::new_random());
         }
 
-        let base_spawn_chance = 0.0083 * food_spawn_mult;
+        let base_spawn_chance = 0.0083 * food_spawn_mult * env.light_level() as f64;
         if self.food.len() < self.config.world.max_food {
             // Try multiple times with terrain weighting
             for _ in 0..3 {

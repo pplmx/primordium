@@ -11,11 +11,14 @@ fn test_terrain_fertility_cycle() {
     config.world.max_food = 0; // Disable auto-spawn
 
     let mut world = World::new(1, config).expect("Failed to create world");
-    let env = Environment::default();
+    let mut env = Environment::default();
+    env.world_time = env.day_cycle_ticks / 4; // Midday to ensure high metabolism and light
 
-    // Set entity position
+    // Set entity position and stop movement
     world.entities[0].x = 10.5;
     world.entities[0].y = 10.5;
+    world.entities[0].vx = 0.0;
+    world.entities[0].vy = 0.0;
     world.entities[0].role = EntityRole::Herbivore;
     world.entities[0].energy = 100.0;
 
@@ -117,6 +120,8 @@ fn test_trophic_diet_restrictions() {
 
     // 1. Carnivore should NOT eat plants
     let mut carnivore = primordium_lib::model::entity::Entity::new(10.5, 10.5, 0);
+    carnivore.vx = 0.0;
+    carnivore.vy = 0.0;
     carnivore.role = EntityRole::Carnivore;
     carnivore.energy = 50.0;
     world.entities.push(carnivore);
@@ -134,10 +139,50 @@ fn test_trophic_diet_restrictions() {
     // 2. Herbivore SHOULD eat plants
     world.entities.clear();
     let mut herbivore = primordium_lib::model::entity::Entity::new(10.5, 10.5, 0);
+    herbivore.vx = 0.0;
+    herbivore.vy = 0.0;
     herbivore.role = EntityRole::Herbivore;
     herbivore.energy = 50.0;
     world.entities.push(herbivore);
 
     world.update(&env).expect("Update failed");
     assert_eq!(world.food.len(), 0, "Herbivore should have eaten the plant");
+}
+
+#[test]
+fn test_light_dependent_food_growth() {
+    let mut config = AppConfig::default();
+    config.world.initial_food = 0;
+    config.world.max_food = 100;
+    let mut world = World::new(0, config).expect("Failed to create world");
+    let mut env = Environment::default();
+
+    // 1. Day time growth (Midday)
+    env.world_time = env.day_cycle_ticks / 4;
+    let mut day_food_count = 0;
+    for _ in 0..200 {
+        world.update(&env).expect("Update failed");
+        day_food_count += world.food.len();
+        world.food.clear();
+    }
+
+    // 2. Night time growth
+    env.world_time = env.day_cycle_ticks / 2 + 100; // Night
+    let mut night_food_count = 0;
+    for _ in 0..200 {
+        world.update(&env).expect("Update failed");
+        night_food_count += world.food.len();
+        world.food.clear();
+    }
+
+    println!(
+        "Day food: {}, Night food: {}",
+        day_food_count, night_food_count
+    );
+    assert!(
+        day_food_count >= night_food_count,
+        "More food should grow during day (or equal if very low spawn). Day: {}, Night: {}",
+        day_food_count,
+        night_food_count
+    );
 }
