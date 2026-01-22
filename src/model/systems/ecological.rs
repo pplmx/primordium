@@ -34,28 +34,30 @@ pub fn spawn_food(
     }
 }
 
+/// Context for feeding operations, reducing parameter count.
+pub struct FeedingContext<'a> {
+    pub food: &'a [Food],
+    pub food_hash: &'a SpatialHash,
+    pub eaten_indices: &'a mut HashSet<usize>,
+    pub terrain: &'a mut TerrainGrid,
+    pub pheromones: &'a mut PheromoneGrid,
+    pub food_value: f64,
+}
+
 /// Handle herbivore feeding with spatial optimization.
-#[allow(clippy::too_many_arguments)]
-pub fn handle_feeding_optimized(
-    idx: usize,
-    entities: &mut [Entity],
-    food: &[Food],
-    food_hash: &SpatialHash,
-    eaten_indices: &mut HashSet<usize>,
-    terrain: &mut TerrainGrid,
-    pheromones: &mut PheromoneGrid,
-    food_value: f64,
-) {
+pub fn handle_feeding_optimized(idx: usize, entities: &mut [Entity], ctx: &mut FeedingContext) {
     if !matches!(entities[idx].metabolism.role, EntityRole::Herbivore) {
         return;
     }
     let mut eaten_idx = None;
-    let nearby_food = food_hash.query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
+    let nearby_food = ctx
+        .food_hash
+        .query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
     for f_idx in nearby_food {
-        if eaten_indices.contains(&f_idx) {
+        if ctx.eaten_indices.contains(&f_idx) {
             continue;
         }
-        let f = &food[f_idx];
+        let f = &ctx.food[f_idx];
         if (entities[idx].physics.x - f64::from(f.x)).powi(2)
             + (entities[idx].physics.y - f64::from(f.y)).powi(2)
             < 2.25
@@ -65,16 +67,17 @@ pub fn handle_feeding_optimized(
         }
     }
     if let Some(f_idx) = eaten_idx {
-        entities[idx].metabolism.energy =
-            (entities[idx].metabolism.energy + food_value).min(entities[idx].metabolism.max_energy);
-        terrain.deplete(entities[idx].physics.x, entities[idx].physics.y, 0.4);
-        pheromones.deposit(
+        entities[idx].metabolism.energy = (entities[idx].metabolism.energy + ctx.food_value)
+            .min(entities[idx].metabolism.max_energy);
+        ctx.terrain
+            .deplete(entities[idx].physics.x, entities[idx].physics.y, 0.4);
+        ctx.pheromones.deposit(
             entities[idx].physics.x,
             entities[idx].physics.y,
             PheromoneType::Food,
             0.3,
         );
-        eaten_indices.insert(f_idx);
+        ctx.eaten_indices.insert(f_idx);
     }
 }
 
@@ -134,6 +137,42 @@ mod tests {
             food.len(),
             initial_count,
             "No food should spawn when at max"
+        );
+    }
+
+    #[test]
+    fn test_feeding_context_usage() {
+        let mut entities = vec![Entity::new(5.0, 5.0, 0)];
+        entities[0].metabolism.role = EntityRole::Herbivore;
+        entities[0].metabolism.energy = 50.0;
+
+        let food = vec![Food::new(5, 5)];
+        let mut food_hash = SpatialHash::new(5.0);
+        food_hash.insert(5.0, 5.0, 0);
+
+        let mut eaten_indices = HashSet::new();
+        let mut terrain = TerrainGrid::generate(10, 10, 42);
+        let mut pheromones = PheromoneGrid::new(10, 10);
+
+        let mut ctx = FeedingContext {
+            food: &food,
+            food_hash: &food_hash,
+            eaten_indices: &mut eaten_indices,
+            terrain: &mut terrain,
+            pheromones: &mut pheromones,
+            food_value: 50.0,
+        };
+
+        let initial_energy = entities[0].metabolism.energy;
+        handle_feeding_optimized(0, &mut entities, &mut ctx);
+
+        assert!(
+            entities[0].metabolism.energy > initial_energy,
+            "Entity should have gained energy"
+        );
+        assert!(
+            ctx.eaten_indices.contains(&0),
+            "Food should be marked eaten"
         );
     }
 }

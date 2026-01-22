@@ -10,32 +10,34 @@ use crate::model::world::EntitySnapshot;
 use chrono::Utc;
 use std::collections::HashSet;
 
+/// Context for predation operations, reducing parameter count.
+pub struct PredationContext<'a> {
+    pub snapshots: &'a [EntitySnapshot],
+    pub killed_ids: &'a mut HashSet<uuid::Uuid>,
+    pub events: &'a mut Vec<LiveEvent>,
+    pub config: &'a AppConfig,
+    pub spatial_hash: &'a SpatialHash,
+    pub pheromones: &'a mut PheromoneGrid,
+    pub pop_stats: &'a mut PopulationStats,
+    pub logger: &'a mut HistoryLogger,
+    pub tick: u64,
+}
+
 /// Handle predation between entities.
-#[allow(clippy::too_many_arguments)]
-pub fn handle_predation(
-    idx: usize,
-    entities: &mut [Entity],
-    snapshots: &[EntitySnapshot],
-    killed_ids: &mut HashSet<uuid::Uuid>,
-    events: &mut Vec<LiveEvent>,
-    config: &AppConfig,
-    spatial_hash: &SpatialHash,
-    pheromones: &mut PheromoneGrid,
-    pop_stats: &mut PopulationStats,
-    logger: &mut HistoryLogger,
-    tick: u64,
-) {
+pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut PredationContext) {
     let territorial_bonus = entities[idx].territorial_aggression();
-    let targets = spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
+    let targets = ctx
+        .spatial_hash
+        .query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
     for t_idx in targets {
-        let v_id = snapshots[t_idx].id;
-        let v_e = snapshots[t_idx].energy;
-        let v_b = snapshots[t_idx].birth_tick;
-        let v_o = snapshots[t_idx].offspring_count;
-        let can_attack = !matches!(config.game_mode, GameMode::Cooperative);
+        let v_id = ctx.snapshots[t_idx].id;
+        let v_e = ctx.snapshots[t_idx].energy;
+        let v_b = ctx.snapshots[t_idx].birth_tick;
+        let v_o = ctx.snapshots[t_idx].offspring_count;
+        let can_attack = !matches!(ctx.config.game_mode, GameMode::Cooperative);
         if can_attack
             && v_id != entities[idx].id
-            && !killed_ids.contains(&v_id)
+            && !ctx.killed_ids.contains(&v_id)
             && v_e < entities[idx].metabolism.energy * territorial_bonus
             && !entities[idx].same_tribe(&entities[t_idx])
         {
@@ -45,25 +47,25 @@ pub fn handle_predation(
             };
             entities[idx].metabolism.energy = (entities[idx].metabolism.energy + v_e * gain_mult)
                 .min(entities[idx].metabolism.max_energy);
-            killed_ids.insert(v_id);
-            pheromones.deposit(
+            ctx.killed_ids.insert(v_id);
+            ctx.pheromones.deposit(
                 entities[idx].physics.x,
                 entities[idx].physics.y,
                 PheromoneType::Danger,
                 0.5,
             );
-            let v_age = tick - v_b;
-            pop_stats.record_death(v_age);
+            let v_age = ctx.tick - v_b;
+            ctx.pop_stats.record_death(v_age);
             let ev = LiveEvent::Death {
                 id: v_id,
                 age: v_age,
                 offspring: v_o,
-                tick,
+                tick: ctx.tick,
                 timestamp: Utc::now().to_rfc3339(),
                 cause: "predation".to_string(),
             };
-            let _ = logger.log_event(ev.clone());
-            events.push(ev);
+            let _ = ctx.logger.log_event(ev.clone());
+            ctx.events.push(ev);
         }
     }
 }
@@ -146,21 +148,50 @@ pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) {
     }
 }
 
+/// Check if an entity qualifies for legend status.
+pub fn is_legend_worthy(entity: &Entity, tick: u64) -> bool {
+    let lifespan = tick - entity.metabolism.birth_tick;
+    lifespan > 1000
+        || entity.metabolism.offspring_count > 10
+        || entity.metabolism.peak_energy > 300.0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // ============== Unit Tests ==============
+
     #[test]
-    fn test_archive_if_legend_long_lifespan() {
-        // Entity with lifespan > 1000 should be archived
+    fn test_is_legend_worthy_by_lifespan() {
         let mut entity = Entity::new(5.0, 5.0, 0);
         entity.metabolism.birth_tick = 0;
 
-        // Can't easily test without a real logger, but the function should not panic
-        // This is more of a smoke test
-        let tick = 1500;
-        let lifespan = tick - entity.metabolism.birth_tick;
-        assert!(lifespan > 1000, "Entity should qualify for legend status");
+        // Not legend worthy at tick 500
+        assert!(!is_legend_worthy(&entity, 500));
+
+        // Legend worthy at tick 1500 (lifespan > 1000)
+        assert!(is_legend_worthy(&entity, 1500));
+    }
+
+    #[test]
+    fn test_is_legend_worthy_by_offspring() {
+        let mut entity = Entity::new(5.0, 5.0, 0);
+        entity.metabolism.offspring_count = 5;
+        assert!(!is_legend_worthy(&entity, 100));
+
+        entity.metabolism.offspring_count = 15;
+        assert!(is_legend_worthy(&entity, 100));
+    }
+
+    #[test]
+    fn test_is_legend_worthy_by_peak_energy() {
+        let mut entity = Entity::new(5.0, 5.0, 0);
+        entity.metabolism.peak_energy = 200.0;
+        assert!(!is_legend_worthy(&entity, 100));
+
+        entity.metabolism.peak_energy = 350.0;
+        assert!(is_legend_worthy(&entity, 100));
     }
 
     #[test]
@@ -174,5 +205,103 @@ mod tests {
         // Tick 0, maturity_age default is 150, so not mature
         let result = handle_reproduction(0, &mut entities, &killed_ids, &spatial_hash, &config, 0);
         assert!(result.is_none(), "Immature entity should not reproduce");
+    }
+
+    #[test]
+    fn test_reproduction_requires_energy_threshold() {
+        let mut entities = vec![Entity::new(5.0, 5.0, 0)];
+        entities[0].metabolism.energy = 50.0; // Low energy
+        entities[0].metabolism.birth_tick = 0;
+        let killed_ids = HashSet::new();
+        let spatial_hash = SpatialHash::new(5.0);
+        let config = AppConfig::default();
+
+        // Tick 200 (mature), but low energy
+        let result =
+            handle_reproduction(0, &mut entities, &killed_ids, &spatial_hash, &config, 200);
+        assert!(result.is_none(), "Low energy entity should not reproduce");
+    }
+
+    #[test]
+    fn test_reproduction_asexual_when_no_mate() {
+        let mut entities = vec![Entity::new(5.0, 5.0, 0)];
+        entities[0].metabolism.energy = 200.0;
+        entities[0].metabolism.birth_tick = 0;
+        let killed_ids = HashSet::new();
+        let spatial_hash = SpatialHash::new(5.0);
+        let config = AppConfig::default();
+
+        // Tick 200, high energy, no mate nearby
+        let result =
+            handle_reproduction(0, &mut entities, &killed_ids, &spatial_hash, &config, 200);
+        assert!(result.is_some(), "Entity should reproduce asexually");
+
+        let child = result.unwrap();
+        assert_eq!(child.parent_id, Some(entities[0].id));
+    }
+
+    #[test]
+    fn test_reproduction_sexual_with_mate() {
+        let mut entities = vec![
+            Entity::new(5.0, 5.0, 0),
+            Entity::new(5.5, 5.5, 0), // Close enough to be a mate
+        ];
+        entities[0].metabolism.energy = 200.0;
+        entities[0].metabolism.birth_tick = 0;
+        entities[1].metabolism.energy = 150.0;
+        entities[1].metabolism.birth_tick = 0;
+
+        let killed_ids = HashSet::new();
+        let mut spatial_hash = SpatialHash::new(5.0);
+        spatial_hash.insert(5.0, 5.0, 0);
+        spatial_hash.insert(5.5, 5.5, 1);
+        let config = AppConfig::default();
+
+        let initial_energy = entities[0].metabolism.energy;
+        let result =
+            handle_reproduction(0, &mut entities, &killed_ids, &spatial_hash, &config, 200);
+
+        assert!(result.is_some(), "Entity should reproduce sexually");
+        assert!(
+            entities[0].metabolism.energy < initial_energy,
+            "Parent should lose energy"
+        );
+    }
+
+    #[test]
+    fn test_extinction_event_on_empty_population() {
+        let entities: Vec<Entity> = vec![];
+        let mut events = Vec::new();
+        let mut logger = HistoryLogger::new().unwrap();
+
+        handle_extinction(&entities, 100, &mut events, &mut logger);
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], LiveEvent::Extinction { .. }));
+    }
+
+    #[test]
+    fn test_no_extinction_event_with_population() {
+        let entities = vec![Entity::new(5.0, 5.0, 0)];
+        let mut events = Vec::new();
+        let mut logger = HistoryLogger::new().unwrap();
+
+        handle_extinction(&entities, 100, &mut events, &mut logger);
+
+        assert!(
+            events.is_empty(),
+            "No extinction event when population exists"
+        );
+    }
+
+    #[test]
+    fn test_no_extinction_at_tick_zero() {
+        let entities: Vec<Entity> = vec![];
+        let mut events = Vec::new();
+        let mut logger = HistoryLogger::new().unwrap();
+
+        handle_extinction(&entities, 0, &mut events, &mut logger);
+
+        assert!(events.is_empty(), "No extinction event at tick 0");
     }
 }
