@@ -93,7 +93,11 @@ impl<'a> Widget for WorldWidget<'a> {
             {
                 let cell = buf.get_mut(x, y);
                 cell.set_symbol(&food.symbol.to_string());
-                cell.set_fg(food.color);
+                cell.set_fg(ratatui::style::Color::Rgb(
+                    food.color_rgb.0,
+                    food.color_rgb.1,
+                    food.color_rgb.2,
+                ));
             }
         }
 

@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub enum Era {
     #[default]
     Primordial, // chaotic adaptation
@@ -8,7 +10,7 @@ pub enum Era {
     ApexEra,      // peak fitness
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum ClimateState {
     Temperate,
     Warm,
@@ -27,7 +29,7 @@ impl ClimateState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum ResourceState {
     Abundant,
     Strained,
@@ -47,7 +49,7 @@ impl ResourceState {
 }
 
 /// Seasons that affect metabolism and food spawning
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub enum Season {
     #[default]
     Spring, // Food ×1.5, Metabolism ×0.8
@@ -97,7 +99,7 @@ impl Season {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TimeOfDay {
     Day,
     Night,
@@ -112,6 +114,7 @@ impl TimeOfDay {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Environment {
     pub cpu_usage: f32,
     pub ram_usage_percent: f32,

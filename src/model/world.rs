@@ -10,8 +10,10 @@ use crate::model::systems::{action, biological, ecological, environment, intel, 
 use chrono::Utc;
 use rand::Rng;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+#[derive(Serialize, Deserialize)]
 pub struct EntitySnapshot {
     pub id: uuid::Uuid,
     pub x: f64,
@@ -21,15 +23,19 @@ pub struct EntitySnapshot {
     pub offspring_count: u32,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct World {
     pub width: u16,
     pub height: u16,
     pub entities: Vec<Entity>,
     pub food: Vec<Food>,
     pub tick: u64,
+    #[serde(skip, default = "HistoryLogger::new_dummy")]
     pub logger: HistoryLogger,
     pub config: AppConfig,
+    #[serde(skip, default = "SpatialHash::new_empty")]
     pub spatial_hash: SpatialHash,
+    #[serde(skip, default = "SpatialHash::new_empty")]
     pub food_hash: SpatialHash,
     pub pop_stats: PopulationStats,
     pub hall_of_fame: HallOfFame,
@@ -38,11 +44,17 @@ pub struct World {
     pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
 
     // Reusable buffers to reduce allocation jitter
+    #[serde(skip, default)]
     killed_ids: HashSet<uuid::Uuid>,
+    #[serde(skip, default)]
     eaten_food_indices: HashSet<usize>,
+    #[serde(skip, default)]
     new_babies: Vec<Entity>,
+    #[serde(skip, default)]
     alive_entities: Vec<Entity>,
+    #[serde(skip, default)]
     perception_buffer: Vec<[f32; 6]>,
+    #[serde(skip, default)]
     decision_buffer: Vec<([f32; 5], [f32; 6])>,
 }
 

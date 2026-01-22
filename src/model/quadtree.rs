@@ -1,5 +1,7 @@
 use crate::model::state::entity::Entity;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct SpatialHash {
     pub cell_size: f64,
     pub cells: std::collections::HashMap<(i32, i32), Vec<usize>>,
@@ -11,6 +13,10 @@ impl SpatialHash {
             cell_size,
             cells: std::collections::HashMap::new(),
         }
+    }
+
+    pub fn new_empty() -> Self {
+        Self::new(10.0) // Default cell size
     }
 
     pub fn clear(&mut self) {

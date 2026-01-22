@@ -1,14 +1,16 @@
 //! Pheromone system for inter-entity chemical communication
 
+use serde::{Deserialize, Serialize};
+
 /// Types of pheromones entities can deposit
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum PheromoneType {
     Food,   // "I found food here"
     Danger, // "Predator detected"
 }
 
 /// A single cell in the pheromone grid
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct PheromoneCell {
     pub food_strength: f32,   // 0.0 - 1.0
     pub danger_strength: f32, // 0.0 - 1.0
@@ -40,6 +42,7 @@ impl PheromoneCell {
 }
 
 /// Grid-based pheromone map for the world
+#[derive(Serialize, Deserialize)]
 pub struct PheromoneGrid {
     cells: Vec<Vec<PheromoneCell>>,
     pub width: u16,

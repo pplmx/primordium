@@ -31,7 +31,7 @@ impl WebRenderer {
         // Draw Terrain
         for y in 0..world.height {
             for x in 0..world.width {
-                let cell = &world.terrain.grid[y as usize][x as usize];
+                let cell = world.terrain.get_cell(x, y);
                 let color = match cell.terrain_type {
                     TerrainType::Mountain => "#4a4a4a", // Dark Grey
                     TerrainType::River => "#2b5a75",    // Blue

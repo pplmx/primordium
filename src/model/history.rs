@@ -53,6 +53,7 @@ pub struct Legend {
     pub color_rgb: (u8, u8, u8),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PopulationStats {
     pub population: usize,
     pub avg_lifespan: f64,
@@ -141,6 +142,7 @@ impl PopulationStats {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HallOfFame {
     pub top_living: Vec<(f64, crate::model::state::entity::Entity)>,
 }
@@ -174,7 +176,7 @@ impl HallOfFame {
 }
 
 pub struct HistoryLogger {
-    live_file: BufWriter<File>,
+    live_file: Option<BufWriter<File>>,
 }
 
 impl HistoryLogger {
@@ -187,25 +189,33 @@ impl HistoryLogger {
             .append(true)
             .open("logs/live.jsonl")?;
         Ok(Self {
-            live_file: BufWriter::new(file),
+            live_file: Some(BufWriter::new(file)),
         })
     }
 
+    pub fn new_dummy() -> Self {
+        Self { live_file: None }
+    }
+
     pub fn log_event(&mut self, event: LiveEvent) -> anyhow::Result<()> {
-        let json = serde_json::to_string(&event)?;
-        writeln!(self.live_file, "{}", json)?;
-        self.live_file.flush()?;
+        if let Some(ref mut file) = self.live_file {
+            let json = serde_json::to_string(&event)?;
+            writeln!(file, "{}", json)?;
+            file.flush()?;
+        }
         Ok(())
     }
 
     pub fn archive_legend(&self, legend: Legend) -> anyhow::Result<()> {
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("logs/legends.json")?;
+        if self.live_file.is_some() {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("logs/legends.json")?;
 
-        let json = serde_json::to_string(&legend)?;
-        writeln!(file, "{}", json)?;
+            let json = serde_json::to_string(&legend)?;
+            writeln!(file, "{}", json)?;
+        }
         Ok(())
     }
 

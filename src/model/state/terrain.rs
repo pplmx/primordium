@@ -1,8 +1,9 @@
 use rand::Rng;
 use ratatui::style::Color;
+use serde::{Deserialize, Serialize};
 
 /// Terrain types with distinct environmental effects
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub enum TerrainType {
     #[default]
     Plains,
@@ -59,7 +60,7 @@ impl TerrainType {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct TerrainCell {
     pub terrain_type: TerrainType,
     pub original_type: TerrainType,
@@ -78,6 +79,7 @@ impl Default for TerrainCell {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct TerrainGrid {
     cells: Vec<Vec<TerrainCell>>,
     pub width: u16,
