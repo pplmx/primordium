@@ -15,6 +15,7 @@
 ## 🎯 Vision
 
 Primordium is an experiment in **emergent complexity**. It transforms your host machine into a digital god:
+
 - **CPU Workload** becomes the environmental climate.
 - **RAM Pressure** controls resource scarcity.
 - **Neural Networks** evolve as organisms adapt to your hardware's unique signature.
@@ -26,15 +27,18 @@ Primordium is an experiment in **emergent complexity**. It transforms your host 
 The simulation environment is directly coupled to your computer's real-time metrics.
 
 ### 🌡️ Climate (CPU-Coupled)
+
 Your CPU usage dictates metabolic speed. High machine load forces life to burn energy faster.
+
 | CPU Usage | Climate State | Metabolism | Effect |
-|-----------|---------------|------------|--------|
+| ----------- | ---------------- | ------------- | --------- |
 | 0-30%     | 🌡️ Temperate  | ×1.0       | Baseline survival |
 | 30-60%    | 🔥 Warm       | ×1.5       | Increased energy burn |
 | 60-80%    | 🌋 Hot        | ×2.0       | High metabolic stress |
 | 80-100%   | ☀️ Scorching  | ×3.0       | Rapid starvation risk |
 
 ### 🌾 Resource Scarcity (RAM-Coupled)
+
 Memory usage determines food availability. High RAM usage simulates a resource-famine environment.
 
 ---
@@ -46,37 +50,45 @@ Memory usage determines food availability. High RAM usage simulates a resource-f
 ## ✨ Features
 
 ### 🧠 Neural Awakening & Selection
+
 Each entity possesses a **6-6-5 Neural Network** brain integrated into a modular **Intel** component. Through natural selection, organisms learn to hunt, navigate, and manage energy.
+
 - **Parallel Inference**: Neural processing is multi-threaded using **Rayon**, enabling massive population scaling.
 - **Interactive Selection**: Use the **Mouse** to click and inspect specific organisms.
 - **Genotype Clustering**: Organisms are automatically classified into species based on neural weight similarity.
 
 ### 🦁 Apex Predators & Sexual Reproduction
+
 - **Predatory Dynamics**: Organisms can evolve aggression to hunt and consume others for massive energy gains.
 - **Genetic Crossover**: Sexual reproduction enables neural trait exchange with nearby mates.
 - **HexDNA Protocol**: Export (`C`) and import (`V`) organism genomes as portable text files.
 
 ### 📊 The Omniscient Eye
+
 - **Era System**: Population-driven narrative engine tracks world epochs (Genesis, Expansion, Decline, etc.).
 - **Hall of Fame**: Real-time leaderboard of the top 3 fittest organisms.
 - **Advanced Analytics**: Brain entropy, average lifespan, and dual-sparkline population dynamics.
 
 ### 🏔️ Ecosystem Dynamics
+
 - **Terrain System**: Mountains (▲ slow), Rivers (≈ fast), Oases (◊ food-rich)
 - **Season Cycle**: Spring, Summer, Fall, Winter affecting metabolism and food availability
 - **Geographic Pressure**: Migration patterns emerge from terrain-based resource distribution
 
 ### 👥 Social Structures
+
 - **Pheromone System**: Food trails attract foragers, danger pheromones warn of predators
 - **Tribe Formation**: Color-similar entities form protective tribes (no intra-tribe attacks)
 - **Territorial Behavior**: Entities are more aggressive near their birth location
 - **Energy Sharing**: High-energy entities can share with starving neighbors (♣)
 
 ### 📜 The Ledger & Blockchain
+
 - **History Logging**: Continuous streaming of life events to JSONL.
 - **Immutable Proof**: Datasets are anchored to the **Bitcoin blockchain** via OpenTimestamps for cryptographic proof of evolution.
 
 ### ⚡ Performance & Stability
+
 - **Component-Based Entity (CBE)**: Logical grouping of attributes into Physics, Metabolism, Health, and Intel for better data locality and isolation.
 - **Systemic Decomposition**: Monolithic update logic split into specialized systems (Perception, Action, Biological, Social).
 - **Parallel Processing**: Multi-core acceleration via **Rayon** for perception lookups and neural decisions.
@@ -104,7 +116,7 @@ cargo run --release -- --mode screensaver
 ## ⌨️ Controls
 
 | Key | Action |
-|-----|--------|
+| ----- | --------- |
 | `Q` | Quit simulation |
 | `Space` | Pause / Resume |
 | `B` | Toggle Neural Brain Heatmap |

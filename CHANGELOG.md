@@ -80,18 +80,18 @@ The digital ecosystem has evolved into a complex web of life with developmental 
 #### ✨ Features
 
 - **Phase 15: Life Cycles**:
-  - **Juvenile State (◦)**: Entities now start as immatures and must survive 150 ticks before reaching adulthood.
-  - **Maturity Gate**: Reproduction is disabled for juveniles, creating a vulnerable early-life period.
+    - **Juvenile State (◦)**: Entities now start as immatures and must survive 150 ticks before reaching adulthood.
+    - **Maturity Gate**: Reproduction is disabled for juveniles, creating a vulnerable early-life period.
 - **Phase 16: Trophic Levels**:
-  - **Herbivores (H-)**: Specialized in plant consumption; inefficient hunters.
-  - **Carnivores (C-)**: Obligate predators; highly efficient hunters (1.2x yield).
+    - **Herbivores (H-)**: Specialized in plant consumption; inefficient hunters.
+    - **Carnivores (C-)**: Obligate predators; highly efficient hunters (1.2x yield).
 - **Phase 17: Ecological Succession**:
-  - **Terrain Health (Fertility)**: Land fertility depletes when plants are consumed.
-  - **Barren Terrain (░)**: Overgrazed land turns barren, stopping food production.
+    - **Terrain Health (Fertility)**: Land fertility depletes when plants are consumed.
+    - **Barren Terrain (░)**: Overgrazed land turns barren, stopping food production.
 - **Phase 18: Pathogens & Immunity**:
-  - **Contagion Simulation**: Pathogens spread through proximity, factoring in virulence and host immunity.
-  - **Immunity Evolution**: Entities gain resistance after recovery and pass it to offspring with minor mutations.
-  - **Environmental Outbreaks**: Randomly emerging pathogens add dynamic selective pressure.
+    - **Contagion Simulation**: Pathogens spread through proximity, factoring in virulence and host immunity.
+    - **Immunity Evolution**: Entities gain resistance after recovery and pass it to offspring with minor mutations.
+    - **Environmental Outbreaks**: Randomly emerging pathogens add dynamic selective pressure.
 
 #### 🛠️ Technical Achievements
 
@@ -110,16 +110,16 @@ The simulation now supports distinct game modes and has reached peak stability t
 #### ✨ Features
 
 - **Game Modes**:
-  - **Cooperative (`--gamemode coop`)**: Global peace enforced; ideal for colony growth.
-  - **Battle Royale (`--gamemode battle`)**: Shrinking world borders force conflict.
+    - **Cooperative (`--gamemode coop`)**: Global peace enforced; ideal for colony growth.
+    - **Battle Royale (`--gamemode battle`)**: Shrinking world borders force conflict.
 - **Enhanced TUI**:
-  - **Legend Bar**: Added a dedicated reference line for entity status and terrain symbols.
-  - **Help System**: New 4-tab tabbed help guide (Controls, Symbols, Concepts, Eras).
-  - **Onboarding**: A 3-screen tutorial for new gods entering the Primordium.
+    - **Legend Bar**: Added a dedicated reference line for entity status and terrain symbols.
+    - **Help System**: New 4-tab tabbed help guide (Controls, Symbols, Concepts, Eras).
+    - **Onboarding**: A 3-screen tutorial for new gods entering the Primordium.
 - **Documentation**:
-  - Comprehensive **User Manuals** (EN/ZH).
-  - **Technical Wiki** covering Genetics, Brains, and Ecosystems.
-  - **Agent Memory**: New `AGENTS.md` to assist AI pair programmers.
+    - Comprehensive **User Manuals** (EN/ZH).
+    - **Technical Wiki** covering Genetics, Brains, and Ecosystems.
+    - **Agent Memory**: New `AGENTS.md` to assist AI pair programmers.
 
 #### 🛠️ Technical Achievements
 
@@ -127,8 +127,8 @@ The simulation now supports distinct game modes and has reached peak stability t
 - **Quality Gate**: Established a strict pre-commit pipeline using Husky (Fmt, Check, Clippy, Test).
 - **Comprehensive Testing**: Added 30+ tests covering unit logic (Brain, Entity, Quadtree) and integration workflows (Life cycles, DNA flow, Era transitions).
 - **Performance**:
-  - Enabled **LTO** (Link Time Optimization) for release builds.
-  - Replaced $O(N^2)$ bottlenecks with optimized iterators and spatial hashing.
+    - Enabled **LTO** (Link Time Optimization) for release builds.
+    - Replaced $O(N^2)$ bottlenecks with optimized iterators and spatial hashing.
 - **Robustness**: 100% Clippy compliance and automated log directory management.
 
 ---
@@ -184,18 +184,18 @@ This phase introduces emergent social behaviors through chemical communication, 
 #### ✨ Features
 
 - **Pheromone System**: Entities leave persistent chemical trails:
-  - **Food Pheromones**: Deposited when eating, attract foragers
-  - **Danger Pheromones**: Deposited at kill sites, warn of predators
-  - Pheromones decay over time (0.5% per tick)
+    - **Food Pheromones**: Deposited when eating, attract foragers
+    - **Danger Pheromones**: Deposited at kill sites, warn of predators
+    - Pheromones decay over time (0.5% per tick)
 - **Tribe Formation**: Color-based kin recognition:
-  - Entities with similar colors (RGB distance < 60) form tribes
-  - Same-tribe members never attack each other
+    - Entities with similar colors (RGB distance < 60) form tribes
+    - Same-tribe members never attack each other
 - **Territorial Behavior**: Entities are 50% more aggressive near birth location
 - **Energy Sharing**: High-energy entities can share energy with starving neighbors
-  - New "Sharing" status (♣) indicates active sharing
+    - New "Sharing" status (♣) indicates active sharing
 - **Expanded Neural Network**: 6 inputs → 6 hidden → 5 outputs:
-  - New inputs: Pheromone strength, Tribe density
-  - New output: Share intent
+    - New inputs: Pheromone strength, Tribe density
+    - New output: Share intent
 
 #### 🛠️ Technical Achievements
 
@@ -214,14 +214,14 @@ This phase introduces environmental heterogeneity through terrain systems and se
 #### ✨ Features
 
 - **Terrain System**: Procedurally generated world terrain with distinct biomes:
-  - **Mountains** (▲): Slows movement by 50%, no food spawns
-  - **Rivers** (≈): Speeds movement by 50%
-  - **Oases** (◊): 3× food spawn rate, attracts migration
+    - **Mountains** (▲): Slows movement by 50%, no food spawns
+    - **Rivers** (≈): Speeds movement by 50%
+    - **Oases** (◊): 3× food spawn rate, attracts migration
 - **Season Cycle**: Dynamic 4-season system affecting ecosystem balance:
-  - **Spring**: Food ×1.5, Metabolism ×0.8 (growth period)
-  - **Summer**: Food ×1.0, Metabolism ×1.2 (active period)
-  - **Fall**: Food ×1.2, Metabolism ×1.0 (harvest period)
-  - **Winter**: Food ×0.5, Metabolism ×1.5 (survival period)
+    - **Spring**: Food ×1.5, Metabolism ×0.8 (growth period)
+    - **Summer**: Food ×1.0, Metabolism ×1.2 (active period)
+    - **Fall**: Food ×1.2, Metabolism ×1.0 (harvest period)
+    - **Winter**: Food ×0.5, Metabolism ×1.5 (survival period)
 - **Terrain-Aware AI**: Entities adapt movement speed based on terrain underfoot
 - **Geographic Food Distribution**: Food clusters naturally around oases
 
@@ -276,8 +276,8 @@ This phase focuses on the transition from a passive observer to an active "Digit
 - **Procedural Naming Engine**: Every organism is now assigned a unique, procedurally generated name (e.g., *Xylos-Tetra*, *Aether-7*) based on its genotype, moving beyond raw UUIDs for better storytelling.
 - **Live UI Chronicles**: Implemented a real-time event log ("Chronicles") that narrates significant evolutionary events (e.g., "The Great Famine of Tick 5000", "Legendary Hero *Zenith* has fallen").
 - **Divine Intervention Tools**:
-  - **Genetic Surge**: Manually trigger a high-mutation burst to force rapid adaptation.
-  - **Food Injection**: Interactively place resource clusters to steer population migration.
+    - **Genetic Surge**: Manually trigger a high-mutation burst to force rapid adaptation.
+    - **Food Injection**: Interactively place resource clusters to steer population migration.
 - **Genotype-based Species Clustering**: Implemented an L2-norm distance algorithm that groups organisms into "Species" based on neural weight similarity, allowing the UI to track biodiversity and the rise/fall of distinct biological lineages.
 
 #### 🛠️ Technical Achievements
@@ -297,9 +297,9 @@ Focus on performance, flexibility, and the "Screensaver" experience.
 
 - **Spatial Hash Optimization**: Replaced $O(N^2)$ proximity checks with a dynamic **Spatial Hashing** grid. Enabling 500+ entities on standard hardware.
 - **Multi-Mode Support**:
-  - **Standard Mode**: Full TUI with all dashboards.
-  - **Screensaver Mode**: Minimalist, distraction-free view of the world.
-  - **Headless Mode**: High-speed background simulation for data mining.
+    - **Standard Mode**: Full TUI with all dashboards.
+    - **Screensaver Mode**: Minimalist, distraction-free view of the world.
+    - **Headless Mode**: High-speed background simulation for data mining.
 - **Configuration System**: Externalized all simulation constants to `config.toml`.
 
 ---
@@ -316,8 +316,8 @@ Ensuring that every legendary life is etched into the digital firmament.
 - **Legendary Criteria**: Automatic archival of "Legendary Organisms" meeting elite fitness thresholds.
 - **OpenTimestamps Anchoring**: SHA-256 hashes of session logs are anchored to the Bitcoin blockchain.
 - **Standalone Tools**:
-  - `primordium-ledger-analyzer`: Generates detailed markdown reports and family tree visualizations.
-  - `primordium-ledger-verifier`: Validates the integrity of local logs against blockchain proofs.
+    - `primordium-ledger-analyzer`: Generates detailed markdown reports and family tree visualizations.
+    - `primordium-ledger-verifier`: Validates the integrity of local logs against blockchain proofs.
 
 ---
 
