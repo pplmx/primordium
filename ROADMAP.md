@@ -194,10 +194,11 @@ toml = "0.8"
 - **Systemic Decomposition**: Decomposed monolithic `World::update` into modular Perception, Action, Biological, and Social systems.
 - **Rayon Integration**: Multi-threaded brain processing and perception lookups for 5000+ entities.
 
-### Phase 21: Environmental Fluidity & Disasters
-- **Dynamic Terrain**: Rivers that dry up, fires that spread through barren land.
-- **Natural Disasters**: Meteor strikes, floods, and magnetic storms affecting neural weights.
-- **Physical Barriers**: Pathfinding requirements through impassable obstacles.
+### Phase 21: Environmental Fluidity & Disasters ✅
+- **Memory Neurons**: Upgraded Brain architecture to RNN-lite (Recurrent Neural Network) for temporal coherence.
+- **Dynamic Terrain**: Implemented "Dust Bowl" disasters triggered by high heat and population stress.
+- **Physical Barriers**: Added impassable `Wall` terrain types for steering challenges.
+- **Performance Tuning**: Integrated `food_hash` for $O(1)$ proximity sensing and buffer pooling for zero-jitter allocation.
 
 ### Phase 22: Parallel Evolution & Global Hive
 - **Rayon Integration**: Multi-threaded brain processing for 5000+ entities.
@@ -231,7 +232,7 @@ toml = "0.8"
 | Phase 18 | Pathogens & Immunity | ✅ Complete |
 | Phase 19 | Circadian Rhythms | ✅ Complete |
 | Phase 20 | Cognitive Synthesis | ✅ Complete |
-| Phase 21 | Environmental Fluidity | 📅 Planned |
+| Phase 21 | Environmental Fluidity | ✅ Complete |
 | Phase 22 | Parallel Evolution | 📅 Planned |
 
 ---

@@ -62,11 +62,20 @@ pub struct World {
     pub logger: HistoryLogger,
     pub config: AppConfig,
     pub spatial_hash: SpatialHash,
+    pub food_hash: SpatialHash,
     pub pop_stats: PopulationStats,
     pub hall_of_fame: HallOfFame,
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
     pub active_pathogens: Vec<crate::model::pathogen::Pathogen>,
+
+    // Reusable buffers to reduce allocation jitter
+    killed_ids: HashSet<uuid::Uuid>,
+    eaten_food_indices: HashSet<usize>,
+    new_babies: Vec<Entity>,
+    alive_entities: Vec<Entity>,
+    perception_buffer: Vec<[f32; 6]>,
+    decision_buffer: Vec<([f32; 5], [f32; 6])>,
 }
 
 impl World {
@@ -93,7 +102,6 @@ impl World {
             let y = rng.gen_range(1..config.world.height - 1);
             food.push(Food::new(x, y));
         }
-        // Generate terrain with tick-based seed for variety
         let terrain = TerrainGrid::generate(
             config.world.width,
             config.world.height,
@@ -102,7 +110,6 @@ impl World {
                 .map(|d| d.as_secs())
                 .unwrap_or(42),
         );
-
         let pheromones = PheromoneGrid::new(config.world.width, config.world.height);
 
         Ok(Self {
@@ -114,11 +121,18 @@ impl World {
             logger,
             config,
             spatial_hash: SpatialHash::new(5.0),
+            food_hash: SpatialHash::new(5.0),
             pop_stats: PopulationStats::new(),
             hall_of_fame: HallOfFame::new(),
             terrain,
             pheromones,
             active_pathogens: Vec::new(),
+            killed_ids: HashSet::new(),
+            eaten_food_indices: HashSet::new(),
+            new_babies: Vec::new(),
+            alive_entities: Vec::new(),
+            perception_buffer: Vec::new(),
+            decision_buffer: Vec::new(),
         })
     }
 
@@ -127,14 +141,23 @@ impl World {
         self.tick += 1;
         let mut rng = rand::thread_rng();
 
-        // 1. World Systems
         self.handle_game_modes();
         self.pheromones.decay();
+
+        // Trigger Dust Bowl disaster
+        if env.is_heat_wave() && self.entities.len() > 300 && rng.gen_bool(0.01) {
+            self.terrain.trigger_dust_bowl(500);
+        }
         self.terrain.update();
+
         self.handle_pathogen_emergence(&mut rng);
         self.spawn_food(env, &mut rng);
 
-        // 2. Entity Snapshots & Spatial Partitioning
+        self.food_hash.clear();
+        for (i, f) in self.food.iter().enumerate() {
+            self.food_hash.insert(f64::from(f.x), f64::from(f.y), i);
+        }
+
         let mut current_entities = std::mem::take(&mut self.entities);
         self.spatial_hash.clear();
         for (i, e) in current_entities.iter().enumerate() {
@@ -153,44 +176,60 @@ impl World {
             })
             .collect();
 
-        // 3. Systemic Entity Update
-        let mut killed_ids = HashSet::new();
-        let mut new_babies = Vec::new();
-        let mut alive_entities = Vec::new();
+        let mut killed_ids = std::mem::take(&mut self.killed_ids);
+        let mut eaten_food_indices = std::mem::take(&mut self.eaten_food_indices);
+        let mut new_babies = std::mem::take(&mut self.new_babies);
+        let mut alive_entities = std::mem::take(&mut self.alive_entities);
+        let mut perception_buffer = std::mem::take(&mut self.perception_buffer);
+        let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
 
-        // A. Perception System (Parallel)
-        let perception_inputs: Vec<[f32; 6]> = current_entities
+        killed_ids.clear();
+        eaten_food_indices.clear();
+        new_babies.clear();
+        alive_entities.clear();
+
+        current_entities
             .par_iter()
             .enumerate()
-            .map(|(i, e)| self.perception_system(i, e, &current_entities))
-            .collect();
+            .map(|(i, e)| {
+                let (dx_f, dy_f) = self.sense_nearest_food(e);
+                let nearby_indices = self.spatial_hash.query(e.physics.x, e.physics.y, 5.0);
+                let (pheromone_food, _) = self.pheromones.sense(e.physics.x, e.physics.y, 3.0);
+                let tribe_count = nearby_indices
+                    .iter()
+                    .filter(|&&n_idx| n_idx != i && e.same_tribe(&current_entities[n_idx]))
+                    .count();
+                [
+                    (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
+                    (dy_f / 20.0).clamp(-1.0, 1.0) as f32,
+                    (e.metabolism.energy / e.metabolism.max_energy) as f32,
+                    (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
+                    pheromone_food,
+                    (tribe_count as f32 / 5.0).min(1.0),
+                ]
+            })
+            .collect_into_vec(&mut perception_buffer);
 
-        // B. Neural System (Parallel)
-        let decisions: Vec<[f32; 5]> = current_entities
+        current_entities
             .par_iter()
-            .zip(perception_inputs.par_iter())
-            .map(|(e, inputs)| e.intel.brain.forward(*inputs))
-            .collect();
+            .zip(perception_buffer.par_iter())
+            .map(|(e, inputs)| e.intel.brain.forward(*inputs, e.intel.last_hidden))
+            .collect_into_vec(&mut decision_buffer);
 
         for i in 0..current_entities.len() {
             if killed_ids.contains(&current_entities[i].id) {
                 continue;
             }
-
-            // C. Action & Metabolism System
-            self.action_system(&mut current_entities[i], decisions[i], env);
-
-            // D. Health & Biological System
+            let (outputs, next_hidden) = decision_buffer[i];
+            current_entities[i].intel.last_hidden = next_hidden;
+            self.action_system(&mut current_entities[i], outputs, env);
             if current_entities[i].metabolism.energy <= 0.0 {
                 self.handle_death(i, &mut current_entities, &mut events, "starvation");
                 continue;
             }
-
             self.biological_system(&mut current_entities[i], &mut rng);
             self.handle_infection(i, &mut current_entities, &killed_ids, &mut rng);
-
-            // E. Social & Trophic Interaction System
-            let predation_mode = (decisions[i][3] as f64 + 1.0) / 2.0 > 0.5;
+            let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
             if predation_mode {
                 self.handle_predation(
                     i,
@@ -200,10 +239,7 @@ impl World {
                     &mut events,
                 );
             }
-
-            self.handle_feeding(i, &mut current_entities);
-
-            // F. Reproduction System
+            self.handle_feeding_optimized(i, &mut current_entities, &mut eaten_food_indices);
             if let Some(baby) = self.handle_reproduction(i, &mut current_entities, &killed_ids) {
                 let ev = LiveEvent::Birth {
                     id: baby.id,
@@ -218,7 +254,6 @@ impl World {
             }
         }
 
-        // 4. Cleanup & Post-processing
         for e in current_entities {
             if killed_ids.contains(&e.id) {
                 self.archive_if_legend(&e);
@@ -228,48 +263,37 @@ impl World {
                 alive_entities.push(e);
             }
         }
-        self.entities = alive_entities;
+        self.entities.append(&mut alive_entities);
         self.entities.append(&mut new_babies);
+
+        if !eaten_food_indices.is_empty() {
+            let mut i = 0;
+            self.food.retain(|_| {
+                let keep = !eaten_food_indices.contains(&i);
+                i += 1;
+                keep
+            });
+        }
+
+        self.killed_ids = killed_ids;
+        self.eaten_food_indices = eaten_food_indices;
+        self.new_babies = new_babies;
+        self.alive_entities = alive_entities;
+        self.perception_buffer = perception_buffer;
+        self.decision_buffer = decision_buffer;
 
         self.handle_extinction(&mut events);
         self.update_stats();
-
         Ok(events)
-    }
-
-    fn perception_system(&self, idx: usize, entity: &Entity, all_entities: &[Entity]) -> [f32; 6] {
-        let (dx_f, dy_f) = self.sense_nearest_food(entity);
-        let nearby_indices = self
-            .spatial_hash
-            .query(entity.physics.x, entity.physics.y, 5.0);
-        let (pheromone_food, _) = self
-            .pheromones
-            .sense(entity.physics.x, entity.physics.y, 3.0);
-        let tribe_count = nearby_indices
-            .iter()
-            .filter(|&&n_idx| n_idx != idx && entity.same_tribe(&all_entities[n_idx]))
-            .count();
-
-        [
-            (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
-            (dy_f / 20.0).clamp(-1.0, 1.0) as f32,
-            (entity.metabolism.energy / entity.metabolism.max_energy) as f32,
-            (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
-            pheromone_food,
-            (tribe_count as f32 / 5.0).min(1.0),
-        ]
     }
 
     fn action_system(&mut self, entity: &mut Entity, outputs: [f32; 5], env: &Environment) {
         let speed_mult = 1.0 + (outputs[2] as f64 + 1.0) / 2.0;
         let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
-
         entity.intel.last_aggression = (outputs[3] + 1.0) / 2.0;
         entity.intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
-
         entity.physics.vx = entity.physics.vx * 0.8 + (outputs[0] as f64) * 0.2;
         entity.physics.vy = entity.physics.vy * 0.8 + (outputs[1] as f64) * 0.2;
-
         let metabolism_mult = env.metabolism_multiplier();
         let mut move_cost = self.config.metabolism.base_move_cost * metabolism_mult * speed_mult;
         if predation_mode {
@@ -277,7 +301,6 @@ impl World {
         }
         entity.metabolism.energy -=
             move_cost + self.config.metabolism.base_idle_cost * metabolism_mult;
-
         self.handle_movement(entity, speed_mult);
     }
 
@@ -351,12 +374,18 @@ impl World {
         let terrain_speed_mod = self
             .terrain
             .movement_modifier(entity.physics.x, entity.physics.y);
-        entity.physics.x += entity.physics.vx * speed * terrain_speed_mod;
-        entity.physics.y += entity.physics.vy * speed * terrain_speed_mod;
-
+        let next_x = entity.physics.x + entity.physics.vx * speed * terrain_speed_mod;
+        let next_y = entity.physics.y + entity.physics.vy * speed * terrain_speed_mod;
+        let next_terrain = self.terrain.get(next_x, next_y);
+        if next_terrain.terrain_type == crate::model::terrain::TerrainType::Wall {
+            entity.physics.vx = -entity.physics.vx;
+            entity.physics.vy = -entity.physics.vy;
+            return;
+        }
+        entity.physics.x = next_x;
+        entity.physics.y = next_y;
         let width_f = f64::from(self.width);
         let height_f = f64::from(self.height);
-
         if entity.physics.x <= 0.0 {
             entity.physics.x = 0.0;
             entity.physics.vx = -entity.physics.vx;
@@ -381,15 +410,11 @@ impl World {
         rng: &mut impl Rng,
     ) {
         entities[idx].process_infection();
-
-        // Environment infection
         for p in &self.active_pathogens {
             if rng.gen_bool(0.005) {
                 entities[idx].try_infect(p);
             }
         }
-
-        // Transmission
         if let Some(p) = entities[idx].health.pathogen.clone() {
             for n_idx in
                 self.spatial_hash
@@ -398,9 +423,7 @@ impl World {
                 if n_idx != idx
                     && !killed_ids.contains(&entities[n_idx].id)
                     && entities[n_idx].try_infect(&p)
-                {
-                    // Successfully infected
-                }
+                {}
             }
         }
     }
@@ -417,18 +440,15 @@ impl World {
         let targets =
             self.spatial_hash
                 .query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
-
         for t_idx in targets {
             let v_id = snapshots[t_idx].id;
             let v_e = snapshots[t_idx].energy;
             let v_b = snapshots[t_idx].birth_tick;
             let v_o = snapshots[t_idx].offspring_count;
-
             let can_attack = !matches!(
                 self.config.game_mode,
                 crate::model::config::GameMode::Cooperative
             );
-
             if can_attack
                 && v_id != entities[idx].id
                 && !killed_ids.contains(&v_id)
@@ -443,14 +463,12 @@ impl World {
                     + v_e * gain_mult)
                     .min(entities[idx].metabolism.max_energy);
                 killed_ids.insert(v_id);
-
                 self.pheromones.deposit(
                     entities[idx].physics.x,
                     entities[idx].physics.y,
                     PheromoneType::Danger,
                     0.5,
                 );
-
                 let v_age = self.tick - v_b;
                 self.pop_stats.record_death(v_age);
                 let ev = LiveEvent::Death {
@@ -467,16 +485,27 @@ impl World {
         }
     }
 
-    fn handle_feeding(&mut self, idx: usize, entities: &mut [Entity]) {
+    fn handle_feeding_optimized(
+        &mut self,
+        idx: usize,
+        entities: &mut [Entity],
+        eaten_indices: &mut HashSet<usize>,
+    ) {
         if !matches!(
             entities[idx].metabolism.role,
             crate::model::entity::EntityRole::Herbivore
         ) {
             return;
         }
-
         let mut eaten_idx = None;
-        for (f_idx, f) in self.food.iter().enumerate() {
+        let nearby_food =
+            self.food_hash
+                .query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
+        for f_idx in nearby_food {
+            if eaten_indices.contains(&f_idx) {
+                continue;
+            }
+            let f = &self.food[f_idx];
             if (entities[idx].physics.x - f64::from(f.x)).powi(2)
                 + (entities[idx].physics.y - f64::from(f.y)).powi(2)
                 < 2.25
@@ -485,7 +514,6 @@ impl World {
                 break;
             }
         }
-
         if let Some(f_idx) = eaten_idx {
             entities[idx].metabolism.energy = (entities[idx].metabolism.energy
                 + self.config.metabolism.food_value)
@@ -498,7 +526,7 @@ impl World {
                 PheromoneType::Food,
                 0.3,
             );
-            self.food.swap_remove(f_idx);
+            eaten_indices.insert(f_idx);
         }
     }
 
@@ -513,7 +541,6 @@ impl World {
         {
             return None;
         }
-
         let mate_indices =
             self.spatial_hash
                 .query(entities[idx].physics.x, entities[idx].physics.y, 2.0);
@@ -527,7 +554,6 @@ impl World {
                 break;
             }
         }
-
         if let Some(m_idx) = mate_idx {
             let mut cb = Brain::crossover(&entities[idx].intel.brain, &entities[m_idx].intel.brain);
             cb.mutate_with_config(&self.config.evolution);
@@ -572,7 +598,14 @@ impl World {
         let mut dx_food = 0.0;
         let mut dy_food = 0.0;
         let mut min_dist_sq = f64::MAX;
-        for f in &self.food {
+        let nearby_food = self
+            .food_hash
+            .query(entity.physics.x, entity.physics.y, 20.0);
+        if nearby_food.is_empty() {
+            return (0.0, 0.0);
+        }
+        for &f_idx in &nearby_food {
+            let f = &self.food[f_idx];
             let dx = f64::from(f.x) - entity.physics.x;
             let dy = f64::from(f.y) - entity.physics.y;
             let dist_sq = dx * dx + dy * dy;

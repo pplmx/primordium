@@ -1,25 +1,23 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-/// Neural network brain with 6 inputs -> 6 hidden -> 5 outputs
+/// Neural network brain with Recurrent (Memory) capability.
+///
+/// Architecture: 12 inputs -> 6 hidden -> 5 outputs
 ///
 /// Inputs:
-/// 0. Food direction X (-1 to 1)
-/// 1. Food direction Y (-1 to 1)
-/// 2. Energy level (0 to 1)
-/// 3. Neighbor density (0 to 1)
-/// 4. Pheromone food strength (0 to 1) [NEW]
-/// 5. Tribe density nearby (0 to 1) [NEW]
+/// 0-5. Environmental sensors
+/// 6-11. Recurrent memory (last tick's hidden layer)
 ///
 /// Outputs:
-/// 0. Movement X (-1 to 1)
-/// 1. Movement Y (-1 to 1)
-/// 2. Speed (-1 to 1)
-/// 3. Aggression (-1 to 1)
-/// 4. Share intent (-1 to 1) [NEW]
+/// 0. Movement X
+/// 1. Movement Y
+/// 2. Speed
+/// 3. Aggression
+/// 4. Share intent
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
-    pub weights_ih: Vec<f32>, // 6 inputs -> 6 hidden (36 weights)
+    pub weights_ih: Vec<f32>, // 12 inputs -> 6 hidden (72 weights)
     pub weights_ho: Vec<f32>, // 6 hidden -> 5 outputs (30 weights)
     pub bias_h: Vec<f32>,     // 6 hidden biases
     pub bias_o: Vec<f32>,     // 5 output biases
@@ -29,7 +27,7 @@ impl Brain {
     pub fn new_random() -> Self {
         let mut rng = rand::thread_rng();
 
-        let weights_ih: Vec<f32> = (0..36).map(|_| rng.gen_range(-1.0..1.0)).collect();
+        let weights_ih: Vec<f32> = (0..72).map(|_| rng.gen_range(-1.0..1.0)).collect();
         let weights_ho: Vec<f32> = (0..30).map(|_| rng.gen_range(-1.0..1.0)).collect();
         let bias_h: Vec<f32> = (0..6).map(|_| rng.gen_range(-1.0..1.0)).collect();
         let bias_o: Vec<f32> = (0..5).map(|_| rng.gen_range(-1.0..1.0)).collect();
@@ -42,18 +40,25 @@ impl Brain {
         }
     }
 
-    pub fn forward(&self, inputs: [f32; 6]) -> [f32; 5] {
-        // Input to Hidden (6 inputs -> 6 hidden)
+    /// Forward pass with recurrence. Takes environmental inputs and previous hidden state.
+    /// Returns (Outputs, New Hidden State).
+    pub fn forward(&self, inputs: [f32; 6], last_hidden: [f32; 6]) -> ([f32; 5], [f32; 6]) {
+        // 1. Combine inputs with memory
+        let mut combined_inputs = [0.0; 12];
+        combined_inputs[0..6].copy_from_slice(&inputs);
+        combined_inputs[6..12].copy_from_slice(&last_hidden);
+
+        // 2. Input to Hidden (12 inputs -> 6 hidden)
         let mut hidden = [0.0; 6];
         for (i, h) in hidden.iter_mut().enumerate() {
             let mut sum = self.bias_h[i];
-            for (j, &input) in inputs.iter().enumerate() {
+            for (j, &input) in combined_inputs.iter().enumerate() {
                 sum += input * self.weights_ih[j * 6 + i];
             }
             *h = sum.tanh();
         }
 
-        // Hidden to Output (6 hidden -> 5 outputs)
+        // 3. Hidden to Output (6 hidden -> 5 outputs)
         let mut output = [0.0; 5];
         for (i, o) in output.iter_mut().enumerate() {
             let mut sum = self.bias_o[i];
@@ -62,7 +67,7 @@ impl Brain {
             }
             *o = sum.tanh();
         }
-        output
+        (output, hidden)
     }
 
     pub fn mutate_with_config(&mut self, config: &crate::model::config::EvolutionConfig) {
@@ -158,8 +163,8 @@ mod tests {
         let brain = Brain::new_random();
         assert_eq!(
             brain.weights_ih.len(),
-            36,
-            "Should have 6x6=36 input-hidden weights"
+            72,
+            "Should have 12x6=72 input-hidden weights"
         );
         assert_eq!(
             brain.weights_ho.len(),
@@ -174,9 +179,10 @@ mod tests {
     fn test_brain_forward_is_deterministic() {
         let brain = Brain::new_random();
         let inputs = [0.5, -0.5, 0.3, 0.0, 0.1, 0.2];
+        let last_hidden = [0.0; 6];
 
-        let output1 = brain.forward(inputs);
-        let output2 = brain.forward(inputs);
+        let (output1, _) = brain.forward(inputs, last_hidden);
+        let (output2, _) = brain.forward(inputs, last_hidden);
 
         assert_eq!(output1, output2, "Same inputs should produce same outputs");
     }
@@ -185,8 +191,9 @@ mod tests {
     fn test_brain_forward_output_in_valid_range() {
         let brain = Brain::new_random();
         let inputs = [1.0, -1.0, 0.5, 0.5, 0.0, 1.0];
+        let last_hidden = [0.1; 6];
 
-        let outputs = brain.forward(inputs);
+        let (outputs, next_hidden) = brain.forward(inputs, last_hidden);
 
         for (i, &out) in outputs.iter().enumerate() {
             assert!(
@@ -194,6 +201,14 @@ mod tests {
                 "Output {} should be in [-1, 1], got {}",
                 i,
                 out
+            );
+        }
+        for (i, &h) in next_hidden.iter().enumerate() {
+            assert!(
+                (-1.0..=1.0).contains(&h),
+                "Hidden {} should be in [-1, 1], got {}",
+                i,
+                h
             );
         }
     }
@@ -237,7 +252,7 @@ mod tests {
         let child = Brain::crossover(&parent1, &parent2);
 
         // Child should have correct dimensions
-        assert_eq!(child.weights_ih.len(), 36);
+        assert_eq!(child.weights_ih.len(), 72);
         assert_eq!(child.weights_ho.len(), 30);
 
         // Each weight should come from either parent

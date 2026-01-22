@@ -59,6 +59,8 @@ pub struct Health {
 pub struct Intel {
     pub brain: Brain,
     #[serde(skip)]
+    pub last_hidden: [f32; 6], // Memory state for recurrence
+    #[serde(skip)]
     pub last_aggression: f32,
     #[serde(skip)]
     pub last_share_intent: f32,
@@ -122,6 +124,7 @@ impl Entity {
             },
             intel: Intel {
                 brain: Brain::new_random(),
+                last_hidden: [0.0; 6],
                 last_aggression: 0.0,
                 last_share_intent: 0.0,
             },
@@ -343,6 +346,7 @@ impl Entity {
             },
             intel: Intel {
                 brain: child_brain,
+                last_hidden: [0.0; 6],
                 last_aggression: 0.0,
                 last_share_intent: 0.0,
             },
@@ -399,6 +403,7 @@ impl Entity {
             },
             intel: Intel {
                 brain: child_brain,
+                last_hidden: [0.0; 6],
                 last_aggression: 0.0,
                 last_share_intent: 0.0,
             },
