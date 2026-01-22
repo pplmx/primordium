@@ -236,7 +236,11 @@ mod tests {
         let outputs = [1.0, -1.0, 0.0, 0.0, 0.0]; // Move right-up
         let env = Environment::default();
         let config = AppConfig::default();
-        let terrain = TerrainGrid::generate(20, 20, 42);
+        let mut terrain = TerrainGrid::generate(20, 20, 42);
+        // Ensure the test area is clear of walls to prevent velocity reversal
+        terrain.set_cell_type(5, 5, crate::model::terrain::TerrainType::Plains);
+        terrain.set_cell_type(6, 5, crate::model::terrain::TerrainType::Plains);
+        terrain.set_cell_type(5, 4, crate::model::terrain::TerrainType::Plains);
 
         action_system(&mut entity, outputs, &env, &config, &terrain, 20, 20);
 
