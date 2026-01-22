@@ -112,3 +112,122 @@ impl PheromoneGrid {
         &self.cells[iy][ix]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pheromone_grid_new_dimensions() {
+        let grid = PheromoneGrid::new(20, 10);
+        assert_eq!(grid.width, 20);
+        assert_eq!(grid.height, 10);
+    }
+
+    #[test]
+    fn test_pheromone_deposit_food() {
+        let mut grid = PheromoneGrid::new(10, 10);
+        grid.deposit(5.0, 5.0, PheromoneType::Food, 0.5);
+
+        let cell = grid.get_cell(5, 5);
+        assert_eq!(cell.food_strength, 0.5);
+        assert_eq!(cell.danger_strength, 0.0);
+    }
+
+    #[test]
+    fn test_pheromone_deposit_danger() {
+        let mut grid = PheromoneGrid::new(10, 10);
+        grid.deposit(5.0, 5.0, PheromoneType::Danger, 0.7);
+
+        let cell = grid.get_cell(5, 5);
+        assert_eq!(cell.food_strength, 0.0);
+        assert_eq!(cell.danger_strength, 0.7);
+    }
+
+    #[test]
+    fn test_pheromone_deposit_capped_at_one() {
+        let mut grid = PheromoneGrid::new(10, 10);
+        grid.deposit(5.0, 5.0, PheromoneType::Food, 0.8);
+        grid.deposit(5.0, 5.0, PheromoneType::Food, 0.5);
+
+        let cell = grid.get_cell(5, 5);
+        assert_eq!(cell.food_strength, 1.0, "Pheromone should be capped at 1.0");
+    }
+
+    #[test]
+    fn test_pheromone_decay() {
+        let mut grid = PheromoneGrid::new(10, 10);
+        grid.deposit(5.0, 5.0, PheromoneType::Food, 1.0);
+
+        // Decay multiple times
+        for _ in 0..100 {
+            grid.decay();
+        }
+
+        let cell = grid.get_cell(5, 5);
+        assert!(
+            cell.food_strength < 0.7,
+            "Pheromone should decay significantly"
+        );
+    }
+
+    #[test]
+    fn test_pheromone_decay_cleanup_small_values() {
+        let mut cell = PheromoneCell {
+            food_strength: 0.005,
+            danger_strength: 0.005,
+        };
+
+        cell.decay(0.9);
+
+        assert_eq!(cell.food_strength, 0.0, "Small values should be cleaned up");
+        assert_eq!(
+            cell.danger_strength, 0.0,
+            "Small values should be cleaned up"
+        );
+    }
+
+    #[test]
+    fn test_pheromone_sense_center() {
+        let mut grid = PheromoneGrid::new(10, 10);
+        grid.deposit(5.0, 5.0, PheromoneType::Food, 1.0);
+
+        let (food, danger) = grid.sense(5.0, 5.0, 0.5);
+        assert!(
+            food > 0.0,
+            "Should sense food pheromone at deposit location"
+        );
+        assert_eq!(danger, 0.0);
+    }
+
+    #[test]
+    fn test_pheromone_sense_radius() {
+        let mut grid = PheromoneGrid::new(10, 10);
+        grid.deposit(5.0, 5.0, PheromoneType::Food, 1.0);
+
+        // Sense from adjacent cell with radius 2
+        let (food, _) = grid.sense(6.0, 5.0, 2.0);
+        assert!(
+            food > 0.0,
+            "Should sense food pheromone from nearby location"
+        );
+
+        // Sense from far away
+        let (food_far, _) = grid.sense(0.0, 0.0, 1.0);
+        assert_eq!(food_far, 0.0, "Should not sense food from far away");
+    }
+
+    #[test]
+    fn test_pheromone_boundary_safety() {
+        let mut grid = PheromoneGrid::new(10, 10);
+
+        // Should not panic on edge deposits
+        grid.deposit(0.0, 0.0, PheromoneType::Food, 0.5);
+        grid.deposit(9.0, 9.0, PheromoneType::Danger, 0.5);
+
+        // Should not panic on out-of-bounds
+        grid.deposit(100.0, 100.0, PheromoneType::Food, 0.5);
+        let _ = grid.get_cell(100, 100);
+        let _ = grid.sense(100.0, 100.0, 2.0);
+    }
+}

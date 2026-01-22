@@ -242,3 +242,81 @@ impl TerrainGrid {
         self.cells[iy][ix].terrain_type = t;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_terrain_generate_has_correct_dimensions() {
+        let terrain = TerrainGrid::generate(50, 30, 42);
+        assert_eq!(terrain.width, 50);
+        assert_eq!(terrain.height, 30);
+    }
+
+    #[test]
+    fn test_terrain_type_movement_modifiers() {
+        assert_eq!(TerrainType::Plains.movement_modifier(), 1.0);
+        assert_eq!(TerrainType::Mountain.movement_modifier(), 0.5);
+        assert_eq!(TerrainType::River.movement_modifier(), 1.5);
+        assert_eq!(TerrainType::Wall.movement_modifier(), 0.0);
+    }
+
+    #[test]
+    fn test_terrain_type_food_spawn_modifiers() {
+        assert_eq!(TerrainType::Plains.food_spawn_modifier(), 1.0);
+        assert_eq!(TerrainType::Oasis.food_spawn_modifier(), 3.0);
+        assert_eq!(TerrainType::Mountain.food_spawn_modifier(), 0.0);
+        assert_eq!(TerrainType::Wall.food_spawn_modifier(), 0.0);
+    }
+
+    #[test]
+    fn test_terrain_dust_bowl_trigger() {
+        let mut terrain = TerrainGrid::generate(10, 10, 42);
+        assert_eq!(terrain.dust_bowl_timer, 0);
+
+        terrain.trigger_dust_bowl(500);
+        assert_eq!(terrain.dust_bowl_timer, 500);
+    }
+
+    #[test]
+    fn test_terrain_deplete_and_recover() {
+        let mut terrain = TerrainGrid::generate(10, 10, 42);
+        let initial_fertility = terrain.get_cell(5, 5).fertility;
+
+        // Deplete fertility
+        terrain.deplete(5.0, 5.0, 0.5);
+        let depleted_fertility = terrain.get_cell(5, 5).fertility;
+        assert!(
+            depleted_fertility < initial_fertility,
+            "Fertility should decrease after depletion"
+        );
+
+        // Update to recover (slowly)
+        for _ in 0..100 {
+            terrain.update();
+        }
+        let recovered_fertility = terrain.get_cell(5, 5).fertility;
+        assert!(
+            recovered_fertility > depleted_fertility,
+            "Fertility should recover over time"
+        );
+    }
+
+    #[test]
+    fn test_terrain_get_boundary_safety() {
+        let terrain = TerrainGrid::generate(10, 10, 42);
+
+        // Should not panic on out-of-bounds access
+        let _ = terrain.get(100.0, 100.0);
+        let _ = terrain.get(-5.0, -5.0);
+        let _ = terrain.get_cell(100, 100);
+    }
+
+    #[test]
+    fn test_terrain_set_cell_type() {
+        let mut terrain = TerrainGrid::generate(10, 10, 42);
+        terrain.set_cell_type(5, 5, TerrainType::Wall);
+        assert_eq!(terrain.get_cell(5, 5).terrain_type, TerrainType::Wall);
+    }
+}

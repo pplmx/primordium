@@ -10,5 +10,6 @@ pub mod network;
 pub mod pathogen;
 pub mod pheromone;
 pub mod quadtree;
+pub mod systems;
 pub mod terrain;
 pub mod world;

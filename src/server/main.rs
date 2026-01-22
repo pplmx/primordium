@@ -16,10 +16,8 @@ use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
-// Re-use the shared network protocol
-#[path = "../model/network.rs"]
-mod network;
-use network::NetMessage;
+// Re-use the shared network protocol from the main library
+use primordium_lib::model::network::NetMessage;
 
 struct AppState {
     // We'll use a simple broadcast channel for room-wide messages

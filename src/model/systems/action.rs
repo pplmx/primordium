@@ -1,0 +1,140 @@
+//! Action system - handles entity movement, velocity updates, and game mode effects.
+
+use crate::model::config::{AppConfig, GameMode};
+use crate::model::entity::Entity;
+use crate::model::environment::Environment;
+use crate::model::terrain::{TerrainGrid, TerrainType};
+
+/// Apply neural network outputs to entity movement and calculate energy costs.
+pub fn action_system(
+    entity: &mut Entity,
+    outputs: [f32; 5],
+    env: &Environment,
+    config: &AppConfig,
+    terrain: &TerrainGrid,
+    width: u16,
+    height: u16,
+) {
+    let speed_mult = 1.0 + (outputs[2] as f64 + 1.0) / 2.0;
+    let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
+    entity.intel.last_aggression = (outputs[3] + 1.0) / 2.0;
+    entity.intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
+    entity.physics.vx = entity.physics.vx * 0.8 + (outputs[0] as f64) * 0.2;
+    entity.physics.vy = entity.physics.vy * 0.8 + (outputs[1] as f64) * 0.2;
+    let metabolism_mult = env.metabolism_multiplier();
+    let mut move_cost = config.metabolism.base_move_cost * metabolism_mult * speed_mult;
+    if predation_mode {
+        move_cost *= 2.0;
+    }
+    entity.metabolism.energy -= move_cost + config.metabolism.base_idle_cost * metabolism_mult;
+    handle_movement(entity, speed_mult, terrain, width, height);
+}
+
+/// Handle entity movement with terrain collision and wall bouncing.
+pub fn handle_movement(
+    entity: &mut Entity,
+    speed: f64,
+    terrain: &TerrainGrid,
+    width: u16,
+    height: u16,
+) {
+    let terrain_speed_mod = terrain.movement_modifier(entity.physics.x, entity.physics.y);
+    let next_x = entity.physics.x + entity.physics.vx * speed * terrain_speed_mod;
+    let next_y = entity.physics.y + entity.physics.vy * speed * terrain_speed_mod;
+    let next_terrain = terrain.get(next_x, next_y);
+    if next_terrain.terrain_type == TerrainType::Wall {
+        entity.physics.vx = -entity.physics.vx;
+        entity.physics.vy = -entity.physics.vy;
+        return;
+    }
+    entity.physics.x = next_x;
+    entity.physics.y = next_y;
+    let width_f = f64::from(width);
+    let height_f = f64::from(height);
+    if entity.physics.x <= 0.0 {
+        entity.physics.x = 0.0;
+        entity.physics.vx = -entity.physics.vx;
+    } else if entity.physics.x >= width_f {
+        entity.physics.x = width_f - 0.1;
+        entity.physics.vx = -entity.physics.vx;
+    }
+    if entity.physics.y <= 0.0 {
+        entity.physics.y = 0.0;
+        entity.physics.vy = -entity.physics.vy;
+    } else if entity.physics.y >= height_f {
+        entity.physics.y = height_f - 0.1;
+        entity.physics.vy = -entity.physics.vy;
+    }
+}
+
+/// Apply Battle Royale shrinking zone damage.
+pub fn handle_game_modes(
+    entities: &mut [Entity],
+    config: &AppConfig,
+    tick: u64,
+    width: u16,
+    height: u16,
+) {
+    if config.game_mode == GameMode::BattleRoyale {
+        let width_f = f64::from(width);
+        let height_f = f64::from(height);
+        let shrink_amount = (tick as f64 / 100.0).min(width_f / 2.0 - 5.0);
+        for e in entities {
+            if e.physics.x < shrink_amount
+                || e.physics.x > width_f - shrink_amount
+                || e.physics.y < shrink_amount
+                || e.physics.y > height_f - shrink_amount
+            {
+                e.metabolism.energy -= 10.0;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::entity::Entity;
+    use crate::model::terrain::TerrainGrid;
+
+    #[test]
+    fn test_handle_movement_boundary_bounce() {
+        let terrain = TerrainGrid::generate(10, 10, 42);
+        let mut entity = Entity::new(0.5, 0.5, 0);
+        entity.physics.vx = -1.0;
+        entity.physics.vy = -1.0;
+
+        handle_movement(&mut entity, 1.0, &terrain, 10, 10);
+
+        assert!(
+            entity.physics.vx > 0.0,
+            "Velocity X should be reversed at left boundary"
+        );
+        assert!(
+            entity.physics.vy > 0.0,
+            "Velocity Y should be reversed at top boundary"
+        );
+    }
+
+    #[test]
+    fn test_handle_movement_wall_collision() {
+        let mut terrain = TerrainGrid::generate(10, 10, 42);
+        terrain.set_cell_type(5, 5, TerrainType::Wall);
+
+        let mut entity = Entity::new(4.5, 4.5, 0);
+        entity.physics.vx = 1.0;
+        entity.physics.vy = 1.0;
+
+        handle_movement(&mut entity, 1.0, &terrain, 10, 10);
+
+        assert!(
+            entity.physics.vx < 0.0,
+            "Velocity X should be reversed on wall hit"
+        );
+        assert!(
+            entity.physics.vy < 0.0,
+            "Velocity Y should be reversed on wall hit"
+        );
+        assert_eq!(entity.physics.x, 4.5, "Entity should not move into wall");
+    }
+}
