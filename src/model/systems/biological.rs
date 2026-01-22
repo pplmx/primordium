@@ -73,6 +73,7 @@ pub fn handle_death(
 mod tests {
     use super::*;
     use crate::model::entity::Entity;
+    use crate::model::history::{HistoryLogger, PopulationStats};
 
     #[test]
     fn test_biological_system_processes_infection() {
@@ -101,6 +102,123 @@ mod tests {
         assert!(
             pathogens.len() < 50,
             "Should not have spawned too many pathogens"
+        );
+    }
+
+    #[test]
+    fn test_handle_death_creates_event() {
+        let entities = vec![Entity::new(5.0, 5.0, 0)];
+        let mut pop_stats = PopulationStats::new();
+        let mut events = Vec::new();
+        let mut logger = HistoryLogger::new().unwrap();
+
+        handle_death(
+            0,
+            &entities,
+            100,
+            "starvation",
+            &mut pop_stats,
+            &mut events,
+            &mut logger,
+        );
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], LiveEvent::Death { .. }));
+    }
+
+    #[test]
+    fn test_handle_death_records_cause() {
+        let entities = vec![Entity::new(5.0, 5.0, 0)];
+        let mut pop_stats = PopulationStats::new();
+        let mut events = Vec::new();
+        let mut logger = HistoryLogger::new().unwrap();
+
+        handle_death(
+            0,
+            &entities,
+            100,
+            "predation",
+            &mut pop_stats,
+            &mut events,
+            &mut logger,
+        );
+
+        if let LiveEvent::Death { cause, .. } = &events[0] {
+            assert_eq!(cause, "predation");
+        } else {
+            panic!("Expected Death event");
+        }
+    }
+
+    #[test]
+    fn test_handle_death_updates_stats() {
+        let mut entities = vec![Entity::new(5.0, 5.0, 0)];
+        entities[0].metabolism.birth_tick = 0;
+        let mut pop_stats = PopulationStats::new();
+        let mut events = Vec::new();
+        let mut logger = HistoryLogger::new().unwrap();
+
+        handle_death(
+            0,
+            &entities,
+            100,
+            "starvation",
+            &mut pop_stats,
+            &mut events,
+            &mut logger,
+        );
+
+        // avg_lifespan should be updated
+        assert!(
+            pop_stats.avg_lifespan > 0.0,
+            "Lifespan stat should be recorded"
+        );
+    }
+
+    #[test]
+    fn test_handle_infection_no_pathogen_no_spread() {
+        let mut entities = vec![Entity::new(5.0, 5.0, 0), Entity::new(5.5, 5.5, 0)];
+        let killed_ids = HashSet::new();
+        let active_pathogens: Vec<Pathogen> = vec![];
+        let mut spatial_hash = SpatialHash::new(5.0);
+        spatial_hash.insert(5.0, 5.0, 0);
+        spatial_hash.insert(5.5, 5.5, 1);
+        let mut rng = rand::thread_rng();
+
+        // Without any pathogens, neither entity should get infected
+        handle_infection(
+            0,
+            &mut entities,
+            &killed_ids,
+            &active_pathogens,
+            &spatial_hash,
+            &mut rng,
+        );
+
+        assert!(
+            entities[0].health.pathogen.is_none(),
+            "Entity should not be infected without pathogens"
+        );
+        assert!(
+            entities[1].health.pathogen.is_none(),
+            "Neighbor should not be infected"
+        );
+    }
+
+    #[test]
+    fn test_biological_system_with_infected_entity() {
+        let mut entity = Entity::new(5.0, 5.0, 0);
+        entity.health.pathogen = Some(Pathogen::new_random());
+        entity.health.infection_timer = 5;
+
+        let initial_timer = entity.health.infection_timer;
+        biological_system(&mut entity);
+
+        // Timer should decrease or infection should progress
+        // The exact behavior depends on process_infection implementation
+        assert!(
+            entity.health.infection_timer != initial_timer || entity.health.pathogen.is_none(),
+            "Infection should progress"
         );
     }
 }

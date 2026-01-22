@@ -94,7 +94,9 @@ pub fn handle_game_modes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::config::AppConfig;
     use crate::model::entity::Entity;
+    use crate::model::environment::Environment;
     use crate::model::terrain::TerrainGrid;
 
     #[test]
@@ -136,5 +138,153 @@ mod tests {
             "Velocity Y should be reversed on wall hit"
         );
         assert_eq!(entity.physics.x, 4.5, "Entity should not move into wall");
+    }
+
+    #[test]
+    fn test_handle_movement_right_boundary() {
+        let terrain = TerrainGrid::generate(10, 10, 42);
+        let mut entity = Entity::new(9.5, 5.0, 0);
+        entity.physics.vx = 1.0;
+        entity.physics.vy = 0.0;
+
+        handle_movement(&mut entity, 1.0, &terrain, 10, 10);
+
+        assert!(
+            entity.physics.vx < 0.0,
+            "Velocity should be reversed at right boundary"
+        );
+    }
+
+    #[test]
+    fn test_handle_movement_bottom_boundary() {
+        let terrain = TerrainGrid::generate(10, 10, 42);
+        let mut entity = Entity::new(5.0, 9.5, 0);
+        entity.physics.vx = 0.0;
+        entity.physics.vy = 1.0;
+
+        handle_movement(&mut entity, 1.0, &terrain, 10, 10);
+
+        assert!(
+            entity.physics.vy < 0.0,
+            "Velocity should be reversed at bottom boundary"
+        );
+    }
+
+    #[test]
+    fn test_action_system_energy_consumption() {
+        let mut entity = Entity::new(5.0, 5.0, 0);
+        entity.metabolism.energy = 100.0;
+        let initial_energy = entity.metabolism.energy;
+
+        let outputs = [0.0, 0.0, 0.0, 0.0, 0.0]; // Neutral outputs
+        let env = Environment::default();
+        let config = AppConfig::default();
+        let terrain = TerrainGrid::generate(20, 20, 42);
+
+        action_system(&mut entity, outputs, &env, &config, &terrain, 20, 20);
+
+        assert!(
+            entity.metabolism.energy < initial_energy,
+            "Energy should decrease after action"
+        );
+    }
+
+    #[test]
+    fn test_action_system_predation_mode_higher_cost() {
+        let mut entity_normal = Entity::new(5.0, 5.0, 0);
+        let mut entity_predator = Entity::new(5.0, 5.0, 0);
+        entity_normal.metabolism.energy = 100.0;
+        entity_predator.metabolism.energy = 100.0;
+
+        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0]; // Low aggression
+        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0]; // High aggression
+        let env = Environment::default();
+        let config = AppConfig::default();
+        let terrain = TerrainGrid::generate(20, 20, 42);
+
+        action_system(
+            &mut entity_normal,
+            normal_outputs,
+            &env,
+            &config,
+            &terrain,
+            20,
+            20,
+        );
+        action_system(
+            &mut entity_predator,
+            predator_outputs,
+            &env,
+            &config,
+            &terrain,
+            20,
+            20,
+        );
+
+        assert!(
+            entity_predator.metabolism.energy < entity_normal.metabolism.energy,
+            "Predation mode should cost more energy"
+        );
+    }
+
+    #[test]
+    fn test_action_system_velocity_update() {
+        let mut entity = Entity::new(5.0, 5.0, 0);
+        entity.physics.vx = 0.0;
+        entity.physics.vy = 0.0;
+
+        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0]; // Move right-up
+        let env = Environment::default();
+        let config = AppConfig::default();
+        let terrain = TerrainGrid::generate(20, 20, 42);
+
+        action_system(&mut entity, outputs, &env, &config, &terrain, 20, 20);
+
+        assert!(entity.physics.vx > 0.0, "Velocity X should be positive");
+        assert!(entity.physics.vy < 0.0, "Velocity Y should be negative");
+    }
+
+    #[test]
+    #[allow(clippy::field_reassign_with_default)]
+    fn test_handle_game_modes_battle_royale_damage() {
+        let mut config = AppConfig::default();
+        config.game_mode = GameMode::BattleRoyale;
+
+        // Use width=20 so shrink_amount can be > 0
+        // At tick 100, shrink_amount = min(1.0, 20/2 - 5) = min(1.0, 5.0) = 1.0
+        let mut entities = vec![
+            Entity::new(0.5, 10.0, 0),  // In the danger zone (x < 1.0)
+            Entity::new(10.0, 10.0, 0), // Center (safe)
+        ];
+        entities[0].metabolism.energy = 100.0;
+        entities[1].metabolism.energy = 100.0;
+
+        handle_game_modes(&mut entities, &config, 100, 20, 20);
+
+        assert!(
+            entities[0].metabolism.energy < 100.0,
+            "Entity in danger zone should take damage"
+        );
+        assert_eq!(
+            entities[1].metabolism.energy, 100.0,
+            "Entity in center should be safe"
+        );
+    }
+
+    #[test]
+    #[allow(clippy::field_reassign_with_default)]
+    fn test_handle_game_modes_standard_no_damage() {
+        let mut config = AppConfig::default();
+        config.game_mode = GameMode::Standard;
+
+        let mut entities = vec![Entity::new(1.0, 1.0, 0)];
+        entities[0].metabolism.energy = 100.0;
+
+        handle_game_modes(&mut entities, &config, 1000, 10, 10);
+
+        assert_eq!(
+            entities[0].metabolism.energy, 100.0,
+            "Standard mode should not damage entities"
+        );
     }
 }
