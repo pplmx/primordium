@@ -21,6 +21,9 @@ pub struct EntitySnapshot {
     pub energy: f64,
     pub birth_tick: u64,
     pub offspring_count: u32,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -56,6 +59,8 @@ pub struct World {
     perception_buffer: Vec<[f32; 6]>,
     #[serde(skip, default)]
     decision_buffer: Vec<([f32; 5], [f32; 6])>,
+    #[serde(skip, default)]
+    energy_transfers: Vec<(usize, f64)>,
 }
 
 impl World {
@@ -113,6 +118,7 @@ impl World {
             alive_entities: Vec::new(),
             perception_buffer: Vec::new(),
             decision_buffer: Vec::new(),
+            energy_transfers: Vec::new(),
         })
     }
 
@@ -164,6 +170,9 @@ impl World {
                 energy: e.metabolism.energy,
                 birth_tick: e.metabolism.birth_tick,
                 offspring_count: e.metabolism.offspring_count,
+                r: e.physics.r,
+                g: e.physics.g,
+                b: e.physics.b,
             })
             .collect();
 
@@ -173,11 +182,13 @@ impl World {
         let mut alive_entities = std::mem::take(&mut self.alive_entities);
         let mut perception_buffer = std::mem::take(&mut self.perception_buffer);
         let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
+        let mut energy_transfers = std::mem::take(&mut self.energy_transfers);
 
         killed_ids.clear();
         eaten_food_indices.clear();
         new_babies.clear();
         alive_entities.clear();
+        energy_transfers.clear();
 
         current_entities
             .par_iter()
@@ -261,9 +272,25 @@ impl World {
                     pop_stats: &mut self.pop_stats,
                     logger: &mut self.logger,
                     tick: self.tick,
+                    energy_transfers: &mut energy_transfers,
                 };
                 social::handle_predation(i, &mut current_entities, &mut ctx);
             }
+
+            // Energy Sharing
+            let mut share_ctx = social::PredationContext {
+                snapshots: &entity_snapshots,
+                killed_ids: &mut killed_ids,
+                events: &mut events,
+                config: &self.config,
+                spatial_hash: &self.spatial_hash,
+                pheromones: &mut self.pheromones,
+                pop_stats: &mut self.pop_stats,
+                logger: &mut self.logger,
+                tick: self.tick,
+                energy_transfers: &mut energy_transfers,
+            };
+            social::handle_sharing(i, &mut current_entities, &mut share_ctx);
 
             let mut feed_ctx = ecological::FeedingContext {
                 food: &self.food,
@@ -296,6 +323,17 @@ impl World {
             }
         }
 
+        // Apply energy transfers
+        for (target_idx, amount) in &energy_transfers {
+            if *target_idx < current_entities.len()
+                && !killed_ids.contains(&current_entities[*target_idx].id)
+            {
+                current_entities[*target_idx].metabolism.energy =
+                    (current_entities[*target_idx].metabolism.energy + amount)
+                        .min(current_entities[*target_idx].metabolism.max_energy);
+            }
+        }
+
         for e in current_entities {
             if killed_ids.contains(&e.id) {
                 social::archive_if_legend(&e, self.tick, &self.logger);
@@ -323,6 +361,7 @@ impl World {
         self.alive_entities = alive_entities;
         self.perception_buffer = perception_buffer;
         self.decision_buffer = decision_buffer;
+        self.energy_transfers = energy_transfers;
 
         social::handle_extinction(&self.entities, self.tick, &mut events, &mut self.logger);
         stats::update_stats(

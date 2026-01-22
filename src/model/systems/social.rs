@@ -23,6 +23,7 @@ pub struct PredationContext<'a> {
     pub pop_stats: &'a mut PopulationStats,
     pub logger: &'a mut HistoryLogger,
     pub tick: u64,
+    pub energy_transfers: &'a mut Vec<(usize, f64)>,
 }
 
 /// Territorial aggression bonus calculation.
@@ -100,6 +101,39 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
             };
             let _ = ctx.logger.log_event(ev.clone());
             ctx.events.push(ev);
+        }
+    }
+}
+/// Handle energy sharing between same-tribe entities.
+pub fn handle_sharing(idx: usize, entities: &mut [Entity], ctx: &mut PredationContext) {
+    if !can_share(&entities[idx]) || entities[idx].intel.last_share_intent < 0.5 {
+        return;
+    }
+
+    let targets = ctx
+        .spatial_hash
+        .query(entities[idx].physics.x, entities[idx].physics.y, 2.0);
+
+    for t_idx in targets {
+        if t_idx == idx {
+            continue;
+        }
+
+        let target_snap = &ctx.snapshots[t_idx];
+        if target_snap.id == entities[idx].id {
+            continue;
+        }
+
+        let color_dist = (entities[idx].physics.r as i32 - target_snap.r as i32).abs()
+            + (entities[idx].physics.g as i32 - target_snap.g as i32).abs()
+            + (entities[idx].physics.b as i32 - target_snap.b as i32).abs();
+
+        if color_dist < 60 && target_snap.energy < entities[idx].metabolism.energy {
+            let sharing_amount = entities[idx].metabolism.energy * 0.05; // Share 5%
+            if sharing_amount > 1.0 {
+                entities[idx].metabolism.energy -= sharing_amount;
+                ctx.energy_transfers.push((t_idx, sharing_amount));
+            }
         }
     }
 }

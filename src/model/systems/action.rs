@@ -249,10 +249,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::field_reassign_with_default)]
     fn test_handle_game_modes_battle_royale_damage() {
-        let mut config = AppConfig::default();
-        config.game_mode = GameMode::BattleRoyale;
+        let config = AppConfig {
+            game_mode: GameMode::BattleRoyale,
+            ..Default::default()
+        };
 
         // Use width=20 so shrink_amount can be > 0
         // At tick 100, shrink_amount = min(1.0, 20/2 - 5) = min(1.0, 5.0) = 1.0
@@ -276,10 +277,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::field_reassign_with_default)]
     fn test_handle_game_modes_standard_no_damage() {
-        let mut config = AppConfig::default();
-        config.game_mode = GameMode::Standard;
+        let config = AppConfig {
+            game_mode: GameMode::Standard,
+            ..Default::default()
+        };
 
         let mut entities = vec![Entity::new(1.0, 1.0, 0)];
         entities[0].metabolism.energy = 100.0;
