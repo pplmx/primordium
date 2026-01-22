@@ -266,6 +266,29 @@ mod tests {
     }
 
     #[test]
+    fn test_brain_recurrence_memory_impact() {
+        let brain = Brain::new_random();
+        let inputs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6];
+
+        // Two different last states
+        let state_a = [0.9; 6];
+        let state_b = [-0.9; 6];
+
+        let (out_a, next_a) = brain.forward(inputs, state_a);
+        let (out_b, next_b) = brain.forward(inputs, state_b);
+
+        // Outputs should differ because memory state differs
+        assert_ne!(
+            out_a, out_b,
+            "Different memory states should produce different outputs"
+        );
+        assert_ne!(
+            next_a, next_b,
+            "Different memory states should lead to different next states"
+        );
+    }
+
+    #[test]
     fn test_brain_genotype_distance_self_is_zero() {
         let brain = Brain::new_random();
         let distance = brain.genotype_distance(&brain);

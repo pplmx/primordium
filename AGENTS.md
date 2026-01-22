@@ -9,7 +9,7 @@ This file contains critical project-specific knowledge for AI agents working on 
   1. CPU Gauge + Era Icon/Name.
   2. RAM Gauge + Resource State Icon.
   3. World Stats (Pop, Species, Gen, AvgLife, Entropy).
-  4. **Legend Bar**: Displays symbols for Entity Status (●♦♥†♣) and Terrain (▲≈◊*).
+  4. **Legend Bar**: Displays symbols for Entity Status (●♦♥†♣☣◦) and Terrain (▲≈◊░█*).
 - **Sparklines (Middle-Top)**: 2 panes for CPU Load and Population Health.
 - **World (Center)**: The main simulation grid.
 - **Live Chronicle (Bottom)**: Scrolling log of events (Birth, Death, Climate Shift, etc.).
@@ -17,16 +17,18 @@ This file contains critical project-specific knowledge for AI agents working on 
 
 ### Project Modularization
 - `src/app/`: Split from the original monolithic `app.rs`.
-  - `mod.rs`: Run loop and high-level update logic.
-  - `state.rs`: `App` struct fields and initialization.
-  - `render.rs`: TUI rendering logic.
-  - `input.rs`: Event handling (Key/Mouse).
-  - `onboarding.rs`: First-run tutorial screens.
-  - `help.rs`: Tabbed help system.
 - `src/model/`: Simulation core.
   - `world.rs`: Systemic decomposition (Perception, Action, Biological, Social).
   - `entity.rs`: Component-based entity structure (Physics, Metabolism, Health, Intel).
-  - `brain.rs`: Neural network with Rayon-parallelized inference.
+  - `brain.rs`: Recurrent neural network (RNN-lite) with Rayon-parallelized inference.
+  - `terrain.rs`: Dynamic terrain grid with fertility and disasters.
+
+## ⚡ Performance & Scaling (Phase 20-21)
+
+- **Parallel updates**: `Perception` and `Neural` systems use `Rayon` (`par_iter`).
+- **Spatial Hashing**: Separate grids for `entities` and `food` for $O(1)$ sensing.
+- **Buffer Pooling**: Reuse `Vec` and `HashSet` in `World` to minimize allocation jitter.
+- **Snapshots**: Use `EntitySnapshot` for read-only parallel perception.
 
 ## 🔗 Hardware Resonance Logic
 
@@ -43,33 +45,28 @@ This file contains critical project-specific knowledge for AI agents working on 
 
 ## 🧬 Biology & Ecology
 
-- **Life Cycles**: Entities are born as **Juveniles** (◦). They must survive for `maturity_age` (default 150 ticks) before reaching adulthood. Only adults can reproduce.
-- **Trophic Levels**:
-  - **Herbivores (H-)**: Primary consumers. Eat plant food (`*`). 0.2x predation gain.
-  - **Carnivores (C-)**: Predators. Cannot eat plants. 1.2x predation gain.
-- **Terrain Health**: Each cell has a fertility level. Eating food depletes fertility. If fertility < 0.2, the cell becomes **Barren** (░) and stops spawning food until it recovers.
-- **Pathogens**: Microscopic threats that spread between nearby entities.
-  - **Transmission**: Depends on virulence vs host immunity.
-  - **Effects**: Constant energy drain.
-  - **Immunity**: Gained through survival and inherited with minor mutation.
-- **Circadian Rhythms**: A Day/Night cycle (default 2000 ticks) that governs the world.
-  - **Light Levels**: Higher food growth during the day; minimal growth at night.
-  - **Metabolism**: Energy cost is reduced by 40% at night (rest period).
+- **Recurrent Brain**: 12 inputs (6 sensors + 6 memory inputs), 6 hidden, 5 outputs. Supports temporal coherence.
+- **Life Cycles**: Entities are born as **Juveniles** (◦). Must survive for `maturity_age` (150 ticks) before reproducing.
+- **Trophic Levels**: Herbivores (H-) vs Carnivores (C-).
+- **Terrain Health**: Soil fertility regenerates at 0.001/tick. Barren state (░) below 0.15 fertility.
+- **Disasters**: Dust Bowl triggered by Heat Wave + High Population. Wipes out fertility on Plains.
+- **Pathogens**: Proximity-based transmission (radius 2.0). Immunity gained through survival.
+- **Circadian Rhythms**: Day/Night cycle (2000 ticks). 40% metabolism reduction at night.
 
 ## 🧪 Testing Strategy
 
-- **Unit Tests**: Located in `src/model/*.rs`. Fast, isolated.
+- **Unit Tests**: Located in `src/model/*.rs`.
 - **Integration Tests**: Located in `tests/`.
   - `simulation_logic.rs`: Lifecycle and reproduction.
   - `genetic_flow.rs`: DNA protocols (HexDNA).
-  - `environment_coupling.rs`: Hardware-to-World mapping.
-- **Critical Requirement**: `HistoryLogger` requires `logs/` directory. Implementation in `src/model/history.rs` now handles auto-creation.
+  - `ecology.rs`: Terrain fertility and trophic niche.
+  - `pathogens.rs`: Contagion dynamics.
+  - `disasters.rs`: Dust bowl trigger and collision physics.
 
 ## ⚓ Git Hooks (Husky)
 
 - **pre-commit**: `cargo test` + `cargo fmt --all -- --check` + `cargo clippy --all-targets --all-features -- -D warnings`.
 - **pre-push**: Full `cargo test` suite.
-- **commit-msg**: Conventional Commits enforcement (`feat`, `fix`, `docs`, `refactor`, etc.).
 
 ## 📝 Maintenance Protocol
 
@@ -82,11 +79,11 @@ This file contains critical project-specific knowledge for AI agents working on 
 
 1. **Clippy Sensitivity**: In tests, avoid `let mut x = X::default(); x.field = val;`. Prefer `let mut x = X { field: val, ..X::default() };` to avoid `field_reassign_with_default`.
 2. **DNA Serialization**: `import_migrant` requires actual HexDNA string parsing via `Brain::from_hex`.
-3. **TUI Layout**: Always check `f.size()` and provide minimum dimensions for modals to avoid panic on small terminals.
-4. **Parallel Updates**: When using `Rayon` for entity updates, use the `EntitySnapshot` pattern in `World::update` to allow parallel perception/decision while avoiding mutable borrow conflicts during the interaction phase.
+3. **Parallel Updates**: When using `Rayon` for entity updates, use the `EntitySnapshot` pattern and Buffer Pooling to avoid mutable borrow conflicts and allocation jitter.
+4. **Disaster Sync**: Terrain disasters should be triggered by World and handled in TerrainGrid update.
 
 ## 🛠️ Tooling & Productivity
 
-- **Search**: Prefer `rg` (ripgrep) over `grep` for faster, recursive code searching.
-- **Find**: Prefer `fd` (or `fdfind`) over `find` for cleaner syntax and speed.
-- **Consistency**: Avoid PowerShell-specific syntax in bash commands to ensure scripts and hooks remain portable and consistent across environments.
+- **Search**: Prefer `rg` (ripgrep).
+- **Find**: Prefer `fd` (or `fdfind`).
+- **Consistency**: Avoid PowerShell-specific syntax in bash commands.

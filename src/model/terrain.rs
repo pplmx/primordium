@@ -234,4 +234,11 @@ impl TerrainGrid {
         let iy = (y as usize).min(self.height as usize - 1);
         &self.cells[iy][ix]
     }
+
+    /// Manually set cell type (useful for testing and disasters)
+    pub fn set_cell_type(&mut self, x: u16, y: u16, t: TerrainType) {
+        let ix = (x as usize).min(self.width as usize - 1);
+        let iy = (y as usize).min(self.height as usize - 1);
+        self.cells[iy][ix].terrain_type = t;
+    }
 }

@@ -46,8 +46,8 @@ Entities are represented by symbols indicating their current physiological state
 - `♦` **Hunting**: Aggressive state, attempting to consume other entities.
 - `♥` **Mating**: High-energy state, ready to reproduce.
 - `†` **Starving**: Critical energy state (< 20%), high risk of death.
-- `◦` **Juvenile**: Immature state, unable to reproduce. [NEW]
-- `☣` **Infected**: Carrying a pathogen, loses energy and spreads disease. [NEW]
+- `◦` **Juvenile**: Immature state, unable to reproduce.
+- `☣` **Infected**: Carrying a pathogen, loses energy and spreads disease.
 - `♣` **Sharing**: Altruistic state, giving energy to nearby tribe members.
 
 ### Colors (Tribes)
@@ -61,27 +61,24 @@ Entities are colored based on their **genetic tribe**.
 - `≈` **River** (Blue): Faster movement (1.5x), represents water currents.
 - `▲` **Mountain** (Gray): Slow movement (0.5x), no food growth.
 - `◊` **Oasis** (Green): Prime real estate with 3x food spawn rate.
+- `░` **Barren** (Brown): Overgrazed or disaster-struck land. Very low food growth and 0.7x movement speed.
+- `█` **Wall** (Dark Gray): Impassable physical barrier. Entities reflect off walls.
 - `*` **Food** (Green): Energy source spawned based on RAM usage.
 
 ---
 
 ## 🧬 Evolution Mechanics
 
-### The Brain
-Each entity possesses a neural network (Brain) that evolves over generations.
+### The Brain (Recurrent Architecture)
+Each entity possesses a **Recurrent Neural Network** (RNN-lite) that evolves over generations.
 - **Inputs (Sensors)**:
-  - Vision (Food/Entities nearby)
-  - Internal Energy Level
-  - Pheromone Strength (Smell)
-  - Tribe Density
+  - Environmental (Vision, Energy, Pheromones, Tribe density)
+  - **Memory**: 6 inputs are reserved for the previous tick's internal state.
 - **Outputs (Actions)**:
-  - Move X / Y
-  - Boost (Sprint)
-  - Attack / Aggressiveness
-  - Share (Altruism)
+  - Move X / Y, Boost, Attack, Share.
 
 ### Genetics
-When entities reproduce (Mating `M`), their offspring inherits a mix of parents' DNA with slight mutations.
+When entities reproduce, their offspring inherits a mix of parents' DNA with slight mutations.
 - **Attributes**: Speed, Strength, Metabolism, Color.
 - **Brain**: Weights and biases are mutated.
 
@@ -95,57 +92,35 @@ Entities leave chemical trails:
 ## 🌍 Ecosystem
 
 ### Weather & Cycles
-- **Seasons**: Change cyclically, affecting food growth rates and metabolism (Spring, Summer, Fall, Winter).
-- **Circadian Rhythms**: A Day/Night cycle pulses through the world. [NEW]
+- **Seasons**: Change cyclically, affecting food growth rates and metabolism.
+- **Circadian Rhythms**: A Day/Night cycle pulses through the world.
   - **Day**: Peak light levels drive maximum food growth.
   - **Night**: Minimal growth; entities enter a "Resting" state with 40% lower idle metabolism.
 
-### Pathogens & Immunity [NEW]
+### Pathogens & Immunity
 Microscopic threats can emerge and spread:
-- **Infection**: Entities carrying the `☣` symbol lose energy constantly.
-- **Contagion**: Disease spreads through proximity (Spatial Hash queries).
-- **Evolution**: Surviving an infection boosts `Immunity`, which is passed to offspring with minor mutations.
+- **Contagion**: Disease spreads through proximity.
+- **Evolution**: Surviving an infection boosts `Immunity`.
 
-### Disaster (The Divine Interface)
-Occasional random events or user-triggered catastrophes (if Divine Mode enabled) can reshape the population.
+### Disasters
+- **Dust Bowl**: Occurs during heat waves under high population stress, turning plains into barren wasteland.
 
 ---
 
 ## ⚔️ Game Modes
-
-Launch Primordium with different rulesets using `--gamemode`:
-
-### Standard
-`--gamemode standard`
-The classic Darwinian struggle. Entities fight, cooperate, and evolve naturally.
-
-### Cooperative
-`--gamemode coop`
-**Global Peace**. Attack behaviors are disabled. The goal is to maximize population and efficiency.
-- Ideal for studying swarm dynamics and altruism.
-
-### Battle Royale
-`--gamemode battle`
-**Survival of the Fittest Tribe**.
-- The "Safe Zone" shrinks over time.
-- Entities outside the safe zone take massive damage.
-- Forces conflict in the center.
+Launch Primordium with different rulesets using `--gamemode`: `standard`, `coop`, `battle`.
 
 ---
 
-## 🌌 Multiplayer (New!)
-Primordium supports **Interstellar Migration**.
-- If an entity travels off the edge of the screen while "Online", it migrates to the server.
-- The server routes the entity to another connected user's simulation.
-- Look for incoming migrants appearing at your world borders!
+## 🌌 Multiplayer
+Primordium supports **Interstellar Migration**. Travel off the edge while "Online" to migrate to other users' universes.
 
 ---
 
 ## 📚 Technical Wiki
-For advanced users and modders:
 - [Genetics & HexDNA](../docs/wiki/GENETICS.md)
 - [Neural Network Architecture](../docs/wiki/BRAIN.md)
 - [Ecosystem Formulas](../docs/wiki/ECOSYSTEM.md)
 
 ---
-*Generated: 2026-01-21*
+*Last Updated: 2026-01-21*
