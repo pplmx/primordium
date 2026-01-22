@@ -107,4 +107,7 @@ src/
 
 * **Phase 1-10**: 完成了从单体 `World` 向 `Systems` 的初步拆分。
 * **Phase 11**: 目录结构引擎化重组，建立 `state`, `systems`, `infra` 三级架构。
-* **Phase 12**: **进行中**。执行模型去行为化（剥离 `Entity` 和 `Brain` 中的行为逻辑）。
+* **Phase 12**: 模型去行为化完成。`Entity` 和 `Brain` 现为纯数据结构，所有行为逻辑已迁移至 `systems/`。
+* **Phase 13-16**: 集成测试覆盖增强，添加 `social_dynamics`, `world_evolution`, `persistence`, `stress_test` 等验证模块。
+* **Phase 17**: Cargo Workspace 剥离方案已设计，暂缓执行（当前单 crate 结构已满足需求）。
+* **Phase 18**: 代码质量优化，移除 `unwrap()` 并添加核心 API 文档注释。

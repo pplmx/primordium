@@ -7,71 +7,122 @@ use uuid::Uuid;
 /// Status symbols for entity states
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum EntityStatus {
-    Starving, // < 20% energy
-    Juvenile, // Too young to reproduce
-    Infected, // Carrying a pathogen [NEW]
-    Sharing,  // High energy, sharing with neighbors
-    Mating,   // > reproduction threshold
-    Hunting,  // brain aggression > 0.5
-    Foraging, // normal
+    /// Energy below 20% of maximum.
+    Starving,
+    /// Too young to reproduce (< maturity threshold).
+    Juvenile,
+    /// Carrying a pathogen infection.
+    Infected,
+    /// High energy, actively sharing with neighbors.
+    Sharing,
+    /// Above reproduction threshold, seeking mate.
+    Mating,
+    /// Brain aggression output > 0.5, hunting prey.
+    Hunting,
+    /// Default foraging behavior.
+    Foraging,
 }
 
+/// Dietary role determining food sources and aggression patterns.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum EntityRole {
-    Herbivore, // Eats plants, low aggression
-    Carnivore, // Eats entities, high aggression
+    /// Eats plants, generally low aggression.
+    Herbivore,
+    /// Eats other entities, high aggression potential.
+    Carnivore,
 }
 
+/// Physical properties: position, velocity, appearance, and home territory.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
+    /// X coordinate in world space.
     pub x: f64,
+    /// Y coordinate in world space.
     pub y: f64,
+    /// X velocity component.
     pub vx: f64,
+    /// Y velocity component.
     pub vy: f64,
+    /// Red color component for tribe identification.
     pub r: u8,
+    /// Green color component for tribe identification.
     pub g: u8,
+    /// Blue color component for tribe identification.
     pub b: u8,
+    /// Display symbol in terminal renderer.
     pub symbol: char,
+    /// Birth X coordinate (home territory center).
     pub home_x: f64,
+    /// Birth Y coordinate (home territory center).
     pub home_y: f64,
 }
 
+/// Metabolic state: energy, lifecycle, and reproduction tracking.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Metabolism {
+    /// Dietary role (Herbivore or Carnivore).
     pub role: EntityRole,
+    /// Current energy level.
     pub energy: f64,
+    /// Maximum energy capacity.
     pub max_energy: f64,
+    /// Historical peak energy (fitness indicator).
     pub peak_energy: f64,
+    /// Tick at which this entity was born.
     pub birth_tick: u64,
+    /// Generation number (0 = original, 1+ = offspring).
     pub generation: u32,
+    /// Number of offspring produced.
     pub offspring_count: u32,
 }
 
+/// Health state: infection status and immunity.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Health {
+    /// Currently carried pathogen, if any.
     pub pathogen: Option<crate::model::state::pathogen::Pathogen>,
+    /// Ticks remaining in current infection.
     pub infection_timer: u32,
-    pub immunity: f32, // 0.0 to 1.0 resistance
+    /// Immunity level (0.0 = vulnerable, 1.0 = immune).
+    pub immunity: f32,
 }
 
+/// Intelligence component: neural network brain and decision state.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Intel {
+    /// Neural network brain for decision making.
     pub brain: Brain,
+    /// Hidden layer activation from previous tick (recurrent memory).
     #[serde(skip)]
-    pub last_hidden: [f32; 6], // Memory state for recurrence
+    pub last_hidden: [f32; 6],
+    /// Last computed aggression output.
     #[serde(skip)]
     pub last_aggression: f32,
+    /// Last computed sharing intent output.
     #[serde(skip)]
     pub last_share_intent: f32,
 }
 
+/// A living entity in the simulation world.
+///
+/// Each entity is composed of four components following ECS-like patterns:
+/// - [`Physics`]: Position, velocity, and appearance
+/// - [`Metabolism`]: Energy and lifecycle state
+/// - [`Health`]: Infection and immunity
+/// - [`Intel`]: Neural network brain and decision outputs
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
+    /// Unique identifier.
     pub id: Uuid,
+    /// Parent entity ID (None for original population).
     pub parent_id: Option<Uuid>,
+    /// Physical properties.
     pub physics: Physics,
+    /// Metabolic state.
     pub metabolism: Metabolism,
+    /// Health state.
     pub health: Health,
+    /// Intelligence component.
     pub intel: Intel,
 }
 

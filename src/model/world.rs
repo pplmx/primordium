@@ -13,19 +13,47 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+/// A lightweight snapshot of an entity's state for read-only access during update cycles.
+///
+/// This struct captures essential entity attributes at the start of each tick,
+/// allowing systems to query entity state without holding mutable borrows.
 #[derive(Serialize, Deserialize)]
 pub struct EntitySnapshot {
+    /// Unique identifier of the entity.
     pub id: uuid::Uuid,
+    /// X coordinate in world space.
     pub x: f64,
+    /// Y coordinate in world space.
     pub y: f64,
+    /// Current energy level.
     pub energy: f64,
+    /// Tick at which the entity was born.
     pub birth_tick: u64,
+    /// Number of offspring produced.
     pub offspring_count: u32,
+    /// Red color component (0-255) for tribe identification.
     pub r: u8,
+    /// Green color component (0-255) for tribe identification.
     pub g: u8,
+    /// Blue color component (0-255) for tribe identification.
     pub b: u8,
 }
 
+/// The simulation world containing all entities, resources, and environmental state.
+///
+/// `World` is the central data structure of the simulation. It orchestrates:
+/// - Entity lifecycle (birth, death, reproduction)
+/// - Spatial indexing for efficient neighbor queries
+/// - Environmental systems (terrain, pheromones, pathogens)
+/// - Population statistics and history logging
+///
+/// # Example
+/// ```ignore
+/// let config = AppConfig::default();
+/// let mut world = World::new(0, config)?;
+/// let env = Environment::default();
+/// world.update(&env)?;
+/// ```
 #[derive(Serialize, Deserialize)]
 pub struct World {
     pub width: u16,

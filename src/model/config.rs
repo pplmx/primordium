@@ -83,7 +83,9 @@ impl AppConfig {
         }
         let default = Self::default();
         // Create default config file if missing
-        let _ = fs::write("config.toml", toml::to_string(&default).unwrap());
+        if let Ok(toml_str) = toml::to_string(&default) {
+            let _ = fs::write("config.toml", toml_str);
+        }
         default
     }
 }

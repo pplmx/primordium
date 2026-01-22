@@ -47,8 +47,10 @@ async fn main() {
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     tracing::info!("Listening on {}", addr);
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("Failed to bind to address");
+    axum::serve(listener, app).await.expect("Server error");
 }
 
 async fn websocket_handler(
@@ -64,7 +66,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // Increment count
     {
-        let mut count = state.client_count.lock().unwrap();
+        let mut count = state.client_count.lock().expect("Mutex poisoned");
         *count += 1;
         tracing::info!("Client connected: {}. Total: {}", client_id, *count);
     }
@@ -110,7 +112,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // Cleanup
     send_task.abort();
     {
-        let mut count = client_count_clone.lock().unwrap();
+        let mut count = client_count_clone.lock().expect("Mutex poisoned");
         *count = count.saturating_sub(1);
         tracing::info!("Client disconnected: {}. Total: {}", id_clone, *count);
     }
