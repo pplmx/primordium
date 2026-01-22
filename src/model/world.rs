@@ -2,10 +2,10 @@ use crate::model::config::AppConfig;
 use crate::model::entity::Entity;
 use crate::model::environment::Environment;
 use crate::model::food::Food;
-use crate::model::history::{HistoryLogger, LiveEvent, PopulationStats};
+use crate::model::history::{HallOfFame, HistoryLogger, LiveEvent, PopulationStats};
 use crate::model::pheromone::PheromoneGrid;
 use crate::model::quadtree::SpatialHash;
-use crate::model::systems::{action, biological, ecological, social};
+use crate::model::systems::{action, biological, ecological, environment, social, stats};
 use crate::model::terrain::TerrainGrid;
 use chrono::Utc;
 use rand::Rng;
@@ -19,38 +19,6 @@ pub struct EntitySnapshot {
     pub energy: f64,
     pub birth_tick: u64,
     pub offspring_count: u32,
-}
-
-pub struct HallOfFame {
-    pub top_living: Vec<(f64, Entity)>,
-}
-
-impl Default for HallOfFame {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HallOfFame {
-    pub fn new() -> Self {
-        Self {
-            top_living: Vec::with_capacity(3),
-        }
-    }
-    pub fn update(&mut self, entities: &[Entity], tick: u64) {
-        let mut scores: Vec<(f64, Entity)> = entities
-            .iter()
-            .map(|e| {
-                let age = tick - e.metabolism.birth_tick;
-                let score = (age as f64 * 0.5)
-                    + (e.metabolism.offspring_count as f64 * 10.0)
-                    + (e.metabolism.peak_energy * 0.2);
-                (score, e.clone())
-            })
-            .collect();
-        scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        self.top_living = scores.into_iter().take(3).collect();
-    }
 }
 
 pub struct World {
@@ -150,10 +118,7 @@ impl World {
         );
         self.pheromones.decay();
 
-        // Trigger Dust Bowl disaster
-        if env.is_heat_wave() && self.entities.len() > 300 && rng.gen_bool(0.01) {
-            self.terrain.trigger_dust_bowl(500);
-        }
+        environment::handle_disasters(env, self.entities.len(), &mut self.terrain, &mut rng);
         self.terrain.update();
 
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut rng);
@@ -346,21 +311,13 @@ impl World {
         self.decision_buffer = decision_buffer;
 
         social::handle_extinction(&self.entities, self.tick, &mut events, &mut self.logger);
-        self.update_stats();
+        stats::update_stats(
+            self.tick,
+            &self.entities,
+            &mut self.pop_stats,
+            &mut self.hall_of_fame,
+        );
         Ok(events)
-    }
-
-    fn update_stats(&mut self) {
-        if self.tick % 60 == 0 {
-            self.hall_of_fame.update(&self.entities, self.tick);
-            let top_fitness = self
-                .hall_of_fame
-                .top_living
-                .first()
-                .map(|(s, _)| *s)
-                .unwrap_or(0.0);
-            self.pop_stats.update_snapshot(&self.entities, top_fitness);
-        }
     }
 }
 

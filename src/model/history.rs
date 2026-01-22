@@ -137,6 +137,38 @@ impl PopulationStats {
     }
 }
 
+pub struct HallOfFame {
+    pub top_living: Vec<(f64, crate::model::entity::Entity)>,
+}
+
+impl Default for HallOfFame {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HallOfFame {
+    pub fn new() -> Self {
+        Self {
+            top_living: Vec::with_capacity(3),
+        }
+    }
+    pub fn update(&mut self, entities: &[crate::model::entity::Entity], tick: u64) {
+        let mut scores: Vec<(f64, crate::model::entity::Entity)> = entities
+            .iter()
+            .map(|e| {
+                let age = tick - e.metabolism.birth_tick;
+                let score = (age as f64 * 0.5)
+                    + (e.metabolism.offspring_count as f64 * 10.0)
+                    + (e.metabolism.peak_energy * 0.2);
+                (score, e.clone())
+            })
+            .collect();
+        scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        self.top_living = scores.into_iter().take(3).collect();
+    }
+}
+
 pub struct HistoryLogger {
     live_file: BufWriter<File>,
 }
