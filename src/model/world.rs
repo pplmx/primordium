@@ -641,3 +641,46 @@ impl World {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::config::AppConfig;
+
+    #[test]
+    fn test_handle_movement_wall_bounce() {
+        let mut config = AppConfig::default();
+        config.world.width = 10;
+        config.world.height = 10;
+        let mut world = World::new(0, config).unwrap();
+
+        // Place a wall at (5, 5)
+        world
+            .terrain
+            .set_cell_type(5, 5, crate::model::terrain::TerrainType::Wall);
+
+        let mut entity = Entity::new(4.5, 4.5, 0);
+        entity.physics.vx = 1.0;
+        entity.physics.vy = 1.0;
+
+        // Move towards the wall
+        // Speed 1.0, terrain mod 1.0 (Plains at 4,4)
+        // next_x = 4.5 + 1.0 = 5.5 (Wall)
+        world.handle_movement(&mut entity, 1.0);
+
+        assert!(
+            entity.physics.vx < 0.0,
+            "Velocity X should be reversed, got {}",
+            entity.physics.vx
+        );
+        assert!(
+            entity.physics.vy < 0.0,
+            "Velocity Y should be reversed, got {}",
+            entity.physics.vy
+        );
+        assert_eq!(
+            entity.physics.x, 4.5,
+            "Entity should not have moved into the wall"
+        );
+    }
+}

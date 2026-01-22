@@ -25,8 +25,11 @@
 - **缓冲池 (Buffer Pooling)**: 在 `World` 结构体中实现了可重用的堆分配，显著降低了并行执行时的内存分配开销。
 - **有状态智能**: 在 `Intel` 组件中增加了持久化的 `last_hidden` 状态，支持新的循环大脑架构。
 - **物理引擎升级**: 增强了 `handle_movement` 逻辑，支持对不可通行地形的碰撞检测与反弹。
+- **自动化验证**: 新增 `tests/disasters.rs` 覆盖了灾难触发与物理碰撞逻辑。
 
 ---
+
+
 
 ## [阶段 20: 认知合成与系统重构 (Cognitive Synthesis & Systemic Refactor)] - 2026-01-21
 

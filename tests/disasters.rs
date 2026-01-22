@@ -12,25 +12,36 @@ fn test_wall_collisions() {
 
     let mut world = World::new(0, config).unwrap();
 
-    // Place a wall at (5, 5)
-    world
-        .terrain
-        .set_cell_type(5, 5, primordium_lib::model::terrain::TerrainType::Wall);
+    // Place a wall block to prevent tunneling
+    for dx in 5..=7 {
+        for dy in 5..=7 {
+            world
+                .terrain
+                .set_cell_type(dx, dy, primordium_lib::model::terrain::TerrainType::Wall);
+        }
+    }
 
-    let mut entity = Entity::new(4.0, 4.0, 0);
+    // Starting at 4.5 ensuring we hit the wall block
+    let mut entity = Entity::new(4.5, 4.5, 0);
     entity.physics.vx = 1.0;
     entity.physics.vy = 1.0;
 
     world.entities.push(entity);
 
     let env = Environment::default();
-    // One tick should move it to (5, 5) where it hits the wall and bounces
     world.update(&env).unwrap();
 
     let e = &world.entities[0];
-    // It should have bounced (negated vx/vy)
-    assert!(e.physics.vx < 0.0, "vx should be reversed");
-    assert!(e.physics.vy < 0.0, "vy should be reversed");
+    assert!(
+        e.physics.vx < 0.0,
+        "vx should be reversed, got {}",
+        e.physics.vx
+    );
+    assert!(
+        e.physics.vy < 0.0,
+        "vy should be reversed, got {}",
+        e.physics.vy
+    );
 }
 
 #[test]
@@ -50,7 +61,7 @@ fn test_dust_bowl_trigger() {
     // Need > 300 entities for trigger
     for _ in 0..500 {
         let mut e = Entity::new(5.0, 5.0, 0);
-        e.metabolism.energy = 1000.0; // Prevent immediate starvation
+        e.metabolism.energy = 1000.0;
         world.entities.push(e);
     }
 
@@ -61,7 +72,6 @@ fn test_dust_bowl_trigger() {
             triggered = true;
             break;
         }
-        // Replenish entities if they die
         if world.entities.len() <= 300 {
             for _ in 0..100 {
                 let mut e = Entity::new(5.0, 5.0, 0);
