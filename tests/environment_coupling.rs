@@ -1,5 +1,6 @@
 use primordium_lib::model::environment::{ClimateState, Environment, Era, ResourceState};
 use primordium_lib::model::history::PopulationStats;
+use primordium_lib::model::systems::environment as environment_system;
 
 #[test]
 fn test_hardware_coupling_logic() {
@@ -32,22 +33,22 @@ fn test_era_transitions() {
 
     // Transition to DawnOfLife
     stats.avg_lifespan = 250.0;
-    env.update_era(6000, &stats);
+    environment_system::update_era(&mut env, 6000, &stats);
     assert_eq!(env.current_era, Era::DawnOfLife);
 
     // Transition to Flourishing
     stats.population = 300;
     stats.species_count = 5;
-    env.update_era(7000, &stats);
+    environment_system::update_era(&mut env, 7000, &stats);
     assert_eq!(env.current_era, Era::Flourishing);
 
     // Transition to DominanceWar (High CPU stress)
     env.cpu_usage = 85.0;
-    env.update_era(8000, &stats);
+    environment_system::update_era(&mut env, 8000, &stats);
     assert_eq!(env.current_era, Era::DominanceWar);
 
     // Transition to ApexEra
     stats.top_fitness = 6000.0;
-    env.update_era(9000, &stats);
+    environment_system::update_era(&mut env, 9000, &stats);
     assert_eq!(env.current_era, Era::ApexEra);
 }

@@ -7,7 +7,7 @@
 //! - `biological`: Infection processing, pathogen emergence, death handling
 //! - `ecological`: Food spawning, feeding, and environmental sensing
 //! - `social`: Predation, reproduction, and legendary archiving
-//! - `environment`: Global environmental disasters (e.g., Dust Bowl)
+//! - `environment`: Global environment logic (eras, seasons, disasters)
 //! - `stats`: Population statistics and Hall of Fame updates
 
 pub mod action;

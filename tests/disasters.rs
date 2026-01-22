@@ -1,6 +1,7 @@
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::entity::Entity;
 use primordium_lib::model::environment::Environment;
+use primordium_lib::model::systems::environment as environment_system;
 use primordium_lib::model::world::World;
 
 #[test]
@@ -55,7 +56,7 @@ fn test_dust_bowl_trigger() {
         ..Environment::default()
     };
     for _ in 0..11 {
-        env.update_events();
+        environment_system::update_events(&mut env);
     }
 
     // Need > 300 entities for trigger

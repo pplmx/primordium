@@ -178,52 +178,6 @@ impl Environment {
         }
     }
 
-    pub fn update_events(&mut self) {
-        if self.cpu_usage > 80.0 {
-            self.heat_wave_timer += 1;
-        } else {
-            self.heat_wave_timer = self.heat_wave_timer.saturating_sub(1);
-        }
-
-        if self.cpu_usage < 10.0 {
-            self.ice_age_timer += 1;
-        } else {
-            self.ice_age_timer = self.ice_age_timer.saturating_sub(1);
-        }
-
-        if self.ram_usage_percent < 40.0 {
-            self.abundance_timer = 30;
-        } else {
-            self.abundance_timer = self.abundance_timer.saturating_sub(1);
-        }
-    }
-
-    pub fn update_era(&mut self, tick: u64, pop_stats: &crate::model::history::PopulationStats) {
-        // Season cycling
-        self.season_tick += 1;
-        if self.season_tick >= self.season_duration {
-            self.season_tick = 0;
-            self.current_season = self.current_season.next();
-        }
-
-        // Era Transition Logic
-        if self.current_era == Era::Primordial {
-            if tick > 5000 && pop_stats.avg_lifespan > 200.0 {
-                self.current_era = Era::DawnOfLife;
-            }
-        } else if self.current_era == Era::DawnOfLife {
-            if pop_stats.population > 200 && pop_stats.species_count > 3 {
-                self.current_era = Era::Flourishing;
-            }
-        } else if self.current_era == Era::Flourishing && self.cpu_usage > 70.0 {
-            self.current_era = Era::DominanceWar;
-        }
-
-        if pop_stats.top_fitness > 5000.0 {
-            self.current_era = Era::ApexEra;
-        }
-    }
-
     pub fn is_heat_wave(&self) -> bool {
         self.heat_wave_timer >= 10
     }

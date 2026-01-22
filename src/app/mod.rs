@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 // use sysinfo::System; (removed as unused)
 
 use crate::model::history::LiveEvent;
+use crate::model::systems::environment as environment_system;
 use crate::ui::tui::Tui;
 
 impl App {
@@ -69,7 +70,7 @@ impl App {
         self.env.ram_usage_percent =
             (self.sys.used_memory() as f32 / self.sys.total_memory() as f32) * 100.0;
 
-        self.env.update_era(self.world.tick, &self.world.pop_stats);
+        environment_system::update_era(&mut self.env, self.world.tick, &self.world.pop_stats);
 
         let current_climate = self.env.climate();
         if let Some(last) = self.last_climate {
@@ -86,7 +87,7 @@ impl App {
             }
         }
         self.last_climate = Some(current_climate);
-        self.env.update_events();
+        environment_system::update_events(&mut self.env);
 
         self.cpu_history.pop_front();
         self.cpu_history.push_back(cpu_usage as u64);
