@@ -3,9 +3,10 @@ use crate::model::config::AppConfig;
 use crate::model::entity::Entity;
 use crate::model::environment::Environment;
 use crate::model::food::Food;
-use crate::model::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
+use crate::model::history::{HistoryLogger, LiveEvent, PopulationStats};
 use crate::model::pheromone::{PheromoneGrid, PheromoneType};
 use crate::model::quadtree::SpatialHash;
+use crate::model::systems::{action, biological, ecological, social};
 use crate::model::terrain::TerrainGrid;
 use chrono::Utc;
 use rand::Rng;
@@ -305,47 +306,33 @@ impl World {
     }
 
     fn biological_system(&mut self, entity: &mut Entity, _rng: &mut impl Rng) {
-        entity.process_infection();
+        biological::biological_system(entity);
     }
 
     fn handle_game_modes(&mut self) {
-        if self.config.game_mode == crate::model::config::GameMode::BattleRoyale {
-            let width_f = f64::from(self.width);
-            let height_f = f64::from(self.height);
-            let shrink_amount = (self.tick as f64 / 100.0).min(width_f / 2.0 - 5.0);
-            for e in &mut self.entities {
-                if e.physics.x < shrink_amount
-                    || e.physics.x > width_f - shrink_amount
-                    || e.physics.y < shrink_amount
-                    || e.physics.y > height_f - shrink_amount
-                {
-                    e.metabolism.energy -= 10.0;
-                }
-            }
-        }
+        action::handle_game_modes(
+            &mut self.entities,
+            &self.config,
+            self.tick,
+            self.width,
+            self.height,
+        );
     }
 
     fn handle_pathogen_emergence(&mut self, rng: &mut impl Rng) {
-        if rng.gen_bool(0.0001) {
-            self.active_pathogens
-                .push(crate::model::pathogen::Pathogen::new_random());
-        }
+        biological::handle_pathogen_emergence(&mut self.active_pathogens, rng);
     }
 
     fn spawn_food(&mut self, env: &Environment, rng: &mut impl Rng) {
-        let food_spawn_mult = env.food_spawn_multiplier();
-        let base_spawn_chance = 0.0083 * food_spawn_mult * env.light_level() as f64;
-        if self.food.len() < self.config.world.max_food {
-            for _ in 0..3 {
-                let x = rng.gen_range(1..self.width - 1);
-                let y = rng.gen_range(1..self.height - 1);
-                let terrain_mod = self.terrain.food_spawn_modifier(f64::from(x), f64::from(y));
-                if terrain_mod > 0.0 && rng.gen::<f64>() < base_spawn_chance * terrain_mod {
-                    self.food.push(Food::new(x, y));
-                    break;
-                }
-            }
-        }
+        ecological::spawn_food(
+            &mut self.food,
+            env,
+            &self.terrain,
+            self.config.world.max_food,
+            self.width,
+            self.height,
+            rng,
+        );
     }
 
     fn handle_death(
@@ -371,35 +358,7 @@ impl World {
     }
 
     fn handle_movement(&self, entity: &mut Entity, speed: f64) {
-        let terrain_speed_mod = self
-            .terrain
-            .movement_modifier(entity.physics.x, entity.physics.y);
-        let next_x = entity.physics.x + entity.physics.vx * speed * terrain_speed_mod;
-        let next_y = entity.physics.y + entity.physics.vy * speed * terrain_speed_mod;
-        let next_terrain = self.terrain.get(next_x, next_y);
-        if next_terrain.terrain_type == crate::model::terrain::TerrainType::Wall {
-            entity.physics.vx = -entity.physics.vx;
-            entity.physics.vy = -entity.physics.vy;
-            return;
-        }
-        entity.physics.x = next_x;
-        entity.physics.y = next_y;
-        let width_f = f64::from(self.width);
-        let height_f = f64::from(self.height);
-        if entity.physics.x <= 0.0 {
-            entity.physics.x = 0.0;
-            entity.physics.vx = -entity.physics.vx;
-        } else if entity.physics.x >= width_f {
-            entity.physics.x = width_f - 0.1;
-            entity.physics.vx = -entity.physics.vx;
-        }
-        if entity.physics.y <= 0.0 {
-            entity.physics.y = 0.0;
-            entity.physics.vy = -entity.physics.vy;
-        } else if entity.physics.y >= height_f {
-            entity.physics.y = height_f - 0.1;
-            entity.physics.vy = -entity.physics.vy;
-        }
+        action::handle_movement(entity, speed, &self.terrain, self.width, self.height);
     }
 
     fn handle_infection(
@@ -595,50 +554,11 @@ impl World {
     }
 
     fn sense_nearest_food(&self, entity: &Entity) -> (f64, f64) {
-        let mut dx_food = 0.0;
-        let mut dy_food = 0.0;
-        let mut min_dist_sq = f64::MAX;
-        let nearby_food = self
-            .food_hash
-            .query(entity.physics.x, entity.physics.y, 20.0);
-        if nearby_food.is_empty() {
-            return (0.0, 0.0);
-        }
-        for &f_idx in &nearby_food {
-            let f = &self.food[f_idx];
-            let dx = f64::from(f.x) - entity.physics.x;
-            let dy = f64::from(f.y) - entity.physics.y;
-            let dist_sq = dx * dx + dy * dy;
-            if dist_sq < min_dist_sq {
-                min_dist_sq = dist_sq;
-                dx_food = dx;
-                dy_food = dy;
-            }
-        }
-        (dx_food, dy_food)
+        ecological::sense_nearest_food(entity, &self.food, &self.food_hash)
     }
 
     fn archive_if_legend(&self, entity: &Entity) {
-        let lifespan = self.tick - entity.metabolism.birth_tick;
-        if lifespan > 1000
-            || entity.metabolism.offspring_count > 10
-            || entity.metabolism.peak_energy > 300.0
-        {
-            let _ = self.logger.archive_legend(Legend {
-                id: entity.id,
-                parent_id: entity.parent_id,
-                birth_tick: entity.metabolism.birth_tick,
-                death_tick: self.tick,
-                lifespan,
-                generation: entity.metabolism.generation,
-                offspring_count: entity.metabolism.offspring_count,
-                peak_energy: entity.metabolism.peak_energy,
-                birth_timestamp: "".to_string(),
-                death_timestamp: Utc::now().to_rfc3339(),
-                brain_dna: entity.intel.brain.clone(),
-                color_rgb: (entity.physics.r, entity.physics.g, entity.physics.b),
-            });
-        }
+        social::archive_if_legend(entity, self.tick, &self.logger);
     }
 }
 
