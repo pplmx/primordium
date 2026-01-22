@@ -1,15 +1,11 @@
-pub mod blockchain;
 pub mod brain;
 pub mod config;
-pub mod entity;
-pub mod environment;
-pub mod food;
 pub mod history;
 pub mod migration;
-pub mod network;
-pub mod pathogen;
-pub mod pheromone;
 pub mod quadtree;
-pub mod systems;
-pub mod terrain;
 pub mod world;
+
+// 新的三级架构
+pub mod infra;
+pub mod state;
+pub mod systems;

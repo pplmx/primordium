@@ -2,7 +2,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Block, Borders, Widget};
 
-use crate::model::terrain::TerrainType;
+use crate::model::state::terrain::TerrainType;
 use crate::model::world::World;
 
 pub struct WorldWidget<'a> {

@@ -1,16 +1,47 @@
 //! Biological system - handles infection, pathogen emergence, and death processing.
 
-use crate::model::entity::Entity;
 use crate::model::history::{LiveEvent, PopulationStats};
-use crate::model::pathogen::Pathogen;
 use crate::model::quadtree::SpatialHash;
+use crate::model::state::entity::Entity;
+use crate::model::state::pathogen::Pathogen;
 use chrono::Utc;
 use rand::Rng;
 use std::collections::HashSet;
 
 /// Process entity infection and immunity.
 pub fn biological_system(entity: &mut Entity) {
-    entity.process_infection();
+    process_infection(entity);
+}
+
+/// Try to infect an entity with a pathogen.
+pub fn try_infect(entity: &mut Entity, pathogen: &Pathogen) -> bool {
+    if entity.health.pathogen.is_some() {
+        return false;
+    }
+
+    let mut rng = rand::thread_rng();
+    // Roll for infection: virulence vs immunity
+    let chance = (pathogen.virulence - entity.health.immunity).max(0.01);
+    if rng.gen::<f32>() < chance {
+        entity.health.pathogen = Some(pathogen.clone());
+        entity.health.infection_timer = pathogen.duration;
+        return true;
+    }
+    false
+}
+
+/// Process active infection effects on an entity.
+pub fn process_infection(entity: &mut Entity) {
+    if let Some(p) = &entity.health.pathogen {
+        entity.metabolism.energy -= p.lethality as f64;
+        if entity.health.infection_timer > 0 {
+            entity.health.infection_timer -= 1;
+        } else {
+            // Recovered! Gain immunity
+            entity.health.pathogen = None;
+            entity.health.immunity = (entity.health.immunity + 0.1).min(1.0);
+        }
+    }
 }
 
 /// Handle potential pathogen emergence (random spawn).
@@ -29,17 +60,17 @@ pub fn handle_infection(
     spatial_hash: &SpatialHash,
     rng: &mut impl Rng,
 ) {
-    entities[idx].process_infection();
+    process_infection(&mut entities[idx]);
     for p in active_pathogens {
         if rng.gen_bool(0.005) {
-            entities[idx].try_infect(p);
+            try_infect(&mut entities[idx], p);
         }
     }
     if let Some(p) = entities[idx].health.pathogen.clone() {
         for n_idx in spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 2.0) {
             if n_idx != idx
                 && !killed_ids.contains(&entities[n_idx].id)
-                && entities[n_idx].try_infect(&p)
+                && try_infect(&mut entities[n_idx], &p)
             {}
         }
     }
@@ -72,8 +103,8 @@ pub fn handle_death(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::entity::Entity;
     use crate::model::history::{HistoryLogger, PopulationStats};
+    use crate::model::state::entity::Entity;
 
     #[test]
     fn test_biological_system_processes_infection() {

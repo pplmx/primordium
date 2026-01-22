@@ -1,12 +1,12 @@
 use crate::model::config::AppConfig;
-use crate::model::entity::Entity;
-use crate::model::environment::Environment;
-use crate::model::food::Food;
 use crate::model::history::{HallOfFame, HistoryLogger, LiveEvent, PopulationStats};
-use crate::model::pheromone::PheromoneGrid;
 use crate::model::quadtree::SpatialHash;
-use crate::model::systems::{action, biological, ecological, environment, social, stats};
-use crate::model::terrain::TerrainGrid;
+use crate::model::state::entity::Entity;
+use crate::model::state::environment::Environment;
+use crate::model::state::food::Food;
+use crate::model::state::pheromone::PheromoneGrid;
+use crate::model::state::terrain::TerrainGrid;
+use crate::model::systems::{action, biological, ecological, environment, intel, social, stats};
 use chrono::Utc;
 use rand::Rng;
 use rayon::prelude::*;
@@ -35,7 +35,7 @@ pub struct World {
     pub hall_of_fame: HallOfFame,
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
-    pub active_pathogens: Vec<crate::model::pathogen::Pathogen>,
+    pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
 
     // Reusable buffers to reduce allocation jitter
     killed_ids: HashSet<uuid::Uuid>,
@@ -176,7 +176,9 @@ impl World {
                 let (pheromone_food, _) = self.pheromones.sense(e.physics.x, e.physics.y, 3.0);
                 let tribe_count = nearby_indices
                     .iter()
-                    .filter(|&&n_idx| n_idx != i && e.same_tribe(&current_entities[n_idx]))
+                    .filter(|&&n_idx| {
+                        n_idx != i && social::are_same_tribe(e, &current_entities[n_idx])
+                    })
                     .count();
                 [
                     (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
@@ -192,7 +194,7 @@ impl World {
         current_entities
             .par_iter()
             .zip(perception_buffer.par_iter())
-            .map(|(e, inputs)| e.intel.brain.forward(*inputs, e.intel.last_hidden))
+            .map(|(e, inputs)| intel::brain_forward(&e.intel.brain, *inputs, e.intel.last_hidden))
             .collect_into_vec(&mut decision_buffer);
 
         for i in 0..current_entities.len() {
@@ -336,7 +338,7 @@ mod tests {
         // Place a wall at (5, 5)
         world
             .terrain
-            .set_cell_type(5, 5, crate::model::terrain::TerrainType::Wall);
+            .set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Wall);
 
         let mut entity = Entity::new(4.5, 4.5, 0);
         entity.physics.vx = 1.0;

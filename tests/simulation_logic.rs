@@ -1,5 +1,5 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::environment::Environment;
+use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
 #[test]
@@ -67,7 +67,7 @@ fn test_reproduction_and_genetics() {
 
 #[test]
 fn test_predation_efficiency() {
-    use primordium_lib::model::entity::EntityRole;
+    use primordium_lib::model::state::entity::EntityRole;
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.initial_food = 0;
@@ -76,7 +76,7 @@ fn test_predation_efficiency() {
     let env = Environment::default();
 
     // 1. Carnivore eats Herbivore
-    let mut carnivore = primordium_lib::model::entity::Entity::new(10.0, 10.0, 0);
+    let mut carnivore = primordium_lib::model::state::entity::Entity::new(10.0, 10.0, 0);
     carnivore.metabolism.role = EntityRole::Carnivore;
     carnivore.metabolism.energy = 100.0;
     // We need to force predation_mode. Since it's from brain, we just use a hacky way
@@ -85,7 +85,7 @@ fn test_predation_efficiency() {
     // In world.update, predation depends on brain output.
     // Let's just verify the logic by running ticks.
 
-    let mut herbivore = primordium_lib::model::entity::Entity::new(10.1, 10.1, 0);
+    let mut herbivore = primordium_lib::model::state::entity::Entity::new(10.1, 10.1, 0);
     herbivore.metabolism.role = EntityRole::Herbivore;
     herbivore.metabolism.energy = 50.0;
 

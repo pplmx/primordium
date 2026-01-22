@@ -7,7 +7,7 @@ use sysinfo::System;
 use uuid::Uuid;
 
 use crate::model::config::AppConfig;
-use crate::model::environment::{ClimateState, Environment};
+use crate::model::state::environment::{ClimateState, Environment};
 use crate::model::world::World;
 
 pub struct App {

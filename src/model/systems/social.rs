@@ -2,12 +2,14 @@
 
 use crate::model::brain::Brain;
 use crate::model::config::{AppConfig, GameMode};
-use crate::model::entity::{Entity, EntityRole};
 use crate::model::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
-use crate::model::pheromone::{PheromoneGrid, PheromoneType};
 use crate::model::quadtree::SpatialHash;
+use crate::model::state::entity::{Entity, EntityRole};
+use crate::model::state::pheromone::{PheromoneGrid, PheromoneType};
+use crate::model::systems::intel;
 use crate::model::world::EntitySnapshot;
 use chrono::Utc;
+use rand::Rng;
 use std::collections::HashSet;
 
 /// Context for predation operations, reducing parameter count.
@@ -23,9 +25,41 @@ pub struct PredationContext<'a> {
     pub tick: u64,
 }
 
+/// Territorial aggression bonus calculation.
+pub fn get_territorial_aggression(entity: &Entity) -> f64 {
+    let dist_from_home = ((entity.physics.x - entity.physics.home_x).powi(2)
+        + (entity.physics.y - entity.physics.home_y).powi(2))
+    .sqrt();
+    if dist_from_home < 8.0 {
+        1.5 // 50% more aggressive near home
+    } else {
+        1.0
+    }
+}
+
+/// Check if two entities are in the same tribe.
+pub fn are_same_tribe(e1: &Entity, e2: &Entity) -> bool {
+    let color_dist = (e1.physics.r as i32 - e2.physics.r as i32).abs()
+        + (e1.physics.g as i32 - e2.physics.g as i32).abs()
+        + (e1.physics.b as i32 - e2.physics.b as i32).abs();
+    color_dist < 60
+}
+
+/// Check if entity can share energy (>70% full)
+pub fn can_share(entity: &Entity) -> bool {
+    entity.metabolism.energy > entity.metabolism.max_energy * 0.7
+}
+
+/// Share energy with another entity.
+pub fn share_energy(entity: &mut Entity, max_amount: f64) -> f64 {
+    let share = max_amount.min(entity.metabolism.energy * 0.15); // Share up to 15%
+    entity.metabolism.energy -= share;
+    share
+}
+
 /// Handle predation between entities.
 pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut PredationContext) {
-    let territorial_bonus = entities[idx].territorial_aggression();
+    let territorial_bonus = get_territorial_aggression(&entities[idx]);
     let targets = ctx
         .spatial_hash
         .query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
@@ -39,7 +73,7 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
             && v_id != entities[idx].id
             && !ctx.killed_ids.contains(&v_id)
             && v_e < entities[idx].metabolism.energy * territorial_bonus
-            && !entities[idx].same_tribe(&entities[t_idx])
+            && !are_same_tribe(&entities[idx], &entities[t_idx])
         {
             let gain_mult = match entities[idx].metabolism.role {
                 EntityRole::Carnivore => 1.2,
@@ -84,6 +118,17 @@ pub fn handle_reproduction(
     {
         return None;
     }
+    repro_logic(idx, entities, killed_ids, spatial_hash, config, tick)
+}
+
+pub(crate) fn repro_logic(
+    idx: usize,
+    entities: &mut [Entity],
+    killed_ids: &HashSet<uuid::Uuid>,
+    spatial_hash: &SpatialHash,
+    config: &AppConfig,
+    tick: u64,
+) -> Option<Entity> {
     let mate_indices = spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 2.0);
     let mut mate_idx = None;
     for m_idx in mate_indices {
@@ -96,13 +141,169 @@ pub fn handle_reproduction(
         }
     }
     if let Some(m_idx) = mate_idx {
-        let mut cb = Brain::crossover(&entities[idx].intel.brain, &entities[m_idx].intel.brain);
-        cb.mutate_with_config(&config.evolution);
-        let child = entities[idx].reproduce_with_mate(tick, cb, config.evolution.speciation_rate);
+        let mut cb =
+            intel::crossover_brains(&entities[idx].intel.brain, &entities[m_idx].intel.brain);
+        intel::mutate_brain(&mut cb, &config.evolution);
+        let child = reproduce_with_mate(
+            &mut entities[idx],
+            tick,
+            cb,
+            config.evolution.speciation_rate,
+        );
         entities[idx].metabolism.energy -= 50.0;
         Some(child)
     } else {
-        Some(entities[idx].reproduce(tick, &config.evolution))
+        Some(reproduce_asexual(
+            &mut entities[idx],
+            tick,
+            &config.evolution,
+        ))
+    }
+}
+
+/// Perform asexual reproduction.
+pub fn reproduce_asexual(
+    parent: &mut Entity,
+    tick: u64,
+    config: &crate::model::config::EvolutionConfig,
+) -> Entity {
+    let mut rng = rand::thread_rng();
+
+    let child_energy = parent.metabolism.energy / 2.0;
+    parent.metabolism.energy = child_energy;
+    parent.metabolism.offspring_count += 1;
+
+    let mut child_brain = parent.intel.brain.clone();
+    child_brain.mutate_with_config(config);
+
+    let r = {
+        let change = rng.gen_range(-15..=15);
+        (parent.physics.r as i16 + change).clamp(0, 255) as u8
+    };
+    let g = {
+        let change = rng.gen_range(-15..=15);
+        (parent.physics.g as i16 + change).clamp(0, 255) as u8
+    };
+    let b = {
+        let change = rng.gen_range(-15..=15);
+        (parent.physics.b as i16 + change).clamp(0, 255) as u8
+    };
+
+    let mut child_role = parent.metabolism.role;
+    if rng.gen::<f32>() < config.speciation_rate {
+        child_role = match parent.metabolism.role {
+            crate::model::state::entity::EntityRole::Herbivore => {
+                crate::model::state::entity::EntityRole::Carnivore
+            }
+            crate::model::state::entity::EntityRole::Carnivore => {
+                crate::model::state::entity::EntityRole::Herbivore
+            }
+        };
+    }
+
+    use crate::model::state::entity::{Health, Intel, Metabolism, Physics};
+    use uuid::Uuid;
+
+    Entity {
+        id: Uuid::new_v4(),
+        parent_id: Some(parent.id),
+        physics: Physics {
+            x: parent.physics.x,
+            y: parent.physics.y,
+            vx: parent.physics.vx,
+            vy: parent.physics.vy,
+            r,
+            g,
+            b,
+            symbol: '●',
+            home_x: parent.physics.x,
+            home_y: parent.physics.y,
+        },
+        metabolism: Metabolism {
+            role: child_role,
+            energy: child_energy,
+            max_energy: parent.metabolism.max_energy,
+            peak_energy: child_energy,
+            birth_tick: tick,
+            generation: parent.metabolism.generation + 1,
+            offspring_count: 0,
+        },
+        health: Health {
+            pathogen: None,
+            infection_timer: 0,
+            immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+        },
+        intel: Intel {
+            brain: child_brain,
+            last_hidden: [0.0; 6],
+            last_aggression: 0.0,
+            last_share_intent: 0.0,
+        },
+    }
+}
+
+/// Perform sexual reproduction with a mate.
+pub fn reproduce_with_mate(
+    parent: &mut Entity,
+    tick: u64,
+    child_brain: Brain,
+    speciation_rate: f32,
+) -> Entity {
+    let mut rng = rand::thread_rng();
+    let child_energy = parent.metabolism.energy / 2.0;
+    parent.metabolism.energy = child_energy;
+    parent.metabolism.offspring_count += 1;
+
+    let mut child_role = parent.metabolism.role;
+    if rng.gen::<f32>() < speciation_rate {
+        child_role = match parent.metabolism.role {
+            crate::model::state::entity::EntityRole::Herbivore => {
+                crate::model::state::entity::EntityRole::Carnivore
+            }
+            crate::model::state::entity::EntityRole::Carnivore => {
+                crate::model::state::entity::EntityRole::Herbivore
+            }
+        };
+    }
+
+    use crate::model::state::entity::{Health, Intel, Metabolism, Physics};
+    use uuid::Uuid;
+
+    Entity {
+        id: Uuid::new_v4(),
+        parent_id: Some(parent.id),
+        physics: Physics {
+            x: parent.physics.x,
+            y: parent.physics.y,
+            vx: parent.physics.vx,
+            vy: parent.physics.vy,
+            r: parent.physics.r,
+            g: parent.physics.g,
+            b: parent.physics.b,
+            symbol: '●',
+            home_x: parent.physics.x,
+            home_y: parent.physics.y,
+        },
+        metabolism: Metabolism {
+            role: child_role,
+            energy: child_energy,
+            max_energy: parent.metabolism.max_energy,
+            peak_energy: child_energy,
+            birth_tick: tick,
+            generation: parent.metabolism.generation + 1,
+            offspring_count: 0,
+        },
+        health: Health {
+            pathogen: None,
+            infection_timer: 0,
+            immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+        },
+        intel: Intel {
+            brain: child_brain,
+            last_hidden: [0.0; 6],
+            last_aggression: 0.0,
+            last_share_intent: 0.0,
+        },
     }
 }
 
@@ -303,5 +504,60 @@ mod tests {
         handle_extinction(&entities, 0, &mut events, &mut logger);
 
         assert!(events.is_empty(), "No extinction event at tick 0");
+    }
+
+    #[test]
+    fn test_reproduce_asexual_splits_energy() {
+        let config = crate::model::config::EvolutionConfig {
+            mutation_rate: 0.0,
+            mutation_amount: 0.0,
+            drift_rate: 0.0,
+            drift_amount: 0.0,
+            speciation_rate: 0.0,
+        };
+
+        let mut parent = Entity::new(50.0, 25.0, 0);
+        parent.metabolism.energy = 200.0;
+
+        let child = reproduce_asexual(&mut parent, 100, &config);
+
+        assert_eq!(parent.metabolism.energy, 100.0);
+        assert_eq!(child.metabolism.energy, 100.0);
+        assert_eq!(parent.metabolism.offspring_count, 1);
+        assert_eq!(child.parent_id, Some(parent.id));
+        assert_eq!(child.metabolism.generation, 2);
+    }
+
+    #[test]
+    fn test_are_same_tribe_similar_colors() {
+        let mut entity1 = Entity::new(0.0, 0.0, 0);
+        entity1.physics.r = 100;
+        entity1.physics.g = 100;
+        entity1.physics.b = 100;
+
+        let mut entity2 = Entity::new(0.0, 0.0, 0);
+        entity2.physics.r = 110;
+        entity2.physics.g = 105;
+        entity2.physics.b = 120;
+
+        assert!(are_same_tribe(&entity1, &entity2));
+    }
+
+    #[test]
+    fn test_can_share_high_energy() {
+        let mut entity = Entity::new(0.0, 0.0, 0);
+        entity.metabolism.energy = 160.0;
+        assert!(can_share(&entity));
+    }
+
+    #[test]
+    fn test_territorial_aggression_near_home() {
+        let mut entity = Entity::new(50.0, 50.0, 0);
+        entity.physics.home_x = 50.0;
+        entity.physics.home_y = 50.0;
+        entity.physics.x = 52.0;
+        entity.physics.y = 52.0;
+
+        assert_eq!(get_territorial_aggression(&entity), 1.5);
     }
 }

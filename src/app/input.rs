@@ -69,7 +69,8 @@ impl App {
             KeyCode::Char('v') | KeyCode::Char('V') => {
                 if let Ok(dna) = fs::read_to_string("dna_infuse.txt") {
                     if let Ok(brain) = Brain::from_hex(dna.trim()) {
-                        let mut e = crate::model::entity::Entity::new(50.0, 25.0, self.world.tick);
+                        let mut e =
+                            crate::model::state::entity::Entity::new(50.0, 25.0, self.world.tick);
                         e.intel.brain = brain;
                         self.world.entities.push(e);
                         self.event_log.push_back((
@@ -134,7 +135,7 @@ impl App {
                     self.last_world_rect,
                     self.screensaver,
                 ) {
-                    use crate::model::food::Food;
+                    use crate::model::state::food::Food;
                     self.world.food.push(Food::new(wx as u16, wy as u16));
                     self.event_log
                         .push_back(("Divine Food Injected".to_string(), Color::Green));

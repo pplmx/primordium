@@ -1,6 +1,6 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::environment::Environment;
-use primordium_lib::model::pathogen::Pathogen;
+use primordium_lib::model::state::environment::Environment;
+use primordium_lib::model::state::pathogen::Pathogen;
 use primordium_lib::model::world::World;
 
 #[test]
@@ -12,7 +12,7 @@ fn test_pathogen_transmission() {
     let env = Environment::default();
 
     // 1. Setup Infected Patient Zero
-    let mut patient_zero = primordium_lib::model::entity::Entity::new(10.0, 10.0, 0);
+    let mut patient_zero = primordium_lib::model::state::entity::Entity::new(10.0, 10.0, 0);
     patient_zero.physics.vx = 0.0;
     patient_zero.physics.vy = 0.0;
     let pathogen = Pathogen {
@@ -27,7 +27,7 @@ fn test_pathogen_transmission() {
     world.entities.push(patient_zero);
 
     // 2. Setup Victim nearby (same position to be sure)
-    let mut victim = primordium_lib::model::entity::Entity::new(10.0, 10.0, 0);
+    let mut victim = primordium_lib::model::state::entity::Entity::new(10.0, 10.0, 0);
     victim.physics.vx = 0.0;
     victim.physics.vy = 0.0;
     world.entities.push(victim);
@@ -53,7 +53,7 @@ fn test_pathogen_transmission() {
 
 #[test]
 fn test_immunity_gain() {
-    let mut entity = primordium_lib::model::entity::Entity::new(0.0, 0.0, 0);
+    let mut entity = primordium_lib::model::state::entity::Entity::new(0.0, 0.0, 0);
     let initial_immunity = entity.health.immunity;
 
     let pathogen = Pathogen {
@@ -67,8 +67,9 @@ fn test_immunity_gain() {
     entity.health.pathogen = Some(pathogen);
     entity.health.infection_timer = 1;
 
-    entity.process_infection(); // timer -> 0
-    entity.process_infection(); // recovered
+    use primordium_lib::model::systems::biological;
+    biological::process_infection(&mut entity); // timer -> 0
+    biological::process_infection(&mut entity); // recovered
 
     assert!(entity.health.pathogen.is_none());
     assert!(

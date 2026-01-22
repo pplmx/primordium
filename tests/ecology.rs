@@ -1,7 +1,7 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::entity::EntityRole;
-use primordium_lib::model::environment::Environment;
-use primordium_lib::model::terrain::TerrainType;
+use primordium_lib::model::state::entity::EntityRole;
+use primordium_lib::model::state::environment::Environment;
+use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 
 #[test]
@@ -28,7 +28,7 @@ fn test_terrain_fertility_cycle() {
     world.food.clear();
     world
         .food
-        .push(primordium_lib::model::food::Food::new(ix, iy));
+        .push(primordium_lib::model::state::food::Food::new(ix, iy));
 
     // 1. Check initial fertility
     let initial_fertility = world.terrain.get_cell(ix, iy).fertility;
@@ -119,7 +119,7 @@ fn test_trophic_diet_restrictions() {
     let env = Environment::default();
 
     // 1. Carnivore should NOT eat plants
-    let mut carnivore = primordium_lib::model::entity::Entity::new(10.5, 10.5, 0);
+    let mut carnivore = primordium_lib::model::state::entity::Entity::new(10.5, 10.5, 0);
     carnivore.physics.vx = 0.0;
     carnivore.physics.vy = 0.0;
     carnivore.metabolism.role = EntityRole::Carnivore;
@@ -127,7 +127,7 @@ fn test_trophic_diet_restrictions() {
     world.entities.push(carnivore);
     world
         .food
-        .push(primordium_lib::model::food::Food::new(10, 10));
+        .push(primordium_lib::model::state::food::Food::new(10, 10));
 
     world.update(&env).expect("Update failed");
     assert_eq!(
@@ -138,7 +138,7 @@ fn test_trophic_diet_restrictions() {
 
     // 2. Herbivore SHOULD eat plants
     world.entities.clear();
-    let mut herbivore = primordium_lib::model::entity::Entity::new(10.5, 10.5, 0);
+    let mut herbivore = primordium_lib::model::state::entity::Entity::new(10.5, 10.5, 0);
     herbivore.physics.vx = 0.0;
     herbivore.physics.vy = 0.0;
     herbivore.metabolism.role = EntityRole::Herbivore;

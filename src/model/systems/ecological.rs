@@ -1,11 +1,11 @@
 //! Ecological system - handles food spawning, feeding, and environmental sensing.
 
-use crate::model::entity::{Entity, EntityRole};
-use crate::model::environment::Environment;
-use crate::model::food::Food;
-use crate::model::pheromone::{PheromoneGrid, PheromoneType};
 use crate::model::quadtree::SpatialHash;
-use crate::model::terrain::TerrainGrid;
+use crate::model::state::entity::{Entity, EntityRole};
+use crate::model::state::environment::Environment;
+use crate::model::state::food::Food;
+use crate::model::state::pheromone::{PheromoneGrid, PheromoneType};
+use crate::model::state::terrain::TerrainGrid;
 use rand::Rng;
 use std::collections::HashSet;
 
@@ -107,8 +107,8 @@ pub fn sense_nearest_food(entity: &Entity, food: &[Food], food_hash: &SpatialHas
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::environment::Environment;
-    use crate::model::terrain::TerrainGrid;
+    use crate::model::state::environment::Environment;
+    use crate::model::state::terrain::TerrainGrid;
 
     #[test]
     fn test_sense_nearest_food_empty() {

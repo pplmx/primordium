@@ -1,5 +1,5 @@
-use primordium_lib::model::environment::{ClimateState, Environment, Era, ResourceState};
 use primordium_lib::model::history::PopulationStats;
+use primordium_lib::model::state::environment::{ClimateState, Environment, Era, ResourceState};
 use primordium_lib::model::systems::environment as environment_system;
 
 #[test]

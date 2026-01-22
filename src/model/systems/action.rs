@@ -1,9 +1,9 @@
 //! Action system - handles entity movement, velocity updates, and game mode effects.
 
 use crate::model::config::{AppConfig, GameMode};
-use crate::model::entity::Entity;
-use crate::model::environment::Environment;
-use crate::model::terrain::{TerrainGrid, TerrainType};
+use crate::model::state::entity::Entity;
+use crate::model::state::environment::Environment;
+use crate::model::state::terrain::{TerrainGrid, TerrainType};
 
 /// Apply neural network outputs to entity movement and calculate energy costs.
 pub fn action_system(
@@ -95,9 +95,9 @@ pub fn handle_game_modes(
 mod tests {
     use super::*;
     use crate::model::config::AppConfig;
-    use crate::model::entity::Entity;
-    use crate::model::environment::Environment;
-    use crate::model::terrain::TerrainGrid;
+    use crate::model::state::entity::Entity;
+    use crate::model::state::environment::Environment;
+    use crate::model::state::terrain::TerrainGrid;
 
     #[test]
     fn test_handle_movement_boundary_bounce() {
@@ -238,9 +238,9 @@ mod tests {
         let config = AppConfig::default();
         let mut terrain = TerrainGrid::generate(20, 20, 42);
         // Ensure the test area is clear of walls to prevent velocity reversal
-        terrain.set_cell_type(5, 5, crate::model::terrain::TerrainType::Plains);
-        terrain.set_cell_type(6, 5, crate::model::terrain::TerrainType::Plains);
-        terrain.set_cell_type(5, 4, crate::model::terrain::TerrainType::Plains);
+        terrain.set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Plains);
+        terrain.set_cell_type(6, 5, crate::model::state::terrain::TerrainType::Plains);
+        terrain.set_cell_type(5, 4, crate::model::state::terrain::TerrainType::Plains);
 
         action_system(&mut entity, outputs, &env, &config, &terrain, 20, 20);
 

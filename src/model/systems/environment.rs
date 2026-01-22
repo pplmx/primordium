@@ -1,6 +1,6 @@
-use crate::model::environment::Environment;
 use crate::model::history::PopulationStats;
-use crate::model::terrain::TerrainGrid;
+use crate::model::state::environment::Environment;
+use crate::model::state::terrain::TerrainGrid;
 use rand::Rng;
 
 /// Handle global environmental disasters.
@@ -47,7 +47,7 @@ pub fn update_era(env: &mut Environment, tick: u64, pop_stats: &PopulationStats)
     }
 
     // Era Transition Logic
-    use crate::model::environment::Era;
+    use crate::model::state::environment::Era;
     if env.current_era == Era::Primordial {
         if tick > 5000 && pop_stats.avg_lifespan > 200.0 {
             env.current_era = Era::DawnOfLife;

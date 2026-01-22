@@ -1,4 +1,4 @@
-use crate::model::entity::Entity;
+use crate::model::state::entity::Entity;
 
 pub struct SpatialHash {
     pub cell_size: f64,

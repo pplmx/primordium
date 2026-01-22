@@ -1,6 +1,6 @@
-use crate::model::entity::EntityStatus;
-use crate::model::pheromone::PheromoneType;
-use crate::model::terrain::TerrainType;
+use crate::model::state::entity::EntityStatus;
+use crate::model::state::pheromone::PheromoneType;
+use crate::model::state::terrain::TerrainType;
 use crate::model::world::World;
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;

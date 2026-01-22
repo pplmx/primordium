@@ -9,10 +9,12 @@
 //! - `social`: Predation, reproduction, and legendary archiving
 //! - `environment`: Global environment logic (eras, seasons, disasters)
 //! - `stats`: Population statistics and Hall of Fame updates
+//! - `intel`: Neural network inference and brain evolution
 
 pub mod action;
 pub mod biological;
 pub mod ecological;
 pub mod environment;
+pub mod intel;
 pub mod social;
 pub mod stats;

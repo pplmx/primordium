@@ -1,4 +1,4 @@
-use crate::model::entity::Entity;
+use crate::model::state::entity::Entity;
 use crate::model::world::World;
 use rand::Rng;
 

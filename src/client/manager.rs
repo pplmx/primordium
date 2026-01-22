@@ -1,4 +1,4 @@
-use crate::model::network::NetMessage;
+use crate::model::infra::network::NetMessage;
 use serde_json;
 use std::cell::RefCell;
 use std::rc::Rc;

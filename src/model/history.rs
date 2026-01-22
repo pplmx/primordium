@@ -89,7 +89,11 @@ impl PopulationStats {
             self.recent_deaths.iter().sum::<f64>() / self.recent_deaths.len() as f64;
     }
 
-    pub fn update_snapshot(&mut self, entities: &[crate::model::entity::Entity], top_fitness: f64) {
+    pub fn update_snapshot(
+        &mut self,
+        entities: &[crate::model::state::entity::Entity],
+        top_fitness: f64,
+    ) {
         self.population = entities.len();
         self.top_fitness = top_fitness;
 
@@ -138,7 +142,7 @@ impl PopulationStats {
 }
 
 pub struct HallOfFame {
-    pub top_living: Vec<(f64, crate::model::entity::Entity)>,
+    pub top_living: Vec<(f64, crate::model::state::entity::Entity)>,
 }
 
 impl Default for HallOfFame {
@@ -153,8 +157,8 @@ impl HallOfFame {
             top_living: Vec::with_capacity(3),
         }
     }
-    pub fn update(&mut self, entities: &[crate::model::entity::Entity], tick: u64) {
-        let mut scores: Vec<(f64, crate::model::entity::Entity)> = entities
+    pub fn update(&mut self, entities: &[crate::model::state::entity::Entity], tick: u64) {
+        let mut scores: Vec<(f64, crate::model::state::entity::Entity)> = entities
             .iter()
             .map(|e| {
                 let age = tick - e.metabolism.birth_tick;

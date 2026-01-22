@@ -10,12 +10,12 @@ pub mod ui;
 #[cfg(target_arch = "wasm32")]
 use crate::client::manager::NetworkManager;
 #[cfg(target_arch = "wasm32")]
-use crate::model::environment::Environment;
+use crate::model::state::environment::Environment;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use crate::model::network::NetMessage;
+use crate::model::infra::network::NetMessage;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]

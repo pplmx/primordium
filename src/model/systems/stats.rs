@@ -1,5 +1,5 @@
-use crate::model::entity::Entity;
 use crate::model::history::{HallOfFame, PopulationStats};
+use crate::model::state::entity::Entity;
 
 /// Update population statistics and Hall of Fame.
 pub fn update_stats(

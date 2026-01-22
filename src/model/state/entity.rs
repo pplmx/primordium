@@ -1,0 +1,251 @@
+use crate::model::brain::Brain;
+use rand::Rng;
+use ratatui::style::Color;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+/// Status symbols for entity states
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EntityStatus {
+    Starving, // < 20% energy
+    Juvenile, // Too young to reproduce
+    Infected, // Carrying a pathogen [NEW]
+    Sharing,  // High energy, sharing with neighbors
+    Mating,   // > reproduction threshold
+    Hunting,  // brain aggression > 0.5
+    Foraging, // normal
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum EntityRole {
+    Herbivore, // Eats plants, low aggression
+    Carnivore, // Eats entities, high aggression
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Physics {
+    pub x: f64,
+    pub y: f64,
+    pub vx: f64,
+    pub vy: f64,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub symbol: char,
+    pub home_x: f64,
+    pub home_y: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Metabolism {
+    pub role: EntityRole,
+    pub energy: f64,
+    pub max_energy: f64,
+    pub peak_energy: f64,
+    pub birth_tick: u64,
+    pub generation: u32,
+    pub offspring_count: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Health {
+    pub pathogen: Option<crate::model::state::pathogen::Pathogen>,
+    pub infection_timer: u32,
+    pub immunity: f32, // 0.0 to 1.0 resistance
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Intel {
+    pub brain: Brain,
+    #[serde(skip)]
+    pub last_hidden: [f32; 6], // Memory state for recurrence
+    #[serde(skip)]
+    pub last_aggression: f32,
+    #[serde(skip)]
+    pub last_share_intent: f32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Entity {
+    pub id: Uuid,
+    pub parent_id: Option<Uuid>,
+    pub physics: Physics,
+    pub metabolism: Metabolism,
+    pub health: Health,
+    pub intel: Intel,
+}
+
+impl Entity {
+    pub fn new(x: f64, y: f64, tick: u64) -> Self {
+        let mut rng = rand::thread_rng();
+
+        let vx = rng.gen_range(-0.5..0.5);
+        let vy = rng.gen_range(-0.5..0.5);
+
+        let r = rng.gen_range(100..255);
+        let g = rng.gen_range(100..255);
+        let b = rng.gen_range(100..255);
+
+        let role = if rng.gen_bool(0.8) {
+            EntityRole::Herbivore
+        } else {
+            EntityRole::Carnivore
+        };
+
+        Self {
+            id: Uuid::new_v4(),
+            parent_id: None,
+            physics: Physics {
+                x,
+                y,
+                vx,
+                vy,
+                r,
+                g,
+                b,
+                symbol: '●',
+                home_x: x,
+                home_y: y,
+            },
+            metabolism: Metabolism {
+                role,
+                energy: 100.0,
+                max_energy: 200.0,
+                peak_energy: 100.0,
+                birth_tick: tick,
+                generation: 1,
+                offspring_count: 0,
+            },
+            health: Health {
+                pathogen: None,
+                infection_timer: 0,
+                immunity: rng.gen_range(0.0..0.3),
+            },
+            intel: Intel {
+                brain: Brain::new_random(),
+                last_hidden: [0.0; 6],
+                last_aggression: 0.0,
+                last_share_intent: 0.0,
+            },
+        }
+    }
+
+    pub fn color(&self) -> Color {
+        Color::Rgb(self.physics.r, self.physics.g, self.physics.b)
+    }
+
+    pub fn status(
+        &self,
+        reproduction_threshold: f64,
+        current_tick: u64,
+        maturity_age: u64,
+    ) -> EntityStatus {
+        if self.metabolism.energy / self.metabolism.max_energy < 0.2 {
+            EntityStatus::Starving
+        } else if self.health.pathogen.is_some() {
+            EntityStatus::Infected
+        } else if (current_tick - self.metabolism.birth_tick) < maturity_age {
+            EntityStatus::Juvenile
+        } else if self.intel.last_share_intent > 0.5
+            && self.metabolism.energy > self.metabolism.max_energy * 0.7
+        {
+            EntityStatus::Sharing
+        } else if self.intel.last_aggression > 0.5 {
+            EntityStatus::Hunting
+        } else if self.metabolism.energy > reproduction_threshold {
+            EntityStatus::Mating
+        } else {
+            EntityStatus::Foraging
+        }
+    }
+
+    pub fn symbol_for_status(&self, status: EntityStatus) -> char {
+        match status {
+            EntityStatus::Starving => '†',
+            EntityStatus::Infected => '☣',
+            EntityStatus::Juvenile => '◦',
+            EntityStatus::Sharing => '♣',
+            EntityStatus::Mating => '♥',
+            EntityStatus::Hunting => '♦',
+            EntityStatus::Foraging => '●',
+        }
+    }
+
+    pub fn color_for_status(&self, status: EntityStatus) -> Color {
+        match status {
+            EntityStatus::Starving => Color::Rgb(150, 50, 50),
+            EntityStatus::Infected => Color::Rgb(154, 205, 50),
+            EntityStatus::Juvenile => Color::Rgb(200, 200, 255),
+            EntityStatus::Sharing => Color::Rgb(100, 200, 100),
+            EntityStatus::Mating => Color::Rgb(255, 105, 180),
+            EntityStatus::Hunting => Color::Rgb(255, 69, 0),
+            EntityStatus::Foraging => self.color(),
+        }
+    }
+
+    pub fn is_mature(&self, current_tick: u64, maturity_age: u64) -> bool {
+        (current_tick - self.metabolism.birth_tick) >= maturity_age
+    }
+
+    pub fn name(&self) -> String {
+        let id_str = self.id.to_string();
+        let bytes = id_str.as_bytes();
+
+        let syllables = [
+            "ae", "ba", "co", "da", "el", "fa", "go", "ha", "id", "jo", "ka", "lu", "ma", "na",
+            "os", "pe", "qu", "ri", "sa", "tu", "vi", "wu", "xi", "yo", "ze",
+        ];
+        let prefix = [
+            "Aethel", "Bel", "Cor", "Dag", "Eld", "Fin", "Grom", "Had", "Ith", "Jor", "Kael",
+            "Luv", "Mor", "Nar", "Oth", "Pyr", "Quas", "Rhun", "Syl", "Tor", "Val", "Wun", "Xer",
+            "Yor", "Zan",
+        ];
+
+        let p_idx = (bytes[0] as usize) % prefix.len();
+        let s1_idx = (bytes[1] as usize) % syllables.len();
+        let s2_idx = (bytes[2] as usize) % syllables.len();
+
+        let role_prefix = match self.metabolism.role {
+            EntityRole::Herbivore => "H-",
+            EntityRole::Carnivore => "C-",
+        };
+
+        format!(
+            "{}{}{}{}-Gen{}",
+            role_prefix,
+            prefix[p_idx],
+            syllables[s1_idx],
+            syllables[s2_idx],
+            self.metabolism.generation
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_entity_new_has_valid_initial_state() {
+        let entity = Entity::new(50.0, 25.0, 100);
+
+        assert_eq!(entity.physics.x, 50.0);
+        assert_eq!(entity.physics.y, 25.0);
+        assert_eq!(entity.metabolism.birth_tick, 100);
+        assert_eq!(entity.metabolism.generation, 1);
+        assert_eq!(entity.metabolism.energy, 100.0);
+        assert_eq!(entity.metabolism.max_energy, 200.0);
+        assert_eq!(entity.metabolism.offspring_count, 0);
+        assert!(entity.parent_id.is_none());
+    }
+
+    #[test]
+    fn test_entity_name_is_deterministic() {
+        let entity = Entity::new(0.0, 0.0, 0);
+        let name1 = entity.name();
+        let name2 = entity.name();
+
+        assert_eq!(name1, name2, "Same entity should have same name");
+        assert!(name1.contains("-Gen"), "Name should contain generation");
+    }
+}

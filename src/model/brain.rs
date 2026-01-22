@@ -124,39 +124,12 @@ impl Brain {
         let brain = serde_json::from_slice(&bytes)?;
         Ok(brain)
     }
-
-    pub fn crossover(parent1: &Brain, parent2: &Brain) -> Self {
-        let mut rng = rand::thread_rng();
-        let mut child = parent1.clone();
-
-        // Randomly pick weights from either parent
-        for i in 0..child.weights_ih.len() {
-            if rng.gen_bool(0.5) {
-                child.weights_ih[i] = parent2.weights_ih[i];
-            }
-        }
-        for i in 0..child.weights_ho.len() {
-            if rng.gen_bool(0.5) {
-                child.weights_ho[i] = parent2.weights_ho[i];
-            }
-        }
-        for i in 0..child.bias_h.len() {
-            if rng.gen_bool(0.5) {
-                child.bias_h[i] = parent2.bias_h[i];
-            }
-        }
-        for i in 0..child.bias_o.len() {
-            if rng.gen_bool(0.5) {
-                child.bias_o[i] = parent2.bias_o[i];
-            }
-        }
-        child
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::systems::intel;
 
     #[test]
     fn test_brain_new_random_has_correct_dimensions() {
@@ -181,8 +154,8 @@ mod tests {
         let inputs = [0.5, -0.5, 0.3, 0.0, 0.1, 0.2];
         let last_hidden = [0.0; 6];
 
-        let (output1, _) = brain.forward(inputs, last_hidden);
-        let (output2, _) = brain.forward(inputs, last_hidden);
+        let (output1, _) = intel::brain_forward(&brain, inputs, last_hidden);
+        let (output2, _) = intel::brain_forward(&brain, inputs, last_hidden);
 
         assert_eq!(output1, output2, "Same inputs should produce same outputs");
     }
@@ -193,7 +166,7 @@ mod tests {
         let inputs = [1.0, -1.0, 0.5, 0.5, 0.0, 1.0];
         let last_hidden = [0.1; 6];
 
-        let (outputs, next_hidden) = brain.forward(inputs, last_hidden);
+        let (outputs, next_hidden) = intel::brain_forward(&brain, inputs, last_hidden);
 
         for (i, &out) in outputs.iter().enumerate() {
             assert!(
@@ -226,7 +199,7 @@ mod tests {
 
         // Mutate many times
         for _ in 0..100 {
-            brain.mutate_with_config(&config);
+            intel::mutate_brain(&mut brain, &config);
         }
 
         // All weights should still be in [-2, 2]
@@ -249,7 +222,7 @@ mod tests {
         let parent1 = Brain::new_random();
         let parent2 = Brain::new_random();
 
-        let child = Brain::crossover(&parent1, &parent2);
+        let child = intel::crossover_brains(&parent1, &parent2);
 
         // Child should have correct dimensions
         assert_eq!(child.weights_ih.len(), 72);
@@ -274,8 +247,8 @@ mod tests {
         let state_a = [0.9; 6];
         let state_b = [-0.9; 6];
 
-        let (out_a, next_a) = brain.forward(inputs, state_a);
-        let (out_b, next_b) = brain.forward(inputs, state_b);
+        let (out_a, next_a) = intel::brain_forward(&brain, inputs, state_a);
+        let (out_b, next_b) = intel::brain_forward(&brain, inputs, state_b);
 
         // Outputs should differ because memory state differs
         assert_ne!(
@@ -291,7 +264,7 @@ mod tests {
     #[test]
     fn test_brain_genotype_distance_self_is_zero() {
         let brain = Brain::new_random();
-        let distance = brain.genotype_distance(&brain);
+        let distance = intel::genotype_distance(&brain, &brain);
         assert!(
             (distance - 0.0).abs() < 0.0001,
             "Distance to self should be 0"
@@ -303,8 +276,8 @@ mod tests {
         let brain1 = Brain::new_random();
         let brain2 = Brain::new_random();
 
-        let d1 = brain1.genotype_distance(&brain2);
-        let d2 = brain2.genotype_distance(&brain1);
+        let d1 = intel::genotype_distance(&brain1, &brain2);
+        let d2 = intel::genotype_distance(&brain2, &brain1);
 
         assert!((d1 - d2).abs() < 0.0001, "Distance should be symmetric");
     }

@@ -1,125 +1,94 @@
-# ARCHITECTURE
+# Primordium 架构设计文档
 
-## 概述
+本文档定义了 Primordium 项目的核心架构规范，作为重构和功能扩展的长期指导准则。
 
-Primordium 是一个受神经驱动的数字生命模拟框架。拥有神经网络大脑、遗传系统和生存本能。本文档总结了我们实现这个系统时的架构决策、设计模式和经验教训。
+## 1. 设计哲学：Simulation as a Universe (引擎化)
 
----
+我们将 `src/model` 视为一个高度内聚、自包含的**模拟宇宙引擎**。它包含了运行模拟所需的所有数据结构、业务逻辑以及模拟专用的外部设施。
 
-## 核心架构
+*   **对内内聚**：模拟的核心逻辑（如变异、捕食、区块链存证）全部收纳于 `model`。
+*   **对外解耦**：宿主环境（UI 渲染、App 生命周期、硬件监控）仅作为观察者，通过 API 与 `model` 交互。
 
-### 1. 实体（Entity）组件化结构
+## 2. 核心架构分层
 
-从 Phase 20 开始，`Entity` 结构体已重构为基于组件的设计，以提高数据局部性和系统的解耦性。
+整个模拟宇宙被划分为物理对等的三层：
 
-```rust
-pub struct Entity {
-    pub id: Uuid,
-    pub parent_id: Option<Uuid>,
-    pub physics: Physics,        // 空间属性（x, y, vx, vy, home）
-    pub metabolism: Metabolism,  // 能量与生命周期
-    pub health: Health,          // 免疫力与感染状态
-    pub intel: Intel,            // 神经网络大脑与决策状态
-}
+### A. 数据层 (Model::State)
+- **路径**: `src/model/state/`
+- **规范**: 仅包含纯粹的名词（数据结构）。
+- **原则**: **无谓词化**。State 内的方法仅限于 `new()`, `get_*()`, `is_*()`。任何会改变、演进数据的逻辑严禁进入此层。
+
+### B. 系统层 (Model::Systems)
+- **路径**: `src/model/systems/`
+- **规范**: 包含所有演进逻辑（动词）。
+- **原则**: 逻辑以纯函数或 Stateless 的过程存在。通过 `Context` 结构体访问 State。
+
+### C. 基础设施层 (Model::Infra)
+- **路径**: `src/model/infra/`
+- **规范**: 模拟专用的外部 IO 或复杂协议。
+- **原则**: 隔离模拟宇宙与外部系统的交互逻辑（如区块链锚定、跨宇宙迁移协议）。
+
+### D. 核心引擎组件 (Core Engine Components)
+这些模块位于 `src/model/` 根目录，作为支撑整个模拟运行的“物理常数”和“核心基座”：
+- **`brain.rs` (Intel/Will)**: 模拟实体的神经网络模型及推理引擎。代表实体的“意识”。
+- **`quadtree.rs` (Spatial Index)**: 高性能空间索引（Spatial Hash/QuadTree），为碰撞检测和感知提供物理加速。
+- **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议，是引擎对外的通信门户。
+- **`world.rs` (Coordinator)**: 整个模拟宇宙的“总线”，负责统筹调度所有状态与系统。
+- **`config.rs` (Constants)**: 模拟宇宙的物理规则参数。
+- **`history.rs` (Archive)**: 模拟时空的观测记录。
+
+## 4. 其它顶级组件
+
+除了核心的 `model` 引擎外，项目还包含以下支撑层：
+
+### A. 库与入口 (Library & Entry Points)
+- **`src/lib.rs`**: **项目统一导出库**。它不仅是 Rust 库的入口，还包含了 WASM (WebAssembly) 的导出接口，定义了模拟引擎与 Web 环境的交互边界。
+- **`src/main.rs`**: **原生应用入口**。负责 CLI 参数解析，并根据指令启动 TUI 环境、模拟屏保或 Headless 高速测试模式。
+
+### B. 客户端层 (src/client/)
+- **路径**: `src/client/`
+- **职责**: **Web 特定逻辑**。收纳了仅在 WASM/浏览器环境下运行的逻辑，如 Web 套接字管理器，实现了 Web 端特有的非阻塞通信。
+
+### C. 实用工具集 (src/bin/)
+- **路径**: `src/bin/`
+- **职责**: **二进制工具链**。包含独立运行的辅助程序：
+  - `analyze.rs`: 用于对模拟后的快照进行大规模数据分析。
+  - `verify.rs`: 用于验证区块链上的锚定存证。
+
+## 5. 目录与命名空间
+
+```text
+src/
+├── main.rs          # 【应用入口】CLI/Native
+├── lib.rs           # 【库入口】WASM/Library
+├── client/          # 【Web 端】浏览器专用适配逻辑
+├── bin/             # 【工具链】分析与验证辅助程序
+├── model/           # 【核心】统一 Model 空间 (引擎实体)
+│   ├── state/       # 【底层数据】entity, env, terrain, food...
+│   ├── systems/     # 【动力系统】action, social, climate, stats...
+│   ├── infra/       # 【通信/存证】blockchain, network...
+│   ├── brain.rs     # 【核心：智能】
+│   ├── quadtree.rs  # 【核心：空间】
+│   ├── migration.rs # 【核心：入口】
+│   ├── world.rs     # 【核心：协调】
+│   ├── config.rs    # 【核心：规则】
+│   └── history.rs   # 【核心：记录】
+├── app/             # 【宿主】生命周期与事件循环
+└── ui/              # 【表现】多端绘制逻辑
 ```
 
-**组件定义：**
-- **Physics**: 处理位置、速度、颜色、符号以及领地锚点 (`home_x/y`)。
-- **Metabolism**: 处理 `energy`、`max_energy`、营养级角色 (`Herbivore/Carnivore`)、出生 tick、代数和后代计数。
-- **Health**: 处理病原体感染、感染计时器和免疫力（0.0 到 1.0）。
-- **Intel**: 封装神经网络 `Brain` 以及上一次更新的决策状态（`last_aggression`, `last_share_intent`）。
+## 6. 命名与调用准则
 
-**设计经验：**
-- **唯一标识**：使用 `Uuid` 而非简单的自增 ID，避免重启后 ID 冲突，同时支持谱系追踪。
-- **谱系追踪**：`parent_id` 允许构建完整的家族树，这对分析进化路径至关重要。
-- **组件化**：将相关数据分组，使得系统（Systems）可以只操作它们需要的组件，提高了代码的可维护性。
+1.  **数据引用**: 使用 `crate::model::state::*`。
+2.  **系统调用**: 推荐在调用方使用别名以增强语义：
+    ```rust
+    use crate::model::systems::environment as environment_system;
+    environment_system::update_era(&mut self.env, ...);
+    ```
+3.  **循环依赖**: 通过将逻辑提升至顶层协调器（World）或抽离独立的 System 来消除 State 模块间的循环依赖。
 
----
+## 5. 重构演进记录 (2026-01)
 
-### 2. 神经网络大脑（Brain）
-
-每个代理拥有一个 **Recurrent (RNN-lite)** 结构的神经网络：
-
-```rust
-pub struct Brain {
-    pub weights_ih: Vec<f32>,  // 12 inputs -> 6 hidden
-    pub weights_ho: Vec<f32>,  // 6 hidden -> 5 outputs
-    pub bias_h: Vec<f32>,
-    pub bias_o: Vec<f32>,
-}
-```
-
-**输入层（12 个神经元）：**
-1. **环境输入 (6)**：食物方向 X/Y、能量水平、邻近密度、信息素强度、部落识别。
-2. **记忆输入 (6)**：上一个 tick 的隐藏层状态，允许跨 tick 的行为连贯性。
-
-**输出层（5 个神经元）：**
-1. **移动方向 X**
-2. **移动方向 Y**
-3. **爆发加速**（Boost）
-4. **攻击性**（Aggression）
-5. **能量分享**（Share）
-
----
-
-### 3. 状态机：EntityStatus
-
-```rust
-pub enum EntityStatus {
-    Starving,   // 能量 < 20%
-    Infected,   // 携带病原体
-    Juvenile,   // 幼体阶段 (◦)
-    Mating,     // 能量 > 繁殖阈值
-    Hunting,    // 攻击性 > 0.5
-    Sharing,    // 分享能量中 (♣)
-    Foraging,   // 默认状态
-}
-```
-
----
-
-## 核心系统：系统化解耦 (Phase 20-21)
-
-`World::update` 已被分解为多个独立的逻辑系统，支持高效维护和未来扩展。
-
-### 1. 感知系统 (Perception System)
-- **职责**: 收集环境数据并转换为神经输入。
-- **优化**: 使用 `rayon` 进行并行感知计算，并引入了 `food_hash` 空间哈希以实现 $O(1)$ 的局部食物感知（半径 20.0）。
-
-### 2. 决策系统 (Neural System)
-- **职责**: 运行神经网络前向传播，处理循环神经状态。
-- **并行化**: 通过 `.par_iter()` 同时处理所有实体的神经网络推理。
-
-### 3. 动作与代谢系统 (Action & Metabolism System)
-- **职责**: 将神经输出转换为物理位移，计算并扣除代谢成本。
-
-### 4. 生态与动态地形系统 (Dynamic Terrain)
-- **职责**: 管理土地肥力恢复与灾难触发。
-- **灾难**: "Dust Bowl" (沙尘暴) 会在高温且种群密集时触发，使平原变为荒芜之地并持续损耗肥力。
-- **物理障碍**: 引入了 `Wall` (墙壁/岩石) 类型，实体无法穿过并会发生物理反弹。
-
-### 5. 生物系统 (Biological System)
-- **职责**: 处理感染进度、免疫力演化、老化和自然死亡。
-
-### 6. 社交与捕食系统 (Social & Trophic System)
-- **职责**: 处理复杂的实体间交互，如跨部落捕食、能量分享和信息素排放。
-
----
-
-## 性能扩展 (Scaling)
-
-- **Rayon 并行化**: 模拟的核心循环（感知与决策）现已实现多线程。
-- **空间哈希**: 拥有独立的 `spatial_hash` (实体) 和 `food_hash` (食物)，优化查询复杂度。
-- **Buffer Pooling**: 在 `World` 结构体中重用内部缓冲区（如 `perception_buffer`, `decision_buffer`），显著降低了并行执行时的内存分配抖动。
-
----
-
-## 演进方向：深度智能与全球化
-
-### 1. 认知升级
-- **多层递归**: 增加隐藏层深度或引入 LSTM 单元以实现长期记忆。
-- **情绪系统**: 内部荷尔蒙状态影响神经权重偏置。
-
-### 2. 全球宇宙 (Global Hive)
-- **分布式计算**: 跨机器的代理迁移与交互。
-- **共识演化**: 建立全球范围内的传奇基因库。
+- **Phase 1-10**: 完成了从单体 `World` 向 `Systems` 的初步拆分。
+- **Phase 11**: 目录结构引擎化重组，建立 `state`, `systems`, `infra` 三级架构。
+- **Phase 12**: **进行中**。执行模型去行为化（剥离 `Entity` 和 `Brain` 中的行为逻辑）。

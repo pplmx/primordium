@@ -1,5 +1,5 @@
 use crate::app::state::App;
-use crate::model::environment::Era;
+use crate::model::state::environment::Era;
 use crate::ui::renderer::WorldWidget;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};

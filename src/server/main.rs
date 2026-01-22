@@ -17,7 +17,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 // Re-use the shared network protocol from the main library
-use primordium_lib::model::network::NetMessage;
+use primordium_lib::model::infra::network::NetMessage;
 
 struct AppState {
     // We'll use a simple broadcast channel for room-wide messages
