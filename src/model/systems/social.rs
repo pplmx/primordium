@@ -23,6 +23,7 @@ pub struct PredationContext<'a> {
     pub logger: &'a mut HistoryLogger,
     pub tick: u64,
     pub energy_transfers: &'a mut Vec<(usize, f64)>,
+    pub lineage_consumption: &'a mut Vec<(uuid::Uuid, f64)>, // NEW
 }
 
 /// Territorial aggression bonus calculation.
@@ -96,10 +97,13 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
                     EntityRole::Carnivore => 1.2,
                     EntityRole::Herbivore => 0.2,
                 };
-                entities[idx].metabolism.energy = (entities[idx].metabolism.energy
-                    + v_e * gain_mult)
+                let gain = v_e * gain_mult;
+                entities[idx].metabolism.energy = (entities[idx].metabolism.energy + gain)
                     .min(entities[idx].metabolism.max_energy);
+                ctx.lineage_consumption
+                    .push((entities[idx].metabolism.lineage_id, gain));
                 ctx.killed_ids.insert(v_id);
+
                 ctx.pheromones.deposit(
                     entities[idx].physics.x,
                     entities[idx].physics.y,

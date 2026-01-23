@@ -4,6 +4,7 @@ use crate::model::quadtree::SpatialHash;
 use crate::model::state::entity::Entity;
 use crate::model::state::environment::Environment;
 use crate::model::state::food::Food;
+use crate::model::state::lineage_registry::LineageRegistry;
 use crate::model::state::pheromone::PheromoneGrid;
 use crate::model::state::terrain::TerrainGrid;
 use crate::model::systems::{action, biological, ecological, environment, intel, social, stats};
@@ -74,6 +75,7 @@ pub struct World {
     pub hall_of_fame: HallOfFame,
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
+    pub lineage_registry: LineageRegistry,
     pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
 
     // Reusable buffers to reduce allocation jitter
@@ -91,26 +93,27 @@ pub struct World {
     decision_buffer: Vec<([f32; 6], [f32; 6])>,
     #[serde(skip, default)]
     energy_transfers: Vec<(usize, f64)>,
+    #[serde(skip, default)]
+    lineage_consumption: Vec<(uuid::Uuid, f64)>,
 }
 
 impl World {
     pub fn new(initial_population: usize, config: AppConfig) -> anyhow::Result<Self> {
         let mut rng = rand::thread_rng();
         let mut entities = Vec::with_capacity(initial_population);
-        let mut logger = HistoryLogger::new()?;
+        let logger = HistoryLogger::new()?;
+        let mut lineage_registry = LineageRegistry::new();
         for _ in 0..initial_population {
-            let x = rng.gen_range(2.0..f64::from(config.world.width - 2));
-            let y = rng.gen_range(2.0..f64::from(config.world.height - 2));
-            let entity = Entity::new(x, y, 0);
-            logger.log_event(LiveEvent::Birth {
-                id: entity.id,
-                parent_id: None,
-                gen: entity.metabolism.generation,
-                tick: 0,
-                timestamp: Utc::now().to_rfc3339(),
-            })?;
-            entities.push(entity);
+            let e = Entity::new(
+                rng.gen_range(1.0..config.world.width as f64 - 1.0),
+                rng.gen_range(1.0..config.world.height as f64 - 1.0),
+                0,
+            );
+            // Initial entities establish the founding lineages
+            lineage_registry.record_birth(e.metabolism.lineage_id, 1, 0);
+            entities.push(e);
         }
+
         let mut food = Vec::new();
         for _ in 0..config.world.initial_food {
             let x = rng.gen_range(1..config.world.width - 1);
@@ -141,6 +144,7 @@ impl World {
             hall_of_fame: HallOfFame::new(),
             terrain,
             pheromones,
+            lineage_registry,
             active_pathogens: Vec::new(),
             killed_ids: HashSet::new(),
             eaten_food_indices: HashSet::new(),
@@ -149,6 +153,7 @@ impl World {
             perception_buffer: Vec::new(),
             decision_buffer: Vec::new(),
             energy_transfers: Vec::new(),
+            lineage_consumption: Vec::new(),
         })
     }
 
@@ -320,6 +325,7 @@ impl World {
                     logger: &mut self.logger,
                     tick: self.tick,
                     energy_transfers: &mut energy_transfers,
+                    lineage_consumption: &mut self.lineage_consumption,
                 };
                 social::handle_predation(i, &mut current_entities, &mut ctx);
             }
@@ -336,6 +342,7 @@ impl World {
                 logger: &mut self.logger,
                 tick: self.tick,
                 energy_transfers: &mut energy_transfers,
+                lineage_consumption: &mut self.lineage_consumption,
             };
             social::handle_sharing(i, &mut current_entities, &mut share_ctx);
 
@@ -346,6 +353,7 @@ impl World {
                 terrain: &mut self.terrain,
                 pheromones: &mut self.pheromones,
                 food_value: self.config.metabolism.food_value,
+                lineage_consumption: &mut self.lineage_consumption,
             };
             ecological::handle_feeding_optimized(i, &mut current_entities, &mut feed_ctx);
 
@@ -357,6 +365,13 @@ impl World {
                 &self.config,
                 self.tick,
             ) {
+                // Register birth
+                self.lineage_registry.record_birth(
+                    baby.metabolism.lineage_id,
+                    baby.metabolism.generation,
+                    self.tick,
+                );
+
                 let ev = LiveEvent::Birth {
                     id: baby.id,
                     parent_id: Some(current_entities[i].id),
@@ -369,6 +384,12 @@ impl World {
                 new_babies.push(baby);
             }
         }
+
+        // Apply lineage consumption
+        for (l_id, amount) in &self.lineage_consumption {
+            self.lineage_registry.record_consumption(*l_id, *amount);
+        }
+        self.lineage_consumption.clear();
 
         // Apply energy transfers
         for (target_idx, amount) in &energy_transfers {
@@ -383,8 +404,12 @@ impl World {
 
         for e in current_entities {
             if killed_ids.contains(&e.id) {
+                self.lineage_registry.record_death(e.metabolism.lineage_id);
                 social::archive_if_legend(&e, self.tick, &self.logger);
                 continue;
+            }
+            if e.metabolism.energy <= 0.0 {
+                self.lineage_registry.record_death(e.metabolism.lineage_id);
             }
             if e.metabolism.energy > 0.0 {
                 alive_entities.push(e);
@@ -417,6 +442,10 @@ impl World {
             &mut self.pop_stats,
             &mut self.hall_of_fame,
         );
+        if self.tick % 1000 == 0 {
+            let _ = self.lineage_registry.save("logs/lineages.json");
+        }
+
         Ok(events)
     }
 }

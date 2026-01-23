@@ -42,6 +42,7 @@ pub struct FeedingContext<'a> {
     pub terrain: &'a mut TerrainGrid,
     pub pheromones: &'a mut PheromoneGrid,
     pub food_value: f64,
+    pub lineage_consumption: &'a mut Vec<(uuid::Uuid, f64)>, // NEW
 }
 
 /// Handle herbivore feeding with spatial optimization.
@@ -78,6 +79,8 @@ pub fn handle_feeding_optimized(idx: usize, entities: &mut [Entity], ctx: &mut F
             0.3,
         );
         ctx.eaten_indices.insert(f_idx);
+        ctx.lineage_consumption
+            .push((entities[idx].metabolism.lineage_id, ctx.food_value));
     }
 }
 
@@ -154,6 +157,8 @@ mod tests {
         let mut terrain = TerrainGrid::generate(10, 10, 42);
         let mut pheromones = PheromoneGrid::new(10, 10);
 
+        let mut lineage_consumption = Vec::new();
+
         let mut ctx = FeedingContext {
             food: &food,
             food_hash: &food_hash,
@@ -161,6 +166,7 @@ mod tests {
             terrain: &mut terrain,
             pheromones: &mut pheromones,
             food_value: 50.0,
+            lineage_consumption: &mut lineage_consumption,
         };
 
         let initial_energy = entities[0].metabolism.energy;

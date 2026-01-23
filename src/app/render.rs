@@ -253,6 +253,19 @@ impl App {
                 count
             )));
         }
+
+        ho_lines.push(ratatui::text::Line::from(""));
+        ho_lines.push(ratatui::text::Line::from(
+            " 🏆 All-Time Success (Total Pop)",
+        ));
+        let top_historical = self.world.lineage_registry.get_top_lineages(3);
+        for (id, record) in top_historical {
+            ho_lines.push(ratatui::text::Line::from(format!(
+                "   #{} : {} total",
+                &id.to_string()[..8],
+                record.total_entities_produced
+            )));
+        }
         ho_lines.push(ratatui::text::Line::from(""));
 
         if let Some(id) = self.selected_entity {

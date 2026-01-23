@@ -26,7 +26,7 @@ src/
 ├── lib.rs               # 库入口 (WASM 导出)
 ├── app/                 # TUI 应用层 (state, render, input, help, onboarding)
 ├── model/               # 模拟引擎核心
-│   ├── state/           # 数据层 (entity, terrain, environment, food, pheromone, pathogen)
+│   ├── state/           # 数据层 (entity, terrain, environment, food, pheromone, pathogen, lineage_registry)
 │   ├── systems/         # 系统层 (intel, action, biological, social, ecological, environment, stats)
 │   ├── infra/           # 基础设施 (blockchain, network)
 │   ├── brain.rs         # 神经网络 (13-6-6 RNN-lite)
@@ -56,7 +56,7 @@ src/
 
 ---
 
-## 🧬 Entity Architecture (Phase 25)
+## 🧬 Entity Architecture (Phase 27)
 
 Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
@@ -99,7 +99,8 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 | `environment_coupling.rs` | 硬件耦合 (CPU→气候, RAM→资源) |
 | `migration_network.rs` | 实体迁移、P2P |
 | `persistence.rs` | 状态序列化 |
-| `social_dynamics.rs` | 部落、能量共享 |
+| `social_v2.rs` | 社会行为、防御、信号 |
+| `lineage_persistence.rs` | 谱系注册、持久化、宏观指标 |
 | `stress_test.rs` | 高负载基准 (1500+ 实体) |
 | `world_evolution.rs` | 时代演进、昼夜节律 |
 
