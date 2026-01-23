@@ -86,6 +86,7 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 
 ### 📊 The Omniscient Eye
 
+- **Tree of Life (Phase 34)**: Real-time ancestry visualization using `petgraph`. Trace the branching history of the top 5 dominant dynasties and export to DOT format.
 - **Era System**: Population-driven narrative engine tracks world epochs (Genesis, Expansion, Decline, etc.).
 - **Hall of Fame**: Real-time leaderboard of the top 3 fittest organisms.
 - **Advanced Analytics**: Brain entropy, average lifespan, and dual-sparkline population dynamics.
@@ -146,6 +147,8 @@ cargo run --release -- --mode screensaver
 | ----- | --------- |
 | `Q` | Quit simulation |
 | `Space` | Pause / Resume |
+| `A` | Toggle **Ancestry View** (Tree of Life) |
+| `Shift+A` | Export Ancestry Tree (DOT format) |
 | `B` | Toggle Neural Brain Heatmap |
 | `H` | Toggle Help Overlay |
 | `X` | Trigger **Genetic Surge** (Global Mutation) |

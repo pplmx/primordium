@@ -46,6 +46,7 @@
 * **`world.rs` (Coordinator)**: 整个模拟宇宙的“总线”，负责统筹调度所有状态与系统。
 * **`config.rs` (Constants)**: 模拟宇宙的物理规则参数。
 * **`history.rs` (Archive)**: 模拟时空的观测记录。
+* **`lineage_tree.rs` (Ancestry)**: 基于 `petgraph` 的宏观演化分析引擎，记录谱系的分支与演化树。
 * **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议。
 
 ## 4. 其它顶级组件
@@ -130,3 +131,4 @@ src/
 * **Phase 31**: **Metabolic Niches & Resource Diversity**。引入了多色食物系统（Green/Blue），并配套演化出 `metabolic_niche` 基因。生物现在必须权衡其消化效率（0.2x 到 1.2x），导致种群在不同地形（平原 vs 山脉）产生明显的生态位分化。
 * **Phase 32**: **Life History Strategies (R/K Selection)**。实现了生活史策略的遗传。通过 `reproductive_investment` 和 `maturity_gene` 基因，生物可以演化出“多而弱”的 R 策略或“少而精”的 K 策略。建立了发育缩放逻辑（Body size ∝ Maturity），模拟了生长周期与体型的生物学平衡。
 * **Phase 32.5**: **Hardening & Quality Lockdown**。完成了全量集成测试修复与引擎硬化。引入了 `ActionContext` 设计模式，确保了 19x8 复杂神经架构下的逻辑稳定性，并验证了在极端代谢压力与网络损坏 DNA 情况下的生存边界。
+* **Phase 34**: **The Tree of Life (Ancestry Visualization)**。引入了基于 `petgraph` 的谱系树 analysis 系统 (`lineage_tree.rs`)。实现了对种群宏观演化路径的实时追踪，支持在 TUI 中可视化优势王朝的演化分支，并提供 Graphviz/DOT 格式导出功能。

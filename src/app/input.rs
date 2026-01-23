@@ -20,6 +20,17 @@ impl App {
                 }
             }
             KeyCode::Char('b') => self.show_brain = !self.show_brain,
+            KeyCode::Char('a') => self.show_ancestry = !self.show_ancestry,
+            KeyCode::Char('A') => {
+                if let Ok(tree) = self.world.logger.get_ancestry_tree(&self.world.entities) {
+                    let dot = tree.to_dot();
+                    let _ = fs::write("logs/tree.dot", dot);
+                    self.event_log.push_back((
+                        "Ancestry Tree exported to logs/tree.dot".to_string(),
+                        Color::Green,
+                    ));
+                }
+            }
             KeyCode::Char('h') => {
                 self.show_help = !self.show_help;
                 if self.show_help {

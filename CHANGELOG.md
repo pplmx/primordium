@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 34: The Tree of Life (Ancestry Visualization)] - 2026-01-23
+
+### Evolutionary Leap: Macroevolutionary Graphing & Dynastic Analysis
+
+Phase 34 introduces a sophisticated ancestry tracking system powered by `petgraph`. Instead of just tracking current population counts, the simulation now builds a persistent "Tree of Life," visualizing the branching paths of evolution from the first seed to the current dominant dynasties.
+
+#### ✨ Features
+
+- **Real-time Ancestry Tree**: Visualize the evolutionary relationships between lineages in a dedicated TUI view (press `A`).
+- **Graphviz/DOT Export**: Export the complete evolutionary history of your world to a `.dot` file for external visualization (press `Shift+A`).
+- **Dominant Dynasty Tracking**: Automatically identifies and highlights the top 5 most successful evolutionary branches.
+- **Lineage-Trophic Overlay**: The ancestry view integrates trophic data, showing how dietary specializations (Herbivore/Carnivore) emerged along the family tree.
+
+#### 🛠️ Technical Achievements
+
+- **Graph-based Lineage Registry**: Implemented `lineage_tree.rs` using `petgraph` to manage macroevolutionary data as a directed graph.
+- **Dynamic Branch Detection**: Developed algorithms to detect significant lineage divergence and record branching events.
+- **High-Performance TUI Tree Rendering**: Custom rendering logic to display complex graph structures within terminal constraints.
+
+---
+
 ## [Phase 32.5: Quality Lockdown & Hardening] - 2026-01-23
 
 ### Stabilization Leap: Zero-Panic & Systemic Integrity

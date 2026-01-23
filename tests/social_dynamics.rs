@@ -123,12 +123,11 @@ fn test_inter_tribe_predation() {
     // The world loop logic: if predation_mode { social::handle_predation }
     // Predation mode is output[3] > 0.5.
 
-    let mut success = false;
+    // Run until predation occurs
     for _ in 0..200 {
         // Force aggression in the buffer for test
         world.update(&env).expect("Update failed");
         if world.entities.len() == 1 {
-            success = true;
             break;
         }
         // If brain not aggressive, manually intervene?

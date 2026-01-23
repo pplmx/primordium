@@ -12,7 +12,7 @@ impl App {
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Min(0),
-                if self.show_brain {
+                if self.show_brain || self.show_ancestry {
                     Constraint::Length(45)
                 } else {
                     Constraint::Length(0)
@@ -202,11 +202,67 @@ impl App {
 
             if self.show_brain {
                 self.render_hall_of_fame_and_brain(f, main_layout[1]);
+            } else if self.show_ancestry {
+                self.render_ancestry_tree(f, main_layout[1]);
             }
 
             self.render_help(f);
             self.render_onboarding(f);
         }
+    }
+
+    fn render_ancestry_tree(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+        let tree_block = Block::default()
+            .title(" 🌳 Tree of Life (Top Lineages) ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Green));
+
+        let mut lines = Vec::new();
+
+        // Use registry to find top living lineages
+        let mut top_lineages: Vec<_> = self.world.pop_stats.lineage_counts.iter().collect();
+        top_lineages.sort_by(|a, b| b.1.cmp(a.1));
+
+        for (id, count) in top_lineages.iter().take(5) {
+            lines.push(ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(
+                    format!(" Dynasty #{} ", &id.to_string()[..4]),
+                    Style::default().bg(Color::Blue).fg(Color::White),
+                ),
+                ratatui::text::Span::raw(format!(" ({} alive)", count)),
+            ]));
+
+            // Show a few representatives of this lineage
+            let members: Vec<_> = self
+                .world
+                .entities
+                .iter()
+                .filter(|e| e.metabolism.lineage_id == **id)
+                .take(3)
+                .collect();
+
+            for m in members {
+                let tp = m.metabolism.trophic_potential;
+                let role_icon = if tp < 0.3 {
+                    "🌿"
+                } else if tp > 0.7 {
+                    "🥩"
+                } else {
+                    "🍪"
+                };
+                lines.push(ratatui::text::Line::from(format!(
+                    "   └── {} {} (Gen {})",
+                    role_icon,
+                    m.name(),
+                    m.metabolism.generation
+                )));
+            }
+            lines.push(ratatui::text::Line::from(""));
+        }
+
+        lines.push(ratatui::text::Line::from(" [Shift+A] Export full DOT tree"));
+
+        f.render_widget(Paragraph::new(lines).block(tree_block), area);
     }
 
     fn render_hall_of_fame_and_brain(&self, f: &mut Frame, area: ratatui::layout::Rect) {

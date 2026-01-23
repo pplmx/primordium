@@ -151,3 +151,16 @@ Large specialists take significantly longer to reach adulthood due to the `matur
 Larger energy reserves increase the physical "mass" of the entity.
 
 - **Effect**: Entities with higher **Max Energy** have higher inertia, reducing their acceleration and overall responsiveness to neural steering commands.
+
+## Macroevolution & Ancestry (Phase 34)
+
+Phase 34 shifts the analytical focus from individual survival to the structural evolution of the entire ecosystem. By utilizing `petgraph`, the engine now constructs a real-time directed acyclic graph (DAG) representing the branching history of all lineages.
+
+### Lineage Branching
+As entities mutate and form distinct clusters, the system identifies significant genetic divergence and creates new nodes in the "Tree of Life." This allows users to trace any dominant organism back to its primordial ancestor.
+
+### Ancestry Visualization (The 'A' View)
+The TUI now includes a dedicated **Ancestry** tab (toggled via the `A` key). 
+- **Top 5 Dynasties**: Visualizes the most successful evolutionary branches currently active in the simulation.
+- **Trophic Overlay**: Colors nodes based on their dominant metabolic strategy (Herbivore vs. Carnivore).
+- **DOT Export**: Pressing `Shift+A` exports the current evolutionary tree in Graphviz/DOT format for external high-resolution analysis.

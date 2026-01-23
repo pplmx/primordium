@@ -17,6 +17,9 @@ struct Args {
 
     #[arg(short, long, default_value = "report.md")]
     output: String,
+
+    #[arg(short, long)]
+    tree: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -70,6 +73,16 @@ fn main() -> anyhow::Result<()> {
                 legends.push(legend);
             }
         }
+    }
+
+    // Export Tree if requested
+    if args.tree {
+        use primordium_lib::model::infra::lineage_tree::AncestryTree;
+        let tree = AncestryTree::build(&legends, &[]);
+        let dot = tree.to_dot();
+        let tree_path = "logs/tree.dot";
+        std::fs::write(tree_path, dot)?;
+        println!("Lineage Tree exported to: {}", tree_path);
     }
 
     // 3. Generate Report

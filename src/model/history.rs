@@ -1,3 +1,5 @@
+use crate::model::infra::lineage_tree::AncestryTree;
+use crate::model::state::entity::Entity;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, VecDeque};
@@ -249,6 +251,11 @@ impl HistoryLogger {
             }
         }
         Ok(legends)
+    }
+
+    pub fn get_ancestry_tree(&self, living: &[Entity]) -> anyhow::Result<AncestryTree> {
+        let legends = self.get_all_legends()?;
+        Ok(AncestryTree::build(&legends, living))
     }
 
     pub fn compute_legends_hash(legends: &[Legend]) -> anyhow::Result<String> {

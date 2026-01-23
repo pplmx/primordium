@@ -33,6 +33,8 @@ pub struct App {
     pub selected_entity: Option<Uuid>,
     // Divine Interface v2
     pub brush_type: TerrainType,
+    // Phase 34: Ancestry View
+    pub show_ancestry: bool,
     // Last climate state for shift logging
     pub last_climate: Option<ClimateState>,
     // Blockchain Anchoring
@@ -73,6 +75,7 @@ impl App {
             show_brain: false,
             selected_entity: None,
             brush_type: TerrainType::Plains,
+            show_ancestry: false,
             last_climate: None,
             last_anchor_time: Instant::now(),
             anchor_interval: Duration::from_secs(3600),

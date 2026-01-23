@@ -34,6 +34,7 @@ src/
 │   ├── world.rs         # 协调器
 │   ├── config.rs        # 配置
 │   ├── history.rs       # 事件日志
+│   ├── lineage_tree.rs  # 谱系演化树 (petgraph)
 │   └── migration.rs     # 实体迁移
 ├── ui/                  # 渲染抽象 (tui, web_renderer)
 ├── client/              # WASM 客户端 (wasm32 only)
@@ -183,7 +184,7 @@ let x = X { field: val, ..X::default() };
 
 | Binary | Command | Purpose |
 |--------|---------|---------|
-| `primordium` | `cargo run --release` | TUI 模拟 |
+| `primordium` | `cargo run --release` | TUI 模拟 (A: 谱系树, Shift+A: 导出 DOT) |
 | `server` | `cargo run --bin server` | P2P 中继 (port 3000) |
 | `verify` | `cargo run --bin verify` | 区块链验证 |
 | `analyze` | `cargo run --bin analyze` | 历史分析 |
