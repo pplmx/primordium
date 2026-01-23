@@ -316,16 +316,15 @@ impl World {
             let (outputs, next_hidden) = decision_buffer[i];
             current_entities[i].intel.last_hidden = next_hidden;
 
-            action::action_system(
-                &mut current_entities[i],
-                outputs,
+            let mut ctx = action::ActionContext {
                 env,
-                &self.config,
-                &self.terrain,
-                &mut self.pheromones,
-                self.width,
-                self.height,
-            );
+                config: &self.config,
+                terrain: &self.terrain,
+                pheromones: &mut self.pheromones,
+                width: self.width,
+                height: self.height,
+            };
+            action::action_system(&mut current_entities[i], outputs, &mut ctx);
 
             // NEW: Phase 30 - Herding Reward
             // Use perceived kin vector from perception_buffer[i][6/7]

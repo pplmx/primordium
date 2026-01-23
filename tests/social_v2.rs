@@ -38,14 +38,10 @@ fn test_group_defense_reduces_damage() {
     world.entities.push(attacker);
     world.entities.push(victim);
 
-    // Run world update. With 5 allies, defense mult should be (1.0 - 5*0.15) = 0.25 (clamped to 0.4).
-    // Attacker energy 1000. Victim resistance 100 / 0.4 = 250.
-    // 1000 > 250, so attacker should still win eventually, but it proves the math is integrated.
-    // We mainly want to ensure it doesn't crash and the logic branch is covered.
+    // Run world update.
     world.update(&env).unwrap();
 
-    // We verify the logic by ensuring the victim survived at least one tick where a regular victim might have died.
-    // (In our current discrete update, predation happens once per tick per entity).
+    // We verify the logic by ensuring the victim survived at least one tick.
     assert!(world
         .entities
         .iter()
@@ -68,28 +64,34 @@ fn test_metabolic_cost_of_signaling() {
     e_loud.metabolism.energy = 500.0;
 
     // Run action system directly with specific outputs
-    use primordium_lib::model::systems::action::action_system;
+    use primordium_lib::model::systems::action::{action_system, ActionContext};
     let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
+    let mut pheromones = primordium_lib::model::state::pheromone::PheromoneGrid::new(100, 100);
 
-    // quiet: [x, y, speed, aggro, share, signal]
-    action_system(
-        &mut e_quiet,
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        &env,
-        &config,
-        &terrain,
-        100,
-        100,
-    );
+    // quiet: [x, y, speed, aggro, share, signal, emitA, emitB]
+    let mut ctx_q = ActionContext {
+        env: &env,
+        config: &config,
+        terrain: &terrain,
+        pheromones: &mut pheromones,
+        width: 100,
+        height: 100,
+    };
+    action_system(&mut e_quiet, [0.0; 8], &mut ctx_q);
+
     // loud: [..., signal=1.0]
+    let mut ctx_l = ActionContext {
+        env: &env,
+        config: &config,
+        terrain: &terrain,
+        pheromones: &mut pheromones,
+        width: 100,
+        height: 100,
+    };
     action_system(
         &mut e_loud,
-        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-        &env,
-        &config,
-        &terrain,
-        100,
-        100,
+        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+        &mut ctx_l,
     );
 
     assert!(e_loud.metabolism.energy < e_quiet.metabolism.energy);

@@ -28,7 +28,7 @@ fn test_terrain_fertility_cycle() {
     world.food.clear();
     world
         .food
-        .push(primordium_lib::model::state::food::Food::new(ix, iy));
+        .push(primordium_lib::model::state::food::Food::new(ix, iy, 0.0));
 
     // 1. Check initial fertility
     let initial_fertility = world.terrain.get_cell(ix, iy).fertility;
@@ -127,7 +127,7 @@ fn test_trophic_diet_restrictions() {
     world.entities.push(carnivore);
     world
         .food
-        .push(primordium_lib::model::state::food::Food::new(10, 10));
+        .push(primordium_lib::model::state::food::Food::new(10, 10, 0.0));
 
     world.update(&env).expect("Update failed");
     assert_eq!(
@@ -143,6 +143,8 @@ fn test_trophic_diet_restrictions() {
     herbivore.physics.vy = 0.0;
     herbivore.metabolism.role = EntityRole::Herbivore;
     herbivore.metabolism.energy = 50.0;
+    // Align niche for maximum efficiency
+    herbivore.intel.genotype.metabolic_niche = 0.0;
     world.entities.push(herbivore);
 
     world.update(&env).expect("Update failed");

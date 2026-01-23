@@ -15,17 +15,16 @@ fn test_semantic_pheromone_roundtrip() {
     // [movX, movY, speed, aggro, share, color, emitA, emitB]
     let outputs = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
 
-    use primordium_lib::model::systems::action::action_system;
-    action_system(
-        &mut e_emitter,
-        outputs,
-        &env,
-        &config,
-        &world.terrain,
-        &mut world.pheromones,
-        100,
-        100,
-    );
+    use primordium_lib::model::systems::action::{action_system, ActionContext};
+    let mut ctx = ActionContext {
+        env: &env,
+        config: &config,
+        terrain: &world.terrain,
+        pheromones: &mut world.pheromones,
+        width: 100,
+        height: 100,
+    };
+    action_system(&mut e_emitter, outputs, &mut ctx);
 
     // 2. Verify Signal A is in the grid
     let cell = world.pheromones.get_cell(10, 10);

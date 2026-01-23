@@ -53,9 +53,6 @@ fn test_herding_bonus() {
     world.entities.push(kin);
 
     // 3. Update world.
-    // The Herding logic: dot_product of velocity (1,0) and kin_vec (1,0) = 1.0 > 0.5.
-    // Bonus = 0.05.
-    let initial_energy = world.entities[0].metabolism.energy;
     world.update(&env).unwrap();
 
     // Total change = Bonus - (MoveCost + IdleCost + maintenance)

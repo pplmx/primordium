@@ -81,7 +81,7 @@ pub fn handle_feeding_optimized(idx: usize, entities: &mut [Entity], ctx: &mut F
         // Calculate Digestive Efficiency based on Niche Match
         let niche_match =
             1.0 - (entities[idx].intel.genotype.metabolic_niche - f.nutrient_type).abs() as f64;
-        let efficiency = (niche_match * 1.5).min(1.2).max(0.2); // Specialized can get 1.2x, mismatched 0.2x
+        let efficiency = (niche_match * 1.5).clamp(0.2, 1.2); // Specialized can get 1.2x, mismatched 0.2x
 
         let energy_gain = ctx.food_value * efficiency;
         entities[idx].metabolism.energy = (entities[idx].metabolism.energy + energy_gain)
@@ -143,14 +143,14 @@ mod tests {
         let food: Vec<Food> = vec![];
         let food_hash = SpatialHash::new(5.0);
 
-        let (dx, dy) = sense_nearest_food(&entity, &food, &food_hash);
+        let (dx, dy, _) = sense_nearest_food(&entity, &food, &food_hash);
         assert_eq!(dx, 0.0);
         assert_eq!(dy, 0.0);
     }
 
     #[test]
     fn test_spawn_food_respects_max() {
-        let mut food = vec![Food::new(1, 1); 100];
+        let mut food = vec![Food::new(1, 1, 0.0); 100];
         let env = Environment::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
         let mut rng = rand::thread_rng();
@@ -173,7 +173,7 @@ mod tests {
         entities[0].metabolism.role = EntityRole::Herbivore;
         entities[0].metabolism.energy = 50.0;
 
-        let food = vec![Food::new(5, 5)];
+        let food = vec![Food::new(5, 5, 0.0)];
         let mut food_hash = SpatialHash::new(5.0);
         food_hash.insert(5.0, 5.0, 0);
 
