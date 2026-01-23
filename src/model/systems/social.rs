@@ -192,17 +192,27 @@ pub(crate) fn repro_logic(
     config: &AppConfig,
     tick: u64,
 ) -> Option<Entity> {
-    let mate_indices = spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 2.0);
+    let mate_indices = spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 3.0);
     let mut mate_idx = None;
+
+    // Sexual Selection: Look for a partner that matches preference
+    let preference = entities[idx].intel.genotype.mate_preference;
+
     for m_idx in mate_indices {
         if m_idx != idx
             && !killed_ids.contains(&entities[m_idx].id)
             && entities[m_idx].metabolism.energy > 100.0
         {
-            mate_idx = Some(m_idx);
-            break;
+            let partner_trophic = entities[m_idx].metabolism.trophic_potential;
+            let attractiveness = 1.0 - (partner_trophic - preference).abs();
+
+            if attractiveness > 0.8 {
+                mate_idx = Some(m_idx);
+                break;
+            }
         }
     }
+
     if let Some(m_idx) = mate_idx {
         let mut child_genotype = intel::crossover_genotypes(
             &entities[idx].intel.genotype,

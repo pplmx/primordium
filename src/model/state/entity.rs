@@ -120,6 +120,8 @@ pub struct Genotype {
     pub reproductive_investment: f32,
     /// NEW: Maturity age modifier (ticks = maturity_age * maturity_gene)
     pub maturity_gene: f32,
+    /// NEW: Sexual Selection Preference (0.0 = Prefers Herbivores, 1.0 = Prefers Carnivores)
+    pub mate_preference: f32,
 }
 
 impl Genotype {
@@ -135,6 +137,7 @@ impl Genotype {
             trophic_potential: rng.gen_range(0.0..1.0),
             reproductive_investment: 0.5,
             maturity_gene: 1.0,
+            mate_preference: rng.gen_range(0.0..1.0),
         }
     }
 
@@ -308,12 +311,16 @@ impl Entity {
         let s2_idx = (bytes[2] as usize) % syllables.len();
 
         let tp = self.metabolism.trophic_potential;
-        let role_prefix = if tp < 0.3 {
-            "H-"
-        } else if tp > 0.7 {
-            "C-"
+        let role_prefix = if tp < 0.25 {
+            "H-" // Specialist Herbivore
+        } else if tp < 0.45 {
+            "hO-" // Herbivore-leaning Omnivore
+        } else if tp < 0.55 {
+            "O-" // True Omnivore
+        } else if tp < 0.75 {
+            "cO-" // Carnivore-leaning Omnivore
         } else {
-            "O-"
+            "C-" // Specialist Carnivore
         };
 
         format!(

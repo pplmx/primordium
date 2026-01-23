@@ -100,8 +100,10 @@ impl App {
                 .max()
                 .unwrap_or(0);
             let world_stats = format!(
-                "Pop: {} | Species: {} | Gen: {} | AvgLife: {:.0} | Entropy: {:.2}",
+                "Pop: {} | H/C: {:.0}/{:.0} | Species: {} | Gen: {} | AvgLife: {:.0} | Entropy: {:.2}",
                 self.world.entities.len(),
+                self.world.pop_stats.biomass_h,
+                self.world.pop_stats.biomass_c,
                 self.world.pop_stats.species_count,
                 max_gen,
                 self.world.pop_stats.avg_lifespan,

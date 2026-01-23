@@ -39,6 +39,10 @@ Primordium runs in two environments:
 | `Shift+K` | Toggle **Heat Wave** Disaster |
 | `l` | Trigger **Mass Extinction** (90% wipe) |
 | `r` | Trigger **Resource Boom** (Spawn Food) |
+| `w` | **Save** Simulation State to `save.json` |
+| `o` | **Load** Simulation State from `save.json` |
+| `a` | Toggle **Ancestry View** (Family Tree) |
+| `Shift+A` | Export Ancestry Tree to DOT file |
 | `+` / `-`| Increase / Decrease time scale |
 
 ### Mouse Controls

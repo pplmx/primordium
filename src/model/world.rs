@@ -102,7 +102,7 @@ impl World {
         let mut rng = rand::thread_rng();
         let mut entities = Vec::with_capacity(initial_population);
         let logger = HistoryLogger::new()?;
-        let mut lineage_registry = LineageRegistry::new();
+        let mut lineage_registry = LineageRegistry::load("logs/lineages.json").unwrap_or_default();
         for _ in 0..initial_population {
             let e = Entity::new(
                 rng.gen_range(1.0..config.world.width as f64 - 1.0),

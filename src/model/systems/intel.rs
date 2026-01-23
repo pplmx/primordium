@@ -70,6 +70,12 @@ pub fn mutate_genotype(
             rng.gen_range(-config.mutation_amount..config.mutation_amount);
     }
     genotype.reproductive_investment = genotype.reproductive_investment.clamp(0.1, 0.9);
+
+    // Mutate Mate Preference (0.0 to 1.0)
+    if rng.gen::<f32>() < config.mutation_rate {
+        genotype.mate_preference += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+    }
+    genotype.mate_preference = genotype.mate_preference.clamp(0.0, 1.0);
 }
 
 /// Crossover between two genotypes.
@@ -115,6 +121,11 @@ pub fn crossover_genotypes(
     } else {
         p2.maturity_gene
     };
+    let mate_preference = if rng.gen_bool(0.5) {
+        p1.mate_preference
+    } else {
+        p2.mate_preference
+    };
 
     crate::model::state::entity::Genotype {
         brain,
@@ -126,6 +137,7 @@ pub fn crossover_genotypes(
         trophic_potential,
         reproductive_investment,
         maturity_gene,
+        mate_preference,
     }
 }
 

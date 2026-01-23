@@ -328,12 +328,32 @@ toml = "0.8"
 - **Tree Exporter**: Added Shift+A command to export the entire simulation's ancestry as a Graphviz DOT file.
 - **Analytics Tool**: Updated `analyze` binary to generate family tree visualizations from historical logs.
 
-### Phase 35: Trophic Cascades & Ecosystem Stability 🚧
+### Phase 35: Trophic Cascades & Ecosystem Stability ✅
 
-- **Self-Regulating Population**: Implement feedback loops where predator over-population leads to prey collapse and predator famine.
-- **Lotka-Volterra Cycles**: Track and visualize classic predator-prey oscillations in world stats.
-- **Trophic Naming**: Auto-naming lineages based on their dominant dietary specialization.
-- **Eco-Stability metrics**: Monitor the "Health" of the ecosystem based on diversity and biomass ratios.
+- **Self-Regulating Population**: Implemented feedback loops where herbivore over-population reduces soil recovery.
+- **Hunter Competition**: Predatory energy gain now scales inversely with global predator biomass.
+- **Eco-Stability Alerts**: Added real-time detection and warnings for Trophic Collapse and Overgrazing.
+- **Trophic Naming**: Enhanced lineage naming with prefixes (H-, O-, C-) based on genetic dietary potential.
+
+### Phase 36: World State Persistence (The Living Map) ✅
+
+- **Manual Save/Load**: Added 'W' to save and 'O' to load the entire world state (terrain, food, and organisms).
+- **Auto-Resume**: Simulation automatically attempts to load `save.json` on startup for persistent sessions.
+- **Cross-Session Analytics**: `LineageRegistry` is now loaded on startup, preserving all-time statistics.
+
+### Phase 37: Sexual Selection & Mate Preference ✅
+
+- **Mate Choice Logic**: Entities evaluate nearby mates based on physical and cognitive traits.
+- **Preference Genes**: Added `mate_preference` gene determining attractiveness based on trophic potential matching.
+- **Selective Breeding**: Natural emergence of specialized clusters due to assortative mating patterns.
+- **Runaway Simulation**: Proved that sexual selection can drive traits faster than survival alone in integration tests.
+
+### Phase 38: Environmental Succession (The Living World) 🚧
+
+- **Dynamic Biomes**: Implement terrain transitions (Plains -> Forest, Plains -> Desert) based on long-term biomass and water proximity.
+- **Carbon Sequestration**: Entities impact atmospheric state (Climate) through cumulative metabolic activity.
+- **Soil Exhaustion**: Permanent fertility damage from extreme over-grazing requiring intentional "fallow" periods.
+- **Biodiversity Hotspots**: Emergence of hyper-diverse regions based on environmental edge-effects.
 
 ---
 
@@ -373,9 +393,10 @@ toml = "0.8"
 | Phase 29 | Semantic Language | ✅ Complete |
 | Phase 30 | Social Coordination | ✅ Complete |
 | Phase 31 | Metabolic Niches | ✅ Complete |
-| Phase 33 | Trophic Continuum | ✅ Complete |
-| Phase 34 | The Tree of Life | ✅ Complete |
-| Phase 35 | Trophic Cascades | 🚧 In Progress |
+| Phase 35 | Trophic Cascades | ✅ Complete |
+| Phase 36 | World Persistence | ✅ Complete |
+| Phase 37 | Sexual Selection | ✅ Complete |
+| Phase 38 | Dynamic Biomes | 🚧 In Progress |
 
 ---
 

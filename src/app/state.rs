@@ -57,11 +57,26 @@ impl App {
         let mut sys = System::new_all();
         sys.refresh_all();
         let config = AppConfig::load();
-        let world = World::new(config.world.initial_population, config.clone())?;
+
+        // Try to auto-load save.json if it exists
+        let world = if std::path::Path::new("save.json").exists() {
+            if let Ok(data) = std::fs::read_to_string("save.json") {
+                if let Ok(w) = serde_json::from_str(&data) {
+                    w
+                } else {
+                    World::new(config.world.initial_population, config.clone())?
+                }
+            } else {
+                World::new(config.world.initial_population, config.clone())?
+            }
+        } else {
+            World::new(config.world.initial_population, config.clone())?
+        };
+
         Ok(Self {
             running: true,
             paused: false,
-            tick_count: 0,
+            tick_count: world.tick,
             world,
             config,
             fps: 0.0,
@@ -91,5 +106,19 @@ impl App {
             last_world_rect: Rect::default(),
             event_log: VecDeque::with_capacity(15),
         })
+    }
+
+    pub fn save_state(&self) -> Result<()> {
+        let data = serde_json::to_string_pretty(&self.world)?;
+        std::fs::write("save.json", data)?;
+        Ok(())
+    }
+
+    pub fn load_state(&mut self) -> Result<()> {
+        let data = std::fs::read_to_string("save.json")?;
+        let world: World = serde_json::from_str(&data)?;
+        self.world = world;
+        self.tick_count = self.world.tick;
+        Ok(())
     }
 }

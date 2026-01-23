@@ -182,6 +182,20 @@ impl App {
                 self.event_log
                     .push_back(("GOD MODE: RESOURCE BOOM!".to_string(), Color::Green));
             }
+            KeyCode::Char('w') | KeyCode::Char('W') => {
+                if self.save_state().is_ok() {
+                    self.event_log
+                        .push_back(("World state SAVED to save.json".to_string(), Color::Green));
+                }
+            }
+            KeyCode::Char('o') | KeyCode::Char('O') => {
+                if self.load_state().is_ok() {
+                    self.event_log.push_back((
+                        "World state LOADED from save.json".to_string(),
+                        Color::Green,
+                    ));
+                }
+            }
             _ => {}
         }
     }
