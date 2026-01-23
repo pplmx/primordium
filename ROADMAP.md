@@ -264,12 +264,47 @@ toml = "0.8"
 - **Genetic Engineering**: Targeted Divine Intervention (Mutate, Smite, Reincarnate) for selected entities.
 - **Disaster Dispatcher**: Manually trigger Heat Waves (K), Mass Extinctions (L), or Resource Booms (R).
 
-### Phase 27: Persistent Legends & High-Performance Analytics 🚧
+### Phase 27: Persistent Legends & High-Performance Analytics ✅
 
-- **SQL Persistence**: Migrate `legends.json` to a local SQLite database for queryable ancestry.
-- **Deeper Metrics**: Track "Historical Peak Population" and "Total Energy Produced" per lineage.
-- **Ancestry Tree**: Generate JSON family trees for visualization in external tools.
-- **Lineage Hall of Fame**: UI dedicated to the most successful ancestral lines over all sessions.
+- **Lineage Registry**: Persistent tracking of ancestral success metrics in `logs/lineages.json`.
+- **Deeper Metrics**: Track "Total Entities Produced" and "Total Energy Consumed" per lineage across sessions.
+- **Dynastic Hall of Fame**: UI visualization for all-time successful ancestral lines.
+- **Macro-Analytics**: Population stats now include living lineage distribution.
+
+### Phase 28: Complex Brain Evolution (NEAT-lite) ✅
+
+- **Dynamic Topology**: Brains evolved from fixed MLP to graph-based NEAT-lite architecture.
+- **Topological Mutation**: Neurons can be added (split connections) and new connections formed during mutation.
+- **Structural Crossover**: Innovation-aware genetic exchange preserves cognitive structures.
+- **Efficiency Pressure**: Metabolic costs added for hidden nodes (0.02) and enabled connections (0.005).
+
+### Phase 29: Semantic Pheromones & Language Evolution ✅
+
+- **Chemical Channels**: Expanded pheromone grid to support `SignalA` and `SignalB` abstract channels.
+- **Dynamic Emission**: 2 new neural outputs for active chemical signaling.
+- **Semantic Sensing**: 2 new neural inputs for detecting nearby signal concentrations.
+- **Coordinated Foraging**: Substrate for evolved "Food Alert" or "Rally" chemical behaviors.
+
+### Phase 30: Social Coordination & Kin Recognition ✅
+
+- **Kin Perception**: Entities perceive the relative center of mass (Centroid) of their own lineage members.
+- **Herding Bonus**: Metabolic reward (+0.05 energy) for moving in alignment with kin vectors.
+- **Cognitive Expansion**: Brain upgraded to 18-input / 8-output architecture.
+- **Spatial Awareness**: Added Wall Proximity and Biological Age sensors.
+
+### Phase 31: Metabolic Niches & Resource Diversity ✅
+
+- **Nutrient Variability**: Food now has a `nutrient_type` (Green/Blue) coupled to terrain (Plains/Mountains).
+- **Digestive Genes**: Added `metabolic_niche` gene to Genotype for dietary specialization.
+- **Digestive Efficiency**: Energy gain scales from 0.2x (mismatch) to 1.2x (specialist match).
+- **Brain Sync**: 19th neural input for perceiving nutrient types of nearest resources.
+
+### Phase 32: Life History Strategies (R/K Selection) 🚧
+
+- **Reproductive Investment**: New genes for maturity age and energy transfer ratio.
+- **Offspring Quality**: Trade-off between many weak offspring (R-strategy) vs. few strong ones (K-strategy).
+- **Parental Care**: Proximity-based protection or sharing priority for own offspring.
+- **Ecological Succession**: Observation of species replacement patterns in different resource regimes.
 
 ---
 
@@ -304,7 +339,12 @@ toml = "0.8"
 | Phase 24 | Lineage & Macroevolution | ✅ Complete |
 | Phase 25 | Social Complexity | ✅ Complete |
 | Phase 26 | Interactive Deity | ✅ Complete |
-| Phase 27 | Persistent Analytics | 🚧 In Progress |
+| Phase 27 | Persistent Analytics | ✅ Complete |
+| Phase 28 | NEAT-lite Evolution | ✅ Complete |
+| Phase 29 | Semantic Language | ✅ Complete |
+| Phase 30 | Social Coordination | ✅ Complete |
+| Phase 31 | Metabolic Niches | ✅ Complete |
+| Phase 32 | Life History Strategies | 🚧 In Progress |
 
 ---
 

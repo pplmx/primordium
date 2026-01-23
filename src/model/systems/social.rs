@@ -226,8 +226,9 @@ pub fn reproduce_asexual(
 ) -> Entity {
     let mut rng = rand::thread_rng();
 
-    let child_energy = parent.metabolism.energy / 2.0;
-    parent.metabolism.energy = child_energy;
+    let investment = parent.intel.genotype.reproductive_investment as f64;
+    let child_energy = parent.metabolism.energy * investment;
+    parent.metabolism.energy -= child_energy;
     parent.metabolism.offspring_count += 1;
 
     let mut child_genotype = parent.intel.genotype.clone();
@@ -311,8 +312,10 @@ pub fn reproduce_with_mate(
     speciation_rate: f32,
 ) -> Entity {
     let mut rng = rand::thread_rng();
-    let child_energy = parent.metabolism.energy / 2.0;
-    parent.metabolism.energy = child_energy;
+
+    let investment = parent.intel.genotype.reproductive_investment as f64;
+    let child_energy = parent.metabolism.energy * investment;
+    parent.metabolism.energy -= child_energy;
     parent.metabolism.offspring_count += 1;
 
     let mut child_role = parent.metabolism.role;

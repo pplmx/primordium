@@ -1,5 +1,6 @@
 use crate::model::brain::Brain;
 use crate::model::config::EvolutionConfig;
+use rand::Rng;
 
 /// Forward pass through brain.
 pub fn brain_forward(
@@ -26,30 +27,43 @@ pub fn mutate_genotype(
     config: &crate::model::config::EvolutionConfig,
 ) {
     let mut rng = rand::thread_rng();
-    use rand::Rng;
 
     // 1. Mutate Brain (Topology + Weights)
     mutate_brain(&mut genotype.brain, config);
 
     // 2. Mutate Traits
-    let mut mutate_trait = |v: &mut f64, min: f64, max: f64| {
-        let r = rng.gen::<f32>();
-        if r < config.mutation_rate {
+    let mut mutate_val = |v: &mut f64, min: f64, max: f64, rng: &mut rand::rngs::ThreadRng| {
+        if rng.gen::<f32>() < config.mutation_rate {
             *v += rng.gen_range(-config.mutation_amount as f64..config.mutation_amount as f64) * *v;
         }
         *v = v.clamp(min, max);
     };
 
-    mutate_trait(&mut genotype.sensing_range, 3.0, 15.0);
-    mutate_trait(&mut genotype.max_speed, 0.5, 3.0);
-    mutate_trait(&mut genotype.max_energy, 100.0, 500.0);
+    mutate_val(&mut genotype.sensing_range, 3.0, 15.0, &mut rng);
+    mutate_val(&mut genotype.max_speed, 0.5, 3.0, &mut rng);
+
+    // Mutate Maturity Gene (0.5 to 2.0)
+    if rng.gen::<f32>() < config.mutation_rate {
+        genotype.maturity_gene += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+    }
+    genotype.maturity_gene = genotype.maturity_gene.clamp(0.5, 2.0);
+
+    // Max Energy scales with Maturity (Larger body takes longer to grow)
+    genotype.max_energy = 200.0 * genotype.maturity_gene as f64;
+    mutate_val(&mut genotype.max_energy, 100.0, 500.0, &mut rng);
 
     // Mutate Metabolic Niche (0.0 to 1.0)
-    let r = rng.gen::<f32>();
-    if r < config.mutation_rate {
+    if rng.gen::<f32>() < config.mutation_rate {
         genotype.metabolic_niche += rng.gen_range(-config.mutation_amount..config.mutation_amount);
     }
     genotype.metabolic_niche = genotype.metabolic_niche.clamp(0.0, 1.0);
+
+    // Mutate Reproductive Investment (0.1 to 0.9)
+    if rng.gen::<f32>() < config.mutation_rate {
+        genotype.reproductive_investment +=
+            rng.gen_range(-config.mutation_amount..config.mutation_amount);
+    }
+    genotype.reproductive_investment = genotype.reproductive_investment.clamp(0.1, 0.9);
 }
 
 /// Crossover between two genotypes.
@@ -58,7 +72,6 @@ pub fn crossover_genotypes(
     p2: &crate::model::state::entity::Genotype,
 ) -> crate::model::state::entity::Genotype {
     let mut rng = rand::thread_rng();
-    use rand::Rng;
 
     let brain = crossover_brains(&p1.brain, &p2.brain);
     let sensing_range = if rng.gen_bool(0.5) {
@@ -81,6 +94,16 @@ pub fn crossover_genotypes(
     } else {
         p2.metabolic_niche
     };
+    let reproductive_investment = if rng.gen_bool(0.5) {
+        p1.reproductive_investment
+    } else {
+        p2.reproductive_investment
+    };
+    let maturity_gene = if rng.gen_bool(0.5) {
+        p1.maturity_gene
+    } else {
+        p2.maturity_gene
+    };
 
     crate::model::state::entity::Genotype {
         brain,
@@ -89,13 +112,14 @@ pub fn crossover_genotypes(
         max_energy,
         lineage_id: p1.lineage_id, // Inherit lineage from first parent
         metabolic_niche,
+        reproductive_investment,
+        maturity_gene,
     }
 }
 
 /// Perform crossover between two parent brains to create a child brain.
 pub fn crossover_brains(p1: &Brain, p2: &Brain) -> Brain {
     let mut rng = rand::thread_rng();
-    use rand::Rng;
     let mut child_nodes = p1.nodes.clone();
     let mut child_connections = Vec::new();
 

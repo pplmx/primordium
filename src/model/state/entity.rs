@@ -123,6 +123,10 @@ pub struct Genotype {
     pub lineage_id: Uuid,
     /// NEW: Metabolic niche (0.0 = Green expert, 1.0 = Blue expert)
     pub metabolic_niche: f32,
+    /// NEW: Ratio of energy given to child (0.1 to 0.9)
+    pub reproductive_investment: f32,
+    /// NEW: Maturity age modifier (ticks = maturity_age * maturity_gene)
+    pub maturity_gene: f32,
 }
 
 impl Genotype {
@@ -135,6 +139,8 @@ impl Genotype {
             max_energy: 200.0,
             lineage_id: Uuid::new_v4(),
             metabolic_niche: rng.gen_range(0.0..1.0),
+            reproductive_investment: 0.5,
+            maturity_gene: 1.0,
         }
     }
 
@@ -265,11 +271,12 @@ impl Entity {
         current_tick: u64,
         maturity_age: u64,
     ) -> EntityStatus {
+        let actual_maturity = (maturity_age as f32 * self.intel.genotype.maturity_gene) as u64;
         if self.metabolism.energy / self.metabolism.max_energy < 0.2 {
             EntityStatus::Starving
         } else if self.health.pathogen.is_some() {
             EntityStatus::Infected
-        } else if (current_tick - self.metabolism.birth_tick) < maturity_age {
+        } else if (current_tick - self.metabolism.birth_tick) < actual_maturity {
             EntityStatus::Juvenile
         } else if self.intel.last_share_intent > 0.5
             && self.metabolism.energy > self.metabolism.max_energy * 0.7
@@ -309,7 +316,8 @@ impl Entity {
     }
 
     pub fn is_mature(&self, current_tick: u64, maturity_age: u64) -> bool {
-        (current_tick - self.metabolism.birth_tick) >= maturity_age
+        let actual_maturity = (maturity_age as f32 * self.intel.genotype.maturity_gene) as u64;
+        (current_tick - self.metabolism.birth_tick) >= actual_maturity
     }
 
     pub fn name(&self) -> String {

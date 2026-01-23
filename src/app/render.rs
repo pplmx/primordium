@@ -334,6 +334,26 @@ impl App {
                     ),
                     ratatui::text::Span::raw(format!("{:.1}", entity.physics.max_speed)),
                 ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Repro Invest: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(format!(
+                        "{:.0}%",
+                        entity.intel.genotype.reproductive_investment * 100.0
+                    )),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Maturity Gene: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(format!(
+                        "{:.1}x",
+                        entity.intel.genotype.maturity_gene
+                    )),
+                ]));
                 lines.push(ratatui::text::Line::from(""));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
