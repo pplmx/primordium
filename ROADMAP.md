@@ -355,11 +355,18 @@ toml = "0.8"
 - **Soil Exhaustion**: Permanent fertility damage from extreme over-grazing requiring intentional "fallow" periods.
 - **Biodiversity Hotspots**: Emergence of hyper-diverse regions based on environmental edge-effects.
 
-### Phase 39: Ecosystem Resilience & Evolutionary Stasis 🚧
+### Phase 39: Ecosystem Resilience & Evolutionary Stasis ✅
 
-- **Genetic Bottlenecks**: Implement population-aware mutation rates where small populations experience higher genetic drift.
-- **Massive Parallelism**: Optimize SpatialHash and Brain inference for 10,000+ entities using GPGPU or advanced SIMD.
+- **Genetic Bottlenecks**: Implemented population-aware mutation rates where small populations experience higher mutation scaling (up to 3x) to accelerate exploration.
+- **Evolutionary Stasis**: Established "Stasis" mode for large populations where mutation rates are halved to preserve fit genotypes.
+- **Genetic Drift**: Implemented a drift mechanism where tiny populations (<10) experience random trait flips (5% chance) simulating stochastic fixation.
+- **Massive Parallelism**: (Planned) Optimize SpatialHash and Brain inference for 10,000+ entities using GPGPU or advanced SIMD.
+
+### Phase 40: Archeology & Deep History 🚧
+
 - **Deep History View**: Visual playback of evolutionary history through a dedicated "Archeology" tool.
+- **Fossil Record**: Persistent storage of extinct "Legendary" genotypes for retrospective analysis.
+
 
 
 ## 📊 Development Timeline
@@ -402,7 +409,8 @@ toml = "0.8"
 | Phase 36 | World Persistence | ✅ Complete |
 | Phase 37 | Sexual Selection | ✅ Complete |
 | Phase 38 | Dynamic Biomes | ✅ Complete |
-| Phase 39 | Ecosystem Resilience | 🚧 In Progress |
+| Phase 39 | Ecosystem Resilience | ✅ Complete |
+| Phase 40 | Archeology Tool | 🚧 In Progress |
 
 ---
 

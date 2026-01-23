@@ -58,8 +58,9 @@ impl App {
                 self.time_scale = (self.time_scale - 0.5).max(0.5)
             }
             KeyCode::Char('x') | KeyCode::Char('X') => {
+                let pop = self.world.entities.len();
                 for entity in &mut self.world.entities {
-                    intel::mutate_genotype(&mut entity.intel.genotype, &self.config.evolution);
+                    intel::mutate_genotype(&mut entity.intel.genotype, &self.config.evolution, pop);
                     // Sync phenotype
                     entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                     entity.physics.max_speed = entity.intel.genotype.max_speed;
@@ -114,8 +115,13 @@ impl App {
             // DIVINE INTERVENTION (Selected Entity)
             KeyCode::Char('m') => {
                 if let Some(id) = self.selected_entity {
+                    let pop = self.world.entities.len();
                     if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
-                        intel::mutate_genotype(&mut entity.intel.genotype, &self.config.evolution);
+                        intel::mutate_genotype(
+                            &mut entity.intel.genotype,
+                            &self.config.evolution,
+                            pop,
+                        );
                         // Sync phenotype
                         entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                         entity.physics.max_speed = entity.intel.genotype.max_speed;

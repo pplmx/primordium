@@ -20,6 +20,7 @@ fn test_r_strategy_fast_reproduction() {
         &mut r_parent,
         60,
         &config.evolution,
+        1,
     );
 
     // Child should have 20% of 200 = 40 energy
@@ -49,6 +50,7 @@ fn test_k_strategy_slow_reproduction() {
         &mut k_parent,
         250,
         &config.evolution,
+        1,
     );
 
     // Child should have 80% of 400 = 320 energy
@@ -63,12 +65,12 @@ fn test_maturity_body_size_coupling() {
 
     // Strategy R
     genotype.maturity_gene = 0.5;
-    primordium_lib::model::systems::intel::mutate_genotype(&mut genotype, &config.evolution);
+    primordium_lib::model::systems::intel::mutate_genotype(&mut genotype, &config.evolution, 100);
     let r_max = genotype.max_energy;
 
     // Strategy K
     genotype.maturity_gene = 2.0;
-    primordium_lib::model::systems::intel::mutate_genotype(&mut genotype, &config.evolution);
+    primordium_lib::model::systems::intel::mutate_genotype(&mut genotype, &config.evolution, 100);
     let k_max = genotype.max_energy;
 
     assert!(

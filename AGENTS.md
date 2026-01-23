@@ -79,6 +79,11 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 - **Biodiversity Hotspots**: Automatic detection of grid regions with high lineage density.
 - **Soil Feedback**: Overgrazing reduces fertility; biomass presence aids recovery (Succession).
 
+### Resilience & Stasis (Phase 39)
+
+- **Population-Aware Mutation**: Mutation scaling (0.5x to 3.0x) based on population density to balance exploration and exploitation.
+- **Genetic Drift**: Stochastic trait randomization in bottlenecked populations (<10 entities).
+
 ### Life History Strategies (Phase 32)
 
 - **Investment**: `reproductive_investment` (0.1 to 0.9) defines the % of parent energy given to offspring.
@@ -135,6 +140,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 | `social_v2.rs` | 社会行为、防御、信号 |
 | `lineage_persistence.rs` | 谱系注册、持久化、宏观指标 |
 | `environmental_succession.rs` | 环境演替、碳循环、多样性热点 |
+| `genetic_bottlenecks.rs` | 遗传瓶颈、动态突变、遗传漂变 |
 | `stress_test.rs` | 高负载基准 (1500+ 实体) |
 | `world_evolution.rs` | 时代演进、昼夜节律 |
 

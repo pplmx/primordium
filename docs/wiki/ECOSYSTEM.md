@@ -45,6 +45,30 @@ The system monitors for "Trophic Collapse" scenarios:
 - **Trophic Collapse**: Sudden extinction of all predators leading to herbivore overpopulation and subsequent famine.
 - **Overgrazing Alert**: Sustained soil depletion that threatens the entire local food chain.
 
+### Environmental Succession & Carbon Cycle (Phase 38)
+
+Phase 38 introduces a dynamic environment that responds to biological activity through soil feedback and atmospheric changes.
+
+#### Dynamic Biomes
+Terrain cells are no longer static. They transition between different states based on local ecological conditions:
+- **Plains**: The baseline state.
+- **Forest**: Emerges in areas with high **soil fertility** and sustained **plant biomass**. Forests provide higher food yields and act as carbon sinks.
+- **Desert**: Result of extreme **overgrazing** and fertility depletion. Deserts have minimal food growth and high metabolic stress.
+
+#### Carbon Cycle
+The ecosystem now tracks a global `carbon_level`, creating a feedback loop between organisms and the atmosphere:
+- **Emissions**: Animals emit carbon as a byproduct of metabolism.
+- **Sequestration**: Forest biomes actively sequestrate (absorb) carbon from the atmosphere.
+- **Global Warming**: If `carbon_level` exceeds a critical threshold, it triggers global warming, shifting the world into hotter climate states (Warm -> Hot -> Scorching), increasing metabolic costs for all entities.
+
+#### Biodiversity Hotspots
+The system automatically detects and monitors "Hotspots"—grid regions with exceptionally high **lineage density**. These areas are critical for evolutionary innovation but are also more susceptible to rapid disease spread or resource exhaustion.
+
+#### Soil Feedback & Succession
+The relationship between life and land is bidirectional:
+- **Depletion**: Overgrazing reduces soil fertility.
+- **Recovery**: The presence of biomass and the absence of grazing pressure allow fertility to recover over time, enabling the land to transition back from Desert to Plains, and eventually to Forest.
+
 ### Social Interaction
 
 #### Energy Sharing

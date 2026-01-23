@@ -25,16 +25,41 @@ pub fn genotype_distance(b1: &Brain, b2: &Brain) -> f32 {
 pub fn mutate_genotype(
     genotype: &mut crate::model::state::entity::Genotype,
     config: &crate::model::config::EvolutionConfig,
+    population: usize,
 ) {
     let mut rng = rand::thread_rng();
 
+    // NEW: Phase 39 - Genetic Bottleneck & Stasis Logic
+    let mut effective_mutation_rate = config.mutation_rate;
+    let mut effective_mutation_amount = config.mutation_amount;
+
+    if config.population_aware && population > 0 {
+        if population < config.bottleneck_threshold {
+            // Population Bottleneck: Increase mutation to find escape routes (Resilience)
+            // Scale up to 3x the base rate
+            let scaling = (config.bottleneck_threshold as f32 / population as f32).min(3.0);
+            effective_mutation_rate *= scaling;
+            effective_mutation_amount *= scaling;
+        } else if population > config.stasis_threshold {
+            // Evolutionary Stasis: Large established populations resist change
+            // Scale down to 0.5x
+            effective_mutation_rate *= 0.5;
+        }
+    }
+
     // 1. Mutate Brain (Topology + Weights)
-    mutate_brain(&mut genotype.brain, config);
+    // Create a temporary config for the brain mutation that uses the effective rate
+    let mut brain_config = config.clone();
+    brain_config.mutation_rate = effective_mutation_rate;
+    brain_config.mutation_amount = effective_mutation_amount;
+    mutate_brain(&mut genotype.brain, &brain_config);
 
     // 2. Mutate Traits
     let mutate_val = |v: &mut f64, min: f64, max: f64, rng: &mut rand::rngs::ThreadRng| {
-        if rng.gen::<f32>() < config.mutation_rate {
-            *v += rng.gen_range(-config.mutation_amount as f64..config.mutation_amount as f64) * *v;
+        if rng.gen::<f32>() < effective_mutation_rate {
+            *v += rng
+                .gen_range(-effective_mutation_amount as f64..effective_mutation_amount as f64)
+                * *v;
         }
         *v = v.clamp(min, max);
     };
@@ -43,8 +68,9 @@ pub fn mutate_genotype(
     mutate_val(&mut genotype.max_speed, 0.5, 3.0, &mut rng);
 
     // Mutate Maturity Gene (0.5 to 2.0)
-    if rng.gen::<f32>() < config.mutation_rate {
-        genotype.maturity_gene += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+    if rng.gen::<f32>() < effective_mutation_rate {
+        genotype.maturity_gene +=
+            rng.gen_range(-effective_mutation_amount..effective_mutation_amount);
     }
     genotype.maturity_gene = genotype.maturity_gene.clamp(0.5, 2.0);
 
@@ -52,30 +78,44 @@ pub fn mutate_genotype(
     genotype.max_energy = (200.0 * genotype.maturity_gene as f64).clamp(100.0, 500.0);
 
     // Mutate Metabolic Niche (0.0 to 1.0)
-    if rng.gen::<f32>() < config.mutation_rate {
-        genotype.metabolic_niche += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+    if rng.gen::<f32>() < effective_mutation_rate {
+        genotype.metabolic_niche +=
+            rng.gen_range(-effective_mutation_amount..effective_mutation_amount);
     }
     genotype.metabolic_niche = genotype.metabolic_niche.clamp(0.0, 1.0);
 
     // Mutate Trophic Potential (0.0 to 1.0)
-    if rng.gen::<f32>() < config.mutation_rate {
+    if rng.gen::<f32>() < effective_mutation_rate {
         genotype.trophic_potential +=
-            rng.gen_range(-config.mutation_amount..config.mutation_amount);
+            rng.gen_range(-effective_mutation_amount..effective_mutation_amount);
     }
     genotype.trophic_potential = genotype.trophic_potential.clamp(0.0, 1.0);
 
     // Mutate Reproductive Investment (0.1 to 0.9)
-    if rng.gen::<f32>() < config.mutation_rate {
+    if rng.gen::<f32>() < effective_mutation_rate {
         genotype.reproductive_investment +=
-            rng.gen_range(-config.mutation_amount..config.mutation_amount);
+            rng.gen_range(-effective_mutation_amount..effective_mutation_amount);
     }
     genotype.reproductive_investment = genotype.reproductive_investment.clamp(0.1, 0.9);
 
     // Mutate Mate Preference (0.0 to 1.0)
-    if rng.gen::<f32>() < config.mutation_rate {
-        genotype.mate_preference += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+    if rng.gen::<f32>() < effective_mutation_rate {
+        genotype.mate_preference +=
+            rng.gen_range(-effective_mutation_amount..effective_mutation_amount);
     }
     genotype.mate_preference = genotype.mate_preference.clamp(0.0, 1.0);
+
+    // NEW: Phase 39 - Genetic Drift
+    // Small populations experience random trait randomization (Drift)
+    if population < 10 && population > 0 && rng.gen_bool(0.05) {
+        // Randomly flip a major trait
+        match rng.gen_range(0..4) {
+            0 => genotype.trophic_potential = rng.gen_range(0.0..1.0),
+            1 => genotype.metabolic_niche = rng.gen_range(0.0..1.0),
+            2 => genotype.mate_preference = rng.gen_range(0.0..1.0),
+            _ => genotype.maturity_gene = rng.gen_range(0.5..2.0),
+        }
+    }
 }
 
 /// Crossover between two genotypes.

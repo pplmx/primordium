@@ -78,3 +78,18 @@ By utilizing `petgraph`, the engine constructs a real-time Directed Acyclic Grap
 - **Branching**: When a mutation leads to a significant genetic distance from the current lineage norm, a new "child" lineage is registered.
 - **Persistence**: Lineage data is preserved across sessions, allowing for long-term evolutionary studies.
 - **Visualization**: The TUI (via the `A` key) provides a live view of this tree, highlighting the top 5 dominant dynasties and their trophic strategies.
+
+## Ecological Selection & Hotspots (Phase 38)
+
+Phase 38 introduces new environmental pressures that drive genetic selection and lineage distribution.
+
+### Biodiversity Hotspots
+The simulation now identifies **Biodiversity Hotspots**—geographic regions with a high concentration of distinct lineages. 
+- **Selection Pressure**: These areas exhibit intense competition, favoring lineages with high neural efficiency and specialized `metabolic_niche` traits.
+- **Lineage Density**: Hotspots are determined by the count of unique `lineage_id`s within a grid cell, providing a macro-genetic metric for the world's health.
+
+### Biome-Driven Selection
+The transition between **Forest**, **Plains**, and **Desert** biomes creates a shifting fitness landscape:
+- **Forest Adaptation**: High food density favors lineages with higher `reproductive_investment` (Strategy K).
+- **Desert Adaptation**: Resource scarcity favors lineages with low `max_speed` (energy conservation) and specific `metabolic_niche` specialization.
+- **Carbon Stress**: Global warming induced by high `carbon_level` increases metabolic costs across all genotypes, favoring individuals with more efficient "think-move" energy ratios.

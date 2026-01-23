@@ -13,6 +13,7 @@ fn test_lineage_inheritance() {
         &mut parent,
         100,
         &config.evolution,
+        1,
     );
 
     assert_eq!(

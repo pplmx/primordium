@@ -26,6 +26,10 @@ pub struct EvolutionConfig {
     pub drift_rate: f32,
     pub drift_amount: f32,
     pub speciation_rate: f32, // NEW: Chance for offspring to flip trophic role
+    /// NEW: Phase 39 - Scaling mutation based on population density
+    pub population_aware: bool,
+    pub bottleneck_threshold: usize, // e.g. 20
+    pub stasis_threshold: usize,     // e.g. 500
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -67,6 +71,9 @@ impl Default for AppConfig {
                 drift_rate: 0.01,
                 drift_amount: 0.5,
                 speciation_rate: 0.02, // 2% chance to switch role
+                population_aware: true,
+                bottleneck_threshold: 20,
+                stasis_threshold: 500,
             },
             target_fps: 60,
             game_mode: GameMode::Standard,

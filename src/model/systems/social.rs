@@ -218,14 +218,16 @@ pub(crate) fn repro_logic(
             &entities[idx].intel.genotype,
             &entities[m_idx].intel.genotype,
         );
-        intel::mutate_genotype(&mut child_genotype, &config.evolution);
+        let pop = entities.len();
+        intel::mutate_genotype(&mut child_genotype, &config.evolution, pop);
 
         let child = reproduce_with_mate(&mut entities[idx], tick, child_genotype);
 
         entities[idx].metabolism.energy -= 50.0;
         Some(child)
     } else {
-        let child = reproduce_asexual(&mut entities[idx], tick, &config.evolution);
+        let pop = entities.len();
+        let child = reproduce_asexual(&mut entities[idx], tick, &config.evolution, pop);
         Some(child)
     }
 }
@@ -235,6 +237,7 @@ pub fn reproduce_asexual(
     parent: &mut Entity,
     tick: u64,
     config: &crate::model::config::EvolutionConfig,
+    population: usize,
 ) -> Entity {
     let mut rng = rand::thread_rng();
 
@@ -244,7 +247,7 @@ pub fn reproduce_asexual(
     parent.metabolism.offspring_count += 1;
 
     let mut child_genotype = parent.intel.genotype.clone();
-    intel::mutate_genotype(&mut child_genotype, config);
+    intel::mutate_genotype(&mut child_genotype, config, population);
 
     let r = {
         let change = rng.gen_range(-15..=15);
@@ -517,10 +520,13 @@ mod tests {
             drift_rate: 0.0,
             drift_amount: 0.0,
             speciation_rate: 0.0,
+            population_aware: false,
+            bottleneck_threshold: 0,
+            stasis_threshold: 1000,
         };
         let mut parent = Entity::new(50.0, 25.0, 0);
         parent.metabolism.energy = 200.0;
-        let child = reproduce_asexual(&mut parent, 100, &config);
+        let child = reproduce_asexual(&mut parent, 100, &config, 100);
         assert!(parent.metabolism.energy < 200.0);
         assert!(child.metabolism.energy > 0.0);
     }
