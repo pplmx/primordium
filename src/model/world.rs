@@ -88,9 +88,9 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 7]>,
+    perception_buffer: Vec<[f32; 9]>,
     #[serde(skip, default)]
-    decision_buffer: Vec<([f32; 6], [f32; 6])>,
+    decision_buffer: Vec<([f32; 8], [f32; 6])>,
     #[serde(skip, default)]
     energy_transfers: Vec<(usize, f64)>,
     #[serde(skip, default)]
@@ -235,9 +235,9 @@ impl World {
                 let nearby_indices =
                     self.spatial_hash
                         .query(e.physics.x, e.physics.y, sensing_radius);
-                let (pheromone_food, _) =
+                let (pheromone_food, _, pheromone_a, pheromone_b) =
                     self.pheromones
-                        .sense(e.physics.x, e.physics.y, sensing_radius / 2.0);
+                        .sense_all(e.physics.x, e.physics.y, sensing_radius / 2.0);
                 let tribe_count = nearby_indices
                     .iter()
                     .filter(|&&n_idx| {
@@ -260,6 +260,8 @@ impl World {
                     pheromone_food,
                     (tribe_count as f32 / 5.0).min(1.0),
                     (lineage_count as f32 / 5.0).min(1.0),
+                    pheromone_a,
+                    pheromone_b,
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
@@ -285,6 +287,7 @@ impl World {
                 env,
                 &self.config,
                 &self.terrain,
+                &mut self.pheromones,
                 self.width,
                 self.height,
             );
