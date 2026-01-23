@@ -56,7 +56,7 @@ src/
 
 ---
 
-## 🧬 Entity Architecture (Phase 35)
+## 🧬 Entity Architecture (Phase 38)
 
 Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
@@ -64,13 +64,20 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
 - `Entity`
     - `Physics`: Phenotype expression (sensing, speed).
-    - `Metabolism`: Phenotype expression (energy capacity).
+    - `Metabolism`: Phenotype expression (energy capacity, carbon emission).
     - `Intel`: Decision center.
         - `Genotype`: The inheritable payload (encodes the DNA).
             - **Phenotypic Genes**: `sensing_range`, `max_speed`, `max_energy`, `metabolic_niche`.
             - **Life History Genes**: `reproductive_investment`, `maturity_gene`.
             - **Trophic Genes**: `trophic_potential` (0.0=Herbivore, 1.0=Carnivore).
             - **Neural Genes**: `Brain` (Dynamic Graph-based NEAT-lite).
+
+### Environmental Succession (Phase 38)
+
+- **Dynamic Biomes**: Terrain cells transition between Plains, Forest, and Desert based on `fertility` and `plant_biomass`.
+- **Carbon Cycle**: Animals emit carbon; Forests sequestrate it. High `carbon_level` triggers global warming (shifting climate states).
+- **Biodiversity Hotspots**: Automatic detection of grid regions with high lineage density.
+- **Soil Feedback**: Overgrazing reduces fertility; biomass presence aids recovery (Succession).
 
 ### Life History Strategies (Phase 32)
 
@@ -127,6 +134,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 | `persistence.rs` | 状态序列化 |
 | `social_v2.rs` | 社会行为、防御、信号 |
 | `lineage_persistence.rs` | 谱系注册、持久化、宏观指标 |
+| `environmental_succession.rs` | 环境演替、碳循环、多样性热点 |
 | `stress_test.rs` | 高负载基准 (1500+ 实体) |
 | `world_evolution.rs` | 时代演进、昼夜节律 |
 

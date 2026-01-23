@@ -9,7 +9,7 @@ fn test_group_defense_reduces_damage() {
     config.world.initial_population = 0;
     config.game_mode = GameMode::Standard;
     let mut world = World::new(0, config).unwrap();
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // 1. Attacker (Carnivore specialist, high energy)
     let mut attacker = Entity::new(10.0, 10.0, 0);
@@ -39,7 +39,7 @@ fn test_group_defense_reduces_damage() {
     world.entities.push(victim);
 
     // Run world update.
-    world.update(&env).unwrap();
+    world.update(&mut env).unwrap();
 
     // We verify the logic by ensuring the victim survived at least one tick.
     assert!(world

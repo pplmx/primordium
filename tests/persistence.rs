@@ -5,10 +5,10 @@ use primordium_lib::model::world::World;
 #[test]
 fn test_world_persistence_cycle() {
     let config = AppConfig::default();
-    let env = Environment::default();
+    let mut env = Environment::default();
     let mut world = World::new(10, config).expect("Failed to create world");
 
-    world.update(&env).expect("Failed to update world");
+    world.update(&mut env).expect("Failed to update world");
 
     println!("Testing Entity serialization...");
     if let Some(e) = world.entities.first() {

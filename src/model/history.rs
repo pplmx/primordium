@@ -2,7 +2,7 @@ use crate::model::infra::lineage_tree::AncestryTree;
 use crate::model::state::entity::Entity;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use uuid::Uuid;
@@ -74,6 +74,10 @@ pub struct PopulationStats {
     pub food_count: usize,
     /// NEW: Count of entities per lineage.
     pub lineage_counts: HashMap<Uuid, usize>,
+    /// NEW: Phase 38 - Atmospheric Carbon Level
+    pub carbon_level: f64,
+    /// NEW: Phase 38 - Number of identified biodiversity hotspots
+    pub biodiversity_hotspots: usize,
     recent_deaths: VecDeque<f64>,
 }
 
@@ -95,6 +99,8 @@ impl PopulationStats {
             biomass_c: 0.0,
             food_count: 0,
             lineage_counts: HashMap::new(),
+            carbon_level: 0.0,
+            biodiversity_hotspots: 0,
             recent_deaths: VecDeque::with_capacity(100),
         }
     }
@@ -113,19 +119,26 @@ impl PopulationStats {
         entities: &[crate::model::state::entity::Entity],
         food_count: usize,
         top_fitness: f64,
+        carbon_level: f64,
     ) {
         self.population = entities.len();
         self.food_count = food_count;
         self.top_fitness = top_fitness;
+        self.carbon_level = carbon_level;
         self.lineage_counts.clear();
         self.biomass_h = 0.0;
         self.biomass_c = 0.0;
+        self.biodiversity_hotspots = 0;
 
         if entities.is_empty() {
             self.avg_brain_entropy = 0.0;
             self.species_count = 0;
             return;
         }
+
+        // Calculate biodiversity hotspots (rough approximation)
+        // Divide world into 10x10 sectors
+        let mut sectors: HashMap<(i32, i32), HashSet<Uuid>> = HashMap::new();
 
         for e in entities {
             *self
@@ -139,7 +152,16 @@ impl PopulationStats {
             } else if tp > 0.6 {
                 self.biomass_c += e.metabolism.energy;
             }
+
+            let sx = (e.physics.x / 10.0) as i32;
+            let sy = (e.physics.y / 10.0) as i32;
+            sectors
+                .entry((sx, sy))
+                .or_default()
+                .insert(e.metabolism.lineage_id);
         }
+
+        self.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
 
         // 1. Recalculate Entropy (Shannon entropy of connection count buckets)
         let mut complexity_freq = HashMap::new();

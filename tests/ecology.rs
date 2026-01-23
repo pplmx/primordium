@@ -35,7 +35,7 @@ fn test_terrain_fertility_cycle() {
     // 2. Run update until food is eaten
     let mut food_eaten = false;
     for _ in 0..50 {
-        world.update(&env).expect("Update failed");
+        world.update(&mut env).expect("Update failed");
         if world.food.is_empty() {
             food_eaten = true;
             break;
@@ -87,10 +87,11 @@ fn test_barren_transition() {
     }
 
     world.terrain.update(0.0);
-    assert_eq!(
-        world.terrain.get_cell(ix, iy).terrain_type,
-        TerrainType::Barren,
-        "Should turn barren at low fertility"
+    let terrain_type = world.terrain.get_cell(ix, iy).terrain_type;
+    assert!(
+        terrain_type == TerrainType::Barren || terrain_type == TerrainType::Desert,
+        "Should turn barren or desert at low fertility, got {:?}",
+        terrain_type
     );
 }
 
@@ -101,7 +102,7 @@ fn test_trophic_diet_restrictions() {
     config.world.initial_food = 0;
     config.world.max_food = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // 1. Herbivore specialist (trophic = 0.0) SHOULD eat plants
     let mut herbivore = primordium_lib::model::state::entity::Entity::new(10.5, 10.5, 0);
@@ -114,7 +115,7 @@ fn test_trophic_diet_restrictions() {
         .food
         .push(primordium_lib::model::state::food::Food::new(10, 10, 0.0));
 
-    world.update(&env).expect("Update failed");
+    world.update(&mut env).expect("Update failed");
     assert_eq!(
         world.food.len(),
         0,
@@ -136,7 +137,7 @@ fn test_trophic_diet_restrictions() {
 
     // Run ticks. Trophic efficiency for carnivore on plants is 1.0 - 1.0 = 0.0.
     for _ in 0..10 {
-        world.update(&env).expect("Update failed");
+        world.update(&mut env).expect("Update failed");
     }
     assert_eq!(
         world.food.len(),
@@ -157,7 +158,7 @@ fn test_light_dependent_food_growth() {
     env.world_time = env.day_cycle_ticks / 4;
     let mut day_food_count = 0;
     for _ in 0..200 {
-        world.update(&env).expect("Update failed");
+        world.update(&mut env).expect("Update failed");
         day_food_count += world.food.len();
         world.food.clear();
     }
@@ -166,7 +167,7 @@ fn test_light_dependent_food_growth() {
     env.world_time = env.day_cycle_ticks / 2 + 100; // Night
     let mut night_food_count = 0;
     for _ in 0..200 {
-        world.update(&env).expect("Update failed");
+        world.update(&mut env).expect("Update failed");
         night_food_count += world.food.len();
         world.food.clear();
     }

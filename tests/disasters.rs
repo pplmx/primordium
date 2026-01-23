@@ -31,8 +31,8 @@ fn test_wall_collisions() {
 
     world.entities.push(entity);
 
-    let env = Environment::default();
-    world.update(&env).unwrap();
+    let mut env = Environment::default();
+    world.update(&mut env).unwrap();
 
     let e = &world.entities[0];
     assert!(
@@ -70,7 +70,7 @@ fn test_dust_bowl_trigger() {
 
     let mut triggered = false;
     for _ in 0..2000 {
-        world.update(&env).unwrap();
+        world.update(&mut env).unwrap();
         if world.terrain.dust_bowl_timer > 0 {
             triggered = true;
             break;

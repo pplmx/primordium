@@ -8,7 +8,7 @@ fn test_death_by_brain_bloat() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config.clone()).unwrap();
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // 1. Create an entity with a massive brain
     let mut e = Entity::new(10.0, 10.0, 0);
@@ -35,7 +35,7 @@ fn test_death_by_brain_bloat() {
     // Plus base idle cost (0.5). Total approx 3.1 per tick.
     // In 40 ticks, it should be dead.
     for _ in 0..40 {
-        world.update(&env).unwrap();
+        world.update(&mut env).unwrap();
     }
 
     assert!(

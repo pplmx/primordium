@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
             while app.running {
                 // Background tasks might need a small sleep to not peg CPU at 100% if sim is fast
                 // But for experiments, we want it fast.
-                if let Err(e) = app.world.update(&app.env) {
+                if let Err(e) = app.world.update(&mut app.env) {
                     eprintln!("Sim error: {e}");
                     break;
                 }

@@ -134,6 +134,8 @@ pub struct Environment {
     pub day_cycle_ticks: u64, // Default: 2000
     // NEW: God Mode Overrides
     pub god_climate_override: Option<ClimateState>,
+    /// NEW: Phase 38 - Atmospheric Carbon Level (0.0 to 1000.0)
+    pub carbon_level: f64,
 }
 
 impl Default for Environment {
@@ -152,6 +154,7 @@ impl Default for Environment {
             world_time: 0,
             day_cycle_ticks: 2000,
             god_climate_override: None,
+            carbon_level: 300.0, // Baseline CO2
         }
     }
 }
@@ -159,6 +162,16 @@ impl Default for Environment {
 impl Environment {
     pub fn tick(&mut self) {
         self.world_time = (self.world_time + 1) % self.day_cycle_ticks;
+        // Natural carbon diffusion/decay
+        self.carbon_level = (self.carbon_level * 0.9999 + 300.0 * 0.0001).clamp(0.0, 2000.0);
+    }
+
+    pub fn add_carbon(&mut self, amount: f64) {
+        self.carbon_level = (self.carbon_level + amount).min(2000.0);
+    }
+
+    pub fn sequestrate_carbon(&mut self, amount: f64) {
+        self.carbon_level = (self.carbon_level - amount).max(0.0);
     }
 
     pub fn time_of_day(&self) -> TimeOfDay {
@@ -198,13 +211,19 @@ impl Environment {
         if let Some(over) = self.god_climate_override {
             return over;
         }
+
+        // Carbon forcing (Global Warming)
+        // Baseline 300, at 800+ it pushes climate up
+        let carbon_forcing = ((self.carbon_level - 300.0) / 100.0).max(0.0) as f32;
+        let effective_cpu = self.cpu_usage + carbon_forcing * 10.0;
+
         if self.is_heat_wave() {
             ClimateState::Scorching
-        } else if self.is_ice_age() || self.cpu_usage < 30.0 {
+        } else if self.is_ice_age() || effective_cpu < 30.0 {
             ClimateState::Temperate
-        } else if self.cpu_usage < 60.0 {
+        } else if effective_cpu < 60.0 {
             ClimateState::Warm
-        } else if self.cpu_usage < 80.0 {
+        } else if effective_cpu < 80.0 {
             ClimateState::Hot
         } else {
             ClimateState::Scorching

@@ -81,8 +81,8 @@ fn test_nutrient_sensing_in_perception() {
     world.entities.push(e);
 
     // Update world to trigger perception
-    let env = primordium_lib::model::state::environment::Environment::default();
-    world.update(&env).unwrap();
+    let mut env = primordium_lib::model::state::environment::Environment::default();
+    world.update(&mut env).unwrap();
 
     // Rebuild hash to ensure manual sense_nearest_food call is accurate
     world.food_hash.clear();

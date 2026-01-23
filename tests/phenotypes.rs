@@ -32,7 +32,7 @@ fn test_sensing_range_affects_perception() {
     config.world.initial_population = 0;
     config.world.initial_food = 1;
     let mut world = World::new(0, config).unwrap();
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // Clear existing food and place one food far away (distance 12.0)
     world.food.clear();
@@ -55,7 +55,7 @@ fn test_sensing_range_affects_perception() {
     world.entities.push(e_long);
 
     // Update world to populate perception buffers
-    world.update(&env).unwrap();
+    world.update(&mut env).unwrap();
 
     // We can't easily check private buffers, but we can verify the sensing range was used in the loop.
     // The previous manual audit showed that nearby_indices uses sensing_range.

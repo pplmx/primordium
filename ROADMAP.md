@@ -348,14 +348,19 @@ toml = "0.8"
 - **Selective Breeding**: Natural emergence of specialized clusters due to assortative mating patterns.
 - **Runaway Simulation**: Proved that sexual selection can drive traits faster than survival alone in integration tests.
 
-### Phase 38: Environmental Succession (The Living World) 🚧
+### Phase 38: Environmental Succession (The Living World) ✅
 
-- **Dynamic Biomes**: Implement terrain transitions (Plains -> Forest, Plains -> Desert) based on long-term biomass and water proximity.
+- **Dynamic Biomes**: Implemented terrain transitions (Plains -> Forest, Plains -> Desert) based on long-term biomass and water proximity.
 - **Carbon Sequestration**: Entities impact atmospheric state (Climate) through cumulative metabolic activity.
 - **Soil Exhaustion**: Permanent fertility damage from extreme over-grazing requiring intentional "fallow" periods.
 - **Biodiversity Hotspots**: Emergence of hyper-diverse regions based on environmental edge-effects.
 
----
+### Phase 39: Ecosystem Resilience & Evolutionary Stasis 🚧
+
+- **Genetic Bottlenecks**: Implement population-aware mutation rates where small populations experience higher genetic drift.
+- **Massive Parallelism**: Optimize SpatialHash and Brain inference for 10,000+ entities using GPGPU or advanced SIMD.
+- **Deep History View**: Visual playback of evolutionary history through a dedicated "Archeology" tool.
+
 
 ## 📊 Development Timeline
 
@@ -396,7 +401,8 @@ toml = "0.8"
 | Phase 35 | Trophic Cascades | ✅ Complete |
 | Phase 36 | World Persistence | ✅ Complete |
 | Phase 37 | Sexual Selection | ✅ Complete |
-| Phase 38 | Dynamic Biomes | 🚧 In Progress |
+| Phase 38 | Dynamic Biomes | ✅ Complete |
+| Phase 39 | Ecosystem Resilience | 🚧 In Progress |
 
 ---
 

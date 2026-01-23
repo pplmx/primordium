@@ -43,7 +43,7 @@ fn test_world_update_tracks_lineage_metrics() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).unwrap();
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     let mut e = Entity::new(10.0, 10.0, 0);
     let l_id = e.metabolism.lineage_id;
@@ -55,7 +55,7 @@ fn test_world_update_tracks_lineage_metrics() {
     world.lineage_registry.record_birth(l_id, 1, 0);
 
     // Run one update - should trigger feeding/metabolism
-    world.update(&env).unwrap();
+    world.update(&mut env).unwrap();
 
     let record = world
         .lineage_registry

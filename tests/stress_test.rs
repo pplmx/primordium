@@ -12,7 +12,7 @@ fn test_engine_stress_high_load() {
     config.world.initial_population = 1500;
     config.world.max_food = 1000;
 
-    let env = Environment::default();
+    let mut env = Environment::default();
     let mut world =
         World::new(config.world.initial_population, config).expect("Failed to create world");
 
@@ -24,7 +24,7 @@ fn test_engine_stress_high_load() {
 
     for i in 0..ticks {
         world
-            .update(&env)
+            .update(&mut env)
             .unwrap_or_else(|_| panic!("Engine crashed at tick {}", i));
 
         // Sanity check: Ensure at least some entities survive or life cycle continues

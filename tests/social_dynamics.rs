@@ -8,7 +8,7 @@ fn test_tribe_solidarity_no_aggression() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // Create two entities of the same tribe
     let mut e1 = Entity::new(10.0, 10.0, 0);
@@ -35,7 +35,7 @@ fn test_tribe_solidarity_no_aggression() {
 
     // Run ticks - hunter should NOT eat its tribemate
     for _ in 0..50 {
-        world.update(&env).expect("Update failed");
+        world.update(&mut env).expect("Update failed");
     }
 
     assert_eq!(world.entities.len(), 2, "Hunter attacked its own tribe!");
@@ -46,7 +46,7 @@ fn test_energy_sharing_between_allies() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // E1: Rich, E2: Starving
     let mut e1 = Entity::new(10.0, 10.0, 0);
@@ -74,7 +74,7 @@ fn test_energy_sharing_between_allies() {
     // Run update.
     let mut shared = false;
     for _ in 0..100 {
-        world.update(&env).expect("Update failed");
+        world.update(&mut env).expect("Update failed");
         if world.entities.len() < 2 {
             break;
         }
@@ -95,7 +95,7 @@ fn test_inter_tribe_predation() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // E1: Predator, E2: Prey (Different tribes)
     let mut e1 = Entity::new(10.0, 10.0, 0);
@@ -126,7 +126,7 @@ fn test_inter_tribe_predation() {
     // Run until predation occurs
     for _ in 0..200 {
         // Force aggression in the buffer for test
-        world.update(&env).expect("Update failed");
+        world.update(&mut env).expect("Update failed");
         if world.entities.len() == 1 {
             break;
         }

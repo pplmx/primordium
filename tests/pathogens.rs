@@ -9,7 +9,7 @@ fn test_pathogen_transmission() {
     config.world.initial_population = 0;
     config.game_mode = primordium_lib::model::config::GameMode::Cooperative; // Disable predation
     let mut world = World::new(0, config).expect("Failed to create world");
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // 1. Setup Infected Patient Zero
     let mut patient_zero = primordium_lib::model::state::entity::Entity::new(10.0, 10.0, 0);
@@ -33,7 +33,7 @@ fn test_pathogen_transmission() {
     world.entities.push(victim);
 
     // 3. Update world to spread infection
-    world.update(&env).expect("Update failed");
+    world.update(&mut env).expect("Update failed");
 
     // 4. Verify victim is infected
     for (i, e) in world.entities.iter().enumerate() {

@@ -8,13 +8,13 @@ fn test_simulation_lifecycle() {
     let config = AppConfig::default();
     let initial_pop = 50;
     let mut world = World::new(initial_pop, config).expect("Failed to create world");
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     assert_eq!(world.entities.len(), initial_pop);
 
     // 2. Run for 100 ticks
     for _ in 0..100 {
-        world.update(&env).expect("World update failed");
+        world.update(&mut env).expect("World update failed");
     }
 
     // 3. Verify
@@ -37,7 +37,7 @@ fn test_reproduction_and_genetics() {
     config.metabolism.maturity_age = 10; // Rapid maturity for test
 
     let mut world = World::new(10, config).expect("Failed to create world");
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // Force high energy on all entities to trigger reproduction
     for entity in &mut world.entities {
@@ -47,7 +47,7 @@ fn test_reproduction_and_genetics() {
     // Run ticks - some should reproduce
     let mut total_births = 0;
     for _ in 0..50 {
-        let events = world.update(&env).expect("Update failed");
+        let events = world.update(&mut env).expect("Update failed");
         for event in events {
             if matches!(
                 event,

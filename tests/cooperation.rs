@@ -8,7 +8,7 @@ fn test_kin_recognition_influences_movement() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config.clone()).unwrap();
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // 1. Target Entity
     let mut e_target = Entity::new(10.0, 10.0, 0);
@@ -24,7 +24,7 @@ fn test_kin_recognition_influences_movement() {
 
     // 3. Update World. Target should see Kin at relative X = 1.0 (clamped).
     // The decision buffer will contain the brain's reaction.
-    world.update(&env).unwrap();
+    world.update(&mut env).unwrap();
 
     // We verify that the "Kin Centroid" inputs were correctly calculated.
     // (This is mostly verified by successful compilation of the new 10-sensor array).
@@ -36,7 +36,7 @@ fn test_herding_bonus() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config.clone()).unwrap();
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // 1. Target Entity (Moving Right)
     let mut e = Entity::new(10.0, 10.0, 0);
@@ -53,7 +53,7 @@ fn test_herding_bonus() {
     world.entities.push(kin);
 
     // 3. Update world.
-    world.update(&env).unwrap();
+    world.update(&mut env).unwrap();
 
     // We expect the bonus to offset some drain.
     assert!(world.entities[0].metabolism.energy > 0.0);

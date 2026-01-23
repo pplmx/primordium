@@ -54,8 +54,8 @@ fn test_mate_preference_acceptance() {
 
     // 3. Update world at tick 200
     world.tick = 200;
-    let env = primordium_lib::model::state::environment::Environment::default();
-    world.update(&env).unwrap();
+    let mut env = primordium_lib::model::state::environment::Environment::default();
+    world.update(&mut env).unwrap();
 
     assert!(
         world.entities.len() > 2,

@@ -12,7 +12,7 @@ fn test_overgrazing_feedback_loop() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).unwrap();
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // 1. Initial fertility
     let f0 = world.terrain.get_cell(10, 10).fertility;
@@ -21,7 +21,7 @@ fn test_overgrazing_feedback_loop() {
     world.pop_stats.biomass_h = 10000.0;
 
     // 3. Update world. recovery rate should become negative.
-    world.update(&env).unwrap();
+    world.update(&mut env).unwrap();
 
     let f1 = world.terrain.get_cell(10, 10).fertility;
     assert!(f1 < f0, "Massive overgrazing should deplete fertility");

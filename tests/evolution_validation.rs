@@ -9,7 +9,7 @@ fn test_r_vs_k_dominance_in_resource_boom() {
     config.world.initial_population = 0;
     config.world.max_food = 500; // Abundant food
     let mut world = World::new(0, config).unwrap();
-    let env = Environment::default();
+    let mut env = Environment::default();
 
     // Strategy R: Fast maturity (50), Low energy (100)
     let mut r_type = Entity::new(10.0, 10.0, 0);
@@ -28,7 +28,7 @@ fn test_r_vs_k_dominance_in_resource_boom() {
 
     // In a resource boom, Strategy R should multiply faster
     for _ in 0..100 {
-        world.update(&env).unwrap();
+        world.update(&mut env).unwrap();
         // Keep energy high to simulate boom
         for e in &mut world.entities {
             e.metabolism.energy = 500.0;

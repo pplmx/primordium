@@ -158,7 +158,7 @@ impl World {
         })
     }
 
-    pub fn update(&mut self, env: &Environment) -> anyhow::Result<Vec<LiveEvent>> {
+    pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
         let mut events = Vec::new();
         self.tick += 1;
         let mut rng = rand::thread_rng();
@@ -173,7 +173,15 @@ impl World {
         self.pheromones.decay();
 
         environment::handle_disasters(env, self.entities.len(), &mut self.terrain, &mut rng);
-        self.terrain.update(self.pop_stats.biomass_h);
+        let total_plant_biomass = self.terrain.update(self.pop_stats.biomass_h);
+
+        // Phase 38: Carbon Cycle
+        // Sequestration from plants
+        env.sequestrate_carbon(total_plant_biomass * 0.00001);
+        // Emissions from animal metabolism (proportional to total energy burn)
+        let animal_emission = (self.entities.len() as f64 * 0.01) * env.metabolism_multiplier();
+        env.add_carbon(animal_emission);
+        env.tick();
 
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut rng);
         ecological::spawn_food(
@@ -490,12 +498,13 @@ impl World {
             self.tick,
             &self.entities,
             self.food.len(),
+            env.carbon_level,
             &mut self.pop_stats,
             &mut self.hall_of_fame,
         );
 
         // Eco-Stability Checks
-        if self.tick % 100 == 0 {
+        if self.tick.is_multiple_of(100) {
             let h_count = self
                 .entities
                 .iter()
@@ -522,7 +531,7 @@ impl World {
                 events.push(alert);
             }
         }
-        if self.tick % 1000 == 0 {
+        if self.tick.is_multiple_of(1000) {
             let _ = self.lineage_registry.save("logs/lineages.json");
         }
 
