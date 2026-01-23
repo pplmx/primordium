@@ -55,9 +55,6 @@ fn test_herding_bonus() {
     // 3. Update world.
     world.update(&env).unwrap();
 
-    // Total change = Bonus - (MoveCost + IdleCost + maintenance)
     // We expect the bonus to offset some drain.
-    // In a controlled test with neutral brain (newly born), drain is approx 1.5.
-    // If bonus 0.05 is applied, it works.
     assert!(world.entities[0].metabolism.energy > 0.0);
 }

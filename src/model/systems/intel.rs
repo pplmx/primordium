@@ -32,7 +32,7 @@ pub fn mutate_genotype(
     mutate_brain(&mut genotype.brain, config);
 
     // 2. Mutate Traits
-    let mut mutate_val = |v: &mut f64, min: f64, max: f64, rng: &mut rand::rngs::ThreadRng| {
+    let mutate_val = |v: &mut f64, min: f64, max: f64, rng: &mut rand::rngs::ThreadRng| {
         if rng.gen::<f32>() < config.mutation_rate {
             *v += rng.gen_range(-config.mutation_amount as f64..config.mutation_amount as f64) * *v;
         }

@@ -30,7 +30,8 @@ pub fn action_system(entity: &mut Entity, outputs: [f32; 8], ctx: &mut ActionCon
     entity.intel.last_signal = outputs[5];
 
     // 3. Inertia/Responsiveness based on stomach size
-    let inertia = (0.8 - stomach_penalty).clamp(0.4, 0.85);
+    // Larger stomach = more mass = higher inertia (slower response)
+    let inertia = (0.8 + stomach_penalty).clamp(0.4, 0.95);
     entity.physics.vx = entity.physics.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
     entity.physics.vy = entity.physics.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
 

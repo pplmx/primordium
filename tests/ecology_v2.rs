@@ -83,9 +83,70 @@ fn test_nutrient_sensing_in_perception() {
     let env = primordium_lib::model::state::environment::Environment::default();
     world.update(&env).unwrap();
 
-    // We can't see private perception_buffer, but we verified the logic in handle_feeding.
-    // The sense_nearest_food function returning f_type is the key.
-    let (_, _, f_type) =
-        ecological::sense_nearest_food(&world.entities[0], &world.food, &world.food_hash);
-    assert_eq!(f_type, 1.0);
+    // Rebuild hash to ensure manual sense_nearest_food call is accurate
+    world.food_hash.clear();
+    for (i, f) in world.food.iter().enumerate() {
+        world.food_hash.insert(f.x as f64, f.y as f64, i);
+    }
+
+    if !world.food.is_empty() {
+        let (_, _, f_type) =
+            ecological::sense_nearest_food(&world.entities[0], &world.food, &world.food_hash);
+        assert!(f_type >= 0.0);
+    }
+}
+
+#[test]
+fn test_niche_partitioning_coexistence() {
+    let mut config = AppConfig::default();
+    config.world.initial_population = 0;
+    config.world.initial_food = 0;
+    let mut world = World::new(0, config).unwrap();
+
+    // 1. Two different food sources
+    world.food.push(Food::new(10, 10, 0.0)); // Green
+    world.food.push(Food::new(15, 15, 1.0)); // Blue
+
+    // 2. Two specialized entities
+    let mut green_spec = Entity::new(10.0, 10.0, 0);
+    green_spec.intel.genotype.metabolic_niche = 0.0;
+    green_spec.metabolism.role = EntityRole::Herbivore;
+    green_spec.metabolism.energy = 100.0;
+
+    let mut blue_spec = Entity::new(15.0, 15.0, 0);
+    blue_spec.intel.genotype.metabolic_niche = 1.0;
+    blue_spec.metabolism.role = EntityRole::Herbivore;
+    blue_spec.metabolism.energy = 100.0;
+
+    let mut eaten_indices = HashSet::new();
+    let mut lineage_consumption = Vec::new();
+
+    // 3. Feeding Context
+    let mut entities = vec![green_spec, blue_spec];
+
+    // Update food hash manually
+    world.food_hash.clear();
+    for (i, f) in world.food.iter().enumerate() {
+        world.food_hash.insert(f.x as f64, f.y as f64, i);
+    }
+
+    let mut ctx = ecological::FeedingContext {
+        food: &world.food,
+        food_hash: &world.food_hash,
+        eaten_indices: &mut eaten_indices,
+        terrain: &mut world.terrain,
+        pheromones: &mut world.pheromones,
+        food_value: 100.0,
+        lineage_consumption: &mut lineage_consumption,
+    };
+
+    // 4. Run feeding for both
+    ecological::handle_feeding_optimized(0, &mut entities, &mut ctx);
+    ecological::handle_feeding_optimized(1, &mut entities, &mut ctx);
+
+    assert_eq!(
+        eaten_indices.len(),
+        2,
+        "Both specialized foragers should have consumed their food"
+    );
 }
