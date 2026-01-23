@@ -53,24 +53,44 @@ fn test_group_defense_reduces_damage() {
 }
 
 #[test]
-fn test_dynamic_signaling_color_shift() {
-    let mut entity = Entity::new(0.0, 0.0, 0);
-    entity.physics.r = 100;
-    entity.physics.g = 100;
-    entity.physics.b = 100;
+fn test_metabolic_cost_of_signaling() {
+    let mut config = AppConfig::default();
+    config.world.initial_population = 0;
+    let _world = World::new(0, config.clone()).unwrap();
+    let env = Environment::default();
 
-    // Signal > 0 (Brighten)
-    entity.intel.last_signal = 1.0;
-    let color_bright = entity.color();
-    // Signal < 0 (Darken)
-    entity.intel.last_signal = -1.0;
-    let color_dark = entity.color();
+    // Entity A: No signal
+    let mut e_quiet = Entity::new(10.0, 10.0, 0);
+    e_quiet.metabolism.energy = 500.0;
 
-    match (color_bright, color_dark) {
-        (ratatui::style::Color::Rgb(r1, _, _), ratatui::style::Color::Rgb(r2, _, _)) => {
-            assert!(r1 > 100);
-            assert!(r2 < 100);
-        }
-        _ => panic!("Expected RGB colors"),
-    }
+    // Entity B: Max signal
+    let mut e_loud = Entity::new(20.0, 20.0, 0);
+    e_loud.metabolism.energy = 500.0;
+
+    // Run action system directly with specific outputs
+    use primordium_lib::model::systems::action::action_system;
+    let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
+
+    // quiet: [x, y, speed, aggro, share, signal]
+    action_system(
+        &mut e_quiet,
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        &env,
+        &config,
+        &terrain,
+        100,
+        100,
+    );
+    // loud: [..., signal=1.0]
+    action_system(
+        &mut e_loud,
+        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+        &env,
+        &config,
+        &terrain,
+        100,
+        100,
+    );
+
+    assert!(e_loud.metabolism.energy < e_quiet.metabolism.energy);
 }

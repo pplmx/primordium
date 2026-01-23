@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::model::config::AppConfig;
 use crate::model::state::environment::{ClimateState, Environment};
+use crate::model::state::terrain::TerrainType;
 use crate::model::world::World;
 
 pub struct App {
@@ -30,6 +31,8 @@ pub struct App {
     // Neural Visualization
     pub show_brain: bool,
     pub selected_entity: Option<Uuid>,
+    // Divine Interface v2
+    pub brush_type: TerrainType,
     // Last climate state for shift logging
     pub last_climate: Option<ClimateState>,
     // Blockchain Anchoring
@@ -69,6 +72,7 @@ impl App {
             pop_history: VecDeque::from(vec![0; 60]),
             show_brain: false,
             selected_entity: None,
+            brush_type: TerrainType::Plains,
             last_climate: None,
             last_anchor_time: Instant::now(),
             anchor_interval: Duration::from_secs(3600),

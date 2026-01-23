@@ -140,6 +140,11 @@ impl App {
                 ratatui::text::Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
                 ratatui::text::Span::styled("[H]", Style::default().fg(Color::Cyan)),
                 ratatui::text::Span::raw(" Help"),
+                ratatui::text::Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
+                ratatui::text::Span::styled(
+                    format!("Brush: {:?}", self.brush_type),
+                    Style::default().fg(Color::Yellow),
+                ),
             ];
             f.render_widget(
                 Paragraph::new(ratatui::text::Line::from(legend_spans)),

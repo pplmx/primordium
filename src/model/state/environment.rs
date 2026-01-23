@@ -132,6 +132,8 @@ pub struct Environment {
     // Circadian System
     pub world_time: u64,      // 0 to day_cycle_ticks
     pub day_cycle_ticks: u64, // Default: 2000
+    // NEW: God Mode Overrides
+    pub god_climate_override: Option<ClimateState>,
 }
 
 impl Default for Environment {
@@ -149,6 +151,7 @@ impl Default for Environment {
             season_duration: 10000,
             world_time: 0,
             day_cycle_ticks: 2000,
+            god_climate_override: None,
         }
     }
 }
@@ -192,6 +195,9 @@ impl Environment {
     }
 
     pub fn climate(&self) -> ClimateState {
+        if let Some(over) = self.god_climate_override {
+            return over;
+        }
         if self.is_heat_wave() {
             ClimateState::Scorching
         } else if self.is_ice_age() || self.cpu_usage < 30.0 {

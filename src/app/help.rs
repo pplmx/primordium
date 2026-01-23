@@ -53,11 +53,18 @@ impl App {
                 " [C]       Export selected DNA",
                 " [V]       Import DNA from file",
                 "",
+                " 🛠️  DIVINE EDITOR (Brush)",
+                " ─────────────────────────────────",
+                " [!] Plains  [@] Mountain  [#] River",
+                " [$] Oasis   [%] Wall      [^] Barren",
+                "",
                 " 🖱️  MOUSE CONTROLS",
                 " ─────────────────────────────────",
-                " Left Click   Select organism",
+                " Left Click   Select entity",
+                " Left Drag    Paint Terrain",
                 " Right Click  Spawn food cluster",
             ],
+
             1 => vec![
                 "",
                 " 🧬 ENTITY STATUS SYMBOLS",
@@ -75,6 +82,8 @@ impl App {
                 " ▲  Mountain  - Slow movement",
                 " ≈  River     - Fast movement",
                 " ◊  Oasis     - 3x food spawn",
+                " ░  Barren    - No food growth",
+                " █  Wall      - Impassable barrier",
                 " *  Food      - Energy source",
             ],
             2 => vec![

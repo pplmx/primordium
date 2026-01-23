@@ -1,7 +1,9 @@
 use crate::app::state::App;
+use crate::model::state::terrain::TerrainType;
 use crate::model::systems::intel;
 use crate::ui::renderer::WorldWidget;
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use rand::Rng;
 use ratatui::style::Color;
 use std::fs;
 
@@ -79,6 +81,7 @@ impl App {
                         e.physics.sensing_range = e.intel.genotype.sensing_range;
                         e.physics.max_speed = e.intel.genotype.max_speed;
                         e.metabolism.max_energy = e.intel.genotype.max_energy;
+                        e.metabolism.lineage_id = e.intel.genotype.lineage_id;
 
                         self.world.entities.push(e);
                         self.event_log.push_back((
@@ -88,6 +91,48 @@ impl App {
                         let _ = fs::remove_file("dna_infuse.txt");
                     }
                 }
+            }
+            // BRUSH SELECTION
+            KeyCode::Char('!') => self.brush_type = TerrainType::Plains,
+            KeyCode::Char('@') => self.brush_type = TerrainType::Mountain,
+            KeyCode::Char('#') => self.brush_type = TerrainType::River,
+            KeyCode::Char('$') => self.brush_type = TerrainType::Oasis,
+            KeyCode::Char('%') => self.brush_type = TerrainType::Wall,
+            KeyCode::Char('^') => self.brush_type = TerrainType::Barren,
+
+            // GOD MODE COMMANDS
+            KeyCode::Char('k') | KeyCode::Char('K') => {
+                if self.env.god_climate_override.is_some() {
+                    self.env.god_climate_override = None;
+                    self.event_log
+                        .push_back(("God: Climate Restored".to_string(), Color::Cyan));
+                } else {
+                    self.env.god_climate_override =
+                        Some(crate::model::state::environment::ClimateState::Scorching);
+                    self.event_log
+                        .push_back(("GOD MODE: HEAT WAVE INDUCED".to_string(), Color::Red));
+                }
+            }
+            KeyCode::Char('l') | KeyCode::Char('L') => {
+                let kill_count = (self.world.entities.len() as f32 * 0.9) as usize;
+                self.world
+                    .entities
+                    .truncate(self.world.entities.len().saturating_sub(kill_count));
+                self.event_log.push_back((
+                    "GOD MODE: MASS EXTINCTION TRIGGERED".to_string(),
+                    Color::Magenta,
+                ));
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                use crate::model::state::food::Food;
+                let mut rng = rand::thread_rng();
+                for _ in 0..100 {
+                    let fx = rng.gen_range(1..self.world.width - 1);
+                    let fy = rng.gen_range(1..self.world.height - 1);
+                    self.world.food.push(Food::new(fx, fy));
+                }
+                self.event_log
+                    .push_back(("GOD MODE: RESOURCE BOOM!".to_string(), Color::Green));
             }
             _ => {}
         }
@@ -107,32 +152,39 @@ impl App {
 
     pub fn handle_mouse(&mut self, mouse: MouseEvent) {
         match mouse.kind {
-            MouseEventKind::Down(MouseButton::Left) => {
+            MouseEventKind::Down(MouseButton::Left) | MouseEventKind::Drag(MouseButton::Left) => {
                 if let Some((wx, wy)) = WorldWidget::screen_to_world(
                     mouse.column,
                     mouse.row,
                     self.last_world_rect,
                     self.screensaver,
                 ) {
-                    let indices = self.world.spatial_hash.query(wx, wy, 2.0);
-                    let mut min_dist = f64::MAX;
-                    let mut closest_id = None;
-                    for idx in indices {
-                        if idx >= self.world.entities.len() {
-                            continue;
+                    // Try to paint terrain if no entity selected or if dragging
+                    let painted = if matches!(mouse.kind, MouseEventKind::Drag(MouseButton::Left)) {
+                        true
+                    } else {
+                        // Check for entity selection on Down
+                        let indices = self.world.spatial_hash.query(wx, wy, 2.0);
+                        let mut closest_id = None;
+                        for idx in indices {
+                            if idx < self.world.entities.len() {
+                                closest_id = Some(self.world.entities[idx].id);
+                                break;
+                            }
                         }
-                        let entity = &self.world.entities[idx];
-                        let dx = entity.physics.x - wx;
-                        let dy = entity.physics.y - wy;
-                        let dist = (dx * dx + dy * dy).sqrt();
-                        if dist < min_dist {
-                            min_dist = dist;
-                            closest_id = Some(entity.id);
+                        if let Some(id) = closest_id {
+                            self.selected_entity = Some(id);
+                            self.show_brain = true;
+                            false // Selection, not painting
+                        } else {
+                            true // Empty space, paint!
                         }
-                    }
-                    if let Some(id) = closest_id {
-                        self.selected_entity = Some(id);
-                        self.show_brain = true;
+                    };
+
+                    if painted {
+                        self.world
+                            .terrain
+                            .set_cell_type(wx as u16, wy as u16, self.brush_type);
                     }
                 }
             }
