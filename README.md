@@ -51,14 +51,32 @@ Memory usage determines food availability. High RAM usage simulates a resource-f
 
 ### 🧠 Neural Awakening & Selection
 
-Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain integrated into a modular **Intel** component. Through natural selection, organisms learn to hunt, navigate, and manage energy.
+Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natural selection, organisms learn to hunt, coordinate, and manage energy.
 
-- **Evolvable Topology**: Brains are no longer static. Through structural mutations, organisms can grow new neurons and connections to adapt to complex environments.
-- **Efficiency Pressure**: Complexity carries a metabolic cost (0.02/node + 0.005/connection), ensuring only the most efficient cognitive structures survive.
-- **Recurrent Memory**: 6 inputs are dedicated to the previous tick's internal state, enabling time-coherent behavior.
-- **Parallel Inference**: Neural processing is multi-threaded using **Rayon**, enabling massive population scaling.
-- **Interactive Selection**: Use the **Mouse** to click and inspect specific organisms.
-- **Genotype Clustering**: Organisms are automatically classified into species based on neural weight similarity.
+- **Evolvable Topology**: Brains can grow new neurons and connections to adapt to complex environments.
+- **Efficiency Pressure**: Complexity carries a metabolic cost (0.02/node + 0.005/conn), preventing network bloat.
+- **Kin Recognition**: Entities sense the relative centroid of their lineage members (**KX**, **KY**), enabling collective herding behaviors.
+- **Semantic Language**: Active chemical signaling (**SA**, **SB**) provides a substrate for evolved social coordination.
+- **Multi-threaded Inference**: Powered by **Rayon**, supporting 5000+ entities with zero-jitter performance.
+
+### 👥 Social & Life History
+
+- **R/K Selection Strategies**: Organisms evolve trade-offs between many weak offspring (Strategy R) or few high-investment heirs (Strategy K).
+- **Metabolic Niches**: Specialized digestion for Green vs Blue food types coupled to terrain geography.
+- **Group Defense**: Proximity to same-lineage members reduces incoming predation damage.
+- **Persistent Lineages**: Ancestral success is tracked globally in the **Lineage Registry**.
+
+### 🌌 Global Hive & Networking
+
+- **P2P Multiverse**: Entities migrate between simulation instances via a high-performance **Axum** relay server.
+- **Peer Discovery**: Automated peer awareness with real-time REST APIs for global monitoring.
+- **HexDNA 2.0**: Unified genetic protocol ensuring 100% fidelity migrations across simulation versions.
+
+### ⚡ Divine Interface v2
+
+- **Terrain Editor**: Use **Mouse Drag** to paint Mountains, Rivers, and Walls directly onto the world.
+- **Targeted Intervention**: Manually **Mutate (M)**, **Smite (K)**, or **Reincarnate (P)** selected organisms.
+- **God Mode Overrides**: Induce global Heat Waves, Resource Booms, or Mass Extinctions via keyboard macros.
 
 ### 🦁 Apex Predators & Sexual Reproduction
 
@@ -131,10 +149,15 @@ cargo run --release -- --mode screensaver
 | `B` | Toggle Neural Brain Heatmap |
 | `H` | Toggle Help Overlay |
 | `X` | Trigger **Genetic Surge** (Global Mutation) |
-| `C` | Export selected organism's HexDNA |
-| `V` | Infuse organism from HexDNA file |
+| `M` | Mutate selected organism |
+| `K` | Smite (Remove) selected organism |
+| `P` | Reincarnate (Randomize DNA) selected organism |
+| `! @ # $ % ^` | Select Terrain Brush (Plains, Mt, River, Oasis, Wall, Barren) |
+| `Shift+K` | Toggle **Heat Wave** Disaster |
+| `L` | Trigger **Mass Extinction** (90% wipe) |
+| `R` | Trigger **Resource Boom** (100x Food) |
 | `+` / `-`| Increase / Decrease time scale |
-| `Left Click` | Select Organism |
+| `Left Click` | Select organism / **Hold & Drag to Paint Terrain** |
 | `Right Click`| Inject Food Cluster |
 
 ---

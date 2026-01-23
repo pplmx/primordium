@@ -299,12 +299,26 @@ toml = "0.8"
 - **Digestive Efficiency**: Energy gain scales from 0.2x (mismatch) to 1.2x (specialist match).
 - **Brain Sync**: 19th neural input for perceiving nutrient types of nearest resources.
 
-### Phase 32: Life History Strategies (R/K Selection) 🚧
+### Phase 32: Life History Strategies (R/K Selection) ✅
 
 - **Reproductive Investment**: New genes for maturity age and energy transfer ratio.
 - **Offspring Quality**: Trade-off between many weak offspring (R-strategy) vs. few strong ones (K-strategy).
-- **Parental Care**: Proximity-based protection or sharing priority for own offspring.
-- **Ecological Succession**: Observation of species replacement patterns in different resource regimes.
+- **Developmental Scaling**: Max energy capacity scales with maturation time (Growth vs Size).
+- **Strategy Inheritance**: Crossover and mutation of life history traits.
+
+### Phase 32.5: Hardening & Survival Validation ✅
+
+- **Engine Hardening**: Zero-panic guarantee on malformed DNA or version mismatches during migration.
+- **Survival Stress Tests**: Verified metabolic sinks (bloated brains, high speed) cause starvation as intended.
+- **Selection Validation**: Proven R-strategy dominance in boom cycles and K-strategy stability.
+- **Architecture Cleanup**: Unified system parameters into `ActionContext` for clean scalability.
+
+### Phase 33: Trophic Continuum & Dynamic Diets 🚧
+
+- **Predatory Potential Gene**: Move from binary Herbivore/Carnivore roles to a continuous trophic scale (0.0 to 1.0).
+- **Digestive Versatility**: Evolve omnivores that balance energy gain from plants vs. flesh based on availability.
+- **Trophic Cascades**: Observe self-regulating ecosystem loops (Prey-Predator cycles).
+- **Metabolic Convergence**: Convergence of species onto optimal diets based on terrain-coupled resources.
 
 ---
 

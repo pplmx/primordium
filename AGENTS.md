@@ -56,7 +56,7 @@ src/
 
 ---
 
-## 🧬 Entity Architecture (Phase 32)
+## 🧬 Entity Architecture (Phase 32.5)
 
 Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 

@@ -29,18 +29,25 @@ Primordium runs in two environments:
 | ----- | --------- |
 | `q` | **Quit** the simulation |
 | `Space` | **Pause/Resume** simulation |
-| `r` | **Reset** world state (kills all entities) |
-| `s` | Toggle **Statistics Overlay** (TUI) |
-| `h` | Toggle **Help/Controls** |
-| `w` | **Save** Simulation State |
-| `l` | **Load** Simulation State |
+| `b` | Toggle **Neural Brain Visualization** |
+| `h` | Toggle **Help Overlay** |
+| `x` | Trigger **Genetic Surge** (Global Mutation) |
+| `m` | **Mutate** selected entity |
+| `k` | **Smite** (Kill) selected entity |
+| `p` | **Reincarnate** (Reset DNA) selected entity |
+| `! @ # $ % ^` | Select **Terrain Brush** (Plains, Mt, River, Oasis, Wall, Barren) |
+| `Shift+K` | Toggle **Heat Wave** Disaster |
+| `l` | Trigger **Mass Extinction** (90% wipe) |
+| `r` | Trigger **Resource Boom** (Spawn Food) |
+| `+` / `-`| Increase / Decrease time scale |
 
-### TUI Specific
+### Mouse Controls
 
-| Key | Action |
+| Input | Action |
 | ----- | --------- |
-| `Click` | Select an entity to view its brain/genome |
-| `Arrows` | Move inspection cursor |
+| `Left Click` | Select an entity |
+| `Left Drag` | **Paint Terrain** with selected brush |
+| `Right Click`| Inject Food Cluster |
 
 ---
 

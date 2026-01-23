@@ -127,3 +127,6 @@ src/
 * **Phase 23**: **Phenotypic Specialization**。将物理属性（速度、感知、能量容量）整合入 `Genotype`。实现了物理特征的可遗传、可变异，并配套建立了基于物理极限的代谢权衡（Trade-offs）算法。
 * **Phase 24**: **Lineage & Macroevolution**。引入了谱系追踪（Lineage Tracking）机制。通过在 `Genotype` 中整合 `lineage_id`，实现了对远古祖先后代的长期追踪。该系统支持跨宇宙谱系保存，并为 TUI 提供了宏观演化（Macroevolution）的可视化数据支持，标志着从个体演化向族群演进分析的跨越。
 * **Phase 28**: **Complex Brain Evolution (NEAT-lite)**。将神经网络从固定矩阵的 MLP 升级为动态图结构的 NEAT-lite 架构。支持节点与连接的拓扑变异，并通过创新追踪 (Innovation Tracking) 确保复杂的交叉遗传。引入了基于大脑复杂度的代谢惩罚（Metabolic Penalty）以防止无效冗余。
+* **Phase 31**: **Metabolic Niches & Resource Diversity**。引入了多色食物系统（Green/Blue），并配套演化出 `metabolic_niche` 基因。生物现在必须权衡其消化效率（0.2x 到 1.2x），导致种群在不同地形（平原 vs 山脉）产生明显的生态位分化。
+* **Phase 32**: **Life History Strategies (R/K Selection)**。实现了生活史策略的遗传。通过 `reproductive_investment` 和 `maturity_gene` 基因，生物可以演化出“多而弱”的 R 策略或“少而精”的 K 策略。建立了发育缩放逻辑（Body size ∝ Maturity），模拟了生长周期与体型的生物学平衡。
+* **Phase 32.5**: **Hardening & Quality Lockdown**。完成了全量集成测试修复与引擎硬化。引入了 `ActionContext` 设计模式，确保了 19x8 复杂神经架构下的逻辑稳定性，并验证了在极端代谢压力与网络损坏 DNA 情况下的生存边界。
