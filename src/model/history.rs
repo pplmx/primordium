@@ -37,6 +37,11 @@ pub enum LiveEvent {
         tick: u64,
         timestamp: String,
     },
+    EcoAlert {
+        message: String,
+        tick: u64,
+        timestamp: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -330,6 +335,7 @@ impl LiveEvent {
             LiveEvent::Extinction { tick, .. } => {
                 (format!("Extinction at tick {}", tick), Color::Magenta)
             }
+            LiveEvent::EcoAlert { message, .. } => (format!("⚠️ {}", message), Color::Yellow),
         }
     }
 }

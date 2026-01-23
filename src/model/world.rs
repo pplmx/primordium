@@ -493,6 +493,35 @@ impl World {
             &mut self.pop_stats,
             &mut self.hall_of_fame,
         );
+
+        // Eco-Stability Checks
+        if self.tick % 100 == 0 {
+            let h_count = self
+                .entities
+                .iter()
+                .filter(|e| e.metabolism.trophic_potential < 0.4)
+                .count();
+            let c_count = self.entities.len() - h_count;
+
+            if h_count < 5 && c_count > 10 {
+                let alert = LiveEvent::EcoAlert {
+                    message: "Trophic Collapse: Prey scarcity!".to_string(),
+                    tick: self.tick,
+                    timestamp: Utc::now().to_rfc3339(),
+                };
+                let _ = self.logger.log_event(alert.clone());
+                events.push(alert);
+            }
+            if self.pop_stats.biomass_h > 8000.0 {
+                let alert = LiveEvent::EcoAlert {
+                    message: "Overgrazing: Soil stress high!".to_string(),
+                    tick: self.tick,
+                    timestamp: Utc::now().to_rfc3339(),
+                };
+                let _ = self.logger.log_event(alert.clone());
+                events.push(alert);
+            }
+        }
         if self.tick % 1000 == 0 {
             let _ = self.lineage_registry.save("logs/lineages.json");
         }

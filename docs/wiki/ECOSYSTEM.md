@@ -17,12 +17,33 @@ Where:
 - $C_{think} = 0.1$
 - $M_{env}$: Environmental multiplier (Night: 0.6, CPU-load: 1.0-3.0)
 
-### Predation & Trophic Levels
+### Trophic Continuum (Phase 33)
 
-When an entity kills another, it gains a portion of the target's energy:
+Phase 33 replaces binary "Herbivore vs. Carnivore" roles with a continuous genetic spectrum defined by the `trophic_potential` (TP) gene (0.0 to 1.0).
 
-- **Carnivore**: Gains **1.2x** of target energy (Predation specialist).
-- **Herbivore**: Gains **0.2x** of target energy (Inefficient predator/cannibal).
+#### Efficiency Scaling
+
+An entity's ability to extract energy from plants (environment) vs. meat (other entities) scales linearly with its `trophic_potential`:
+
+- **Plant Gain**: $E_{gain} = FoodValue \times (1.0 - TP)$
+- **Meat Gain**: $E_{gain} = VictimEnergy \times TP$
+
+*Note: Pure herbivores (TP=0.0) gain maximum energy from food clusters but zero from predation. Pure carnivores (TP=1.0) must hunt to survive, as environmental food provides no energy.*
+
+### Ecosystem Stability (Phase 35)
+
+Phase 35 introduces feedback loops to prevent runaway population growth and ensure long-term stability.
+
+#### Over-grazing
+High herbivore biomass puts pressure on the terrain. If the total energy consumed by herbivores in a region exceeds the soil's regeneration capacity, the **Soil Fertility** drops, reducing future food growth rates until the population thins.
+
+#### Hunter Competition
+Predatory efficiency is no longer static. As the density of predators increases, the energy gain per kill scales inversely with predator biomass. This simulates competition for the best cuts and the energy spent defending kills from rivals.
+
+#### EcoAlerts
+The system monitors for "Trophic Collapse" scenarios:
+- **Trophic Collapse**: Sudden extinction of all predators leading to herbivore overpopulation and subsequent famine.
+- **Overgrazing Alert**: Sustained soil depletion that threatens the entire local food chain.
 
 ### Social Interaction
 

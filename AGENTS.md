@@ -28,13 +28,12 @@ src/
 ├── model/               # 模拟引擎核心
 │   ├── state/           # 数据层 (entity, terrain, environment, food, pheromone, pathogen, lineage_registry)
 │   ├── systems/         # 系统层 (intel, action, biological, social, ecological, environment, stats)
-│   ├── infra/           # 基础设施 (blockchain, network)
-│   ├── brain.rs         # 神经网络 (19-6-8 RNN-lite)
+│   ├── infra/           # 基础设施 (blockchain, network, lineage_tree)
+│   ├── brain.rs         # 神经网络 (20-6-8 RNN-lite / NEAT-lite)
 │   ├── quadtree.rs      # 空间索引 (实为 SpatialHash)
 │   ├── world.rs         # 协调器
 │   ├── config.rs        # 配置
 │   ├── history.rs       # 事件日志
-│   ├── lineage_tree.rs  # 谱系演化树 (petgraph)
 │   └── migration.rs     # 实体迁移
 ├── ui/                  # 渲染抽象 (tui, web_renderer)
 ├── client/              # WASM 客户端 (wasm32 only)
@@ -57,7 +56,7 @@ src/
 
 ---
 
-## 🧬 Entity Architecture (Phase 32.5)
+## 🧬 Entity Architecture (Phase 35)
 
 Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
@@ -70,6 +69,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
         - `Genotype`: The inheritable payload (encodes the DNA).
             - **Phenotypic Genes**: `sensing_range`, `max_speed`, `max_energy`, `metabolic_niche`.
             - **Life History Genes**: `reproductive_investment`, `maturity_gene`.
+            - **Trophic Genes**: `trophic_potential` (0.0=Herbivore, 1.0=Carnivore).
             - **Neural Genes**: `Brain` (Dynamic Graph-based NEAT-lite).
 
 ### Life History Strategies (Phase 32)
@@ -79,7 +79,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
 ### Brain Details
 
-- **Architecture**: Dynamic graph-based topology. Initialized as 19 inputs (13 sensors + 6 memory) → 6 hidden → 8 outputs.
+- **Architecture**: Dynamic graph-based topology. Initialized as 20 inputs (14 sensors + 6 memory) → 6 hidden → 8 outputs.
 - **Topological Evolution**: Supports "Add Node" and "Add Connection" mutations with Innovation Tracking for crossover.
 - **Memory**: The 6 initial hidden layer values from $T-1$ are fed back as inputs for $T$.
 - **Metabolic Cost**: 0.02 per hidden node + 0.005 per enabled connection.
@@ -95,6 +95,12 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 - **Kin Recognition**: Sensing kin centroid (KX, KY).
 - **Herding Bonus**: +0.05 energy/tick for alignment with kin centroid.
 - **Semantic Signals**: SA/SB emission and sensing for evolved communication.
+
+### Trophic Continuum (Phase 33)
+
+- **Trophic Potential**: Sliding scale from 0.0 (Herbivore) to 1.0 (Carnivore).
+- **Efficiency**: Plant gain ∝ $(1.0 - trophic\_potential)$; Meat gain ∝ $trophic\_potential$.
+- **Trophic Cascade (Phase 35)**: Over-grazing and predator competition create self-regulating population cycles. Stability alerts (EcoAlert) notify of collapse.
 
 ### Action System Trade-offs
 

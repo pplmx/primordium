@@ -22,7 +22,7 @@ Each time an entity reproduces:
 1. **Crossover**: Offspring takes attributes from both parents (50/50 chance per gene).
 2. **Standard Mutation**: A probability (**0.1**) to alter a gene/weight value by ±0.2.
 3. **Genetic Drift**: A small probability (**0.01**) for a "macro-mutation" (±0.5 change).
-4. **Speciation**: A **2% chance** to flip the entity's trophic role (**Herbivore ↔ Carnivore**).
+4. **Speciation**: A **2% chance** for a massive shift in `trophic_potential` (±0.4), potentially flipping the organism's ecological role.
 
 ## Phenotypic Genes
 
@@ -33,7 +33,8 @@ Phase 23 introduces a set of specialized phenotypic genes that define the physic
 | **Sensing Range** | 3.0 - 15.0 | Radius of environmental perception. |
 | **Max Speed** | 0.5 - 3.0 | Maximum velocity achievable. |
 | **Max Energy** | 100 - 500 | Total energy storage capacity. |
-| **Metabolic Niche** | 0.0 - 1.0 | Specialization for specific nutrient types. |
+| **Metabolic Niche** | 0.0 - 1.0 | Specialization for nutrient types (Green vs Blue). |
+| **Trophic Potential**| 0.0 - 1.0 | Dietary strategy (Herbivore vs Carnivore). |
 
 ## Life History Genes (Phase 32)
 
@@ -60,15 +61,20 @@ The genome is now unified into a single `Genotype` structure that encapsulates b
 
 Attributes are no longer static "labels" but are fully mutable and inheritable traits. A mutation in the Phenotypic Block directly alters the physical manifestation of the entity in the next generation.
 
-## Lineage Tracking (Phase 24)
+## Macroevolution & Ancestry (Phase 34)
 
-Phase 24 introduces **Lineage Tracking**, allowing the simulation to monitor the long-term success and diversification of ancestral lines. Every entity is now part of a specific lineage that can be traced back to the original population.
+Phase 34 shifts the analytical focus from individual survival to the structural evolution of the entire ecosystem. Every lineage is now part of a branching tree built using parent/child relationships.
 
-### Ancestral Persistence
+### Lineage Registry
 
-- **Dynastic ID**: Each entity carries a `lineage_id` within its `Genotype`.
-- **Crossover Inheritance**: During sexual reproduction, the offspring inherits the `lineage_id` from the **first parent** (the one that initiated the mating or is considered the "primary" ancestor in the pairing).
-- **Mutation Stability**: Mutation and macro-mutation do not change the `lineage_id`. A lineage remains consistent even as its physical and neural traits diverge significantly over time.
-- **Cross-Universe Preservation**: When an entity migrates between simulation instances (Global Hive), its `lineage_id` is preserved, allowing for the tracking of "interstellar" dynasties across the multiverse.
+The simulation maintains a persistent registry of all lineages in `logs/lineages.json`. This file tracks:
+- **Ancestry**: The parent lineage ID for every branch.
+- **Founding DNA**: The HexDNA of the original ancestor that triggered the speciation event.
+- **Success Metrics**: Peak population, total lifespan, and trophic dominance.
 
-This system enables the visualization of macroevolutionary trends, such as which original ancestors' descendants currently dominate the ecosystem.
+### The Tree of Life
+
+By utilizing `petgraph`, the engine constructs a real-time Directed Acyclic Graph (DAG) representing the branching history of all active and historical lineages.
+- **Branching**: When a mutation leads to a significant genetic distance from the current lineage norm, a new "child" lineage is registered.
+- **Persistence**: Lineage data is preserved across sessions, allowing for long-term evolutionary studies.
+- **Visualization**: The TUI (via the `A` key) provides a live view of this tree, highlighting the top 5 dominant dynasties and their trophic strategies.

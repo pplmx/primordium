@@ -10,36 +10,45 @@ In earlier phases, entities used a fixed MLP (Multilayer Perceptron) architectur
 
 The brain starts with a standard minimal configuration but grows dynamically:
 
-- **Initial Input Layer**: 19 Neurons (13 Environment, 6 Recurrent)
+- **Initial Input Layer**: 20 Neurons (14 Environment, 6 Recurrent)
 - **Initial Hidden Layer**: 6 Neurons
 - **Initial Output Layer**: 8 Neurons
 - **Dynamic Growth**: Through mutations, new hidden nodes and connections can be added indefinitely.
 
 ## Inputs (Sensors)
 
-### Environmental Inputs (0-12)
+### Environmental Inputs (0-13)
 
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
-| 0 | `FoodDX` | X-distance to nearest food |
-| 1 | `FoodDY` | Y-distance to nearest food |
-| 2 | `Energy` | Internal energy % |
-| 3 | `Neighbors`| Count of nearby entities |
-| 4 | `Pheromone`| Strength of food trail at location |
-| 5 | `Tribe` | Tribe density nearby |
-| 6 | `KX` | Kin Centroid X (relative) |
-| 7 | `KY` | Kin Centroid Y (relative) |
-| 8 | `SA` | Signal A (semantic pheromone) |
-| 9 | `SB` | Signal B (semantic pheromone) |
-| 10 | `WL` | Wall Proximity |
-| 11 | `AG` | Age/Maturity |
-| 12 | `NutType`| Nutrient Type of nearest food (0.0=Green, 1.0=Blue) |
+| 0 | `FoodDX` | X-distance to nearest food source |
+| 1 | `FoodDY` | Y-distance to nearest food source |
+| 2 | `Energy` | Internal energy level (0.0 to 1.0) |
+| 3 | `Density` | Local neighbor density |
+| 4 | `Phero` | Food pheromone strength at current location |
+| 5 | `Tribe` | Local tribe member count |
+| 6 | `KX` | Kin Centroid X (relative direction) |
+| 7 | `KY` | Kin Centroid Y (relative direction) |
+| 8 | `SA` | Signal A (Semantic Signal input) |
+| 9 | `SB` | Signal B (Semantic Signal input) |
+| 10 | `WL` | Wall/Boundary proximity |
+| 11 | `AG` | Age/Maturity status (0.0 to 1.0) |
+| 12 | `NT` | Nutrient Type of nearest food (0.0=Green, 1.0=Blue) |
+| 13 | `TP` | Internal Trophic Potential (0.0=Herbivore, 1.0=Carnivore) |
 
-### Recurrent Inputs (13-18)
+### Recurrent Inputs (14-19)
 
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
-| 13-18| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
+| 14-19| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
+
+## Trophic Spectrum Influence (Phase 33)
+
+With the introduction of the **Trophic Potential (TP)** gene, the brain must now navigate a sliding scale of dietary strategies rather than a binary choice.
+
+- **Herbivore Dominance (TP < 0.5)**: The brain prioritizes `NT` inputs that match its `metabolic_niche` (usually Green). High sensitivity to `Phero` and `FoodDX/Y` is favored for efficient grazing.
+- **Carnivore Dominance (TP > 0.5)**: The brain evolves to ignore `Phero` (food trails) in favor of `Density` and `SA/SB` signals from potential prey. Movement logic shifts from "seek resource" to "intercept target".
+- **The Hybrid Trap**: Entities with mid-range TP (0.4 - 0.6) must balance both strategies but suffer from reduced efficiency in both, often leading to specialized "opportunist" behaviors or extinction in highly competitive environments.
 
 ## Outputs (Actions)
 
