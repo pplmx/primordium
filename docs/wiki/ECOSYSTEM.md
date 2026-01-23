@@ -30,7 +30,7 @@ When an entity kills another, it gains a portion of the target's energy:
 Entities can altruistically share energy with tribe members:
 - **Transfer**: 5% of giver's energy per tick.
 - **Threshold**: Giver must have **> 70%** energy.
-- **Requirements**: Distance < 2.0 units, same tribe (Color distance < 60).
+- **Requirements**: Distance < 2.0 units, same tribe (Manhattan RGB distance < 60).
 
 #### Territoriality
 Entities are more defensive near their birthplace:
