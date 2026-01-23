@@ -78,6 +78,9 @@ fn test_barren_transition() {
     let ix = 5;
     let iy = 5;
 
+    // Ensure it's Plains first
+    world.terrain.set_cell_type(ix, iy, TerrainType::Plains);
+
     // Manually deplete to nearly zero
     for _ in 0..10 {
         world.terrain.deplete(x, y, 0.1);

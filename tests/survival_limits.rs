@@ -48,7 +48,7 @@ fn test_death_by_brain_bloat() {
 fn test_high_speed_metabolic_exhaustion() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
-    let mut world = World::new(0, config.clone()).unwrap();
+    let _world = World::new(0, config.clone()).unwrap();
     let env = Environment::default();
 
     // 1. Entity A: Low speed Factor (0.5)
@@ -63,35 +63,33 @@ fn test_high_speed_metabolic_exhaustion() {
     e_fast.intel.genotype.max_speed = 3.0;
     e_fast.metabolism.energy = 200.0;
 
-    world.entities.push(e_slow);
-    world.entities.push(e_fast);
+    // 3. Run action system directly to verify cost scaling
+    use primordium_lib::model::systems::action::{action_system, ActionContext};
 
-    // 3. Run update while forcing movement (velocity > 0)
-    for ent in &mut world.entities {
-        ent.physics.vx = 1.0;
-    }
+    let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
+    let mut pheromones = primordium_lib::model::state::pheromone::PheromoneGrid::new(100, 100);
+    let mut ctx = ActionContext {
+        env: &env,
+        config: &config,
+        terrain: &terrain,
+        pheromones: &mut pheromones,
+        width: 100,
+        height: 100,
+    };
 
-    world.update(&env).unwrap();
+    // Use same "Full Speed" output for both: [0.0, 0.0, Speed=1.0, ...]
+    let outputs = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
-    let energy_slow = world
-        .entities
-        .iter()
-        .find(|e| e.physics.x < 15.0)
-        .unwrap()
-        .metabolism
-        .energy;
-    let energy_fast = world
-        .entities
-        .iter()
-        .find(|e| e.physics.x > 15.0)
-        .unwrap()
-        .metabolism
-        .energy;
+    action_system(&mut e_slow, outputs, &mut ctx);
+    action_system(&mut e_fast, outputs, &mut ctx);
 
-    // Fast entity should have consumed significantly more energy due to speed capability
+    // Fast entity has 3.0 cap, slow has 0.5 cap.
+    // Cost scales with speed_mult which scales with cap.
     assert!(
-        energy_fast < energy_slow,
-        "High speed capability must increase energy drain"
+        e_fast.metabolism.energy < e_slow.metabolism.energy,
+        "High speed capability must increase energy drain. Slow: {}, Fast: {}",
+        e_slow.metabolism.energy,
+        e_fast.metabolism.energy
     );
 }
 

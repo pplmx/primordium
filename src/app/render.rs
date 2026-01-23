@@ -99,18 +99,41 @@ impl App {
                 .map(|e| e.metabolism.generation)
                 .max()
                 .unwrap_or(0);
-            let world_stats = format!(
-                "Pop: {} | H/C: {:.0}/{:.0} | Species: {} | Gen: {} | AvgLife: {:.0} | Entropy: {:.2}",
-                self.world.entities.len(),
-                self.world.pop_stats.biomass_h,
-                self.world.pop_stats.biomass_c,
-                self.world.pop_stats.species_count,
-                max_gen,
-                self.world.pop_stats.avg_lifespan,
-                self.world.pop_stats.avg_brain_entropy
-            );
+            let total_biomass = self.world.pop_stats.biomass_h + self.world.pop_stats.biomass_c;
+            let h_percent = if total_biomass > 0.0 {
+                (self.world.pop_stats.biomass_h / total_biomass * 10.0) as usize
+            } else {
+                5
+            };
+            let mut biomass_bar = String::from("[");
+            for i in 0..10 {
+                if i < h_percent {
+                    biomass_bar.push('H');
+                } else {
+                    biomass_bar.push('C');
+                }
+            }
+            biomass_bar.push(']');
+
+            let world_stats = vec![
+                ratatui::text::Span::raw(format!("Pop: {} | ", self.world.entities.len())),
+                ratatui::text::Span::styled(
+                    "Biomass: ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+                ratatui::text::Span::styled(biomass_bar, Style::default().fg(Color::Yellow)),
+                ratatui::text::Span::raw(format!(
+                    " | Species: {} | Gen: {} | AvgLife: {:.0} | Entropy: {:.2}",
+                    self.world.pop_stats.species_count,
+                    max_gen,
+                    self.world.pop_stats.avg_lifespan,
+                    self.world.pop_stats.avg_brain_entropy
+                )),
+            ];
+
             f.render_widget(
-                Paragraph::new(world_stats).style(Style::default().fg(Color::DarkGray)),
+                Paragraph::new(ratatui::text::Line::from(world_stats))
+                    .style(Style::default().fg(Color::DarkGray)),
                 status_lines[2],
             );
 
