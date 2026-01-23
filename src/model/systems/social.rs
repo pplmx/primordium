@@ -94,10 +94,20 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
                 // NEW: Trophic Continuum Gain
                 // Higher trophic potential = higher efficiency in extracting meat energy.
                 let gain_mult = entities[idx].metabolism.trophic_potential as f64;
-                let gain = v_e * gain_mult;
+
+                // NEW: Hunter Competition
+                // More predators (biomass_c) = harder to find prey or more fighting.
+                // Scaled: 1.0 (low pop) to 0.5 (high pop)
+                let competition_mult = (1.0 - (ctx.pop_stats.biomass_c / 10000.0)).max(0.5);
+
+                let gain = v_e * gain_mult * competition_mult;
 
                 entities[idx].metabolism.energy = (entities[idx].metabolism.energy + gain)
                     .min(entities[idx].metabolism.max_energy);
+
+                // Energy sink for the hunt itself (Costs 10 energy base)
+                entities[idx].metabolism.energy -= 10.0;
+
                 ctx.lineage_consumption
                     .push((entities[idx].metabolism.lineage_id, gain));
                 ctx.killed_ids.insert(v_id);

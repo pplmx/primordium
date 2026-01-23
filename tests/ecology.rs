@@ -57,7 +57,7 @@ fn test_terrain_fertility_cycle() {
 
     // 3. Test recovery over many ticks
     for _ in 0..100 {
-        world.terrain.update();
+        world.terrain.update(0.0);
     }
     let recovered_fertility = world.terrain.get_cell(ix, iy).fertility;
     assert!(
@@ -83,7 +83,7 @@ fn test_barren_transition() {
         world.terrain.deplete(x, y, 0.1);
     }
 
-    world.terrain.update();
+    world.terrain.update(0.0);
     assert_eq!(
         world.terrain.get_cell(ix, iy).terrain_type,
         TerrainType::Barren,

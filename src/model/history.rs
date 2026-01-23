@@ -63,6 +63,10 @@ pub struct PopulationStats {
     pub avg_brain_entropy: f64,
     pub species_count: usize,
     pub top_fitness: f64,
+    /// NEW: Biomass per trophic level (Plants, Herbivores, Predators)
+    pub biomass_h: f64,
+    pub biomass_c: f64,
+    pub food_count: usize,
     /// NEW: Count of entities per lineage.
     pub lineage_counts: HashMap<Uuid, usize>,
     recent_deaths: VecDeque<f64>,
@@ -82,6 +86,9 @@ impl PopulationStats {
             avg_brain_entropy: 0.0,
             species_count: 0,
             top_fitness: 0.0,
+            biomass_h: 0.0,
+            biomass_c: 0.0,
+            food_count: 0,
             lineage_counts: HashMap::new(),
             recent_deaths: VecDeque::with_capacity(100),
         }
@@ -99,11 +106,15 @@ impl PopulationStats {
     pub fn update_snapshot(
         &mut self,
         entities: &[crate::model::state::entity::Entity],
+        food_count: usize,
         top_fitness: f64,
     ) {
         self.population = entities.len();
+        self.food_count = food_count;
         self.top_fitness = top_fitness;
         self.lineage_counts.clear();
+        self.biomass_h = 0.0;
+        self.biomass_c = 0.0;
 
         if entities.is_empty() {
             self.avg_brain_entropy = 0.0;
@@ -116,6 +127,13 @@ impl PopulationStats {
                 .lineage_counts
                 .entry(e.metabolism.lineage_id)
                 .or_insert(0) += 1;
+
+            let tp = e.metabolism.trophic_potential;
+            if tp < 0.4 {
+                self.biomass_h += e.metabolism.energy;
+            } else if tp > 0.6 {
+                self.biomass_c += e.metabolism.energy;
+            }
         }
 
         // 1. Recalculate Entropy (Shannon entropy of connection count buckets)

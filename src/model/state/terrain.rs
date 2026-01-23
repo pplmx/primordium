@@ -151,13 +151,18 @@ impl TerrainGrid {
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, herbivore_biomass: f64) {
         if self.dust_bowl_timer > 0 {
             self.dust_bowl_timer -= 1;
         }
+        // Base recovery rate 0.001. Reduced by herbivore pressure.
+        // If biomass_h > 1000, recovery could stall or reverse.
+        let pressure = (herbivore_biomass / 5000.0) as f32;
+        let recovery_rate = (0.001 - pressure).max(-0.01);
+
         for row in &mut self.cells {
             for cell in row {
-                cell.fertility = (cell.fertility + 0.001).min(1.0);
+                cell.fertility = (cell.fertility + recovery_rate).clamp(0.0, 1.0);
                 if self.dust_bowl_timer > 0 && cell.terrain_type == TerrainType::Plains {
                     cell.terrain_type = TerrainType::Barren;
                     cell.fertility = (cell.fertility - 0.05).max(0.0);
@@ -278,7 +283,8 @@ mod tests {
         assert_eq!(terrain.dust_bowl_timer, 0);
 
         terrain.trigger_dust_bowl(500);
-        assert_eq!(terrain.dust_bowl_timer, 500);
+        terrain.update(0.0);
+        assert_eq!(terrain.dust_bowl_timer, 499);
     }
 
     #[test]
@@ -296,7 +302,7 @@ mod tests {
 
         // Update to recover (slowly)
         for _ in 0..100 {
-            terrain.update();
+            terrain.update(0.0);
         }
         let recovered_fertility = terrain.get_cell(5, 5).fertility;
         assert!(

@@ -313,12 +313,27 @@ toml = "0.8"
 - **Selection Validation**: Proven R-strategy dominance in boom cycles and K-strategy stability.
 - **Architecture Cleanup**: Unified system parameters into `ActionContext` for clean scalability.
 
-### Phase 33: Trophic Continuum & Dynamic Diets 🚧
+### Phase 33: Trophic Continuum & Dynamic Diets ✅
 
-- **Predatory Potential Gene**: Move from binary Herbivore/Carnivore roles to a continuous trophic scale (0.0 to 1.0).
-- **Digestive Versatility**: Evolve omnivores that balance energy gain from plants vs. flesh based on availability.
-- **Trophic Cascades**: Observe self-regulating ecosystem loops (Prey-Predator cycles).
-- **Metabolic Convergence**: Convergence of species onto optimal diets based on terrain-coupled resources.
+- **Predatory Potential Gene**: Replaced binary roles with a continuous trophic scale (0.0 to 1.0).
+- **Digestive Versatility**: Implemented efficiency scaling where herbivores (0.0) eat plants efficiently and carnivores (1.0) extract maximum energy from predation.
+- **Omnivory Emergence**: Generalists (0.3-0.7) can now consume both resources at reduced efficiency, enabling survival in fluctuating environments.
+- **Trophic Sync**: Updated brain sensors and status naming to reflect the new diet spectrum.
+
+### Phase 34: The Tree of Life (Ancestry Visualization) ✅
+
+- **Lineage Tree Logic**: Implemented `AncestryTree` builder using `petgraph` to track parent-child relationships.
+- **TUI Tree View**: Added real-time "Ancestry" panel (A key) showing the top 5 living dynasties and their representatives.
+- **Trophic Mapping**: Visualized dietary branching (Herbivore/Carnivore/Omnivore icons) within the lineage view.
+- **Tree Exporter**: Added Shift+A command to export the entire simulation's ancestry as a Graphviz DOT file.
+- **Analytics Tool**: Updated `analyze` binary to generate family tree visualizations from historical logs.
+
+### Phase 35: Trophic Cascades & Ecosystem Stability 🚧
+
+- **Self-Regulating Population**: Implement feedback loops where predator over-population leads to prey collapse and predator famine.
+- **Lotka-Volterra Cycles**: Track and visualize classic predator-prey oscillations in world stats.
+- **Trophic Naming**: Auto-naming lineages based on their dominant dietary specialization.
+- **Eco-Stability metrics**: Monitor the "Health" of the ecosystem based on diversity and biomass ratios.
 
 ---
 
@@ -358,7 +373,9 @@ toml = "0.8"
 | Phase 29 | Semantic Language | ✅ Complete |
 | Phase 30 | Social Coordination | ✅ Complete |
 | Phase 31 | Metabolic Niches | ✅ Complete |
-| Phase 32 | Life History Strategies | 🚧 In Progress |
+| Phase 33 | Trophic Continuum | ✅ Complete |
+| Phase 34 | The Tree of Life | ✅ Complete |
+| Phase 35 | Trophic Cascades | 🚧 In Progress |
 
 ---
 

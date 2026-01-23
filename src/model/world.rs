@@ -173,7 +173,7 @@ impl World {
         self.pheromones.decay();
 
         environment::handle_disasters(env, self.entities.len(), &mut self.terrain, &mut rng);
-        self.terrain.update();
+        self.terrain.update(self.pop_stats.biomass_h);
 
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut rng);
         ecological::spawn_food(
@@ -489,6 +489,7 @@ impl World {
         stats::update_stats(
             self.tick,
             &self.entities,
+            self.food.len(),
             &mut self.pop_stats,
             &mut self.hall_of_fame,
         );

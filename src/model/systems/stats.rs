@@ -5,6 +5,7 @@ use crate::model::state::entity::Entity;
 pub fn update_stats(
     tick: u64,
     entities: &[Entity],
+    food_count: usize,
     pop_stats: &mut PopulationStats,
     hall_of_fame: &mut HallOfFame,
 ) {
@@ -15,6 +16,6 @@ pub fn update_stats(
             .first()
             .map(|(s, _)| *s)
             .unwrap_or(0.0);
-        pop_stats.update_snapshot(entities, top_fitness);
+        pop_stats.update_snapshot(entities, food_count, top_fitness);
     }
 }
