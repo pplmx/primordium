@@ -44,7 +44,11 @@ pub struct App {
     // Modes
     pub screensaver: bool,
     pub show_help: bool,
-    pub help_tab: u8,                // 0=Controls, 1=Symbols, 2=Concepts, 3=Eras
+    pub help_tab: u8, // 0=Controls, 1=Symbols, 2=Concepts, 3=Eras
+    // Phase 40: Archeology View
+    pub show_archeology: bool,
+    pub archeology_snapshots: Vec<(u64, crate::model::history::PopulationStats)>,
+    pub archeology_index: usize,
     pub onboarding_step: Option<u8>, // None=done, Some(0-2)=onboarding screens
     // Layout tracking
     pub last_world_rect: Rect,
@@ -98,6 +102,9 @@ impl App {
             screensaver: false,
             show_help: false,
             help_tab: 0,
+            show_archeology: false,
+            archeology_snapshots: Vec::new(),
+            archeology_index: 0,
             onboarding_step: if std::path::Path::new(".primordium_onboarded").exists() {
                 None
             } else {

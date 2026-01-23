@@ -12,10 +12,13 @@ pub struct LineageRecord {
     pub name: String,
     pub total_entities_produced: usize,
     pub current_population: usize,
+    pub peak_population: usize,
     pub max_generation: u32,
     pub total_energy_consumed: f64,
     pub first_appearance_tick: u64,
     pub is_extinct: bool,
+    /// NEW: ID of the most successful legendary representative of this lineage
+    pub best_legend_id: Option<Uuid>,
 }
 
 /// Persistent registry of all lineages that have ever existed in the world.
@@ -38,6 +41,9 @@ impl LineageRegistry {
         });
         entry.total_entities_produced += 1;
         entry.current_population += 1;
+        if entry.current_population > entry.peak_population {
+            entry.peak_population = entry.current_population;
+        }
         if gen > entry.max_generation {
             entry.max_generation = gen;
         }
@@ -83,5 +89,19 @@ impl LineageRegistry {
                 .cmp(&a.1.total_entities_produced)
         });
         list.into_iter().take(count).collect()
+    }
+
+    pub fn update_best_legend(&mut self, lineage_id: Uuid, legend_id: Uuid) {
+        if let Some(record) = self.lineages.get_mut(&lineage_id) {
+            record.best_legend_id = Some(legend_id);
+        }
+    }
+
+    pub fn get_extinct_lineages(&self) -> Vec<Uuid> {
+        self.lineages
+            .iter()
+            .filter(|(_, r)| r.is_extinct)
+            .map(|(id, _)| *id)
+            .collect()
     }
 }

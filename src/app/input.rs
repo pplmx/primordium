@@ -21,6 +21,23 @@ impl App {
             }
             KeyCode::Char('b') => self.show_brain = !self.show_brain,
             KeyCode::Char('a') => self.show_ancestry = !self.show_ancestry,
+            KeyCode::Char('y') => {
+                self.show_archeology = !self.show_archeology;
+                if self.show_archeology {
+                    if let Ok(snaps) = self.world.logger.get_snapshots() {
+                        self.archeology_snapshots = snaps;
+                        self.archeology_index = self.archeology_snapshots.len().saturating_sub(1);
+                    }
+                }
+            }
+            KeyCode::Char('[') if self.show_archeology => {
+                self.archeology_index = self.archeology_index.saturating_sub(1);
+            }
+            KeyCode::Char(']') if self.show_archeology => {
+                if self.archeology_index + 1 < self.archeology_snapshots.len() {
+                    self.archeology_index += 1;
+                }
+            }
             KeyCode::Char('A') => {
                 if let Ok(tree) = self.world.logger.get_ancestry_tree(&self.world.entities) {
                     let dot = tree.to_dot();

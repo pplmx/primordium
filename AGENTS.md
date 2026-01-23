@@ -141,6 +141,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 | `lineage_persistence.rs` | 谱系注册、持久化、宏观指标 |
 | `environmental_succession.rs` | 环境演替、碳循环、多样性热点 |
 | `genetic_bottlenecks.rs` | 遗传瓶颈、动态突变、遗传漂变 |
+| `archeology.rs` | 考古学工具、化石记录、快照 |
 | `stress_test.rs` | 高负载基准 (1500+ 实体) |
 | `world_evolution.rs` | 时代演进、昼夜节律 |
 

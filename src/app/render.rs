@@ -230,6 +230,8 @@ impl App {
                 self.render_hall_of_fame_and_brain(f, main_layout[1]);
             } else if self.show_ancestry {
                 self.render_ancestry_tree(f, main_layout[1]);
+            } else if self.show_archeology {
+                self.render_archeology(f, main_layout[1]);
             }
 
             self.render_help(f);
@@ -289,6 +291,88 @@ impl App {
         lines.push(ratatui::text::Line::from(" [Shift+A] Export full DOT tree"));
 
         f.render_widget(Paragraph::new(lines).block(tree_block), area);
+    }
+
+    fn render_archeology(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+        let arch_block = Block::default()
+            .title(" 🏛️ Archeology Tool (Deep History) ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Rgb(205, 133, 63)));
+
+        let mut lines = Vec::new();
+
+        if self.archeology_snapshots.is_empty() {
+            lines.push(ratatui::text::Line::from(" No history snapshots found. "));
+            lines.push(ratatui::text::Line::from(
+                " Run simulation longer to collect data. ",
+            ));
+        } else {
+            let (tick, stats) = &self.archeology_snapshots[self.archeology_index];
+            lines.push(ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(
+                    format!(" Timeline: Tick {} ", tick),
+                    Style::default()
+                        .bg(Color::Rgb(139, 69, 19))
+                        .fg(Color::White),
+                ),
+                ratatui::text::Span::raw(format!(
+                    " ({}/{}) ",
+                    self.archeology_index + 1,
+                    self.archeology_snapshots.len()
+                )),
+            ]));
+            lines.push(ratatui::text::Line::from(format!(
+                "  Pop: {} | Species: {}",
+                stats.population, stats.species_count
+            )));
+            lines.push(ratatui::text::Line::from(format!(
+                "  CO2: {:.0} ppm | Hotspots: {}",
+                stats.carbon_level, stats.biodiversity_hotspots
+            )));
+            lines.push(ratatui::text::Line::from(
+                "  Navigation: [ and ] to travel through time",
+            ));
+        }
+
+        lines.push(ratatui::text::Line::from(""));
+        lines.push(ratatui::text::Line::from(
+            " 🦴 Fossil Record (Extinct Icons)",
+        ));
+
+        if self.world.fossil_registry.fossils.is_empty() {
+            lines.push(ratatui::text::Line::from("  No fossils excavated yet."));
+        } else {
+            for (i, fossil) in self
+                .world
+                .fossil_registry
+                .fossils
+                .iter()
+                .take(10)
+                .enumerate()
+            {
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::raw(format!("  {}. ", i + 1)),
+                    ratatui::text::Span::styled(
+                        &fossil.name,
+                        Style::default().fg(Color::Rgb(
+                            fossil.color_rgb.0,
+                            fossil.color_rgb.1,
+                            fossil.color_rgb.2,
+                        )),
+                    ),
+                    ratatui::text::Span::raw(format!(
+                        " (Max Gen: {}, Kids: {})",
+                        fossil.max_generation, fossil.total_offspring
+                    )),
+                ]));
+                lines.push(ratatui::text::Line::from(format!(
+                    "     Extinct at tick {}",
+                    fossil.extinct_tick
+                )));
+            }
+        }
+
+        f.render_widget(Paragraph::new(lines).block(arch_block), area);
     }
 
     fn render_hall_of_fame_and_brain(&self, f: &mut Frame, area: ratatui::layout::Rect) {

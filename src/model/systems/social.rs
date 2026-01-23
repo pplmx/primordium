@@ -384,13 +384,13 @@ pub fn handle_extinction(
 }
 
 /// Archive entity as legend if it meets criteria.
-pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) {
+pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) -> Option<Legend> {
     let lifespan = tick - entity.metabolism.birth_tick;
     if lifespan > 1000
         || entity.metabolism.offspring_count > 10
         || entity.metabolism.peak_energy > 300.0
     {
-        let _ = logger.archive_legend(Legend {
+        let legend = Legend {
             id: entity.id,
             parent_id: entity.parent_id,
             lineage_id: entity.metabolism.lineage_id,
@@ -404,7 +404,11 @@ pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) {
             death_timestamp: Utc::now().to_rfc3339(),
             brain_dna: entity.intel.genotype.brain.clone(),
             color_rgb: (entity.physics.r, entity.physics.g, entity.physics.b),
-        });
+        };
+        let _ = logger.archive_legend(legend.clone());
+        Some(legend)
+    } else {
+        None
     }
 }
 

@@ -8,6 +8,51 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Fossil {
+    pub lineage_id: Uuid,
+    pub name: String,
+    pub color_rgb: (u8, u8, u8),
+    pub avg_lifespan: f64,
+    pub max_generation: u32,
+    pub total_offspring: u32,
+    pub extinct_tick: u64,
+    pub peak_population: usize,
+    pub brain_dna: crate::model::brain::Brain,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct FossilRegistry {
+    pub fossils: Vec<Fossil>,
+}
+
+impl FossilRegistry {
+    pub fn save(&self, path: &str) -> anyhow::Result<()> {
+        let json = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, json)?;
+        Ok(())
+    }
+
+    pub fn load(path: &str) -> anyhow::Result<Self> {
+        if !std::path::Path::new(path).exists() {
+            return Ok(Self::default());
+        }
+        let data = std::fs::read_to_string(path)?;
+        let registry = serde_json::from_str(&data)?;
+        Ok(registry)
+    }
+
+    pub fn add_fossil(&mut self, fossil: Fossil) {
+        self.fossils.push(fossil);
+        // Keep only top 100 interesting fossils
+        if self.fossils.len() > 100 {
+            self.fossils
+                .sort_by(|a, b| b.total_offspring.cmp(&a.total_offspring));
+            self.fossils.truncate(100);
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "event")]
 pub enum LiveEvent {
     Birth {
@@ -40,6 +85,12 @@ pub enum LiveEvent {
     EcoAlert {
         message: String,
         tick: u64,
+        timestamp: String,
+    },
+    /// NEW: Phase 40 - Periodic World Snapshot for Playback
+    Snapshot {
+        tick: u64,
+        stats: PopulationStats,
         timestamp: String,
     },
 }
@@ -308,6 +359,23 @@ impl HistoryLogger {
         Ok(AncestryTree::build(&legends, living))
     }
 
+    pub fn get_snapshots(&self) -> anyhow::Result<Vec<(u64, PopulationStats)>> {
+        let file = match File::open("logs/live.jsonl") {
+            Ok(f) => f,
+            Err(_) => return Ok(vec![]),
+        };
+        let reader = BufReader::new(file);
+        let mut snapshots = Vec::new();
+        for l in reader.lines().map_while(Result::ok) {
+            if let Ok(LiveEvent::Snapshot { tick, stats, .. }) =
+                serde_json::from_str::<LiveEvent>(&l)
+            {
+                snapshots.push((tick, stats));
+            }
+        }
+        Ok(snapshots)
+    }
+
     pub fn compute_legends_hash(legends: &[Legend]) -> anyhow::Result<String> {
         let json = serde_json::to_string(legends)?;
         let mut hasher = Sha256::new();
@@ -363,6 +431,10 @@ impl LiveEvent {
                 (format!("Extinction at tick {}", tick), Color::Magenta)
             }
             LiveEvent::EcoAlert { message, .. } => (format!("⚠️ {}", message), Color::Yellow),
+            LiveEvent::Snapshot { tick, .. } => (
+                format!("🏛️ Snapshot saved at tick {}", tick),
+                Color::DarkGray,
+            ),
         }
     }
 }

@@ -363,10 +363,14 @@ toml = "0.8"
 - **Visual Feedback**: Implemented fertility-based terrain dimming to visually represent soil exhaustion.
 - **Quality Gates**: Achieved zero-warning baseline across all 56+ integration tests and Clippy.
 
-### Phase 40: Archeology & Deep History 🚧
+### Phase 40: Archeology & Deep History ✅
 
-- **Deep History View**: Visual playback of evolutionary history through a dedicated "Archeology" tool.
-- **Fossil Record**: Persistent storage of extinct "Legendary" genotypes for retrospective analysis.
+- **Fossil Record**: Persistent storage of extinct "Legendary" genotypes (`logs/fossils.json`) for retrospective analysis.
+- **Deep History View**: TUI-based timeline browser (Shortcut: `Y`) allowing users to navigate through periodic world snapshots.
+- **Playback Infrastructure**: Implemented `Snapshot` events in `HistoryLogger` to track macro-evolutionary state over time.
+- **Time Travel Navigation**: Added keyboard controls (`[` and `]`) to seek through historical snapshots within the Archeology Tool.
+
+### Phase 41: Massive Parallelism & GPGPU 🚧
 
 
 
@@ -412,7 +416,8 @@ toml = "0.8"
 | Phase 38 | Dynamic Biomes | ✅ Complete |
 | Phase 39 | Ecosystem Resilience | ✅ Complete |
 | Phase 39.5 | Perf & Observability | ✅ Complete |
-| Phase 40 | Archeology Tool | 🚧 In Progress |
+| Phase 40 | Archeology Tool | ✅ Complete |
+| Phase 41 | Massive Parallelism | 🚧 In Progress |
 
 ---
 

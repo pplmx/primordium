@@ -1,5 +1,7 @@
 use crate::model::config::AppConfig;
-use crate::model::history::{HallOfFame, HistoryLogger, LiveEvent, PopulationStats};
+use crate::model::history::{
+    FossilRegistry, HallOfFame, HistoryLogger, LiveEvent, PopulationStats,
+};
 use crate::model::quadtree::SpatialHash;
 use crate::model::state::entity::Entity;
 use crate::model::state::environment::Environment;
@@ -76,7 +78,12 @@ pub struct World {
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
     pub lineage_registry: LineageRegistry,
+    pub fossil_registry: FossilRegistry,
     pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
+
+    // NEW: Phase 40 - Best legendary representative per lineage
+    #[serde(skip, default)]
+    pub best_legends: std::collections::HashMap<uuid::Uuid, crate::model::history::Legend>,
 
     // Reusable buffers to reduce allocation jitter
     #[serde(skip, default)]
@@ -103,6 +110,7 @@ impl World {
         let mut entities = Vec::with_capacity(initial_population);
         let logger = HistoryLogger::new()?;
         let mut lineage_registry = LineageRegistry::load("logs/lineages.json").unwrap_or_default();
+        let fossil_registry = FossilRegistry::load("logs/fossils.json").unwrap_or_default();
         for _ in 0..initial_population {
             let e = Entity::new(
                 rng.gen_range(1.0..config.world.width as f64 - 1.0),
@@ -146,7 +154,9 @@ impl World {
             terrain,
             pheromones,
             lineage_registry,
+            fossil_registry,
             active_pathogens: Vec::new(),
+            best_legends: std::collections::HashMap::new(),
             killed_ids: HashSet::new(),
             eaten_food_indices: HashSet::new(),
             new_babies: Vec::new(),
@@ -156,6 +166,50 @@ impl World {
             energy_transfers: Vec::new(),
             lineage_consumption: Vec::new(),
         })
+    }
+
+    fn update_best_legend(&mut self, legend: crate::model::history::Legend) {
+        let entry = self
+            .best_legends
+            .entry(legend.lineage_id)
+            .or_insert_with(|| legend.clone());
+
+        // Score: Age * 0.5 + Offspring * 10
+        let current_score = entry.lifespan as f64 * 0.5 + entry.offspring_count as f64 * 10.0;
+        let new_score = legend.lifespan as f64 * 0.5 + legend.offspring_count as f64 * 10.0;
+
+        if new_score > current_score {
+            *entry = legend;
+        }
+    }
+
+    fn handle_fossilization(&mut self) {
+        let extinct = self.lineage_registry.get_extinct_lineages();
+        for l_id in extinct {
+            if let Some(legend) = self.best_legends.remove(&l_id) {
+                // Check if already in fossil registry
+                if !self
+                    .fossil_registry
+                    .fossils
+                    .iter()
+                    .any(|f| f.lineage_id == l_id)
+                {
+                    let record = self.lineage_registry.lineages.get(&l_id).unwrap();
+                    let fossil = crate::model::history::Fossil {
+                        lineage_id: l_id,
+                        name: record.name.clone(),
+                        color_rgb: legend.color_rgb,
+                        avg_lifespan: legend.lifespan as f64, // simplified for now
+                        max_generation: record.max_generation,
+                        total_offspring: record.total_entities_produced as u32,
+                        extinct_tick: self.tick,
+                        peak_population: record.peak_population,
+                        brain_dna: legend.brain_dna,
+                    };
+                    self.fossil_registry.add_fossil(fossil);
+                }
+            }
+        }
     }
 
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
@@ -463,11 +517,16 @@ impl World {
         for e in current_entities {
             if killed_ids.contains(&e.id) {
                 self.lineage_registry.record_death(e.metabolism.lineage_id);
-                social::archive_if_legend(&e, self.tick, &self.logger);
+                if let Some(legend) = social::archive_if_legend(&e, self.tick, &self.logger) {
+                    self.update_best_legend(legend);
+                }
                 continue;
             }
             if e.metabolism.energy <= 0.0 {
                 self.lineage_registry.record_death(e.metabolism.lineage_id);
+                if let Some(legend) = social::archive_if_legend(&e, self.tick, &self.logger) {
+                    self.update_best_legend(legend);
+                }
             }
             if e.metabolism.energy > 0.0 {
                 alive_entities.push(e);
@@ -546,6 +605,19 @@ impl World {
         }
         if self.tick.is_multiple_of(1000) {
             let _ = self.lineage_registry.save("logs/lineages.json");
+            let _ = self.fossil_registry.save("logs/fossils.json");
+
+            // NEW: Record Snapshot for playback
+            let snap_ev = LiveEvent::Snapshot {
+                tick: self.tick,
+                stats: self.pop_stats.clone(),
+                timestamp: Utc::now().to_rfc3339(),
+            };
+            let _ = self.logger.log_event(snap_ev.clone());
+            events.push(snap_ev);
+
+            // Process fossils for extinct lineages
+            self.handle_fossilization();
         }
 
         Ok(events)
