@@ -1,6 +1,19 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Information about a connected peer
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct PeerInfo {
+    /// Unique identifier for this peer
+    pub peer_id: Uuid,
+    /// Number of entities in this peer's world
+    pub entity_count: usize,
+    /// Total migrations sent by this peer
+    pub migrations_sent: usize,
+    /// Total migrations received by this peer
+    pub migrations_received: usize,
+}
+
 /// Messages exchanged between Client and Server
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", content = "payload")]
@@ -25,4 +38,157 @@ pub enum NetMessage {
         online_count: usize,
         total_migrations: usize,
     },
+    /// Client -> Server: Announce peer presence and stats
+    PeerAnnounce {
+        entity_count: usize,
+        migrations_sent: usize,
+        migrations_received: usize,
+    },
+    /// Server -> All Clients: Broadcast list of connected peers
+    PeerList { peers: Vec<PeerInfo> },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_peer_info_serialization_roundtrip() {
+        let peer = PeerInfo {
+            peer_id: Uuid::new_v4(),
+            entity_count: 42,
+            migrations_sent: 10,
+            migrations_received: 5,
+        };
+
+        let json = serde_json::to_string(&peer).expect("Failed to serialize PeerInfo");
+        let parsed: PeerInfo = serde_json::from_str(&json).expect("Failed to deserialize PeerInfo");
+
+        assert_eq!(peer, parsed);
+    }
+
+    #[test]
+    fn test_peer_announce_serialization() {
+        let msg = NetMessage::PeerAnnounce {
+            entity_count: 100,
+            migrations_sent: 25,
+            migrations_received: 12,
+        };
+
+        let json = serde_json::to_string(&msg).expect("Failed to serialize");
+        assert!(json.contains("\"type\":\"PeerAnnounce\""));
+        assert!(json.contains("\"entity_count\":100"));
+
+        let parsed: NetMessage = serde_json::from_str(&json).expect("Failed to deserialize");
+        if let NetMessage::PeerAnnounce {
+            entity_count,
+            migrations_sent,
+            migrations_received,
+        } = parsed
+        {
+            assert_eq!(entity_count, 100);
+            assert_eq!(migrations_sent, 25);
+            assert_eq!(migrations_received, 12);
+        } else {
+            panic!("Expected PeerAnnounce message");
+        }
+    }
+
+    #[test]
+    fn test_peer_list_serialization() {
+        let peers = vec![
+            PeerInfo {
+                peer_id: Uuid::new_v4(),
+                entity_count: 50,
+                migrations_sent: 5,
+                migrations_received: 3,
+            },
+            PeerInfo {
+                peer_id: Uuid::new_v4(),
+                entity_count: 75,
+                migrations_sent: 8,
+                migrations_received: 2,
+            },
+        ];
+
+        let msg = NetMessage::PeerList {
+            peers: peers.clone(),
+        };
+
+        let json = serde_json::to_string(&msg).expect("Failed to serialize");
+        assert!(json.contains("\"type\":\"PeerList\""));
+
+        let parsed: NetMessage = serde_json::from_str(&json).expect("Failed to deserialize");
+        if let NetMessage::PeerList {
+            peers: parsed_peers,
+        } = parsed
+        {
+            assert_eq!(parsed_peers.len(), 2);
+            assert_eq!(parsed_peers[0].entity_count, 50);
+            assert_eq!(parsed_peers[1].entity_count, 75);
+        } else {
+            panic!("Expected PeerList message");
+        }
+    }
+
+    #[test]
+    fn test_migrate_entity_serialization() {
+        let msg = NetMessage::MigrateEntity {
+            dna: "ABCD1234".to_string(),
+            energy: 150.5,
+            generation: 7,
+            species_name: "TestOrganism".to_string(),
+        };
+
+        let json = serde_json::to_string(&msg).expect("Failed to serialize");
+        let parsed: NetMessage = serde_json::from_str(&json).expect("Failed to deserialize");
+
+        if let NetMessage::MigrateEntity {
+            dna,
+            energy,
+            generation,
+            species_name,
+        } = parsed
+        {
+            assert_eq!(dna, "ABCD1234");
+            assert!((energy - 150.5).abs() < 0.01);
+            assert_eq!(generation, 7);
+            assert_eq!(species_name, "TestOrganism");
+        } else {
+            panic!("Expected MigrateEntity message");
+        }
+    }
+
+    #[test]
+    fn test_handshake_serialization() {
+        let client_id = Uuid::new_v4();
+        let msg = NetMessage::Handshake { client_id };
+
+        let json = serde_json::to_string(&msg).expect("Failed to serialize");
+        assert!(json.contains("\"type\":\"Handshake\""));
+
+        let parsed: NetMessage = serde_json::from_str(&json).expect("Failed to deserialize");
+        if let NetMessage::Handshake {
+            client_id: parsed_id,
+        } = parsed
+        {
+            assert_eq!(parsed_id, client_id);
+        } else {
+            panic!("Expected Handshake message");
+        }
+    }
+
+    #[test]
+    fn test_empty_peer_list() {
+        let msg = NetMessage::PeerList { peers: vec![] };
+
+        let json = serde_json::to_string(&msg).expect("Failed to serialize");
+        let parsed: NetMessage = serde_json::from_str(&json).expect("Failed to deserialize");
+
+        if let NetMessage::PeerList { peers } = parsed {
+            assert!(peers.is_empty());
+        } else {
+            panic!("Expected PeerList message");
+        }
+    }
 }

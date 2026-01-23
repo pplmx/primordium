@@ -215,10 +215,6 @@ toml = "0.8"
 - Light-dependent plant growth
 - Rest-state energy conservation
 
----
-
-## 🚀 Future Horizons
-
 ### Phase 20: Cognitive Synthesis & Systemic Refactor ✅
 
 - **Component grouping**: Refactored `Entity` struct into Physics, Metabolism, Health, and Intel.
@@ -232,11 +228,13 @@ toml = "0.8"
 - **Physical Barriers**: Added impassable `Wall` terrain types for steering challenges.
 - **Performance Tuning**: Integrated `food_hash` for $O(1)$ proximity sensing and buffer pooling for zero-jitter allocation.
 
-### Phase 22: Parallel Evolution & Global Hive
+### Phase 22: Parallel Evolution & Global Hive ✅
 
-- **Rayon Integration**: Multi-threaded brain processing for 5000+ entities.
-- **Global Migration**: Peer-to-peer universe connections without a central relay.
-- **Genetic Databases**: Web-based registry for legendary genotypes.
+- **Rayon Integration**: Multi-threaded brain processing for 5000+ entities. *(Completed in Phase 20)*
+- **P2P Peer Discovery**: WebSocket relay with peer tracking and REST APIs (`/api/peers`, `/api/stats`).
+- **Network Protocol**: Extended `NetMessage` with `PeerInfo`, `PeerAnnounce`, and `PeerList` types.
+- **WASM Client Enhancement**: Network state tracking, migration stats, peer awareness.
+- **Bug Fixes**: Entity DNA serialization for cross-universe migration, WebRenderer terrain completeness.
 
 ---
 
@@ -266,7 +264,7 @@ toml = "0.8"
 | Phase 19 | Circadian Rhythms | ✅ Complete |
 | Phase 20 | Cognitive Synthesis | ✅ Complete |
 | Phase 21 | Environmental Fluidity | ✅ Complete |
-| Phase 22 | Parallel Evolution | 📅 Planned |
+| Phase 22 | Parallel Evolution | ✅ Complete |
 
 ---
 

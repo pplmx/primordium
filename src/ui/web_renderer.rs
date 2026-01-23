@@ -37,6 +37,8 @@ impl WebRenderer {
                     TerrainType::River => "#2b5a75",    // Blue
                     TerrainType::Oasis => "#2ecc71",    // Green
                     TerrainType::Plains => "#1a1a1a",   // Black/Dark
+                    TerrainType::Barren => "#8b4513",   // Saddle Brown
+                    TerrainType::Wall => "#2c3e50",     // Dark Slate
                 };
 
                 if matches!(cell.terrain_type, TerrainType::Plains) {

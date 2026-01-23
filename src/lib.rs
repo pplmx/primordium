@@ -80,10 +80,10 @@ impl Simulation {
 
                 if leaving {
                     migrants.push(NetMessage::MigrateEntity {
-                        dna: "DNA_PLACEHOLDER".to_string(), // In real impl, serialize brain
-                        energy: e.metabolism.energy,
+                        dna: e.intel.brain.to_hex(),
+                        energy: e.metabolism.energy as f32,
                         generation: e.metabolism.generation,
-                        species_name: "Primordial".to_string(),
+                        species_name: e.name(),
                     });
                 }
                 !leaving
