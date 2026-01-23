@@ -100,8 +100,44 @@ impl App {
             KeyCode::Char('%') => self.brush_type = TerrainType::Wall,
             KeyCode::Char('^') => self.brush_type = TerrainType::Barren,
 
+            // DIVINE INTERVENTION (Selected Entity)
+            KeyCode::Char('m') => {
+                if let Some(id) = self.selected_entity {
+                    if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
+                        intel::mutate_genotype(&mut entity.intel.genotype, &self.config.evolution);
+                        // Sync phenotype
+                        entity.physics.sensing_range = entity.intel.genotype.sensing_range;
+                        entity.physics.max_speed = entity.intel.genotype.max_speed;
+                        entity.metabolism.max_energy = entity.intel.genotype.max_energy;
+                        self.event_log
+                            .push_back(("Divine Mutation".to_string(), Color::Yellow));
+                    }
+                }
+            }
+            KeyCode::Char('k') => {
+                if let Some(id) = self.selected_entity {
+                    self.world.entities.retain(|e| e.id != id);
+                    self.selected_entity = None;
+                    self.event_log
+                        .push_back(("Divine Smite".to_string(), Color::Red));
+                }
+            }
+            KeyCode::Char('p') => {
+                if let Some(id) = self.selected_entity {
+                    if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
+                        use crate::model::state::entity::Genotype;
+                        entity.intel.genotype = Genotype::new_random();
+                        // Sync phenotype
+                        entity.physics.sensing_range = entity.intel.genotype.sensing_range;
+                        entity.physics.max_speed = entity.intel.genotype.max_speed;
+                        entity.metabolism.max_energy = entity.intel.genotype.max_energy;
+                        self.event_log
+                            .push_back(("Divine Reincarnation".to_string(), Color::Magenta));
+                    }
+                }
+            }
             // GOD MODE COMMANDS
-            KeyCode::Char('k') | KeyCode::Char('K') => {
+            KeyCode::Char('K') => {
                 if self.env.god_climate_override.is_some() {
                     self.env.god_climate_override = None;
                     self.event_log

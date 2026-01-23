@@ -258,11 +258,18 @@ toml = "0.8"
 - **Lineage Sensor**: 13th neural input detects nearby same-lineage density for evolved herding.
 - **Social Pheromones**: Integrated presence-based herding behavior.
 
-### Phase 26: Divine Interface v2 - Interactive Deity 🚧
+### Phase 26: Divine Interface v2 - Interactive Deity ✅
 
 - **Real-time Terrain Editing**: Mouse-driven brush for placing Walls, Oasis, and Rivers.
-- **Genetic Engineering**: Select an entity to manually edit its neural weights or phenotype.
-- **Disaster Dispatcher**: Manually trigger Dust Bowls, Plagues, or Resource Booms.
+- **Genetic Engineering**: Targeted Divine Intervention (Mutate, Smite, Reincarnate) for selected entities.
+- **Disaster Dispatcher**: Manually trigger Heat Waves (K), Mass Extinctions (L), or Resource Booms (R).
+
+### Phase 27: Persistent Legends & High-Performance Analytics 🚧
+
+- **SQL Persistence**: Migrate `legends.json` to a local SQLite database for queryable ancestry.
+- **Deeper Metrics**: Track "Historical Peak Population" and "Total Energy Produced" per lineage.
+- **Ancestry Tree**: Generate JSON family trees for visualization in external tools.
+- **Lineage Hall of Fame**: UI dedicated to the most successful ancestral lines over all sessions.
 
 ---
 
@@ -296,7 +303,8 @@ toml = "0.8"
 | Phase 23 | Phenotypic Specialization | ✅ Complete |
 | Phase 24 | Lineage & Macroevolution | ✅ Complete |
 | Phase 25 | Social Complexity | ✅ Complete |
-| Phase 26 | Interactive Deity | 🚧 In Progress |
+| Phase 26 | Interactive Deity | ✅ Complete |
+| Phase 27 | Persistent Analytics | 🚧 In Progress |
 
 ---
 
