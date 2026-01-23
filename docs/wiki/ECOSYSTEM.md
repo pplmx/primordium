@@ -90,6 +90,29 @@ $$ P_{new} = P_{old} \times (1.0 - DecayRate) $$
 - **Default decay rate**: 0.5% per tick.
 - **Cleanup threshold**: Strengths below 0.01 are reset to 0.0.
 
+## Metabolic Niches (Phase 31)
+
+Phase 31 introduces **Resource Diversity**, forcing lineages to specialize in specific nutrient types to maximize digestive efficiency.
+
+### Resource Diversity
+Food items are no longer generic. Each food source has a `nutrient_type` ranging from **0.0 (Green)** to **1.0 (Blue)**.
+
+### Terrain-Nutrient Coupling
+The environment influences the type of food that spawns:
+- **Mountains & Rivers**: High mineral/hydration areas favor **Blue** nutrient types (1.0).
+- **Plains & Oases**: Organic-rich lowlands favor **Green** nutrient types (0.0).
+
+### Digestive Efficiency
+An entity's ability to extract energy from food depends on the alignment between its genetic `metabolic_niche` and the food's `nutrient_type`.
+
+$$ Efficiency = 1.0 - |genotype.metabolic\_niche - food.nutrient\_type| $$
+
+### Energy Gain Scaling
+- **Specialist Match**: A perfect match (e.g., niche 0.0 eating type 0.0) yields a **1.2x** energy bonus.
+- **Mismatch Penalty**: A total mismatch (e.g., niche 1.0 eating type 0.0) yields only **0.2x** energy, leading to starvation despite eating.
+
+This selection pressure drives lineages to migrate toward terrain that matches their metabolic specialization.
+
 ## Phenotypic Trade-offs
 
 The evolutionary advantage of superior physical traits is balanced by increased metabolic and physical costs.

@@ -6,6 +6,28 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 31: Metabolic Niches & Resource Diversity] - 2026-01-23
+
+### Evolutionary Leap: Dietary Specialization & Typed Resources
+
+Phase 31 introduces resource diversity and metabolic specialization. Food sources now carry specific nutrient types (Green vs. Blue), and organisms must evolve a matching metabolic niche to digest them efficiently. This creates a strong selective pressure for terrain-based specialization, as different biomes now favor different nutrient types.
+
+#### ✨ Features
+
+- **Metabolic Niches**: Organisms now possess a genetic `metabolic_niche` trait, determining their digestive efficiency for different food types.
+- **Resource Diversity**: Food items now have a `nutrient_type` attribute (0.0 for Green, 1.0 for Blue).
+- **Digestive Efficiency Engine**: Implemented a scaling system where a specialist match yields **1.2x** energy, while a total mismatch yields only **0.2x**.
+- **Terrain-Nutrient Coupling**: Mountains and Rivers now predominantly spawn Blue food, while Plains and Oases spawn Green food.
+- **Nutrient Sensing**: Added a 12th environmental brain input (`NutType`) to allow organisms to perceive the nutrient type of the nearest food source.
+
+#### 🛠️ Technical Achievements
+
+- **Expanded Brain Topology**: Upgraded the standard architecture to **19-6-8 RNN-lite** to support nutrient sensing.
+- **Typed Resource Spawning**: Enhanced the `Ecological` system to factor in terrain types during food generation.
+- **Genotype Expansion**: Integrated `metabolic_niche` into the inheritable genotype and HexDNA protocol.
+
+---
+
 ## [Phase 30: Social Coordination & Kin Recognition] - 2026-01-23
 
 ### Evolutionary Leap: Swarming & Semantic Communication

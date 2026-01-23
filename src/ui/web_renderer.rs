@@ -54,8 +54,12 @@ impl WebRenderer {
         // High density of draw calls, might be slow - skipping for V1 or making very faint
 
         // Draw Food
-        ctx.set_fill_style(&JsValue::from_str("#00ff00"));
         for food in &world.food {
+            let color = format!(
+                "rgb({}, {}, {})",
+                food.color_rgb.0, food.color_rgb.1, food.color_rgb.2
+            );
+            ctx.set_fill_style(&JsValue::from_str(&color));
             ctx.begin_path();
             ctx.arc(
                 food.x as f64 * scale_x + scale_x / 2.0,

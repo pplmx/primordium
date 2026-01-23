@@ -10,14 +10,14 @@ In earlier phases, entities used a fixed MLP (Multilayer Perceptron) architectur
 
 The brain starts with a standard minimal configuration but grows dynamically:
 
-- **Initial Input Layer**: 18 Neurons (12 Environment, 6 Recurrent)
+- **Initial Input Layer**: 19 Neurons (13 Environment, 6 Recurrent)
 - **Initial Hidden Layer**: 6 Neurons
 - **Initial Output Layer**: 8 Neurons
 - **Dynamic Growth**: Through mutations, new hidden nodes and connections can be added indefinitely.
 
 ## Inputs (Sensors)
 
-### Environmental Inputs (0-11)
+### Environmental Inputs (0-12)
 
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
@@ -33,12 +33,13 @@ The brain starts with a standard minimal configuration but grows dynamically:
 | 9 | `SB` | Signal B (semantic pheromone) |
 | 10 | `WL` | Wall Proximity |
 | 11 | `AG` | Age/Maturity |
+| 12 | `NutType`| Nutrient Type of nearest food (0.0=Green, 1.0=Blue) |
 
-### Recurrent Inputs (12-17)
+### Recurrent Inputs (13-18)
 
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
-| 12-17| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
+| 13-18| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
 
 ## Outputs (Actions)
 
