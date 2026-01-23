@@ -335,82 +335,55 @@ impl App {
                     ratatui::text::Span::raw(format!("{:.1}", entity.physics.max_speed)),
                 ]));
                 lines.push(ratatui::text::Line::from(""));
-                lines.push(ratatui::text::Line::from(" Neural Network Weights:"));
-
-                // Neural Network weights visualization...
-                for i in 0..13 {
-                    let mut spans = Vec::new();
-                    spans.push(ratatui::text::Span::raw(format!(
-                        "  {} ",
-                        match i {
-                            0 => "FX",
-                            1 => "FY",
-                            2 => "EN",
-                            3 => "NB",
-                            4 => "PH",
-                            5 => "TR",
-                            6 => "LI",
-                            7 => "M1",
-                            8 => "M2",
-                            9 => "M3",
-                            10 => "M4",
-                            11 => "M5",
-                            12 => "M6",
-                            _ => "??",
-                        }
-                    )));
-                    for j in 0..6 {
-                        let w = entity.intel.genotype.brain.weights_ih[i * 6 + j];
-                        let symbol = if w > 0.5 {
-                            "█"
-                        } else if w > 0.0 {
-                            "▓"
-                        } else if w > -0.5 {
-                            "▒"
-                        } else {
-                            "░"
-                        };
-                        spans.push(ratatui::text::Span::styled(
-                            symbol,
-                            Style::default().fg(if w > 0.0 { Color::Green } else { Color::Red }),
-                        ));
-                    }
-                    lines.push(ratatui::text::Line::from(spans));
-                }
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Brain Complexity:",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                ]));
+                lines.push(ratatui::text::Line::from(format!(
+                    "  Nodes:       {}",
+                    entity.intel.genotype.brain.nodes.len()
+                )));
+                lines.push(ratatui::text::Line::from(format!(
+                    "  Connections: {}",
+                    entity
+                        .intel
+                        .genotype
+                        .brain
+                        .connections
+                        .iter()
+                        .filter(|c| c.enabled)
+                        .count()
+                )));
                 lines.push(ratatui::text::Line::from(""));
-                for i in 0..6 {
-                    let mut spans = Vec::new();
-                    spans.push(ratatui::text::Span::raw("    "));
-                    for j in 0..5 {
-                        let w = entity.intel.genotype.brain.weights_ho[i * 5 + j];
-                        let symbol = if w > 0.5 {
-                            "█"
-                        } else if w > 0.0 {
-                            "▓"
-                        } else if w > -0.5 {
-                            "▒"
-                        } else {
-                            "░"
-                        };
-                        spans.push(ratatui::text::Span::styled(
-                            symbol,
-                            Style::default().fg(if w > 0.0 { Color::Green } else { Color::Red }),
-                        ));
-                    }
-                    if i < 5 {
-                        spans.push(ratatui::text::Span::raw(format!(
-                            "  <- {}",
-                            match i {
-                                0 => "Move X",
-                                1 => "Move Y",
-                                2 => "Boost",
-                                3 => "Aggro",
-                                4 => "Share",
-                                _ => "",
-                            }
-                        )));
-                    }
-                    lines.push(ratatui::text::Line::from(spans));
+                lines.push(ratatui::text::Line::from(" Strongest Connections:"));
+
+                // Sort and show top 12 connections
+                let mut conns = entity.intel.genotype.brain.connections.clone();
+                conns.sort_by(|a, b| b.weight.abs().partial_cmp(&a.weight.abs()).unwrap());
+
+                for c in conns.iter().filter(|c| c.enabled).take(12) {
+                    let from_label = match c.from {
+                        0..=12 => format!("In-{}", c.from),
+                        _ => format!("Hid-{}", c.from),
+                    };
+                    let to_label = match c.to {
+                        13..=18 => format!("Out-{}", c.to - 13),
+                        _ => format!("Hid-{}", c.to),
+                    };
+
+                    lines.push(ratatui::text::Line::from(vec![
+                        ratatui::text::Span::raw(format!("  {} → {} ", from_label, to_label)),
+                        ratatui::text::Span::styled(
+                            format!("{:.2}", c.weight),
+                            Style::default().fg(if c.weight > 0.0 {
+                                Color::Green
+                            } else {
+                                Color::Red
+                            }),
+                        ),
+                    ]));
                 }
 
                 lines.push(ratatui::text::Line::from(""));

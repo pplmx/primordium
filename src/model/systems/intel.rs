@@ -1,113 +1,23 @@
 use crate::model::brain::Brain;
-use rand::Rng;
+use crate::model::config::EvolutionConfig;
 
-/// Forward pass with recurrence. Takes environmental inputs and previous hidden state.
-/// Returns (Outputs, New Hidden State).
+/// Forward pass through brain.
 pub fn brain_forward(
     brain: &Brain,
     inputs: [f32; 7],
     last_hidden: [f32; 6],
 ) -> ([f32; 6], [f32; 6]) {
-    // 1. Combine inputs with memory
-    let mut combined_inputs = [0.0; 13];
-    combined_inputs[0..7].copy_from_slice(&inputs);
-    combined_inputs[7..13].copy_from_slice(&last_hidden);
-
-    // 2. Input to Hidden (13 inputs -> 6 hidden)
-    let mut hidden = [0.0; 6];
-    for (i, h) in hidden.iter_mut().enumerate() {
-        let mut sum = brain.bias_h[i];
-        for (j, &input) in combined_inputs.iter().enumerate() {
-            sum += input * brain.weights_ih[j * 6 + i];
-        }
-        *h = sum.tanh();
-    }
-
-    // 3. Hidden to Output (6 hidden -> 6 outputs)
-    let mut output = [0.0; 6];
-    for (i, o) in output.iter_mut().enumerate() {
-        let mut sum = brain.bias_o[i];
-        for (j, &h) in hidden.iter().enumerate() {
-            sum += h * brain.weights_ho[j * 6 + i];
-        }
-        *o = sum.tanh();
-    }
-    (output, hidden)
+    brain.forward(inputs, last_hidden)
 }
 
-/// Calculate genotype distance between two brains.
+/// Mutate brain weights and biases.
+pub fn mutate_brain(brain: &mut Brain, config: &EvolutionConfig) {
+    brain.mutate_with_config(config);
+}
+
+/// Calculate genetic distance between two brains.
 pub fn genotype_distance(b1: &Brain, b2: &Brain) -> f32 {
-    let mut sum_sq = 0.0;
-    for (w1, w2) in b1.weights_ih.iter().zip(b2.weights_ih.iter()) {
-        sum_sq += (w1 - w2).powi(2);
-    }
-    for (w1, w2) in b1.weights_ho.iter().zip(b2.weights_ho.iter()) {
-        sum_sq += (w1 - w2).powi(2);
-    }
-    for (b1, b2) in b1.bias_h.iter().zip(b2.bias_h.iter()) {
-        sum_sq += (b1 - b2).powi(2);
-    }
-    for (b1, b2) in b1.bias_o.iter().zip(b2.bias_o.iter()) {
-        sum_sq += (b1 - b2).powi(2);
-    }
-    sum_sq.sqrt()
-}
-
-/// Mutate brain weights based on evolution config.
-pub fn mutate_brain(brain: &mut Brain, config: &crate::model::config::EvolutionConfig) {
-    let mut rng = rand::thread_rng();
-
-    let mut mutate_val = |v: &mut f32| {
-        let r = rng.gen::<f32>();
-        if r < config.drift_rate {
-            *v += rng.gen_range(-config.drift_amount..config.drift_amount);
-        } else if r < config.mutation_rate {
-            *v += rng.gen_range(-config.mutation_amount..config.mutation_amount);
-        }
-        *v = v.clamp(-2.0, 2.0);
-    };
-
-    for w in brain.weights_ih.iter_mut() {
-        mutate_val(w);
-    }
-    for w in brain.weights_ho.iter_mut() {
-        mutate_val(w);
-    }
-    for b in brain.bias_h.iter_mut() {
-        mutate_val(b);
-    }
-    for b in brain.bias_o.iter_mut() {
-        mutate_val(b);
-    }
-}
-
-/// Perform crossover between two parent brains to create a child brain.
-pub fn crossover_brains(parent1: &Brain, parent2: &Brain) -> Brain {
-    let mut rng = rand::thread_rng();
-    let mut child = parent1.clone();
-
-    // Randomly pick weights from either parent
-    for i in 0..child.weights_ih.len() {
-        if rng.gen_bool(0.5) {
-            child.weights_ih[i] = parent2.weights_ih[i];
-        }
-    }
-    for i in 0..child.weights_ho.len() {
-        if rng.gen_bool(0.5) {
-            child.weights_ho[i] = parent2.weights_ho[i];
-        }
-    }
-    for i in 0..child.bias_h.len() {
-        if rng.gen_bool(0.5) {
-            child.bias_h[i] = parent2.bias_h[i];
-        }
-    }
-    for i in 0..child.bias_o.len() {
-        if rng.gen_bool(0.5) {
-            child.bias_o[i] = parent2.bias_o[i];
-        }
-    }
-    child
+    b1.genotype_distance(b2)
 }
 
 /// Mutate physical phenotype traits within a genotype.
@@ -116,8 +26,9 @@ pub fn mutate_genotype(
     config: &crate::model::config::EvolutionConfig,
 ) {
     let mut rng = rand::thread_rng();
+    use rand::Rng;
 
-    // 1. Mutate Brain
+    // 1. Mutate Brain (Topology + Weights)
     mutate_brain(&mut genotype.brain, config);
 
     // 2. Mutate Traits
@@ -140,6 +51,7 @@ pub fn crossover_genotypes(
     p2: &crate::model::state::entity::Genotype,
 ) -> crate::model::state::entity::Genotype {
     let mut rng = rand::thread_rng();
+    use rand::Rng;
 
     let brain = crossover_brains(&p1.brain, &p2.brain);
     let sensing_range = if rng.gen_bool(0.5) {
@@ -164,5 +76,53 @@ pub fn crossover_genotypes(
         max_speed,
         max_energy,
         lineage_id: p1.lineage_id, // Inherit lineage from first parent
+    }
+}
+
+/// Perform crossover between two parent brains to create a child brain.
+pub fn crossover_brains(p1: &Brain, p2: &Brain) -> Brain {
+    let mut rng = rand::thread_rng();
+    use rand::Rng;
+    let mut child_nodes = p1.nodes.clone();
+    let mut child_connections = Vec::new();
+
+    let mut map2 = std::collections::HashMap::new();
+    for c in &p2.connections {
+        map2.insert(c.innovation, c);
+    }
+
+    // 1. Inherit connections
+    for c1 in &p1.connections {
+        if let Some(c2) = map2.get(&c1.innovation) {
+            // Matching: Pick randomly
+            if rng.gen_bool(0.5) {
+                child_connections.push(c1.clone());
+            } else {
+                child_connections.push((*c2).clone());
+            }
+        } else {
+            // Disjoint (only in P1): Inherit from P1
+            child_connections.push(c1.clone());
+        }
+    }
+
+    // 2. Ensure all necessary nodes exist for the inherited connections
+    for c in &child_connections {
+        if !child_nodes.iter().any(|n| n.id == c.from) {
+            if let Some(n) = p2.nodes.iter().find(|n| n.id == c.from) {
+                child_nodes.push(n.clone());
+            }
+        }
+        if !child_nodes.iter().any(|n| n.id == c.to) {
+            if let Some(n) = p2.nodes.iter().find(|n| n.id == c.to) {
+                child_nodes.push(n.clone());
+            }
+        }
+    }
+
+    Brain {
+        nodes: child_nodes,
+        connections: child_connections,
+        next_node_id: p1.next_node_id.max(p2.next_node_id),
     }
 }

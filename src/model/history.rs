@@ -116,18 +116,23 @@ impl PopulationStats {
                 .or_insert(0) += 1;
         }
 
-        // 1. Recalculate Entropy (Shannon entropy of sampled brain weights)
-        let mut weight_freq = HashMap::new();
+        // 1. Recalculate Entropy (Shannon entropy of connection count buckets)
+        let mut complexity_freq = HashMap::new();
         for e in entities {
-            // Sample first 8 weights for performance
-            for &w in &e.intel.genotype.brain.weights_ih[0..8] {
-                let bin = (w * 5.0).round() as i32; // Bin into 0.2 increments
-                *weight_freq.entry(bin).or_insert(0.0) += 1.0;
-            }
+            let conn_count = e
+                .intel
+                .genotype
+                .brain
+                .connections
+                .iter()
+                .filter(|c| c.enabled)
+                .count();
+            let bucket = (conn_count / 10) * 10; // Bin into buckets of 10 connections
+            *complexity_freq.entry(bucket).or_insert(0.0) += 1.0;
         }
-        let total_samples = weight_freq.values().sum::<f64>();
+        let total_samples = complexity_freq.values().sum::<f64>();
         let mut entropy = 0.0;
-        for &count in weight_freq.values() {
+        for &count in complexity_freq.values() {
             let p = count / total_samples;
             if p > 0.0 {
                 entropy -= p * p.log2();

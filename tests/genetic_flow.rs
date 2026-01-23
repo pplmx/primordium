@@ -12,10 +12,12 @@ fn test_dna_hex_roundtrip() {
 
     let recovered_brain = Brain::from_hex(&hex).expect("Failed to recover brain from hex");
 
-    // Test a few weights to ensure consistency
-    assert_eq!(brain.weights_ih.len(), recovered_brain.weights_ih.len());
+    // Test a few connections to ensure consistency
+    assert_eq!(brain.connections.len(), recovered_brain.connections.len());
     for i in 0..5 {
-        assert!((brain.weights_ih[i] - recovered_brain.weights_ih[i]).abs() < 0.001);
+        assert!(
+            (brain.connections[i].weight - recovered_brain.connections[i].weight).abs() < 0.001
+        );
     }
 }
 

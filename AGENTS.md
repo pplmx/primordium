@@ -68,13 +68,14 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
     - `Intel`: Decision center.
         - `Genotype`: The inheritable payload (encodes the DNA).
             - **Phenotypic Genes**: `sensing_range`, `max_speed`, `max_energy`.
-            - **Neural Genes**: `Brain` (13-6-6 RNN-lite).
-            - **Ancestral Gene**: `lineage_id` (Unique identifier for the ancestral line).
+            - **Neural Genes**: `Brain` (Dynamic Graph-based NEAT-lite).
 
 ### Brain Details
 
-- **Architecture**: 13 inputs (7 sensors + 6 memory) → 6 hidden → 6 outputs.
-- **Memory**: The 6 hidden layer values from $T-1$ are fed back as inputs for $T$.
+- **Architecture**: Dynamic graph-based topology. Initialized as 13 inputs (7 sensors + 6 memory) → 6 hidden → 6 outputs.
+- **Topological Evolution**: Supports "Add Node" and "Add Connection" mutations with Innovation Tracking for crossover.
+- **Memory**: The 6 initial hidden layer values from $T-1$ are fed back as inputs for $T$.
+- **Metabolic Cost**: 0.02 per hidden node + 0.005 per enabled connection.
 
 ### Action System Trade-offs
 

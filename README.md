@@ -51,8 +51,10 @@ Memory usage determines food availability. High RAM usage simulates a resource-f
 
 ### 🧠 Neural Awakening & Selection
 
-Each entity possesses a **12-6-5 Recurrent Neural Network** brain integrated into a modular **Intel** component. Through natural selection, organisms learn to hunt, navigate, and manage energy.
+Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain integrated into a modular **Intel** component. Through natural selection, organisms learn to hunt, navigate, and manage energy.
 
+- **Evolvable Topology**: Brains are no longer static. Through structural mutations, organisms can grow new neurons and connections to adapt to complex environments.
+- **Efficiency Pressure**: Complexity carries a metabolic cost (0.02/node + 0.005/connection), ensuring only the most efficient cognitive structures survive.
 - **Recurrent Memory**: 6 inputs are dedicated to the previous tick's internal state, enabling time-coherent behavior.
 - **Parallel Inference**: Neural processing is multi-threaded using **Rayon**, enabling massive population scaling.
 - **Interactive Selection**: Use the **Mouse** to click and inspect specific organisms.

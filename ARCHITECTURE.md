@@ -40,12 +40,13 @@
 
 这些模块位于 `src/model/` 根目录，作为支撑整个模拟运行的“物理常数”和“核心基座”：
 
-* **`brain.rs` (Intel/Will)**: 模拟实体的神经网络模型及推理引擎。采用 12-6-5 RNN-lite 架构，支持时间连贯性。
+* **`brain.rs` (Intel/Will)**: 模拟实体的神经网络模型及推理引擎。采用基于图结构的 NEAT-lite 架构，支持拓扑演化与时间连贯性。
 * **`quadtree.rs` (Spatial Index)**: 高性能空间索引（Spatial Hash），为碰撞检测和感知提供物理加速。
 * **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议，实现实体的序列化与反序列化。
 * **`world.rs` (Coordinator)**: 整个模拟宇宙的“总线”，负责统筹调度所有状态与系统。
 * **`config.rs` (Constants)**: 模拟宇宙的物理规则参数。
 * **`history.rs` (Archive)**: 模拟时空的观测记录。
+* **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议。
 
 ## 4. 其它顶级组件
 
@@ -125,3 +126,4 @@ src/
 * **Phase 22**: **Parallel Evolution & Global Hive**。引入基于 Axum 的中继服务器与分布式迁移协议，实现跨主机的实体共享与演化协同。
 * **Phase 23**: **Phenotypic Specialization**。将物理属性（速度、感知、能量容量）整合入 `Genotype`。实现了物理特征的可遗传、可变异，并配套建立了基于物理极限的代谢权衡（Trade-offs）算法。
 * **Phase 24**: **Lineage & Macroevolution**。引入了谱系追踪（Lineage Tracking）机制。通过在 `Genotype` 中整合 `lineage_id`，实现了对远古祖先后代的长期追踪。该系统支持跨宇宙谱系保存，并为 TUI 提供了宏观演化（Macroevolution）的可视化数据支持，标志着从个体演化向族群演进分析的跨越。
+* **Phase 28**: **Complex Brain Evolution (NEAT-lite)**。将神经网络从固定矩阵的 MLP 升级为动态图结构的 NEAT-lite 架构。支持节点与连接的拓扑变异，并通过创新追踪 (Innovation Tracking) 确保复杂的交叉遗传。引入了基于大脑复杂度的代谢惩罚（Metabolic Penalty）以防止无效冗余。

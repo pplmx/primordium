@@ -43,11 +43,32 @@ pub fn action_system(
     // Signaling cost: active color shift consumes energy
     let signal_cost = outputs[5].abs() as f64 * 0.1;
 
-    // Idle cost scales with sensing capability
+    // Brain Maintenance Cost (NEW): Larger brains cost more to keep alive
+    let hidden_node_count = entity
+        .intel
+        .genotype
+        .brain
+        .nodes
+        .iter()
+        .filter(|n| matches!(n.node_type, crate::model::brain::NodeType::Hidden))
+        .count();
+    let enabled_conn_count = entity
+        .intel
+        .genotype
+        .brain
+        .connections
+        .iter()
+        .filter(|c| c.enabled)
+        .count();
+    let brain_maintenance = (hidden_node_count as f64 * 0.02) + (enabled_conn_count as f64 * 0.005);
+
+    // Idle cost scales with sensing capability + brain size
     let sensing_cost_mod = 1.0 + (sensing_radius - 5.0).max(0.0) * 0.1;
-    let idle_cost = config.metabolism.base_idle_cost * metabolism_mult * sensing_cost_mod;
+    let idle_cost =
+        (config.metabolism.base_idle_cost + brain_maintenance) * metabolism_mult * sensing_cost_mod;
 
     entity.metabolism.energy -= move_cost + idle_cost + signal_cost;
+
     handle_movement(entity, speed_mult, terrain, width, height);
 }
 

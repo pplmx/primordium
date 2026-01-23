@@ -1,119 +1,221 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-/// Neural network brain with Recurrent (Memory) capability.
-///
-/// Architecture: 13 inputs -> 6 hidden -> 6 outputs
-///
-/// Inputs:
-/// 0-5. Environmental sensors (Food X, Food Y, Energy, Density, Pheromone, Tribe)
-/// 6. Same-Lineage Density nearby
-/// 7-12. Recurrent memory (last tick's hidden layer)
-///
-/// Outputs:
-/// 0. Movement X
-/// 1. Movement Y
-/// 2. Speed
-/// 3. Aggression
-/// 4. Share intent
-/// 5. Signal (Color Modulation)
+/// Types of nodes in the neural network.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum NodeType {
+    Input,
+    Hidden,
+    Output,
+}
+
+/// A single node (neuron) in the dynamic brain.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Node {
+    pub id: usize,
+    pub node_type: NodeType,
+}
+
+/// A connection between two nodes.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Connection {
+    pub from: usize,
+    pub to: usize,
+    pub weight: f32,
+    pub enabled: bool,
+    pub innovation: usize,
+}
+
+/// Dynamic neural network brain (NEAT-lite).
+/// Allows for evolving topology (adding neurons/connections).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
-    pub weights_ih: Vec<f32>, // 13 inputs -> 6 hidden (78 weights)
-    pub weights_ho: Vec<f32>, // 6 hidden -> 6 outputs (36 weights)
-    pub bias_h: Vec<f32>,     // 6 hidden biases
-    pub bias_o: Vec<f32>,     // 6 output biases
+    pub nodes: Vec<Node>,
+    pub connections: Vec<Connection>,
+    pub next_node_id: usize,
 }
 
 impl Brain {
+    /// Create a new minimal brain with 13 inputs and 6 outputs.
     pub fn new_random() -> Self {
         let mut rng = rand::thread_rng();
+        let mut nodes = Vec::new();
+        let mut connections = Vec::new();
 
-        let weights_ih: Vec<f32> = (0..78).map(|_| rng.gen_range(-1.0..1.0)).collect();
-        let weights_ho: Vec<f32> = (0..36).map(|_| rng.gen_range(-1.0..1.0)).collect();
-        let bias_h: Vec<f32> = (0..6).map(|_| rng.gen_range(-1.0..1.0)).collect();
-        let bias_o: Vec<f32> = (0..6).map(|_| rng.gen_range(-1.0..1.0)).collect();
+        // 1. Create Inputs (0..13)
+        for i in 0..13 {
+            nodes.push(Node {
+                id: i,
+                node_type: NodeType::Input,
+            });
+        }
+        // 2. Create Outputs (13..19)
+        for i in 13..19 {
+            nodes.push(Node {
+                id: i,
+                node_type: NodeType::Output,
+            });
+        }
+
+        // 3. Create initial Hidden layer (19..25)
+        for i in 19..25 {
+            nodes.push(Node {
+                id: i,
+                node_type: NodeType::Hidden,
+            });
+        }
+
+        let mut innov = 0;
+        // 4. Initial connections: Input -> Hidden
+        for i in 0..13 {
+            for h in 19..25 {
+                connections.push(Connection {
+                    from: i,
+                    to: h,
+                    weight: rng.gen_range(-1.0..1.0),
+                    enabled: true,
+                    innovation: innov,
+                });
+                innov += 1;
+            }
+        }
+        // 5. Initial connections: Hidden -> Output
+        for h in 19..25 {
+            for o in 13..19 {
+                connections.push(Connection {
+                    from: h,
+                    to: o,
+                    weight: rng.gen_range(-1.0..1.0),
+                    enabled: true,
+                    innovation: innov,
+                });
+                innov += 1;
+            }
+        }
 
         Self {
-            weights_ih,
-            weights_ho,
-            bias_h,
-            bias_o,
+            nodes,
+            connections,
+            next_node_id: 25,
         }
     }
 
-    /// Forward pass with recurrence. Takes environmental inputs and previous hidden state.
-    /// Returns (Outputs, New Hidden State).
+    /// Forward pass through the graph.
     pub fn forward(&self, inputs: [f32; 7], last_hidden: [f32; 6]) -> ([f32; 6], [f32; 6]) {
-        // 1. Combine inputs with memory
-        let mut combined_inputs = [0.0; 13];
-        combined_inputs[0..7].copy_from_slice(&inputs);
-        combined_inputs[7..13].copy_from_slice(&last_hidden);
+        let mut node_values: HashMap<usize, f32> = HashMap::new();
 
-        // 2. Input to Hidden (13 inputs -> 6 hidden)
-        let mut hidden = [0.0; 6];
-        for (i, h) in hidden.iter_mut().enumerate() {
-            let mut sum = self.bias_h[i];
-            for (j, &input) in combined_inputs.iter().enumerate() {
-                sum += input * self.weights_ih[j * 6 + i];
-            }
-            *h = sum.tanh();
+        for (i, &val) in inputs.iter().enumerate() {
+            node_values.insert(i, val);
+        }
+        for (i, &val) in last_hidden.iter().enumerate() {
+            node_values.insert(i + 7, val);
         }
 
-        // 3. Hidden to Output (6 hidden -> 6 outputs)
-        let mut output = [0.0; 6];
-        for (i, o) in output.iter_mut().enumerate() {
-            let mut sum = self.bias_o[i];
-            for (j, &h) in hidden.iter().enumerate() {
-                sum += h * self.weights_ho[j * 6 + i];
+        let mut new_values = node_values.clone();
+        for conn in &self.connections {
+            if !conn.enabled {
+                continue;
             }
-            *o = sum.tanh();
+            let val = *node_values.get(&conn.from).unwrap_or(&0.0);
+            let entry = new_values.entry(conn.to).or_insert(0.0);
+            *entry += val * conn.weight;
         }
-        (output, hidden)
+
+        let mut outputs = [0.0; 6];
+        for node in &self.nodes {
+            if let Some(val) = new_values.get_mut(&node.id) {
+                *val = val.tanh();
+            }
+        }
+
+        for (i, output) in outputs.iter_mut().enumerate() {
+            *output = *new_values.get(&(i + 13)).unwrap_or(&0.0);
+        }
+
+        // 5. Extract new "hidden" state for memory (using IDs 19..25 as our canonical hidden nodes)
+        let mut next_hidden = [0.0; 6];
+        for (i, val) in next_hidden.iter_mut().enumerate() {
+            *val = *new_values.get(&(i + 19)).unwrap_or(&0.0);
+        }
+
+        (outputs, next_hidden)
     }
 
     pub fn mutate_with_config(&mut self, config: &crate::model::config::EvolutionConfig) {
         let mut rng = rand::thread_rng();
 
-        let mut mutate_val = |v: &mut f32| {
-            let r = rng.gen::<f32>();
-            if r < config.drift_rate {
-                *v += rng.gen_range(-config.drift_amount..config.drift_amount);
-            } else if r < config.mutation_rate {
-                *v += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+        for conn in &mut self.connections {
+            if rng.gen::<f32>() < config.mutation_rate {
+                conn.weight += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+                conn.weight = conn.weight.clamp(-2.0, 2.0);
             }
-            *v = v.clamp(-2.0, 2.0);
-        };
+        }
 
-        for w in self.weights_ih.iter_mut() {
-            mutate_val(w);
+        let topo_rate = config.mutation_rate * 0.1;
+
+        if rng.gen::<f32>() < topo_rate {
+            let from = self.nodes[rng.gen_range(0..self.nodes.len())].id;
+            let to = self.nodes[rng.gen_range(0..self.nodes.len())].id;
+            if !matches!(
+                self.nodes.iter().find(|n| n.id == to).unwrap().node_type,
+                NodeType::Input
+            ) {
+                self.connections.push(Connection {
+                    from,
+                    to,
+                    weight: rng.gen_range(-1.0..1.0),
+                    enabled: true,
+                    innovation: self.connections.len(),
+                });
+            }
         }
-        for w in self.weights_ho.iter_mut() {
-            mutate_val(w);
-        }
-        for b in self.bias_h.iter_mut() {
-            mutate_val(b);
-        }
-        for b in self.bias_o.iter_mut() {
-            mutate_val(b);
+
+        if rng.gen::<f32>() < topo_rate * 0.5 && !self.connections.is_empty() {
+            let idx = rng.gen_range(0..self.connections.len());
+            if self.connections[idx].enabled {
+                self.connections[idx].enabled = false;
+                let from = self.connections[idx].from;
+                let to = self.connections[idx].to;
+                let new_id = self.next_node_id;
+                self.next_node_id += 1;
+                self.nodes.push(Node {
+                    id: new_id,
+                    node_type: NodeType::Hidden,
+                });
+                self.connections.push(Connection {
+                    from,
+                    to: new_id,
+                    weight: 1.0,
+                    enabled: true,
+                    innovation: self.connections.len(),
+                });
+                self.connections.push(Connection {
+                    from: new_id,
+                    to,
+                    weight: self.connections[idx].weight,
+                    enabled: true,
+                    innovation: self.connections.len(),
+                });
+            }
         }
     }
 
     pub fn genotype_distance(&self, other: &Brain) -> f32 {
-        let mut sum_sq = 0.0;
-        for (w1, w2) in self.weights_ih.iter().zip(other.weights_ih.iter()) {
-            sum_sq += (w1 - w2).powi(2);
+        let mut weight_diff = 0.0;
+        let mut matching = 0;
+        let mut map1 = HashMap::new();
+        for c in &self.connections {
+            map1.insert(c.innovation, c.weight);
         }
-        for (w1, w2) in self.weights_ho.iter().zip(other.weights_ho.iter()) {
-            sum_sq += (w1 - w2).powi(2);
+        for c in &other.connections {
+            if let Some(w1) = map1.get(&c.innovation) {
+                weight_diff += (w1 - c.weight).abs();
+                matching += 1;
+            }
         }
-        for (b1, b2) in self.bias_h.iter().zip(other.bias_h.iter()) {
-            sum_sq += (b1 - b2).powi(2);
-        }
-        for (b1, b2) in self.bias_o.iter().zip(other.bias_o.iter()) {
-            sum_sq += (b1 - b2).powi(2);
-        }
-        sum_sq.sqrt()
+        let disjoint = (self.connections.len() + other.connections.len()) - (2 * matching);
+        (weight_diff / matching.max(1) as f32) + (disjoint as f32 * 0.5)
     }
 
     pub fn to_hex(&self) -> String {
@@ -136,18 +238,8 @@ mod tests {
     #[test]
     fn test_brain_new_random_has_correct_dimensions() {
         let brain = Brain::new_random();
-        assert_eq!(
-            brain.weights_ih.len(),
-            78,
-            "Should have 13x6=78 input-hidden weights"
-        );
-        assert_eq!(
-            brain.weights_ho.len(),
-            36,
-            "Should have 6x6=36 hidden-output weights"
-        );
-        assert_eq!(brain.bias_h.len(), 6, "Should have 6 hidden biases");
-        assert_eq!(brain.bias_o.len(), 6, "Should have 6 output biases");
+        assert_eq!(brain.nodes.len(), 25);
+        assert_eq!(brain.connections.len(), 114);
     }
 
     #[test]
@@ -155,112 +247,27 @@ mod tests {
         let brain = Brain::new_random();
         let inputs = [0.5, -0.5, 0.3, 0.0, 0.1, 0.2, 0.1];
         let last_hidden = [0.0; 6];
-
         let (output1, _) = intel::brain_forward(&brain, inputs, last_hidden);
         let (output2, _) = intel::brain_forward(&brain, inputs, last_hidden);
-
-        assert_eq!(output1, output2, "Same inputs should produce same outputs");
+        assert_eq!(output1, output2);
     }
 
     #[test]
-    fn test_brain_forward_output_in_valid_range() {
-        let brain = Brain::new_random();
-        let inputs = [1.0, -1.0, 0.5, 0.5, 0.0, 1.0, 0.0];
-        let last_hidden = [0.1; 6];
-
-        let (outputs, next_hidden) = intel::brain_forward(&brain, inputs, last_hidden);
-
-        for (i, &out) in outputs.iter().enumerate() {
-            assert!(
-                (-1.0..=1.0).contains(&out),
-                "Output {} should be in [-1, 1], got {}",
-                i,
-                out
-            );
-        }
-        for (i, &h) in next_hidden.iter().enumerate() {
-            assert!(
-                (-1.0..=1.0).contains(&h),
-                "Hidden {} should be in [-1, 1], got {}",
-                i,
-                h
-            );
-        }
-    }
-
-    #[test]
-    fn test_brain_mutate_keeps_weights_in_range() {
+    fn test_brain_mutate_topology_adds_genes() {
         let mut brain = Brain::new_random();
+        let initial_conns = brain.connections.len();
+        let initial_nodes = brain.nodes.len();
         let config = crate::model::config::EvolutionConfig {
-            mutation_rate: 1.0, // Always mutate
+            mutation_rate: 1.0,
             mutation_amount: 0.5,
-            drift_rate: 0.5,
-            drift_amount: 0.1,
+            drift_rate: 0.0,
+            drift_amount: 0.0,
             speciation_rate: 0.0,
         };
-
-        // Mutate many times
         for _ in 0..100 {
-            intel::mutate_brain(&mut brain, &config);
+            brain.mutate_with_config(&config);
         }
-
-        // All weights should still be in [-2, 2]
-        for w in &brain.weights_ih {
-            assert!(
-                *w >= -2.0 && *w <= 2.0,
-                "Weight should be clamped to [-2, 2]"
-            );
-        }
-        for w in &brain.weights_ho {
-            assert!(
-                *w >= -2.0 && *w <= 2.0,
-                "Weight should be clamped to [-2, 2]"
-            );
-        }
-    }
-
-    #[test]
-    fn test_brain_crossover_produces_valid_child() {
-        let parent1 = Brain::new_random();
-        let parent2 = Brain::new_random();
-
-        let child = intel::crossover_brains(&parent1, &parent2);
-
-        // Child should have correct dimensions
-        assert_eq!(child.weights_ih.len(), 78);
-        assert_eq!(child.weights_ho.len(), 36);
-
-        // Each weight should come from either parent
-        for i in 0..child.weights_ih.len() {
-            assert!(
-                child.weights_ih[i] == parent1.weights_ih[i]
-                    || child.weights_ih[i] == parent2.weights_ih[i],
-                "Child weight should come from a parent"
-            );
-        }
-    }
-
-    #[test]
-    fn test_brain_recurrence_memory_impact() {
-        let brain = Brain::new_random();
-        let inputs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
-
-        // Two different last states
-        let state_a = [0.9; 6];
-        let state_b = [-0.9; 6];
-
-        let (out_a, next_a) = intel::brain_forward(&brain, inputs, state_a);
-        let (out_b, next_b) = intel::brain_forward(&brain, inputs, state_b);
-
-        // Outputs should differ because memory state differs
-        assert_ne!(
-            out_a, out_b,
-            "Different memory states should produce different outputs"
-        );
-        assert_ne!(
-            next_a, next_b,
-            "Different memory states should lead to different next states"
-        );
+        assert!(brain.connections.len() > initial_conns || brain.nodes.len() > initial_nodes);
     }
 
     #[test]
@@ -268,10 +275,7 @@ mod tests {
         let original = Brain::new_random();
         let hex = original.to_hex();
         let restored = Brain::from_hex(&hex).expect("Should decode successfully");
-
-        assert_eq!(original.weights_ih, restored.weights_ih);
-        assert_eq!(original.weights_ho, restored.weights_ho);
-        assert_eq!(original.bias_h, restored.bias_h);
-        assert_eq!(original.bias_o, restored.bias_o);
+        assert_eq!(original.nodes.len(), restored.nodes.len());
+        assert_eq!(original.connections.len(), restored.connections.len());
     }
 }

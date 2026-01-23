@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 28: Complex Brain Evolution (NEAT-lite)] - 2026-01-23
+
+### Evolutionary Leap: Evolvable Topology & Efficiency Pressure
+
+Phase 28 transitions the cognitive engine from a fixed-matrix MLP to a dynamic, graph-based **NEAT-lite** architecture. Brains are no longer static; they can grow new neurons and connections through mutation, allowing for more specialized and complex behaviors while enforcing metabolic penalties for unnecessary complexity.
+
+#### ✨ Features
+
+- **Evolvable Brain Topology**: Implemented "Add Node" and "Add Connection" mutations, enabling the brain to grow in complexity over generations.
+- **Innovation Tracking**: Structural mutations are tracked via innovation numbers, ensuring consistent genetic crossover between diverse topologies.
+- **Metabolic Penalty for Bloat**: Introduced energy costs for brain complexity (0.02 per node, 0.005 per connection) to select for cognitive efficiency.
+- **Dynamic Brain Visualization**: The TUI brain heatmap now adapts to show the evolving graph structure and connection weights.
+
+#### 🛠️ Technical Achievements
+
+- **Graph-based Neural Engine**: Refactored `Brain` from matrix-based to an adjacency-list graph structure for flexible inference.
+- **NEAT Crossover Algorithm**: Implemented an innovation-aligned crossover mechanism for structural genes.
+- **Metabolic Complexity Scaling**: Integrated structural costs into the `Action` system's energy formula.
+
+---
+
 ## [Phase 25: Social Complexity & Defense Evolution] - 2026-01-23
 
 ### Evolutionary Leap: Collective Intelligence & Dynamic Signaling
