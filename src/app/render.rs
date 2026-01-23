@@ -365,7 +365,7 @@ impl App {
 
                 for c in conns.iter().filter(|c| c.enabled).take(12) {
                     let from_label = match c.from {
-                        0..=14 => format!(
+                        0..=17 => format!(
                             "In-{}",
                             match c.from {
                                 0 => "FX",
@@ -374,26 +374,29 @@ impl App {
                                 3 => "NB",
                                 4 => "PH",
                                 5 => "TR",
-                                6 => "LI",
-                                7 => "SA",
-                                8 => "SB",
+                                6 => "KX",
+                                7 => "KY",
+                                8 => "SA",
+                                9 => "SB",
+                                10 => "WL",
+                                11 => "AG",
                                 _ => "Mem",
                             }
                         ),
                         _ => format!("Hid-{}", c.from),
                     };
                     let to_label = match c.to {
-                        15..=22 => format!(
+                        18..=25 => format!(
                             "Out-{}",
                             match c.to {
-                                15 => "MovX",
-                                16 => "MovY",
-                                17 => "Spd",
-                                18 => "Agg",
-                                19 => "Shr",
-                                20 => "Clr",
-                                21 => "SigA",
-                                22 => "SigB",
+                                18 => "MovX",
+                                19 => "MovY",
+                                20 => "Spd",
+                                21 => "Agg",
+                                22 => "Shr",
+                                23 => "Clr",
+                                24 => "EmA",
+                                25 => "EmB",
                                 _ => "?",
                             }
                         ),

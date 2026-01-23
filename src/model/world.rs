@@ -88,7 +88,7 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 9]>,
+    perception_buffer: Vec<[f32; 12]>,
     #[serde(skip, default)]
     decision_buffer: Vec<([f32; 8], [f32; 6])>,
     #[serde(skip, default)]
@@ -244,14 +244,39 @@ impl World {
                         n_idx != i && social::are_same_tribe(e, &current_entities[n_idx])
                     })
                     .count();
-                let lineage_count = nearby_indices
-                    .iter()
-                    .filter(|&&n_idx| {
-                        n_idx != i
-                            && current_entities[n_idx].metabolism.lineage_id
-                                == e.metabolism.lineage_id
-                    })
-                    .count();
+                let mut kin_dx = 0.0;
+                let mut kin_dy = 0.0;
+                let mut kin_count = 0;
+                for &n_idx in &nearby_indices {
+                    if n_idx != i
+                        && current_entities[n_idx].metabolism.lineage_id == e.metabolism.lineage_id
+                    {
+                        kin_dx += current_entities[n_idx].physics.x - e.physics.x;
+                        kin_dy += current_entities[n_idx].physics.y - e.physics.y;
+                        kin_count += 1;
+                    }
+                }
+                let kin_vec_x = if kin_count > 0 {
+                    (kin_dx / kin_count as f64).clamp(-1.0, 1.0)
+                } else {
+                    0.0
+                };
+                let kin_vec_y = if kin_count > 0 {
+                    (kin_dy / kin_count as f64).clamp(-1.0, 1.0)
+                } else {
+                    0.0
+                };
+
+                // Wall sensing
+                let mut wall_proximity = 0.0;
+                if e.physics.x < 5.0
+                    || e.physics.x > (self.width - 5) as f64
+                    || e.physics.y < 5.0
+                    || e.physics.y > (self.height - 5) as f64
+                {
+                    wall_proximity = 1.0;
+                }
+
                 [
                     (dx_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
                     (dy_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
@@ -259,9 +284,12 @@ impl World {
                     (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
                     pheromone_food,
                     (tribe_count as f32 / 5.0).min(1.0),
-                    (lineage_count as f32 / 5.0).min(1.0),
+                    kin_vec_x as f32,
+                    kin_vec_y as f32,
                     pheromone_a,
                     pheromone_b,
+                    wall_proximity as f32,
+                    (e.metabolism.birth_tick as f32 / self.tick.max(1) as f32).min(1.0),
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
@@ -291,6 +319,18 @@ impl World {
                 self.width,
                 self.height,
             );
+
+            // NEW: Phase 30 - Herding Reward
+            // Use perceived kin vector from perception_buffer[i][6/7]
+            let kin_vx = perception_buffer[i][6] as f64;
+            let kin_vy = perception_buffer[i][7] as f64;
+            if kin_vx != 0.0 || kin_vy != 0.0 {
+                let dot_product = current_entities[i].physics.vx * kin_vx
+                    + current_entities[i].physics.vy * kin_vy;
+                if dot_product > 0.5 {
+                    current_entities[i].metabolism.energy += 0.05; // Cooperation bonus
+                }
+            }
 
             if current_entities[i].metabolism.energy <= 0.0 {
                 biological::handle_death(

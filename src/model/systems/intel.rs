@@ -4,7 +4,7 @@ use crate::model::config::EvolutionConfig;
 /// Forward pass through brain.
 pub fn brain_forward(
     brain: &Brain,
-    inputs: [f32; 9],
+    inputs: [f32; 12],
     last_hidden: [f32; 6],
 ) -> ([f32; 8], [f32; 6]) {
     brain.forward(inputs, last_hidden)
