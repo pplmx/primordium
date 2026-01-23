@@ -1,5 +1,5 @@
 use primordium_lib::model::config::{AppConfig, GameMode};
-use primordium_lib::model::state::entity::{Entity, EntityRole};
+use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -11,9 +11,9 @@ fn test_group_defense_reduces_damage() {
     let mut world = World::new(0, config).unwrap();
     let env = Environment::default();
 
-    // 1. Attacker (Carnivore, high energy)
+    // 1. Attacker (Carnivore specialist, high energy)
     let mut attacker = Entity::new(10.0, 10.0, 0);
-    attacker.metabolism.role = EntityRole::Carnivore;
+    attacker.metabolism.trophic_potential = 1.0;
     attacker.metabolism.energy = 1000.0;
     attacker.physics.r = 255;
     attacker.physics.g = 0;

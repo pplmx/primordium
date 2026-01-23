@@ -297,10 +297,14 @@ impl App {
                 ]));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
-                        " Role:   ",
+                        " Trophic: ",
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
-                    ratatui::text::Span::raw(format!("{:?}", entity.metabolism.role)),
+                    ratatui::text::Span::raw(format!(
+                        "{:.1} (Herb:{:.0}%)",
+                        entity.metabolism.trophic_potential,
+                        (1.0 - entity.metabolism.trophic_potential) * 100.0
+                    )),
                 ]));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(

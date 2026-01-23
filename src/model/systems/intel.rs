@@ -5,7 +5,7 @@ use rand::Rng;
 /// Forward pass through brain.
 pub fn brain_forward(
     brain: &Brain,
-    inputs: [f32; 13],
+    inputs: [f32; 14],
     last_hidden: [f32; 6],
 ) -> ([f32; 8], [f32; 6]) {
     brain.forward(inputs, last_hidden)
@@ -49,14 +49,20 @@ pub fn mutate_genotype(
     genotype.maturity_gene = genotype.maturity_gene.clamp(0.5, 2.0);
 
     // Max Energy scales with Maturity (Larger body takes longer to grow)
-    genotype.max_energy = 200.0 * genotype.maturity_gene as f64;
-    mutate_val(&mut genotype.max_energy, 100.0, 500.0, &mut rng);
+    genotype.max_energy = (200.0 * genotype.maturity_gene as f64).clamp(100.0, 500.0);
 
     // Mutate Metabolic Niche (0.0 to 1.0)
     if rng.gen::<f32>() < config.mutation_rate {
         genotype.metabolic_niche += rng.gen_range(-config.mutation_amount..config.mutation_amount);
     }
     genotype.metabolic_niche = genotype.metabolic_niche.clamp(0.0, 1.0);
+
+    // Mutate Trophic Potential (0.0 to 1.0)
+    if rng.gen::<f32>() < config.mutation_rate {
+        genotype.trophic_potential +=
+            rng.gen_range(-config.mutation_amount..config.mutation_amount);
+    }
+    genotype.trophic_potential = genotype.trophic_potential.clamp(0.0, 1.0);
 
     // Mutate Reproductive Investment (0.1 to 0.9)
     if rng.gen::<f32>() < config.mutation_rate {
@@ -94,6 +100,11 @@ pub fn crossover_genotypes(
     } else {
         p2.metabolic_niche
     };
+    let trophic_potential = if rng.gen_bool(0.5) {
+        p1.trophic_potential
+    } else {
+        p2.trophic_potential
+    };
     let reproductive_investment = if rng.gen_bool(0.5) {
         p1.reproductive_investment
     } else {
@@ -112,6 +123,7 @@ pub fn crossover_genotypes(
         max_energy,
         lineage_id: p1.lineage_id, // Inherit lineage from first parent
         metabolic_niche,
+        trophic_potential,
         reproductive_investment,
         maturity_gene,
     }

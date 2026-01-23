@@ -29,10 +29,10 @@ pub struct Connection {
 
 /// Dynamic neural network brain (NEAT-lite).
 ///
-/// Topology (Phase 31 Final):
-/// Inputs (0..19): 13 environmental + 6 recurrent
-/// Outputs (19..27): MoveX, MoveY, Speed, Aggro, Share, Color, EmitA, EmitB
-/// Hidden (27..33): Initial hidden nodes
+/// Topology (Phase 33 Final):
+/// Inputs (0..20): 14 environmental + 6 recurrent
+/// Outputs (20..28): MoveX, MoveY, Speed, Aggro, Share, Color, EmitA, EmitB
+/// Hidden (28..34): Initial hidden nodes
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
     pub nodes: Vec<Node>,
@@ -46,22 +46,22 @@ impl Brain {
         let mut nodes = Vec::new();
         let mut connections = Vec::new();
 
-        // 1. Create Inputs (0..19)
-        for i in 0..19 {
+        // 1. Create Inputs (0..20)
+        for i in 0..20 {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Input,
             });
         }
-        // 2. Create Outputs (19..27)
-        for i in 19..27 {
+        // 2. Create Outputs (20..28)
+        for i in 20..28 {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Output,
             });
         }
-        // 3. Create initial Hidden layer (27..33)
-        for i in 27..33 {
+        // 3. Create initial Hidden layer (28..34)
+        for i in 28..34 {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Hidden,
@@ -70,8 +70,8 @@ impl Brain {
 
         let mut innov = 0;
         // 4. Initial connections: Input -> Hidden
-        for i in 0..19 {
-            for h in 27..33 {
+        for i in 0..20 {
+            for h in 28..34 {
                 connections.push(Connection {
                     from: i,
                     to: h,
@@ -83,8 +83,8 @@ impl Brain {
             }
         }
         // 5. Initial connections: Hidden -> Output
-        for h in 27..33 {
-            for o in 19..27 {
+        for h in 28..34 {
+            for o in 20..28 {
                 connections.push(Connection {
                     from: h,
                     to: o,
@@ -99,21 +99,21 @@ impl Brain {
         Self {
             nodes,
             connections,
-            next_node_id: 33,
+            next_node_id: 34,
         }
     }
 
     /// Forward pass through the graph.
-    pub fn forward(&self, inputs: [f32; 13], last_hidden: [f32; 6]) -> ([f32; 8], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 14], last_hidden: [f32; 6]) -> ([f32; 8], [f32; 6]) {
         let mut node_values: HashMap<usize, f32> = HashMap::new();
 
-        // 1. Load inputs (13 sensors)
+        // 1. Load inputs (14 sensors)
         for (i, &val) in inputs.iter().enumerate() {
             node_values.insert(i, val);
         }
         // 2. Load memory (6 memory inputs)
         for (i, &val) in last_hidden.iter().enumerate() {
-            node_values.insert(i + 13, val);
+            node_values.insert(i + 14, val);
         }
 
         let mut new_values = node_values.clone();
@@ -134,12 +134,12 @@ impl Brain {
         }
 
         for (i, output) in outputs.iter_mut().enumerate() {
-            *output = *new_values.get(&(i + 19)).unwrap_or(&0.0);
+            *output = *new_values.get(&(i + 20)).unwrap_or(&0.0);
         }
 
         let mut next_hidden = [0.0; 6];
         for (i, val) in next_hidden.iter_mut().enumerate() {
-            *val = *new_values.get(&(i + 27)).unwrap_or(&0.0);
+            *val = *new_values.get(&(i + 28)).unwrap_or(&0.0);
         }
 
         (outputs, next_hidden)
@@ -241,19 +241,19 @@ mod tests {
     #[test]
     fn test_brain_new_random_has_correct_dimensions() {
         let brain = Brain::new_random();
-        assert_eq!(brain.nodes.len(), 33);
-        // 19 inputs, 8 outputs, 6 hidden
-        // 19*6 = 114
+        assert_eq!(brain.nodes.len(), 34);
+        // 20 inputs, 8 outputs, 6 hidden
+        // 20*6 = 120
         // 6*8 = 48
-        // Total = 162
-        assert_eq!(brain.connections.len(), 162);
+        // Total = 168
+        assert_eq!(brain.connections.len(), 168);
     }
 
     #[test]
     fn test_brain_forward_is_deterministic() {
         let brain = Brain::new_random();
         let inputs = [
-            0.5, -0.5, 0.3, 0.0, 0.1, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.5, -0.5, 0.3, 0.0, 0.1, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ];
         let last_hidden = [0.0; 6];
         let (output1, _) = intel::brain_forward(&brain, inputs, last_hidden);

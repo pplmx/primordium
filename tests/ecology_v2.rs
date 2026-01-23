@@ -1,5 +1,5 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::{Entity, EntityRole};
+use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::food::Food;
 use primordium_lib::model::systems::ecological;
 use primordium_lib::model::world::World;
@@ -7,17 +7,17 @@ use std::collections::HashSet;
 
 #[test]
 fn test_metabolic_niche_efficiency() {
-    // 1. Green Specialist (niche = 0.0)
+    // 1. Green Specialist (niche = 0.0, Herbivore-leaning)
     let mut green_forager = Entity::new(10.0, 10.0, 0);
     green_forager.intel.genotype.metabolic_niche = 0.0;
-    green_forager.metabolism.role = EntityRole::Herbivore;
+    green_forager.metabolism.trophic_potential = 0.0;
     green_forager.metabolism.energy = 100.0;
     green_forager.metabolism.max_energy = 500.0;
 
-    // 2. Blue Specialist (niche = 1.0)
+    // 2. Blue Specialist (niche = 1.0, Herbivore-leaning)
     let mut blue_forager = Entity::new(10.0, 10.0, 0);
     blue_forager.intel.genotype.metabolic_niche = 1.0;
-    blue_forager.metabolism.role = EntityRole::Herbivore;
+    blue_forager.metabolism.trophic_potential = 0.0;
     blue_forager.metabolism.energy = 100.0;
     blue_forager.metabolism.max_energy = 500.0;
 
@@ -60,7 +60,8 @@ fn test_metabolic_niche_efficiency() {
     ecological::handle_feeding_optimized(0, &mut entities_b, &mut ctx_b);
 
     // 6. Assertions
-    // Green Specialist on Green Food: Niche match (1.0 - abs(0-0)) = 1.0. Efficiency = 1.2x. Gain = 120.
+    // Green Specialist on Green Food: Niche match (1.0 - abs(0-0)) = 1.0. Efficiency = 1.2x.
+    // Trophic potential 0.0 -> 1.0x efficiency. Gain = 120.
     // Blue Specialist on Green Food: Niche match (1.0 - abs(1-0)) = 0.0. Efficiency = 0.2x. Gain = 20.
     assert!(entities_g[0].metabolism.energy > entities_b[0].metabolism.energy);
     assert_eq!(entities_g[0].metabolism.energy, 220.0); // 100 + 120
@@ -110,12 +111,12 @@ fn test_niche_partitioning_coexistence() {
     // 2. Two specialized entities
     let mut green_spec = Entity::new(10.0, 10.0, 0);
     green_spec.intel.genotype.metabolic_niche = 0.0;
-    green_spec.metabolism.role = EntityRole::Herbivore;
+    green_spec.metabolism.trophic_potential = 0.0;
     green_spec.metabolism.energy = 100.0;
 
     let mut blue_spec = Entity::new(15.0, 15.0, 0);
     blue_spec.intel.genotype.metabolic_niche = 1.0;
-    blue_spec.metabolism.role = EntityRole::Herbivore;
+    blue_spec.metabolism.trophic_potential = 0.0;
     blue_spec.metabolism.energy = 100.0;
 
     let mut eaten_indices = HashSet::new();

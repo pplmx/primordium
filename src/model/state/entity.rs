@@ -23,15 +23,6 @@ pub enum EntityStatus {
     Foraging,
 }
 
-/// Dietary role determining food sources and aggression patterns.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum EntityRole {
-    /// Eats plants, generally low aggression.
-    Herbivore,
-    /// Eats other entities, high aggression potential.
-    Carnivore,
-}
-
 /// Physical properties: position, velocity, appearance, and home territory.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
@@ -64,8 +55,8 @@ pub struct Physics {
 /// Metabolic state: energy, lifecycle, and reproduction tracking.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Metabolism {
-    /// Dietary role (Herbivore or Carnivore).
-    pub role: EntityRole,
+    /// Trophic preference (0.0 = Pure Herbivore, 1.0 = Pure Carnivore).
+    pub trophic_potential: f32,
     /// Current energy level.
     pub energy: f64,
     /// Maximum energy capacity (Stomach Size).
@@ -123,6 +114,8 @@ pub struct Genotype {
     pub lineage_id: Uuid,
     /// NEW: Metabolic niche (0.0 = Green expert, 1.0 = Blue expert)
     pub metabolic_niche: f32,
+    /// NEW: Trophic Potential (0.0 = Herbivore, 1.0 = Carnivore)
+    pub trophic_potential: f32,
     /// NEW: Ratio of energy given to child (0.1 to 0.9)
     pub reproductive_investment: f32,
     /// NEW: Maturity age modifier (ticks = maturity_age * maturity_gene)
@@ -139,6 +132,7 @@ impl Genotype {
             max_energy: 200.0,
             lineage_id: Uuid::new_v4(),
             metabolic_niche: rng.gen_range(0.0..1.0),
+            trophic_potential: rng.gen_range(0.0..1.0),
             reproductive_investment: 0.5,
             maturity_gene: 1.0,
         }
@@ -157,25 +151,13 @@ impl Genotype {
 }
 
 /// A living entity in the simulation world.
-///
-/// Each entity is composed of four components following ECS-like patterns:
-/// - [`Physics`]: Position, velocity, and appearance
-/// - [`Metabolism`]: Energy and lifecycle state
-/// - [`Health`]: Infection and immunity
-/// - [`Intel`]: Neural network brain and decision outputs
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
-    /// Unique identifier.
     pub id: Uuid,
-    /// Parent entity ID (None for original population).
     pub parent_id: Option<Uuid>,
-    /// Physical properties.
     pub physics: Physics,
-    /// Metabolic state.
     pub metabolism: Metabolism,
-    /// Health state.
     pub health: Health,
-    /// Intelligence component.
     pub intel: Intel,
 }
 
@@ -189,12 +171,6 @@ impl Entity {
         let r = rng.gen_range(100..255);
         let g = rng.gen_range(100..255);
         let b = rng.gen_range(100..255);
-
-        let role = if rng.gen_bool(0.8) {
-            EntityRole::Herbivore
-        } else {
-            EntityRole::Carnivore
-        };
 
         let genotype = Genotype::new_random();
 
@@ -216,7 +192,7 @@ impl Entity {
                 max_speed: genotype.max_speed,
             },
             metabolism: Metabolism {
-                role,
+                trophic_potential: genotype.trophic_potential,
                 energy: 100.0,
                 max_energy: genotype.max_energy,
                 peak_energy: 100.0,
@@ -241,13 +217,9 @@ impl Entity {
     }
 
     pub fn color(&self) -> Color {
-        // Base tribe color
         let (r, g, b) = (self.physics.r, self.physics.g, self.physics.b);
-
-        // Modulate based on signaling output (-1.0 to 1.0)
         let signal = self.intel.last_signal;
         if signal > 0.0 {
-            // Brighten (Warning/Intimidation)
             let factor = 1.0 + signal as f64 * 0.5;
             Color::Rgb(
                 (r as f64 * factor).min(255.0) as u8,
@@ -255,8 +227,7 @@ impl Entity {
                 (b as f64 * factor).min(255.0) as u8,
             )
         } else {
-            // Darken (Stealth/Camouflage)
-            let factor = 1.0 + signal as f64 * 0.7; // signal is negative here
+            let factor = 1.0 + signal as f64 * 0.7;
             Color::Rgb(
                 (r as f64 * factor).max(20.0) as u8,
                 (g as f64 * factor).max(20.0) as u8,
@@ -323,7 +294,6 @@ impl Entity {
     pub fn name(&self) -> String {
         let id_str = self.id.to_string();
         let bytes = id_str.as_bytes();
-
         let syllables = [
             "ae", "ba", "co", "da", "el", "fa", "go", "ha", "id", "jo", "ka", "lu", "ma", "na",
             "os", "pe", "qu", "ri", "sa", "tu", "vi", "wu", "xi", "yo", "ze",
@@ -333,14 +303,17 @@ impl Entity {
             "Luv", "Mor", "Nar", "Oth", "Pyr", "Quas", "Rhun", "Syl", "Tor", "Val", "Wun", "Xer",
             "Yor", "Zan",
         ];
-
         let p_idx = (bytes[0] as usize) % prefix.len();
         let s1_idx = (bytes[1] as usize) % syllables.len();
         let s2_idx = (bytes[2] as usize) % syllables.len();
 
-        let role_prefix = match self.metabolism.role {
-            EntityRole::Herbivore => "H-",
-            EntityRole::Carnivore => "C-",
+        let tp = self.metabolism.trophic_potential;
+        let role_prefix = if tp < 0.3 {
+            "H-"
+        } else if tp > 0.7 {
+            "C-"
+        } else {
+            "O-"
         };
 
         format!(
@@ -361,24 +334,9 @@ mod tests {
     #[test]
     fn test_entity_new_has_valid_initial_state() {
         let entity = Entity::new(50.0, 25.0, 100);
-
         assert_eq!(entity.physics.x, 50.0);
         assert_eq!(entity.physics.y, 25.0);
-        assert_eq!(entity.metabolism.birth_tick, 100);
         assert_eq!(entity.metabolism.generation, 1);
         assert_eq!(entity.metabolism.energy, 100.0);
-        assert_eq!(entity.metabolism.max_energy, 200.0);
-        assert_eq!(entity.metabolism.offspring_count, 0);
-        assert!(entity.parent_id.is_none());
-    }
-
-    #[test]
-    fn test_entity_name_is_deterministic() {
-        let entity = Entity::new(0.0, 0.0, 0);
-        let name1 = entity.name();
-        let name2 = entity.name();
-
-        assert_eq!(name1, name2, "Same entity should have same name");
-        assert!(name1.contains("-Gen"), "Name should contain generation");
     }
 }

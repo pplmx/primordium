@@ -88,7 +88,7 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 13]>,
+    perception_buffer: Vec<[f32; 14]>,
     #[serde(skip, default)]
     decision_buffer: Vec<([f32; 8], [f32; 6])>,
     #[serde(skip, default)]
@@ -227,7 +227,7 @@ impl World {
         alive_entities.clear();
         energy_transfers.clear();
 
-        let mut perception_buffer: Vec<[f32; 13]> = Vec::with_capacity(current_entities.len());
+        let mut perception_buffer: Vec<[f32; 14]> = Vec::with_capacity(current_entities.len());
         let mut decision_buffer: Vec<([f32; 8], [f32; 6])> =
             Vec::with_capacity(current_entities.len());
 
@@ -297,6 +297,7 @@ impl World {
                     wall_proximity as f32,
                     (e.metabolism.birth_tick as f32 / self.tick.max(1) as f32).min(1.0),
                     f_type,
+                    e.metabolism.trophic_potential, // 14th Input: Trophic Potential
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
