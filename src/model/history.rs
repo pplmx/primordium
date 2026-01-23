@@ -41,6 +41,7 @@ pub enum LiveEvent {
 pub struct Legend {
     pub id: Uuid,
     pub parent_id: Option<Uuid>,
+    pub lineage_id: Uuid, // NEW
     pub birth_tick: u64,
     pub death_tick: u64,
     pub lifespan: u64,
@@ -60,6 +61,8 @@ pub struct PopulationStats {
     pub avg_brain_entropy: f64,
     pub species_count: usize,
     pub top_fitness: f64,
+    /// NEW: Count of entities per lineage.
+    pub lineage_counts: HashMap<Uuid, usize>,
     recent_deaths: VecDeque<f64>,
 }
 
@@ -77,6 +80,7 @@ impl PopulationStats {
             avg_brain_entropy: 0.0,
             species_count: 0,
             top_fitness: 0.0,
+            lineage_counts: HashMap::new(),
             recent_deaths: VecDeque::with_capacity(100),
         }
     }
@@ -97,11 +101,19 @@ impl PopulationStats {
     ) {
         self.population = entities.len();
         self.top_fitness = top_fitness;
+        self.lineage_counts.clear();
 
         if entities.is_empty() {
             self.avg_brain_entropy = 0.0;
             self.species_count = 0;
             return;
+        }
+
+        for e in entities {
+            *self
+                .lineage_counts
+                .entry(e.metabolism.lineage_id)
+                .or_insert(0) += 1;
         }
 
         // 1. Recalculate Entropy (Shannon entropy of sampled brain weights)

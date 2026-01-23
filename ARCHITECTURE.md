@@ -124,3 +124,4 @@ src/
 * **Phase 18**: 代码质量优化，移除 `unwrap()` 并添加核心 API 文档注释。
 * **Phase 22**: **Parallel Evolution & Global Hive**。引入基于 Axum 的中继服务器与分布式迁移协议，实现跨主机的实体共享与演化协同。
 * **Phase 23**: **Phenotypic Specialization**。将物理属性（速度、感知、能量容量）整合入 `Genotype`。实现了物理特征的可遗传、可变异，并配套建立了基于物理极限的代谢权衡（Trade-offs）算法。
+* **Phase 24**: **Lineage & Macroevolution**。引入了谱系追踪（Lineage Tracking）机制。通过在 `Genotype` 中整合 `lineage_id`，实现了对远古祖先后代的长期追踪。该系统支持跨宇宙谱系保存，并为 TUI 提供了宏观演化（Macroevolution）的可视化数据支持，标志着从个体演化向族群演进分析的跨越。

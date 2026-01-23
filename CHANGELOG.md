@@ -6,6 +6,21 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 24: Lineage & Macroevolution] - 2026-01-23
+
+### Evolutionary Leap: Ancestral Tracking & Dynastic Dominance
+
+Phase 24 shifts the focus from individual survival to the long-term success of ancestral lines. By introducing formal lineage tracking, the simulation can now visualize how specific "dynasties" rise and fall across generations and even across different simulation universes.
+
+#### ✨ Features
+
+- **Lineage Tracking**: Every organism is now assigned a permanent `lineage_id` inherited from its ancestors.
+- **Dynastic Dominance Visualization**: The TUI now displays the most successful lineages, showing which ancestral lines are currently dominating the ecosystem.
+- **Cross-Universe Ancestry**: Lineage data is preserved during inter-universe migration, allowing your "master race" to maintain its identity even in foreign simulations.
+- **Macroevolutionary Stats**: New statistical tracking for lineage diversity, extinction rates of specific lines, and ancestral longevity.
+
+---
+
 ## [Phase 23: Phenotypic Specialization] - 2026-01-23
 
 ### Evolutionary Leap: Physical Diversification & Trade-offs

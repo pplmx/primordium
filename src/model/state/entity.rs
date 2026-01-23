@@ -78,6 +78,8 @@ pub struct Metabolism {
     pub generation: u32,
     /// Number of offspring produced.
     pub offspring_count: u32,
+    /// NEW: Ancestral lineage identifier.
+    pub lineage_id: Uuid,
 }
 
 /// Health state: infection status and immunity.
@@ -114,6 +116,8 @@ pub struct Genotype {
     pub sensing_range: f64,
     pub max_speed: f64,
     pub max_energy: f64,
+    /// NEW: Ancestral lineage tracking.
+    pub lineage_id: Uuid,
 }
 
 impl Genotype {
@@ -123,6 +127,7 @@ impl Genotype {
             sensing_range: 5.0,
             max_speed: 1.0,
             max_energy: 200.0,
+            lineage_id: Uuid::new_v4(),
         }
     }
 
@@ -205,6 +210,7 @@ impl Entity {
                 birth_tick: tick,
                 generation: 1,
                 offspring_count: 0,
+                lineage_id: genotype.lineage_id,
             },
             health: Health {
                 pathogen: None,

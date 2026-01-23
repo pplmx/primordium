@@ -163,5 +163,6 @@ pub fn crossover_genotypes(
         sensing_range,
         max_speed,
         max_energy,
+        lineage_id: p1.lineage_id, // Inherit lineage from first parent
     }
 }

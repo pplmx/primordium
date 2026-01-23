@@ -263,6 +263,7 @@ pub fn reproduce_asexual(
             birth_tick: tick,
             generation: parent.metabolism.generation + 1,
             offspring_count: 0,
+            lineage_id: child_genotype.lineage_id,
         },
         health: Health {
             pathogen: None,
@@ -330,6 +331,7 @@ pub fn reproduce_with_mate(
             birth_tick: tick,
             generation: parent.metabolism.generation + 1,
             offspring_count: 0,
+            lineage_id: child_genotype.lineage_id,
         },
         health: Health {
             pathogen: None,
@@ -373,6 +375,7 @@ pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) {
         let _ = logger.archive_legend(Legend {
             id: entity.id,
             parent_id: entity.parent_id,
+            lineage_id: entity.metabolism.lineage_id,
             birth_tick: entity.metabolism.birth_tick,
             death_tick: tick,
             lifespan,

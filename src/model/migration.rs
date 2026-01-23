@@ -39,6 +39,7 @@ impl World {
             entity.physics.sensing_range = entity.intel.genotype.sensing_range;
             entity.physics.max_speed = entity.intel.genotype.max_speed;
             entity.metabolism.max_energy = entity.intel.genotype.max_energy;
+            entity.metabolism.lineage_id = entity.intel.genotype.lineage_id;
         }
 
         self.entities.push(entity);

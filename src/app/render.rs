@@ -238,6 +238,17 @@ impl App {
             )));
         }
         ho_lines.push(ratatui::text::Line::from(""));
+        ho_lines.push(ratatui::text::Line::from(" 👑 Dominant Lineages (Pop)"));
+        let mut lineage_pop: Vec<_> = self.world.pop_stats.lineage_counts.iter().collect();
+        lineage_pop.sort_by(|a, b| b.1.cmp(a.1));
+        for (id, count) in lineage_pop.iter().take(3) {
+            ho_lines.push(ratatui::text::Line::from(format!(
+                "   #{} : {} entities",
+                &id.to_string()[..8],
+                count
+            )));
+        }
+        ho_lines.push(ratatui::text::Line::from(""));
 
         if let Some(id) = self.selected_entity {
             if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
@@ -282,11 +293,22 @@ impl App {
                 ]));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
+                        " Lineage:   ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(format!(
+                        "#{}",
+                        &entity.metabolism.lineage_id.to_string()[..8]
+                    )),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
                         " Sensing: ",
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
                     ratatui::text::Span::raw(format!("{:.1}", entity.physics.sensing_range)),
                 ]));
+
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
                         " Speed:   ",

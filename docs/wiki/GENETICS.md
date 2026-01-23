@@ -42,3 +42,16 @@ The genome is now unified into a single `Genotype` structure that encapsulates b
 2. **Neural Block**: Encodes the weights and biases of the RNN-lite brain.
 
 Attributes are no longer static "labels" but are fully mutable and inheritable traits. A mutation in the Phenotypic Block directly alters the physical manifestation of the entity in the next generation.
+
+## Lineage Tracking (Phase 24)
+
+Phase 24 introduces **Lineage Tracking**, allowing the simulation to monitor the long-term success and diversification of ancestral lines. Every entity is now part of a specific lineage that can be traced back to the original population.
+
+### Ancestral Persistence
+
+- **Dynastic ID**: Each entity carries a `lineage_id` within its `Genotype`.
+- **Crossover Inheritance**: During sexual reproduction, the offspring inherits the `lineage_id` from the **first parent** (the one that initiated the mating or is considered the "primary" ancestor in the pairing).
+- **Mutation Stability**: Mutation and macro-mutation do not change the `lineage_id`. A lineage remains consistent even as its physical and neural traits diverge significantly over time.
+- **Cross-Universe Preservation**: When an entity migrates between simulation instances (Global Hive), its `lineage_id` is preserved, allowing for the tracking of "interstellar" dynasties across the multiverse.
+
+This system enables the visualization of macroevolutionary trends, such as which original ancestors' descendants currently dominate the ecosystem.
