@@ -78,6 +78,8 @@ pub struct PopulationStats {
     pub carbon_level: f64,
     /// NEW: Phase 38 - Number of identified biodiversity hotspots
     pub biodiversity_hotspots: usize,
+    /// NEW: Phase 39 - Current mutation scaling factor
+    pub mutation_scale: f32,
     recent_deaths: VecDeque<f64>,
 }
 
@@ -101,6 +103,7 @@ impl PopulationStats {
             lineage_counts: HashMap::new(),
             carbon_level: 0.0,
             biodiversity_hotspots: 0,
+            mutation_scale: 1.0,
             recent_deaths: VecDeque::with_capacity(100),
         }
     }
@@ -120,11 +123,13 @@ impl PopulationStats {
         food_count: usize,
         top_fitness: f64,
         carbon_level: f64,
+        mutation_scale: f32,
     ) {
         self.population = entities.len();
         self.food_count = food_count;
         self.top_fitness = top_fitness;
         self.carbon_level = carbon_level;
+        self.mutation_scale = mutation_scale;
         self.lineage_counts.clear();
         self.biomass_h = 0.0;
         self.biomass_c = 0.0;

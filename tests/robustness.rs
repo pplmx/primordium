@@ -28,14 +28,14 @@ fn test_lineage_registry_cleanup_on_extinction() {
     // Update stats - lineage should be there
     world
         .pop_stats
-        .update_snapshot(&world.entities, world.food.len(), 0.0, 0.0);
+        .update_snapshot(&world.entities, world.food.len(), 0.0, 0.0, 0.1);
     assert_eq!(world.pop_stats.lineage_counts.get(&l_id), Some(&1));
 
     // Kill the population
     world.entities.clear();
     world
         .pop_stats
-        .update_snapshot(&world.entities, world.food.len(), 0.0, 0.0);
+        .update_snapshot(&world.entities, world.food.len(), 0.0, 0.0, 0.1);
 
     // Registry should show 0 or be empty for that ID
     assert_eq!(world.pop_stats.lineage_counts.get(&l_id), None);

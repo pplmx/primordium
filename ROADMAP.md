@@ -355,12 +355,13 @@ toml = "0.8"
 - **Soil Exhaustion**: Permanent fertility damage from extreme over-grazing requiring intentional "fallow" periods.
 - **Biodiversity Hotspots**: Emergence of hyper-diverse regions based on environmental edge-effects.
 
-### Phase 39: Ecosystem Resilience & Evolutionary Stasis ✅
+### Phase 39.5: Performance & Observability (Foundation Refinement) ✅
 
-- **Genetic Bottlenecks**: Implemented population-aware mutation rates where small populations experience higher mutation scaling (up to 3x) to accelerate exploration.
-- **Evolutionary Stasis**: Established "Stasis" mode for large populations where mutation rates are halved to preserve fit genotypes.
-- **Genetic Drift**: Implemented a drift mechanism where tiny populations (<10) experience random trait flips (5% chance) simulating stochastic fixation.
-- **Massive Parallelism**: (Planned) Optimize SpatialHash and Brain inference for 10,000+ entities using GPGPU or advanced SIMD.
+- **Parallel Terrain Updates**: Refactored `TerrainGrid::update` to use `Rayon` for row-parallel processing, reducing $O(W \times H)$ bottleneck.
+- **Eco-Observability**: Added real-time tracking for Carbon (CO2), Climate state, and Mutation scaling in the TUI status bar.
+- **God Mode Hard Reboot**: Enhanced 'Mass Extinction' (L) to reset atmospheric CO2, providing a clean slate for new simulations.
+- **Visual Feedback**: Implemented fertility-based terrain dimming to visually represent soil exhaustion.
+- **Quality Gates**: Achieved zero-warning baseline across all 56+ integration tests and Clippy.
 
 ### Phase 40: Archeology & Deep History 🚧
 
@@ -410,6 +411,7 @@ toml = "0.8"
 | Phase 37 | Sexual Selection | ✅ Complete |
 | Phase 38 | Dynamic Biomes | ✅ Complete |
 | Phase 39 | Ecosystem Resilience | ✅ Complete |
+| Phase 39.5 | Perf & Observability | ✅ Complete |
 | Phase 40 | Archeology Tool | 🚧 In Progress |
 
 ---

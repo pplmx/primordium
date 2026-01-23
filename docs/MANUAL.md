@@ -44,12 +44,13 @@ Primordium runs in two environments:
 | `a` | Toggle **Ancestry View** (Family Tree) |
 | `Shift+A` | Export Ancestry Tree to DOT file |
 | `+` / `-`| Increase / Decrease time scale |
+| `1 2 3 4` | Navigate Help Tabs (when open) |
 
 ### Mouse Controls
 
 | Input | Action |
 | ----- | --------- |
-| `Left Click` | Select an entity |
+| `Left Click` | Select an entity / Change help tab |
 | `Left Drag` | **Paint Terrain** with selected brush |
 | `Right Click`| Inject Food Cluster |
 
@@ -77,14 +78,16 @@ Entities are colored based on their **genetic tribe**.
 - Tribe members do **not** attack each other.
 - Tribe members may share energy if their neural "Share" output is high.
 
-### Terrain
+### Terrain & Succession
 
 - ` ` **Plains**: Standard movement speed.
 - `≈` **River** (Blue): Faster movement (1.5x), represents water currents.
 - `▲` **Mountain** (Gray): Slow movement (0.5x), no food growth.
 - `◊` **Oasis** (Green): Prime real estate with 3x food spawn rate.
-- `░` **Barren** (Brown): Overgrazed or disaster-struck land. Very low food growth and 0.7x movement speed.
-- `█` **Wall** (Dark Gray): Impassable physical barrier. Entities reflect off walls.
+- `♠` **Forest** (Dark Green): Carbon sink with high food yield (2.0x). Plains transition to Forest under high fertility and plant biomass.
+- `▒` **Desert** (Tan): Resource-poor, high heat stress land. Plains degrade to Desert under low fertility.
+- `░` **Barren** (Brown): Overgrazed or disaster-struck land. Very low food growth.
+- `█` **Wall** (Dark Gray): Impassable physical barrier.
 - `*` **Food** (Green): Energy source spawned based on RAM usage.
 
 ---
@@ -99,25 +102,29 @@ Each entity possesses a **Recurrent Neural Network** (RNN-lite) that evolves ove
     - Environmental (Vision, Energy, Pheromones, Tribe density)
     - **Memory**: 6 inputs are reserved for the previous tick's internal state.
 - **Outputs (Actions)**:
-    - Move X / Y, Boost, Attack, Share.
+    - Move X / Y, Boost, Attack, Share, Signal.
 
-### Genetics
+### Genetics & Adaptation
 
 When entities reproduce, their offspring inherits a mix of parents' DNA with slight mutations.
 
-- **Attributes**: Speed, Strength, Metabolism, Color.
-- **Brain**: Weights and biases are mutated.
-
-### Pheromones
-
-Entities leave chemical trails:
-
-- **Food Trail**: "I found food here" (Attracts others).
-- **Danger Trail**: "I died here" (Warns others).
+- **Attributes**: Speed, Range, Metabolism, Niche, Sexual Preference.
+- **Brain**: Topology and weights are mutated.
+- **Population-Aware Mutation**: 
+    - **Bottleneck**: In small populations, mutation rates increase (up to 3x) to find survival strategies.
+    - **Stasis**: In large stable populations, mutation is halved to preserve fit genes.
+- **Genetic Drift**: Tiny populations (<10) may experience random major trait flips.
 
 ---
 
 ## 🌍 Ecosystem
+
+### Carbon Cycle & Warming
+
+The simulation features a global **Carbon Cycle**:
+- **Emissions**: Metabolic activity from all entities increases atmospheric CO2.
+- **Sequestration**: Plant biomass and Forests act as carbon sinks.
+- **Global Warming**: High CO2 levels shift the climate state towards **Scorching**, increasing metabolic drain for all life.
 
 ### Weather & Cycles
 

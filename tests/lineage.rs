@@ -48,7 +48,7 @@ fn test_lineage_population_stats() {
     // Update stats
     world
         .pop_stats
-        .update_snapshot(&world.entities, world.food.len(), 0.0, 0.0);
+        .update_snapshot(&world.entities, world.food.len(), 0.0, 0.0, 0.1);
 
     assert_eq!(world.pop_stats.lineage_counts.get(&l1), Some(&2));
     assert_eq!(world.pop_stats.lineage_counts.get(&l2), Some(&1));

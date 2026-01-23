@@ -1,5 +1,6 @@
 use rand::Rng;
 use ratatui::style::Color;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// Terrain types with distinct environmental effects
@@ -171,109 +172,125 @@ impl TerrainGrid {
     }
 
     pub fn update(&mut self, herbivore_biomass: f64) -> f64 {
-        let mut rng = rand::thread_rng();
-        let mut total_plant_biomass = 0.0;
         if self.dust_bowl_timer > 0 {
             self.dust_bowl_timer -= 1;
         }
 
         let pressure = (herbivore_biomass / 5000.0) as f32;
         let global_recovery_rate = (0.001 - pressure).max(-0.01);
+        let is_dust_bowl = self.dust_bowl_timer > 0;
 
-        let mut transitions = Vec::new();
+        // Create a lightweight type grid for neighbor checks in parallel
+        let type_grid: Vec<Vec<TerrainType>> = self
+            .cells
+            .iter()
+            .map(|row| row.iter().map(|c| c.terrain_type).collect())
+            .collect();
 
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let forest_neighbors = self.count_neighbors(x, y, TerrainType::Forest);
-                let cell = &mut self.cells[y as usize][x as usize];
-                total_plant_biomass += cell.plant_biomass as f64;
+        type TransitionVec = Vec<Vec<(u16, u16, TerrainType)>>;
+        let (total_biomass_vec, transitions): (Vec<f64>, TransitionVec) = self
+            .cells
+            .par_iter_mut()
+            .enumerate()
+            .map(|(y, row)| {
+                let mut row_biomass = 0.0;
+                let mut row_transitions = Vec::new();
+                let mut rng = rand::thread_rng();
 
-                let fertility_gain =
-                    (global_recovery_rate + (cell.plant_biomass * 0.0001)).max(-0.05);
-                cell.fertility = (cell.fertility + fertility_gain).clamp(0.0, 1.0);
+                for (x, cell) in row.iter_mut().enumerate() {
+                    let x_u16 = x as u16;
+                    let y_u16 = y as u16;
+                    row_biomass += cell.plant_biomass as f64;
 
-                let r = match cell.terrain_type {
-                    TerrainType::Forest => 0.05,
-                    TerrainType::Plains => 0.02,
-                    TerrainType::Oasis => 0.08,
-                    TerrainType::Desert => 0.005,
-                    _ => 0.0,
-                };
-                let k = cell.fertility * 100.0;
-                if cell.plant_biomass < k {
-                    cell.plant_biomass += r * cell.plant_biomass * (1.0 - (cell.plant_biomass / k));
-                }
+                    // 1. Local Biological Feedback
+                    let fertility_gain =
+                        (global_recovery_rate + (cell.plant_biomass * 0.0001)).max(-0.05);
+                    cell.fertility = (cell.fertility + fertility_gain).clamp(0.0, 1.0);
 
-                if r > 0.0 {
-                    cell.fertility = (cell.fertility - (cell.plant_biomass * 0.00005)).max(0.0);
-                }
+                    let r = match cell.terrain_type {
+                        TerrainType::Forest => 0.05,
+                        TerrainType::Plains => 0.02,
+                        TerrainType::Oasis => 0.08,
+                        TerrainType::Desert => 0.005,
+                        _ => 0.0,
+                    };
+                    let k = cell.fertility * 100.0;
+                    if cell.plant_biomass < k {
+                        cell.plant_biomass +=
+                            r * cell.plant_biomass * (1.0 - (cell.plant_biomass / k));
+                    }
+                    if r > 0.0 {
+                        cell.fertility = (cell.fertility - (cell.plant_biomass * 0.00005)).max(0.0);
+                    }
 
-                cell.biomass_accumulation *= 0.999;
+                    cell.biomass_accumulation *= 0.999;
+                    if is_dust_bowl && cell.terrain_type == TerrainType::Plains {
+                        cell.fertility = (cell.fertility - 0.05).max(0.0);
+                    }
 
-                if self.dust_bowl_timer > 0 && cell.terrain_type == TerrainType::Plains {
-                    cell.fertility = (cell.fertility - 0.05).max(0.0);
-                }
-
-                match cell.terrain_type {
-                    TerrainType::Plains => {
-                        let chance = 0.001 + (forest_neighbors as f64 * 0.01);
-                        if cell.plant_biomass > 60.0
-                            && cell.fertility > 0.6
-                            && rng.gen_bool(chance.min(1.0))
-                        {
-                            transitions.push((x, y, TerrainType::Forest));
-                        } else if cell.fertility < 0.05 {
-                            transitions.push((x, y, TerrainType::Desert));
-                        } else if cell.fertility < 0.15 {
-                            transitions.push((x, y, TerrainType::Barren));
+                    // 2. Succession Logic (using type_grid snapshot)
+                    let mut forest_neighbors = 0;
+                    for dy in -1..=1 {
+                        for dx in -1..=1 {
+                            if dx == 0 && dy == 0 {
+                                continue;
+                            }
+                            let nx = x as i32 + dx;
+                            let ny = y as i32 + dy;
+                            if nx >= 0
+                                && nx < type_grid[0].len() as i32
+                                && ny >= 0
+                                && ny < type_grid.len() as i32
+                                && type_grid[ny as usize][nx as usize] == TerrainType::Forest
+                            {
+                                forest_neighbors += 1;
+                            }
                         }
                     }
-                    TerrainType::Forest => {
-                        if cell.fertility < 0.3 || cell.plant_biomass < 20.0 {
-                            transitions.push((x, y, TerrainType::Plains));
+
+                    match cell.terrain_type {
+                        TerrainType::Plains => {
+                            let chance = 0.001 + (forest_neighbors as f64 * 0.01);
+                            if cell.plant_biomass > 60.0
+                                && cell.fertility > 0.6
+                                && rng.gen_bool(chance.min(1.0))
+                            {
+                                row_transitions.push((x_u16, y_u16, TerrainType::Forest));
+                            } else if cell.fertility < 0.05 {
+                                row_transitions.push((x_u16, y_u16, TerrainType::Desert));
+                            } else if cell.fertility < 0.15 {
+                                row_transitions.push((x_u16, y_u16, TerrainType::Barren));
+                            }
                         }
-                    }
-                    TerrainType::Desert => {
-                        if cell.fertility > 0.3 {
-                            transitions.push((x, y, TerrainType::Plains));
+                        TerrainType::Forest => {
+                            if cell.fertility < 0.3 || cell.plant_biomass < 20.0 {
+                                row_transitions.push((x_u16, y_u16, TerrainType::Plains));
+                            }
                         }
-                    }
-                    TerrainType::Barren => {
-                        if cell.fertility > 0.4 {
-                            transitions.push((x, y, cell.original_type));
+                        TerrainType::Desert => {
+                            if cell.fertility > 0.3 {
+                                row_transitions.push((x_u16, y_u16, TerrainType::Plains));
+                            }
                         }
+                        TerrainType::Barren => {
+                            if cell.fertility > 0.4 {
+                                row_transitions.push((x_u16, y_u16, cell.original_type));
+                            }
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
+                (row_biomass, row_transitions)
+            })
+            .unzip();
+
+        // Apply transitions sequentially
+        for row_list in transitions {
+            for (x, y, t) in row_list {
+                self.set_cell_type(x, y, t);
             }
         }
-
-        for (x, y, t) in transitions {
-            self.set_cell_type(x, y, t);
-        }
-        total_plant_biomass
-    }
-
-    fn count_neighbors(&self, x: u16, y: u16, t: TerrainType) -> usize {
-        let mut count = 0;
-        for dy in -1..=1 {
-            for dx in -1..=1 {
-                if dx == 0 && dy == 0 {
-                    continue;
-                }
-                let nx = x as i32 + dx;
-                let ny = y as i32 + dy;
-                if nx >= 0
-                    && nx < self.width as i32
-                    && ny >= 0
-                    && ny < self.height as i32
-                    && self.cells[ny as usize][nx as usize].terrain_type == t
-                {
-                    count += 1;
-                }
-            }
-        }
-        count
+        total_biomass_vec.iter().sum()
     }
 
     pub fn trigger_dust_bowl(&mut self, duration: u32) {

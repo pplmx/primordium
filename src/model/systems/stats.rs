@@ -7,6 +7,7 @@ pub fn update_stats(
     entities: &[Entity],
     food_count: usize,
     carbon_level: f64,
+    mutation_scale: f32,
     pop_stats: &mut PopulationStats,
     hall_of_fame: &mut HallOfFame,
 ) {
@@ -17,6 +18,12 @@ pub fn update_stats(
             .first()
             .map(|(s, _)| *s)
             .unwrap_or(0.0);
-        pop_stats.update_snapshot(entities, food_count, top_fitness, carbon_level);
+        pop_stats.update_snapshot(
+            entities,
+            food_count,
+            top_fitness,
+            carbon_level,
+            mutation_scale,
+        );
     }
 }

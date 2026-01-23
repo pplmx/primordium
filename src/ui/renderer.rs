@@ -1,5 +1,6 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::style::Color;
 use ratatui::widgets::{Block, Borders, Widget};
 
 use crate::model::state::terrain::TerrainType;
@@ -81,6 +82,10 @@ impl<'a> Widget for WorldWidget<'a> {
                         let cell = buf.get_mut(screen_x, screen_y);
                         cell.set_symbol(&terrain.terrain_type.symbol().to_string());
                         cell.set_fg(terrain.terrain_type.color());
+                        // NEW: Show soil stress/exhaustion by dimming
+                        if terrain.fertility < 0.3 && terrain.terrain_type != TerrainType::Desert {
+                            cell.set_fg(Color::Rgb(100, 50, 50));
+                        }
                     }
                 }
             }

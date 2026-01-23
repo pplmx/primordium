@@ -494,11 +494,24 @@ impl World {
         self.energy_transfers = energy_transfers;
 
         social::handle_extinction(&self.entities, self.tick, &mut events, &mut self.logger);
+        // Calculate current mutation scale for stats tracking
+        let pop_count = self.entities.len();
+        let mut mutation_scale = self.config.evolution.mutation_rate;
+        if self.config.evolution.population_aware && pop_count > 0 {
+            if pop_count < self.config.evolution.bottleneck_threshold {
+                mutation_scale *=
+                    (self.config.evolution.bottleneck_threshold as f32 / pop_count as f32).min(3.0);
+            } else if pop_count > self.config.evolution.stasis_threshold {
+                mutation_scale *= 0.5;
+            }
+        }
+
         stats::update_stats(
             self.tick,
             &self.entities,
             self.food.len(),
             env.carbon_level,
+            mutation_scale,
             &mut self.pop_stats,
             &mut self.hall_of_fame,
         );

@@ -123,11 +123,12 @@ impl App {
                 ),
                 ratatui::text::Span::styled(biomass_bar, Style::default().fg(Color::Yellow)),
                 ratatui::text::Span::raw(format!(
-                    " | Species: {} | Gen: {} | AvgLife: {:.0} | Entropy: {:.2}",
+                    " | Species: {} | Gen: {} | AvgLife: {:.0} | CO2: {:.0} ppm | Mut: {:.2}x",
                     self.world.pop_stats.species_count,
                     max_gen,
                     self.world.pop_stats.avg_lifespan,
-                    self.world.pop_stats.avg_brain_entropy
+                    self.world.pop_stats.carbon_level,
+                    self.world.pop_stats.mutation_scale
                 )),
             ];
 

@@ -171,8 +171,10 @@ impl App {
                 self.world
                     .entities
                     .truncate(self.world.entities.len().saturating_sub(kill_count));
+                // Phase 39.5:上帝模式硬重启 - 同时清理大气碳
+                self.env.carbon_level = 300.0;
                 self.event_log.push_back((
-                    "GOD MODE: MASS EXTINCTION TRIGGERED".to_string(),
+                    "GOD MODE: MASS EXTINCTION & CARBON SCRUB".to_string(),
                     Color::Magenta,
                 ));
             }
