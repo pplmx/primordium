@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 22: Parallel Evolution & Global Hive] - 2026-01-23
+
+### Evolutionary Leap: Distributed Intelligence & The Multiverse
+
+The simulation has transcended individual machines, enabling organisms to migrate across the global network and evolve in a shared digital "Hive."
+
+#### ✨ Features
+
+- **Global Hive Migration**: Entities hitting the world boundaries can now be serialized and transmitted to other connected simulations via a central relay.
+- **Relay Server Architecture**: A new high-performance relay server built with **Axum** to manage the distribution of life across the multiverse.
+- **RESTful Monitoring**: Real-time APIs to inspect global simulation health, peer counts, and migration traffic.
+- **P2P Discovery**: Automated peer announcement and listing within the Global Hive.
+
+#### 🛠️ Technical Achievements
+
+- **Asynchronous Networking**: Implemented a non-blocking WebSocket protocol for real-time entity transfer.
+- **Secure Anchoring**: Integrated Bitcoin-based history verification into the networking stack to ensure the authenticity of incoming migrants.
+- **Enhanced Networking Tests**: Comprehensive integration tests covering entity serialization, WebSocket handshakes, and broadcast logic.
+
+---
+
 ## [Phase 21: Environmental Fluidity & Disasters] - 2026-01-21
 
 ### Evolutionary Leap: Temporal Coherence & Dynamic Crises

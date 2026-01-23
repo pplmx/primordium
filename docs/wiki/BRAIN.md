@@ -4,11 +4,13 @@ Primordium entities behave using a feed-forward neural network.
 
 ## Topology
 
-- **Input Layer**: 6 Neurons
+- **Input Layer**: 12 Neurons (6 Environment, 6 Recurrent)
 - **Hidden Layer**: 6 Neurons
 - **Output Layer**: 5 Neurons
 
 ## Inputs (Sensors)
+
+### Environmental Inputs (0-5)
 
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
@@ -18,6 +20,12 @@ Primordium entities behave using a feed-forward neural network.
 | 3 | `Neighbors` | Count of nearby entities |
 | 4 | `Pheromone` | Strength of food trail at location |
 | 5 | `Tribe` | Tribe density nearby |
+
+### Recurrent Inputs (6-11)
+
+| ID | Sensor | Description |
+| ---- | --------- | -------------- |
+| 6-11| `Memory` | Hidden layer state from previous tick (T-1) |
 
 ## Outputs (Actions)
 

@@ -32,15 +32,17 @@
 * **路径**: `src/model/infra/`
 
 * **规范**: 模拟专用的外部 IO 或复杂协议。
-* **原则**: 隔离模拟宇宙与外部系统的交互逻辑（如区块链锚定、跨宇宙迁移协议）。
+* **原则**: 隔离模拟宇宙与外部系统的交互逻辑。
+    * **`blockchain.rs`**: 基于 OpenTimestamps 的区块链锚定，为演化史提供不可篡改的证据。
+    * **`network.rs`**: 定义跨宇宙迁移的 JSON 协议 (`NetMessage`) 及对等体元数据。
 
 ### D. 核心引擎组件 (Core Engine Components)
 
 这些模块位于 `src/model/` 根目录，作为支撑整个模拟运行的“物理常数”和“核心基座”：
 
-* **`brain.rs` (Intel/Will)**: 模拟实体的神经网络模型及推理引擎。代表实体的“意识”。
-* **`quadtree.rs` (Spatial Index)**: 高性能空间索引（Spatial Hash/QuadTree），为碰撞检测和感知提供物理加速。
-* **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议，是引擎对外的通信门户。
+* **`brain.rs` (Intel/Will)**: 模拟实体的神经网络模型及推理引擎。采用 12-6-5 RNN-lite 架构，支持时间连贯性。
+* **`quadtree.rs` (Spatial Index)**: 高性能空间索引（Spatial Hash），为碰撞检测和感知提供物理加速。
+* **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议，实现实体的序列化与反序列化。
 * **`world.rs` (Coordinator)**: 整个模拟宇宙的“总线”，负责统筹调度所有状态与系统。
 * **`config.rs` (Constants)**: 模拟宇宙的物理规则参数。
 * **`history.rs` (Archive)**: 模拟时空的观测记录。
@@ -59,9 +61,18 @@
 
 * **路径**: `src/client/`
 
-* **职责**: **Web 特定逻辑**。收纳了仅在 WASM/浏览器环境下运行的逻辑，如 Web 套接字管理器，实现了 Web 端特有的非阻塞通信。
+* **职责**: **Web 特定逻辑**。收纳了仅在 WASM/浏览器环境下运行的逻辑，如 `NetworkManager`，通过 WebSocket 实现非阻塞的实体迁移通信。
 
-### C. 实用工具集 (src/bin/)
+### C. 模拟中继服务器 (src/server/)
+
+* **路径**: `src/server/`
+
+* **职责**: **多宇宙通信中心**。
+    * **Relay Server**: 基于 **Axum** 和 **Tokio** 构建，维持多端的 WebSocket 长连接。
+    * **Broadcasting**: 负责在不同模拟实例（Peer）之间广播 `MigrateEntity` 消息。
+    * **Stats API**: 提供 REST 接口用于监控全球模拟状态。
+
+### D. 实用工具集 (src/bin/)
 
 * **路径**: `src/bin/`
 
@@ -103,7 +114,7 @@ src/
 
 3. **循环依赖**: 通过将逻辑提升至顶层协调器（World）或抽离独立的 System 来消除 State 模块间的循环依赖。
 
-## 5. 重构演进记录 (2026-01)
+## 7. 重构演进记录 (2026-01)
 
 * **Phase 1-10**: 完成了从单体 `World` 向 `Systems` 的初步拆分。
 * **Phase 11**: 目录结构引擎化重组，建立 `state`, `systems`, `infra` 三级架构。
@@ -111,3 +122,4 @@ src/
 * **Phase 13-16**: 集成测试覆盖增强，添加 `social_dynamics`, `world_evolution`, `persistence`, `stress_test` 等验证模块。
 * **Phase 17**: Cargo Workspace 剥离方案已设计，暂缓执行（当前单 crate 结构已满足需求）。
 * **Phase 18**: 代码质量优化，移除 `unwrap()` 并添加核心 API 文档注释。
+* **Phase 22**: **Parallel Evolution & Global Hive**。引入基于 Axum 的中继服务器与分布式迁移协议，实现跨主机的实体共享与演化协同。

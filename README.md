@@ -51,8 +51,9 @@ Memory usage determines food availability. High RAM usage simulates a resource-f
 
 ### 🧠 Neural Awakening & Selection
 
-Each entity possesses a **6-6-5 Neural Network** brain integrated into a modular **Intel** component. Through natural selection, organisms learn to hunt, navigate, and manage energy.
+Each entity possesses a **12-6-5 Recurrent Neural Network** brain integrated into a modular **Intel** component. Through natural selection, organisms learn to hunt, navigate, and manage energy.
 
+- **Recurrent Memory**: 6 inputs are dedicated to the previous tick's internal state, enabling time-coherent behavior.
 - **Parallel Inference**: Neural processing is multi-threaded using **Rayon**, enabling massive population scaling.
 - **Interactive Selection**: Use the **Mouse** to click and inspect specific organisms.
 - **Genotype Clustering**: Organisms are automatically classified into species based on neural weight similarity.
@@ -81,6 +82,12 @@ Each entity possesses a **6-6-5 Neural Network** brain integrated into a modular
 - **Tribe Formation**: Color-similar entities form protective tribes (no intra-tribe attacks)
 - **Territorial Behavior**: Entities are more aggressive near their birth location
 - **Energy Sharing**: High-energy entities can share with starving neighbors (♣)
+
+### 🌌 Global Hive & Networking (Phase 22)
+
+- **Distributed Evolution**: Entities migrate between simulation instances via a high-performance **Axum** relay server.
+- **Inter-Universe Migration**: Move off-screen to send your most successful lineages to other users.
+- **Real-time Synchronization**: A shared digital multiverse where life evolves across boundaries.
 
 ### 📜 The Ledger & Blockchain
 

@@ -28,7 +28,7 @@ Primordium runs in two environments:
 | Key | Action |
 | ----- | --------- |
 | `q` | **Quit** the simulation |
-| `p` | **Pause/Resume** simulation |
+| `Space` | **Pause/Resume** simulation |
 | `r` | **Reset** world state (kills all entities) |
 | `s` | Toggle **Statistics Overlay** (TUI) |
 | `h` | Toggle **Help/Controls** |
@@ -54,9 +54,9 @@ Entities are represented by symbols indicating their current physiological state
 - `♦` **Hunting**: Aggressive state, attempting to consume other entities.
 - `♥` **Mating**: High-energy state, ready to reproduce.
 - `†` **Starving**: Critical energy state (< 20%), high risk of death.
-- `◦` **Juvenile**: Immature state, unable to reproduce.
-- `☣` **Infected**: Carrying a pathogen, loses energy and spreads disease.
 - `♣` **Sharing**: Altruistic state, giving energy to nearby tribe members.
+- `☣` **Infected**: Carrying a pathogen, loses energy and spreads disease.
+- `◦` **Juvenile**: Immature state, unable to reproduce.
 
 ### Colors (Tribes)
 
