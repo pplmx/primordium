@@ -7,7 +7,7 @@ use crate::model::state::entity::Entity;
 use crate::model::state::environment::Environment;
 use crate::model::state::food::Food;
 use crate::model::state::lineage_registry::LineageRegistry;
-use crate::model::state::pheromone::PheromoneGrid;
+use crate::model::state::pheromone::{PheromoneGrid, PheromoneType};
 use crate::model::state::terrain::TerrainGrid;
 use crate::model::systems::{action, biological, ecological, environment, intel, social, stats};
 use chrono::Utc;
@@ -17,48 +17,20 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /// A lightweight snapshot of an entity's state for read-only access during update cycles.
-///
-/// This struct captures essential entity attributes at the start of each tick,
-/// allowing systems to query entity state without holding mutable borrows.
 #[derive(Serialize, Deserialize)]
 pub struct EntitySnapshot {
-    /// Unique identifier of the entity.
     pub id: uuid::Uuid,
-    /// NEW: Lineage identifier.
     pub lineage_id: uuid::Uuid,
-    /// X coordinate in world space.
     pub x: f64,
-    /// Y coordinate in world space.
     pub y: f64,
-    /// Current energy level.
     pub energy: f64,
-    /// Tick at which the entity was born.
     pub birth_tick: u64,
-    /// Number of offspring produced.
     pub offspring_count: u32,
-    /// Red color component (0-255) for tribe identification.
     pub r: u8,
-    /// Green color component (0-255) for tribe identification.
     pub g: u8,
-    /// Blue color component (0-255) for tribe identification.
     pub b: u8,
 }
 
-/// The simulation world containing all entities, resources, and environmental state.
-///
-/// `World` is the central data structure of the simulation. It orchestrates:
-/// - Entity lifecycle (birth, death, reproduction)
-/// - Spatial indexing for efficient neighbor queries
-/// - Environmental systems (terrain, pheromones, pathogens)
-/// - Population statistics and history logging
-///
-/// # Example
-/// ```ignore
-/// let config = AppConfig::default();
-/// let mut world = World::new(0, config)?;
-/// let env = Environment::default();
-/// world.update(&env)?;
-/// ```
 #[derive(Serialize, Deserialize)]
 pub struct World {
     pub width: u16,
@@ -81,11 +53,9 @@ pub struct World {
     pub fossil_registry: FossilRegistry,
     pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
 
-    // NEW: Phase 40 - Best legendary representative per lineage
     #[serde(skip, default)]
     pub best_legends: std::collections::HashMap<uuid::Uuid, crate::model::history::Legend>,
 
-    // Reusable buffers to reduce allocation jitter
     #[serde(skip, default)]
     killed_ids: HashSet<uuid::Uuid>,
     #[serde(skip, default)]
@@ -117,7 +87,6 @@ impl World {
                 rng.gen_range(1.0..config.world.height as f64 - 1.0),
                 0,
             );
-            // Initial entities establish the founding lineages
             lineage_registry.record_birth(e.metabolism.lineage_id, 1, 0);
             entities.push(e);
         }
@@ -174,7 +143,6 @@ impl World {
             .entry(legend.lineage_id)
             .or_insert_with(|| legend.clone());
 
-        // Score: Age * 0.5 + Offspring * 10
         let current_score = entry.lifespan as f64 * 0.5 + entry.offspring_count as f64 * 10.0;
         let new_score = legend.lifespan as f64 * 0.5 + legend.offspring_count as f64 * 10.0;
 
@@ -187,26 +155,26 @@ impl World {
         let extinct = self.lineage_registry.get_extinct_lineages();
         for l_id in extinct {
             if let Some(legend) = self.best_legends.remove(&l_id) {
-                // Check if already in fossil registry
                 if !self
                     .fossil_registry
                     .fossils
                     .iter()
                     .any(|f| f.lineage_id == l_id)
                 {
-                    let record = self.lineage_registry.lineages.get(&l_id).unwrap();
-                    let fossil = crate::model::history::Fossil {
-                        lineage_id: l_id,
-                        name: record.name.clone(),
-                        color_rgb: legend.color_rgb,
-                        avg_lifespan: legend.lifespan as f64, // simplified for now
-                        max_generation: record.max_generation,
-                        total_offspring: record.total_entities_produced as u32,
-                        extinct_tick: self.tick,
-                        peak_population: record.peak_population,
-                        brain_dna: legend.brain_dna,
-                    };
-                    self.fossil_registry.add_fossil(fossil);
+                    if let Some(record) = self.lineage_registry.lineages.get(&l_id) {
+                        let fossil = crate::model::history::Fossil {
+                            lineage_id: l_id,
+                            name: record.name.clone(),
+                            color_rgb: legend.color_rgb,
+                            avg_lifespan: legend.lifespan as f64,
+                            max_generation: record.max_generation,
+                            total_offspring: record.total_entities_produced as u32,
+                            extinct_tick: self.tick,
+                            peak_population: record.peak_population,
+                            brain_dna: legend.brain_dna,
+                        };
+                        self.fossil_registry.add_fossil(fossil);
+                    }
                 }
             }
         }
@@ -229,10 +197,7 @@ impl World {
         environment::handle_disasters(env, self.entities.len(), &mut self.terrain, &mut rng);
         let total_plant_biomass = self.terrain.update(self.pop_stats.biomass_h);
 
-        // Phase 38: Carbon Cycle
-        // Sequestration from plants
         env.sequestrate_carbon(total_plant_biomass * 0.00001);
-        // Emissions from animal metabolism (proportional to total energy burn)
         let animal_emission = (self.entities.len() as f64 * 0.01) * env.metabolism_multiplier();
         env.add_carbon(animal_emission);
         env.tick();
@@ -254,10 +219,11 @@ impl World {
         }
 
         let mut current_entities = std::mem::take(&mut self.entities);
-        self.spatial_hash.clear();
-        for (i, e) in current_entities.iter().enumerate() {
-            self.spatial_hash.insert(e.physics.x, e.physics.y, i);
-        }
+        let positions: Vec<(f64, f64)> = current_entities
+            .iter()
+            .map(|e| (e.physics.x, e.physics.y))
+            .collect();
+        self.spatial_hash.build_parallel(&positions);
 
         let entity_snapshots: Vec<EntitySnapshot> = current_entities
             .iter()
@@ -279,8 +245,8 @@ impl World {
         let mut eaten_food_indices = std::mem::take(&mut self.eaten_food_indices);
         let mut new_babies = std::mem::take(&mut self.new_babies);
         let mut alive_entities = std::mem::take(&mut self.alive_entities);
-        let _perception_buffer = std::mem::take(&mut self.perception_buffer);
-        let _decision_buffer = std::mem::take(&mut self.decision_buffer);
+        let mut perception_buffer = std::mem::take(&mut self.perception_buffer);
+        let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
         let mut energy_transfers = std::mem::take(&mut self.energy_transfers);
 
         killed_ids.clear();
@@ -288,10 +254,6 @@ impl World {
         new_babies.clear();
         alive_entities.clear();
         energy_transfers.clear();
-
-        let mut perception_buffer: Vec<[f32; 14]> = Vec::with_capacity(current_entities.len());
-        let mut decision_buffer: Vec<([f32; 8], [f32; 6])> =
-            Vec::with_capacity(current_entities.len());
 
         current_entities
             .par_iter()
@@ -334,8 +296,6 @@ impl World {
                 } else {
                     0.0
                 };
-
-                // Wall sensing
                 let mut wall_proximity = 0.0;
                 if e.physics.x < 5.0
                     || e.physics.x > (self.width - 5) as f64
@@ -359,7 +319,7 @@ impl World {
                     wall_proximity as f32,
                     (e.metabolism.birth_tick as f32 / self.tick.max(1) as f32).min(1.0),
                     f_type,
-                    e.metabolism.trophic_potential, // 14th Input: Trophic Potential
+                    e.metabolism.trophic_potential,
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
@@ -372,35 +332,88 @@ impl World {
             })
             .collect_into_vec(&mut decision_buffer);
 
+        let pheromone_proposals: Vec<Vec<(f64, f64, PheromoneType, f32)>> = current_entities
+            .par_iter_mut()
+            .enumerate()
+            .map(|(i, e)| {
+                let (outputs, next_hidden) = decision_buffer[i];
+                e.intel.last_hidden = next_hidden;
+                let mut local_deposits = Vec::new();
+                let speed_cap = e.physics.max_speed;
+                let sensing_radius = e.physics.sensing_range;
+                let stomach_penalty = (e.metabolism.max_energy - 200.0).max(0.0) / 1000.0;
+                let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * speed_cap;
+                let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
+                e.intel.last_aggression = (outputs[3] + 1.0) / 2.0;
+                e.intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
+                e.intel.last_signal = outputs[5];
+                let inertia = (0.8 + stomach_penalty).clamp(0.4, 0.95);
+                e.physics.vx = e.physics.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
+                e.physics.vy = e.physics.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
+
+                let metabolism_mult = env.metabolism_multiplier();
+                let mut move_cost =
+                    self.config.metabolism.base_move_cost * metabolism_mult * speed_mult;
+                if predation_mode {
+                    move_cost *= 2.0;
+                }
+                let signal_cost = outputs[5].abs() as f64 * 0.1;
+                let hidden_node_count = e
+                    .intel
+                    .genotype
+                    .brain
+                    .nodes
+                    .iter()
+                    .filter(|n| matches!(n.node_type, crate::model::brain::NodeType::Hidden))
+                    .count();
+                let enabled_conn_count = e
+                    .intel
+                    .genotype
+                    .brain
+                    .connections
+                    .iter()
+                    .filter(|c| c.enabled)
+                    .count();
+                let brain_maintenance =
+                    (hidden_node_count as f64 * 0.02) + (enabled_conn_count as f64 * 0.005);
+                let sensing_cost_mod = 1.0 + (sensing_radius - 5.0).max(0.0) * 0.1;
+                let idle_cost = (self.config.metabolism.base_idle_cost + brain_maintenance)
+                    * metabolism_mult
+                    * sensing_cost_mod;
+                e.metabolism.energy -= move_cost + idle_cost + signal_cost;
+
+                if outputs[6] > 0.5 {
+                    local_deposits.push((e.physics.x, e.physics.y, PheromoneType::SignalA, 0.5));
+                }
+                if outputs[7] > 0.5 {
+                    local_deposits.push((e.physics.x, e.physics.y, PheromoneType::SignalB, 0.5));
+                }
+
+                action::handle_movement(e, speed_mult, &self.terrain, self.width, self.height);
+                biological::biological_system(e);
+                local_deposits
+            })
+            .collect();
+
+        for row in pheromone_proposals {
+            for (px, py, pt, pa) in row {
+                self.pheromones.deposit(px, py, pt, pa);
+            }
+        }
+
         for i in 0..current_entities.len() {
             if killed_ids.contains(&current_entities[i].id) {
                 continue;
             }
-            let (outputs, next_hidden) = decision_buffer[i];
-            current_entities[i].intel.last_hidden = next_hidden;
-
-            let mut ctx = action::ActionContext {
-                env,
-                config: &self.config,
-                terrain: &self.terrain,
-                pheromones: &mut self.pheromones,
-                width: self.width,
-                height: self.height,
-            };
-            action::action_system(&mut current_entities[i], outputs, &mut ctx);
-
-            // NEW: Phase 30 - Herding Reward
-            // Use perceived kin vector from perception_buffer[i][6/7]
             let kin_vx = perception_buffer[i][6] as f64;
             let kin_vy = perception_buffer[i][7] as f64;
             if kin_vx != 0.0 || kin_vy != 0.0 {
                 let dot_product = current_entities[i].physics.vx * kin_vx
                     + current_entities[i].physics.vy * kin_vy;
                 if dot_product > 0.5 {
-                    current_entities[i].metabolism.energy += 0.05; // Cooperation bonus
+                    current_entities[i].metabolism.energy += 0.05;
                 }
             }
-
             if current_entities[i].metabolism.energy <= 0.0 {
                 biological::handle_death(
                     i,
@@ -413,8 +426,6 @@ impl World {
                 );
                 continue;
             }
-
-            biological::biological_system(&mut current_entities[i]);
             biological::handle_infection(
                 i,
                 &mut current_entities,
@@ -423,7 +434,7 @@ impl World {
                 &self.spatial_hash,
                 &mut rng,
             );
-
+            let outputs = decision_buffer[i].0;
             let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
             if predation_mode {
                 let mut ctx = social::PredationContext {
@@ -441,8 +452,6 @@ impl World {
                 };
                 social::handle_predation(i, &mut current_entities, &mut ctx);
             }
-
-            // Energy Sharing
             let mut share_ctx = social::PredationContext {
                 snapshots: &entity_snapshots,
                 killed_ids: &mut killed_ids,
@@ -457,7 +466,6 @@ impl World {
                 lineage_consumption: &mut self.lineage_consumption,
             };
             social::handle_sharing(i, &mut current_entities, &mut share_ctx);
-
             let mut feed_ctx = ecological::FeedingContext {
                 food: &self.food,
                 food_hash: &self.food_hash,
@@ -468,7 +476,6 @@ impl World {
                 lineage_consumption: &mut self.lineage_consumption,
             };
             ecological::handle_feeding_optimized(i, &mut current_entities, &mut feed_ctx);
-
             if let Some(baby) = social::handle_reproduction(
                 i,
                 &mut current_entities,
@@ -477,13 +484,11 @@ impl World {
                 &self.config,
                 self.tick,
             ) {
-                // Register birth
                 self.lineage_registry.record_birth(
                     baby.metabolism.lineage_id,
                     baby.metabolism.generation,
                     self.tick,
                 );
-
                 let ev = LiveEvent::Birth {
                     id: baby.id,
                     parent_id: Some(current_entities[i].id),
@@ -497,13 +502,10 @@ impl World {
             }
         }
 
-        // Apply lineage consumption
         for (l_id, amount) in &self.lineage_consumption {
             self.lineage_registry.record_consumption(*l_id, *amount);
         }
         self.lineage_consumption.clear();
-
-        // Apply energy transfers
         for (target_idx, amount) in &energy_transfers {
             if *target_idx < current_entities.len()
                 && !killed_ids.contains(&current_entities[*target_idx].id)
@@ -553,7 +555,6 @@ impl World {
         self.energy_transfers = energy_transfers;
 
         social::handle_extinction(&self.entities, self.tick, &mut events, &mut self.logger);
-        // Calculate current mutation scale for stats tracking
         let pop_count = self.entities.len();
         let mut mutation_scale = self.config.evolution.mutation_rate;
         if self.config.evolution.population_aware && pop_count > 0 {
@@ -575,7 +576,6 @@ impl World {
             &mut self.hall_of_fame,
         );
 
-        // Eco-Stability Checks
         if self.tick.is_multiple_of(100) {
             let h_count = self
                 .entities
@@ -583,7 +583,6 @@ impl World {
                 .filter(|e| e.metabolism.trophic_potential < 0.4)
                 .count();
             let c_count = self.entities.len() - h_count;
-
             if h_count < 5 && c_count > 10 {
                 let alert = LiveEvent::EcoAlert {
                     message: "Trophic Collapse: Prey scarcity!".to_string(),
@@ -606,8 +605,6 @@ impl World {
         if self.tick.is_multiple_of(1000) {
             let _ = self.lineage_registry.save("logs/lineages.json");
             let _ = self.fossil_registry.save("logs/fossils.json");
-
-            // NEW: Record Snapshot for playback
             let snap_ev = LiveEvent::Snapshot {
                 tick: self.tick,
                 stats: self.pop_stats.clone(),
@@ -615,8 +612,6 @@ impl World {
             };
             let _ = self.logger.log_event(snap_ev.clone());
             events.push(snap_ev);
-
-            // Process fossils for extinct lineages
             self.handle_fossilization();
         }
 
@@ -635,34 +630,15 @@ mod tests {
         config.world.width = 10;
         config.world.height = 10;
         let mut world = World::new(0, config).unwrap();
-
-        // Place a wall at (5, 5)
         world
             .terrain
             .set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Wall);
-
         let mut entity = Entity::new(4.5, 4.5, 0);
         entity.physics.vx = 1.0;
         entity.physics.vy = 1.0;
-
-        // Move towards the wall
-        // Speed 1.0, terrain mod 1.0 (Plains at 4,4)
-        // next_x = 4.5 + 1.0 = 5.5 (Wall)
         action::handle_movement(&mut entity, 1.0, &world.terrain, world.width, world.height);
-
-        assert!(
-            entity.physics.vx < 0.0,
-            "Velocity X should be reversed, got {}",
-            entity.physics.vx
-        );
-        assert!(
-            entity.physics.vy < 0.0,
-            "Velocity Y should be reversed, got {}",
-            entity.physics.vy
-        );
-        assert_eq!(
-            entity.physics.x, 4.5,
-            "Entity should not have moved into the wall"
-        );
+        assert!(entity.physics.vx < 0.0);
+        assert!(entity.physics.vy < 0.0);
+        assert_eq!(entity.physics.x, 4.5);
     }
 }

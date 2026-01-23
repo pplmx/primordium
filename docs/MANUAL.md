@@ -43,6 +43,8 @@ Primordium runs in two environments:
 | `o` | **Load** Simulation State from `save.json` |
 | `a` | Toggle **Ancestry View** (Family Tree) |
 | `Shift+A` | Export Ancestry Tree to DOT file |
+| `y` | Toggle **Archeology & Fossil Record** |
+| `[` / `]` | **Time Travel** (Navigate History Snapshots) |
 | `+` / `-`| Increase / Decrease time scale |
 | `1 2 3 4` | Navigate Help Tabs (when open) |
 
@@ -119,6 +121,13 @@ When entities reproduce, their offspring inherits a mix of parents' DNA with sli
 
 ## 🌍 Ecosystem
 
+### Archeology & Fossils (Phase 40)
+
+Primordium preserves the deep history of your world through two key mechanisms:
+
+- **History Snapshots**: Every 1,000 ticks, the system captures a macro-state of the world (population, carbon, hotspots). Use the Archeology View (`y`) and Time Travel keys (`[`/`]`) to browse these snapshots.
+- **Fossil Record**: When a legendary lineage goes extinct, its genetic legacy and brain architecture are "fossilized" into a persistent registry (`logs/fossils.json`). You can view these ancestral icons in the Archeology panel.
+
 ### Carbon Cycle & Warming
 
 The simulation features a global **Carbon Cycle**:
@@ -163,6 +172,7 @@ Primordium supports **Interstellar Migration**. Travel off the edge while "Onlin
 - [Genetics & HexDNA](../docs/wiki/GENETICS.md)
 - [Neural Network Architecture](../docs/wiki/BRAIN.md)
 - [Ecosystem Formulas](../docs/wiki/ECOSYSTEM.md)
+- [History & Archeology](../docs/wiki/HISTORY.md)
 
 ---
 *Last Updated: 2026-01-21*

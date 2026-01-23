@@ -20,7 +20,6 @@ pub fn action_system(entity: &mut Entity, outputs: [f32; 8], ctx: &mut ActionCon
     // 1. Calculate phenotypic modifiers
     let speed_cap = entity.physics.max_speed;
     let sensing_radius = entity.physics.sensing_range;
-    let stomach_penalty = (entity.metabolism.max_energy - 200.0) / 1000.0;
 
     // 2. Speed, Aggression and Signaling
     let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * speed_cap;
@@ -31,6 +30,8 @@ pub fn action_system(entity: &mut Entity, outputs: [f32; 8], ctx: &mut ActionCon
 
     // 3. Inertia/Responsiveness based on stomach size
     // Larger stomach = more mass = higher inertia (slower response)
+    // Stomach penalty scales from 0.0 (200 capacity) to 0.3 (500 capacity)
+    let stomach_penalty = (entity.metabolism.max_energy - 200.0).max(0.0) / 1000.0;
     let inertia = (0.8 + stomach_penalty).clamp(0.4, 0.95);
     entity.physics.vx = entity.physics.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
     entity.physics.vy = entity.physics.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);

@@ -76,6 +76,7 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 
 - **Terrain Editor**: Use **Mouse Drag** to paint Mountains, Rivers, and Walls directly onto the world.
 - **Targeted Intervention**: Manually **Mutate (M)**, **Smite (K)**, or **Reincarnate (P)** selected organisms.
+- **Archeology & Fossils (Phase 40)**: Persistent **Fossil Record** (`logs/fossils.json`) preserves extinct legendary genotypes. Periodic **History Snapshots** enable time-travel browsing of macro-evolutionary trends.
 - **God Mode Overrides**: Induce global Heat Waves, Resource Booms, or Mass Extinctions via keyboard macros.
 
 ### 🦁 Apex Predators & Sexual Reproduction
@@ -149,6 +150,8 @@ cargo run --release -- --mode screensaver
 | `Space` | Pause / Resume |
 | `A` | Toggle **Ancestry View** (Tree of Life) |
 | `Shift+A` | Export Ancestry Tree (DOT format) |
+| `Y` | Toggle **Archeology & Fossil Record** |
+| `[` / `]` | **Time Travel** (Navigate History Snapshots) |
 | `B` | Toggle Neural Brain Heatmap |
 | `H` | Toggle Help Overlay |
 | `X` | Trigger **Genetic Surge** (Global Mutation) |

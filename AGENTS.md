@@ -9,6 +9,7 @@
 | 项目架构、目录结构、设计哲学 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | 神经网络拓扑、输入输出 | [`docs/wiki/BRAIN.md`](./docs/wiki/BRAIN.md) |
 | 生态系统、能量公式、代谢 | [`docs/wiki/ECOSYSTEM.md`](./docs/wiki/ECOSYSTEM.md) |
+| 历史、考古学、化石记录 | [`docs/wiki/HISTORY.md`](./docs/wiki/HISTORY.md) |
 | HexDNA、遗传、变异逻辑 | [`docs/wiki/GENETICS.md`](./docs/wiki/GENETICS.md) |
 | 用户手册、控制键位 | [`docs/MANUAL.md`](./docs/MANUAL.md) / [`docs/MANUAL_zh.md`](./docs/MANUAL_zh.md) |
 | 项目概述、快速开始 | [`README.md`](./README.md) / [`docs/README_zh.md`](./docs/README_zh.md) |

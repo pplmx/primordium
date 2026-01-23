@@ -1,17 +1,20 @@
 use crate::model::state::entity::Entity;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 #[derive(Serialize, Deserialize)]
 pub struct SpatialHash {
     pub cell_size: f64,
-    pub cells: std::collections::HashMap<(i32, i32), Vec<usize>>,
+    pub cells: HashMap<(i32, i32), Vec<usize>>,
 }
 
 impl SpatialHash {
     pub fn new(cell_size: f64) -> Self {
         Self {
             cell_size,
-            cells: std::collections::HashMap::new(),
+            cells: HashMap::new(),
         }
     }
 
@@ -27,6 +30,24 @@ impl SpatialHash {
         let cx = (x / self.cell_size).floor() as i32;
         let cy = (y / self.cell_size).floor() as i32;
         self.cells.entry((cx, cy)).or_default().push(index);
+    }
+
+    /// NEW: Build the hash in parallel from a slice of positions.
+    pub fn build_parallel(&mut self, positions: &[(f64, f64)]) {
+        self.clear();
+
+        // Use a Mutex-protected temporary map to collect entries in parallel.
+        // For even higher performance with 10k+ entities, consider DashMap or a fixed-grid array.
+        let temp_cells: Mutex<HashMap<(i32, i32), Vec<usize>>> = Mutex::new(HashMap::new());
+
+        positions.par_iter().enumerate().for_each(|(idx, &(x, y))| {
+            let cx = (x / self.cell_size).floor() as i32;
+            let cy = (y / self.cell_size).floor() as i32;
+            let mut map = temp_cells.lock().unwrap();
+            map.entry((cx, cy)).or_default().push(idx);
+        });
+
+        self.cells = temp_cells.into_inner().unwrap();
     }
 
     pub fn query(&self, x: f64, y: f64, radius: f64) -> Vec<usize> {
