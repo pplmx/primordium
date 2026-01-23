@@ -60,4 +60,5 @@ Chemical trails dissipate exponentially:
 
 $$ P_{new} = P_{old} \times (1.0 - DecayRate) $$
 
-Default decay rate is 0.5% per tick.
+- **Default decay rate**: 0.5% per tick.
+- **Cleanup threshold**: Strengths below 0.01 are reset to 0.0.
