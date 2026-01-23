@@ -48,6 +48,14 @@ Lineage members provide mutual protection against predators:
 - **Multiplier**: Ranges from **1.0** (isolated) down to **0.4** (dense group).
 - **Formula**: $M_{defense} = \max(0.4, 1.0 - (Allies \times 0.1))$
 
+#### Social Coordination (Phase 30)
+
+Phase 30 introduces advanced coordination mechanisms based on kin recognition and semantic signaling.
+
+- **Kin Recognition**: Entities sense the relative center of mass of their lineage members (**KX**, **KY**). This allows for emergent swarming and collective migration behaviors.
+- **Herding Bonus**: To encourage group cohesion, entities receive a **0.05 energy bonus** per tick when moving in the same direction as their kin centroid (calculated via dot product > 0.5 between movement vector and centroid vector).
+- **Semantic Pheromones (Signal A/B)**: Beyond simple food trails, entities can now emit and sense abstract signals (**SA**, **SB**). These serve as a neural substrate for evolved coordination, allowing lineages to develop complex "languages" for danger, recruitment, or territory marking.
+
 #### Dynamic Signaling
 
 Entities can modulate their appearance for communication or camouflage:

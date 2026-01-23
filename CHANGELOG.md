@@ -6,6 +6,28 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 30: Social Coordination & Kin Recognition] - 2026-01-23
+
+### Evolutionary Leap: Swarming & Semantic Communication
+
+Phase 30 introduces advanced social behaviors through kin recognition and active semantic signaling. Organisms can now sense the relative center of mass of their lineage, enabling the emergence of collective movement patterns and swarming behaviors, supported by a significant expansion of the neural architecture.
+
+#### ✨ Features
+
+- **Kin Centroid Sensing (KX, KY)**: Organisms now perceive the relative position of their lineage allies as a unified vector, allowing for group cohesion.
+- **Herding Bonus**: Implemented a metabolic reward (0.05 energy/tick) for moving in alignment with the kin centroid, encouraging collective migration.
+- **Semantic Pheromones (SA, SB)**: Added neural outputs and environmental sensors for abstract signals, providing a substrate for evolved coordination.
+- **Enhanced Neural Substrate**: Upgraded the standard brain architecture to **18-6-8 RNN-lite** to support new social inputs and action outputs.
+- **Age & Wall Awareness**: Added dedicated sensors for maturity (`AG`) and wall proximity (`WL`) for better environmental adaptation.
+
+#### 🛠️ Technical Achievements
+
+- **Expanded Brain Topology**: Increased environmental inputs from 7 to 12 and outputs from 6 to 8.
+- **Kin Vector Engine**: Implemented real-time calculation of lineage centroids within the `Social` system.
+- **Speed Modulation**: Output 2 now controls continuous speed modulation rather than a binary boost.
+
+---
+
 ## [Phase 28: Complex Brain Evolution (NEAT-lite)] - 2026-01-23
 
 ### Evolutionary Leap: Evolvable Topology & Efficiency Pressure

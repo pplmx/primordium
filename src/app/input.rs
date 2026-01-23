@@ -165,7 +165,8 @@ impl App {
                 for _ in 0..100 {
                     let fx = rng.gen_range(1..self.world.width - 1);
                     let fy = rng.gen_range(1..self.world.height - 1);
-                    self.world.food.push(Food::new(fx, fy));
+                    let n_type = rng.gen_range(0.0..1.0);
+                    self.world.food.push(Food::new(fx, fy, n_type));
                 }
                 self.event_log
                     .push_back(("GOD MODE: RESOURCE BOOM!".to_string(), Color::Green));
@@ -232,7 +233,10 @@ impl App {
                     self.screensaver,
                 ) {
                     use crate::model::state::food::Food;
-                    self.world.food.push(Food::new(wx as u16, wy as u16));
+                    let n_type = rand::thread_rng().gen_range(0.0..1.0);
+                    self.world
+                        .food
+                        .push(Food::new(wx as u16, wy as u16, n_type));
                     self.event_log
                         .push_back(("Divine Food Injected".to_string(), Color::Green));
                 }

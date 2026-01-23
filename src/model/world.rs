@@ -88,7 +88,7 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 12]>,
+    perception_buffer: Vec<[f32; 13]>,
     #[serde(skip, default)]
     decision_buffer: Vec<([f32; 8], [f32; 6])>,
     #[serde(skip, default)]
@@ -118,7 +118,8 @@ impl World {
         for _ in 0..config.world.initial_food {
             let x = rng.gen_range(1..config.world.width - 1);
             let y = rng.gen_range(1..config.world.height - 1);
-            food.push(Food::new(x, y));
+            let n_type = rng.gen_range(0.0..1.0);
+            food.push(Food::new(x, y, n_type));
         }
         let terrain = TerrainGrid::generate(
             config.world.width,
@@ -216,8 +217,8 @@ impl World {
         let mut eaten_food_indices = std::mem::take(&mut self.eaten_food_indices);
         let mut new_babies = std::mem::take(&mut self.new_babies);
         let mut alive_entities = std::mem::take(&mut self.alive_entities);
-        let mut perception_buffer = std::mem::take(&mut self.perception_buffer);
-        let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
+        let _perception_buffer = std::mem::take(&mut self.perception_buffer);
+        let _decision_buffer = std::mem::take(&mut self.decision_buffer);
         let mut energy_transfers = std::mem::take(&mut self.energy_transfers);
 
         killed_ids.clear();
@@ -226,11 +227,16 @@ impl World {
         alive_entities.clear();
         energy_transfers.clear();
 
+        let mut perception_buffer: Vec<[f32; 13]> = Vec::with_capacity(current_entities.len());
+        let mut decision_buffer: Vec<([f32; 8], [f32; 6])> =
+            Vec::with_capacity(current_entities.len());
+
         current_entities
             .par_iter()
             .enumerate()
             .map(|(i, e)| {
-                let (dx_f, dy_f) = ecological::sense_nearest_food(e, &self.food, &self.food_hash);
+                let (dx_f, dy_f, f_type) =
+                    ecological::sense_nearest_food(e, &self.food, &self.food_hash);
                 let sensing_radius = e.physics.sensing_range;
                 let nearby_indices =
                     self.spatial_hash
@@ -290,6 +296,7 @@ impl World {
                     pheromone_b,
                     wall_proximity as f32,
                     (e.metabolism.birth_tick as f32 / self.tick.max(1) as f32).min(1.0),
+                    f_type,
                 ]
             })
             .collect_into_vec(&mut perception_buffer);

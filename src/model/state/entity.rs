@@ -121,16 +121,20 @@ pub struct Genotype {
     pub max_energy: f64,
     /// NEW: Ancestral lineage tracking.
     pub lineage_id: Uuid,
+    /// NEW: Metabolic niche (0.0 = Green expert, 1.0 = Blue expert)
+    pub metabolic_niche: f32,
 }
 
 impl Genotype {
     pub fn new_random() -> Self {
+        let mut rng = rand::thread_rng();
         Self {
             brain: Brain::new_random(),
             sensing_range: 5.0,
             max_speed: 1.0,
             max_energy: 200.0,
             lineage_id: Uuid::new_v4(),
+            metabolic_niche: rng.gen_range(0.0..1.0),
         }
     }
 

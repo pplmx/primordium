@@ -27,7 +27,16 @@ pub fn spawn_food(
             let y = rng.gen_range(1..height - 1);
             let terrain_mod = terrain.food_spawn_modifier(f64::from(x), f64::from(y));
             if terrain_mod > 0.0 && rng.gen::<f64>() < base_spawn_chance * terrain_mod {
-                food.push(Food::new(x, y));
+                // Spawn typed food: Mountain/River favors Blue, Plains favor Green
+                let terrain_type = terrain.get_cell(x, y).terrain_type;
+                let nutrient_type = match terrain_type {
+                    crate::model::state::terrain::TerrainType::Mountain
+                    | crate::model::state::terrain::TerrainType::River => {
+                        rng.gen_range(0.6..1.0) // Favor Blue
+                    }
+                    _ => rng.gen_range(0.0..0.4), // Favor Green
+                };
+                food.push(Food::new(x, y, nutrient_type));
                 break;
             }
         }
@@ -68,8 +77,16 @@ pub fn handle_feeding_optimized(idx: usize, entities: &mut [Entity], ctx: &mut F
         }
     }
     if let Some(f_idx) = eaten_idx {
-        entities[idx].metabolism.energy = (entities[idx].metabolism.energy + ctx.food_value)
+        let f = &ctx.food[f_idx];
+        // Calculate Digestive Efficiency based on Niche Match
+        let niche_match =
+            1.0 - (entities[idx].intel.genotype.metabolic_niche - f.nutrient_type).abs() as f64;
+        let efficiency = (niche_match * 1.5).min(1.2).max(0.2); // Specialized can get 1.2x, mismatched 0.2x
+
+        let energy_gain = ctx.food_value * efficiency;
+        entities[idx].metabolism.energy = (entities[idx].metabolism.energy + energy_gain)
             .min(entities[idx].metabolism.max_energy);
+
         ctx.terrain
             .deplete(entities[idx].physics.x, entities[idx].physics.y, 0.4);
         ctx.pheromones.deposit(
@@ -80,18 +97,24 @@ pub fn handle_feeding_optimized(idx: usize, entities: &mut [Entity], ctx: &mut F
         );
         ctx.eaten_indices.insert(f_idx);
         ctx.lineage_consumption
-            .push((entities[idx].metabolism.lineage_id, ctx.food_value));
+            .push((entities[idx].metabolism.lineage_id, energy_gain));
     }
 }
 
 /// Sense the nearest food within a radius.
-pub fn sense_nearest_food(entity: &Entity, food: &[Food], food_hash: &SpatialHash) -> (f64, f64) {
+/// Returns (dx, dy, nutrient_type)
+pub fn sense_nearest_food(
+    entity: &Entity,
+    food: &[Food],
+    food_hash: &SpatialHash,
+) -> (f64, f64, f32) {
     let mut dx_food = 0.0;
     let mut dy_food = 0.0;
+    let mut f_type = 0.5;
     let mut min_dist_sq = f64::MAX;
     let nearby_food = food_hash.query(entity.physics.x, entity.physics.y, 20.0);
     if nearby_food.is_empty() {
-        return (0.0, 0.0);
+        return (0.0, 0.0, 0.5);
     }
     for &f_idx in &nearby_food {
         let f = &food[f_idx];
@@ -102,9 +125,10 @@ pub fn sense_nearest_food(entity: &Entity, food: &[Food], food_hash: &SpatialHas
             min_dist_sq = dist_sq;
             dx_food = dx;
             dy_food = dy;
+            f_type = f.nutrient_type;
         }
     }
-    (dx_food, dy_food)
+    (dx_food, dy_food, f_type)
 }
 
 #[cfg(test)]

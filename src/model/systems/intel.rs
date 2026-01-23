@@ -4,7 +4,7 @@ use crate::model::config::EvolutionConfig;
 /// Forward pass through brain.
 pub fn brain_forward(
     brain: &Brain,
-    inputs: [f32; 12],
+    inputs: [f32; 13],
     last_hidden: [f32; 6],
 ) -> ([f32; 8], [f32; 6]) {
     brain.forward(inputs, last_hidden)
@@ -43,6 +43,13 @@ pub fn mutate_genotype(
     mutate_trait(&mut genotype.sensing_range, 3.0, 15.0);
     mutate_trait(&mut genotype.max_speed, 0.5, 3.0);
     mutate_trait(&mut genotype.max_energy, 100.0, 500.0);
+
+    // Mutate Metabolic Niche (0.0 to 1.0)
+    let r = rng.gen::<f32>();
+    if r < config.mutation_rate {
+        genotype.metabolic_niche += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+    }
+    genotype.metabolic_niche = genotype.metabolic_niche.clamp(0.0, 1.0);
 }
 
 /// Crossover between two genotypes.
@@ -69,6 +76,11 @@ pub fn crossover_genotypes(
     } else {
         p2.max_energy
     };
+    let metabolic_niche = if rng.gen_bool(0.5) {
+        p1.metabolic_niche
+    } else {
+        p2.metabolic_niche
+    };
 
     crate::model::state::entity::Genotype {
         brain,
@@ -76,6 +88,7 @@ pub fn crossover_genotypes(
         max_speed,
         max_energy,
         lineage_id: p1.lineage_id, // Inherit lineage from first parent
+        metabolic_niche,
     }
 }
 

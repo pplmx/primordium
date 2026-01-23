@@ -10,30 +10,35 @@ In earlier phases, entities used a fixed MLP (Multilayer Perceptron) architectur
 
 The brain starts with a standard minimal configuration but grows dynamically:
 
-- **Initial Input Layer**: 13 Neurons (7 Environment, 6 Recurrent)
+- **Initial Input Layer**: 18 Neurons (12 Environment, 6 Recurrent)
 - **Initial Hidden Layer**: 6 Neurons
-- **Initial Output Layer**: 6 Neurons
+- **Initial Output Layer**: 8 Neurons
 - **Dynamic Growth**: Through mutations, new hidden nodes and connections can be added indefinitely.
 
 ## Inputs (Sensors)
 
-### Environmental Inputs (0-6)
+### Environmental Inputs (0-11)
 
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
 | 0 | `FoodDX` | X-distance to nearest food |
 | 1 | `FoodDY` | Y-distance to nearest food |
 | 2 | `Energy` | Internal energy % |
-| 3 | `Neighbors` | Count of nearby entities |
-| 4 | `Pheromone` | Strength of food trail at location |
+| 3 | `Neighbors`| Count of nearby entities |
+| 4 | `Pheromone`| Strength of food trail at location |
 | 5 | `Tribe` | Tribe density nearby |
-| 6 | `Lineage` | Nearby same-lineage count |
+| 6 | `KX` | Kin Centroid X (relative) |
+| 7 | `KY` | Kin Centroid Y (relative) |
+| 8 | `SA` | Signal A (semantic pheromone) |
+| 9 | `SB` | Signal B (semantic pheromone) |
+| 10 | `WL` | Wall Proximity |
+| 11 | `AG` | Age/Maturity |
 
-### Recurrent Inputs (7-12)
+### Recurrent Inputs (12-17)
 
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
-| 7-12| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
+| 12-17| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
 
 ## Outputs (Actions)
 
@@ -41,10 +46,12 @@ The brain starts with a standard minimal configuration but grows dynamically:
 | ---- | --------- | ------------ |
 | 0 | `MoveX` | Continuous (-1.0 to 1.0) |
 | 1 | `MoveY` | Continuous (-1.0 to 1.0) |
-| 2 | `Boost` | > 0.5 triggers speed boost |
+| 2 | `Speed` | Continuous (Max speed modulation) |
 | 3 | `Aggro` | > 0.5 invokes attack state |
 | 4 | `Share` | > 0.5 transfers energy to tribe |
-| 5 | `Signal`| Real-time color modulation (-1.0 to 1.0) |
+| 5 | `Color` | Real-time color modulation (-1.0 to 1.0) |
+| 6 | `EmitSA` | > 0.5 emits Signal A |
+| 7 | `EmitSB` | > 0.5 emits Signal B |
 
 ## Topological Mutations
 
