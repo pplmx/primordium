@@ -21,6 +21,8 @@ use std::collections::HashSet;
 pub struct EntitySnapshot {
     /// Unique identifier of the entity.
     pub id: uuid::Uuid,
+    /// NEW: Lineage identifier.
+    pub lineage_id: uuid::Uuid,
     /// X coordinate in world space.
     pub x: f64,
     /// Y coordinate in world space.
@@ -84,9 +86,9 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 6]>,
+    perception_buffer: Vec<[f32; 7]>,
     #[serde(skip, default)]
-    decision_buffer: Vec<([f32; 5], [f32; 6])>,
+    decision_buffer: Vec<([f32; 6], [f32; 6])>,
     #[serde(skip, default)]
     energy_transfers: Vec<(usize, f64)>,
 }
@@ -193,6 +195,7 @@ impl World {
             .iter()
             .map(|e| EntitySnapshot {
                 id: e.id,
+                lineage_id: e.metabolism.lineage_id,
                 x: e.physics.x,
                 y: e.physics.y,
                 energy: e.metabolism.energy,
@@ -236,6 +239,14 @@ impl World {
                         n_idx != i && social::are_same_tribe(e, &current_entities[n_idx])
                     })
                     .count();
+                let lineage_count = nearby_indices
+                    .iter()
+                    .filter(|&&n_idx| {
+                        n_idx != i
+                            && current_entities[n_idx].metabolism.lineage_id
+                                == e.metabolism.lineage_id
+                    })
+                    .count();
                 [
                     (dx_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
                     (dy_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
@@ -243,6 +254,7 @@ impl World {
                     (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
                     pheromone_food,
                     (tribe_count as f32 / 5.0).min(1.0),
+                    (lineage_count as f32 / 5.0).min(1.0),
                 ]
             })
             .collect_into_vec(&mut perception_buffer);

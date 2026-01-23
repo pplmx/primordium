@@ -5,15 +5,15 @@ use rand::Rng;
 /// Returns (Outputs, New Hidden State).
 pub fn brain_forward(
     brain: &Brain,
-    inputs: [f32; 6],
+    inputs: [f32; 7],
     last_hidden: [f32; 6],
-) -> ([f32; 5], [f32; 6]) {
+) -> ([f32; 6], [f32; 6]) {
     // 1. Combine inputs with memory
-    let mut combined_inputs = [0.0; 12];
-    combined_inputs[0..6].copy_from_slice(&inputs);
-    combined_inputs[6..12].copy_from_slice(&last_hidden);
+    let mut combined_inputs = [0.0; 13];
+    combined_inputs[0..7].copy_from_slice(&inputs);
+    combined_inputs[7..13].copy_from_slice(&last_hidden);
 
-    // 2. Input to Hidden (12 inputs -> 6 hidden)
+    // 2. Input to Hidden (13 inputs -> 6 hidden)
     let mut hidden = [0.0; 6];
     for (i, h) in hidden.iter_mut().enumerate() {
         let mut sum = brain.bias_h[i];
@@ -23,12 +23,12 @@ pub fn brain_forward(
         *h = sum.tanh();
     }
 
-    // 3. Hidden to Output (6 hidden -> 5 outputs)
-    let mut output = [0.0; 5];
+    // 3. Hidden to Output (6 hidden -> 6 outputs)
+    let mut output = [0.0; 6];
     for (i, o) in output.iter_mut().enumerate() {
         let mut sum = brain.bias_o[i];
         for (j, &h) in hidden.iter().enumerate() {
-            sum += h * brain.weights_ho[j * 5 + i];
+            sum += h * brain.weights_ho[j * 6 + i];
         }
         *o = sum.tanh();
     }

@@ -320,7 +320,7 @@ impl App {
                 lines.push(ratatui::text::Line::from(" Neural Network Weights:"));
 
                 // Neural Network weights visualization...
-                for i in 0..12 {
+                for i in 0..13 {
                     let mut spans = Vec::new();
                     spans.push(ratatui::text::Span::raw(format!(
                         "  {} ",
@@ -331,12 +331,13 @@ impl App {
                             3 => "NB",
                             4 => "PH",
                             5 => "TR",
-                            6 => "M1",
-                            7 => "M2",
-                            8 => "M3",
-                            9 => "M4",
-                            10 => "M5",
-                            11 => "M6",
+                            6 => "LI",
+                            7 => "M1",
+                            8 => "M2",
+                            9 => "M3",
+                            10 => "M4",
+                            11 => "M5",
+                            12 => "M6",
                             _ => "??",
                         }
                     )));

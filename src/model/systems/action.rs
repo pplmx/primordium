@@ -8,7 +8,7 @@ use crate::model::state::terrain::{TerrainGrid, TerrainType};
 /// Apply neural network outputs to entity movement and calculate energy costs.
 pub fn action_system(
     entity: &mut Entity,
-    outputs: [f32; 5],
+    outputs: [f32; 6],
     env: &Environment,
     config: &AppConfig,
     terrain: &TerrainGrid,
@@ -20,11 +20,12 @@ pub fn action_system(
     let sensing_radius = entity.physics.sensing_range;
     let stomach_penalty = (entity.metabolism.max_energy - 200.0) / 1000.0;
 
-    // 2. Speed and Aggression
+    // 2. Speed, Aggression and Signaling
     let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * speed_cap;
     let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
     entity.intel.last_aggression = (outputs[3] + 1.0) / 2.0;
     entity.intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
+    entity.intel.last_signal = outputs[5]; // NEW: Dynamic signal
 
     // 3. Inertia/Responsiveness based on stomach size
     let inertia = (0.8 - stomach_penalty).clamp(0.4, 0.85);
@@ -39,11 +40,14 @@ pub fn action_system(
         move_cost *= 2.0;
     }
 
+    // Signaling cost: active color shift consumes energy
+    let signal_cost = outputs[5].abs() as f64 * 0.1;
+
     // Idle cost scales with sensing capability
     let sensing_cost_mod = 1.0 + (sensing_radius - 5.0).max(0.0) * 0.1;
     let idle_cost = config.metabolism.base_idle_cost * metabolism_mult * sensing_cost_mod;
 
-    entity.metabolism.energy -= move_cost + idle_cost;
+    entity.metabolism.energy -= move_cost + idle_cost + signal_cost;
     handle_movement(entity, speed_mult, terrain, width, height);
 }
 
@@ -193,7 +197,7 @@ mod tests {
         entity.metabolism.energy = 100.0;
         let initial_energy = entity.metabolism.energy;
 
-        let outputs = [0.0, 0.0, 0.0, 0.0, 0.0]; // Neutral outputs
+        let outputs = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // Neutral outputs
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
@@ -213,8 +217,8 @@ mod tests {
         entity_normal.metabolism.energy = 100.0;
         entity_predator.metabolism.energy = 100.0;
 
-        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0]; // Low aggression
-        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0]; // High aggression
+        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0]; // Low aggression
+        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]; // High aggression
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
@@ -250,7 +254,7 @@ mod tests {
         entity.physics.vx = 0.0;
         entity.physics.vy = 0.0;
 
-        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0]; // Move right-up
+        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0, 0.0]; // Move right-up
         let env = Environment::default();
         let config = AppConfig::default();
         let mut terrain = TerrainGrid::generate(20, 20, 42);

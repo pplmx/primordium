@@ -40,6 +40,21 @@ Entities are more defensive near their birthplace:
 
 - **Bonus**: **1.5x Aggression bonus** if within **8.0 units** of birth coordinates.
 
+#### Social Defense
+
+Lineage members provide mutual protection against predators:
+
+- **Group Defense**: Damage received is reduced based on nearby lineage allies.
+- **Multiplier**: Ranges from **1.0** (isolated) down to **0.4** (dense group).
+- **Formula**: $M_{defense} = \max(0.4, 1.0 - (Allies \times 0.1))$
+
+#### Dynamic Signaling
+
+Entities can modulate their appearance for communication or camouflage:
+
+- **Signal**: Real-time color modulation (Brighten/Warning vs Darken/Stealth).
+- **Cost**: Actively signaling costs **0.1 energy per unit** of modulation intensity.
+
 ### World Eras
 
 The simulation progresses through narrative eras based on global metrics:

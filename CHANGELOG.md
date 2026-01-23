@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 25: Social Complexity & Defense Evolution] - 2026-01-23
+
+### Evolutionary Leap: Collective Intelligence & Dynamic Signaling
+
+Phase 25 introduces deeper social dynamics, focusing on mutual protection and active communication. Lineages now possess an emergent sense of "self" and "other," enabling group defense strategies and real-time visual signaling.
+
+#### ✨ Features
+
+- **Lineage-Aware Sensing**: Neural networks now receive real-time data on the density of same-lineage members nearby.
+- **Group Defense Mechanics**: Introduced a "Social Defense" bonus. Entities receive significantly less damage (up to 60% reduction) when surrounded by lineage allies.
+- **Dynamic Color Signaling**: Organisms can now modulate their color intensity via a dedicated neural output, allowing for warning displays or stealth behaviors.
+- **Lineage Density Input**: Added a 13th brain input for `LineageDensity`, enabling organisms to react to the presence of their kin.
+
+#### 🛠️ Technical Achievements
+
+- **Expanded Brain Topology**: Upgraded the standard architecture to **13-6-6 RNN-lite** to support new social inputs and signal outputs.
+- **Social Defense Engine**: Implemented a proximity-based damage multiplier ($M_{defense}$) within the `Social` system.
+- **Metabolic Signaling Cost**: Integrated signaling intensity into the metabolic cost formula, adding **0.1 energy per unit** of active modulation.
+
+---
+
 ## [Phase 24: Lineage & Macroevolution] - 2026-01-23
 
 ### Evolutionary Leap: Ancestral Tracking & Dynastic Dominance

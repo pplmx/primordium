@@ -69,37 +69,56 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
         let v_b = ctx.snapshots[t_idx].birth_tick;
         let v_o = ctx.snapshots[t_idx].offspring_count;
         let can_attack = !matches!(ctx.config.game_mode, GameMode::Cooperative);
-        if can_attack
-            && v_id != entities[idx].id
-            && !ctx.killed_ids.contains(&v_id)
-            && v_e < entities[idx].metabolism.energy * territorial_bonus
-            && !are_same_tribe(&entities[idx], &entities[t_idx])
-        {
-            let gain_mult = match entities[idx].metabolism.role {
-                EntityRole::Carnivore => 1.2,
-                EntityRole::Herbivore => 0.2,
-            };
-            entities[idx].metabolism.energy = (entities[idx].metabolism.energy + v_e * gain_mult)
-                .min(entities[idx].metabolism.max_energy);
-            ctx.killed_ids.insert(v_id);
-            ctx.pheromones.deposit(
-                entities[idx].physics.x,
-                entities[idx].physics.y,
-                PheromoneType::Danger,
-                0.5,
-            );
-            let v_age = ctx.tick - v_b;
-            ctx.pop_stats.record_death(v_age);
-            let ev = LiveEvent::Death {
-                id: v_id,
-                age: v_age,
-                offspring: v_o,
-                tick: ctx.tick,
-                timestamp: Utc::now().to_rfc3339(),
-                cause: "predation".to_string(),
-            };
-            let _ = ctx.logger.log_event(ev.clone());
-            ctx.events.push(ev);
+
+        if can_attack && v_id != entities[idx].id && !ctx.killed_ids.contains(&v_id) {
+            // NEW: Group Defense Logic
+            // Count allies of the victim (same lineage) within radius 3.0
+            let allies =
+                ctx.spatial_hash
+                    .query(ctx.snapshots[t_idx].x, ctx.snapshots[t_idx].y, 3.0);
+            let ally_count = allies
+                .iter()
+                .filter(|&&a_idx| {
+                    ctx.snapshots[a_idx].id != v_id
+                        && ctx.snapshots[a_idx].lineage_id == ctx.snapshots[t_idx].lineage_id
+                })
+                .count();
+
+            // Defense multiplier: 1.0 (no allies) down to 0.4 (many allies)
+            let defense_mult = (1.0 - (ally_count as f64 * 0.15)).max(0.4);
+            let attacker_power = entities[idx].metabolism.energy * territorial_bonus;
+            let victim_resistance = v_e / defense_mult;
+
+            if attacker_power > victim_resistance
+                && !are_same_tribe(&entities[idx], &entities[t_idx])
+            {
+                let gain_mult = match entities[idx].metabolism.role {
+                    EntityRole::Carnivore => 1.2,
+                    EntityRole::Herbivore => 0.2,
+                };
+                entities[idx].metabolism.energy = (entities[idx].metabolism.energy
+                    + v_e * gain_mult)
+                    .min(entities[idx].metabolism.max_energy);
+                ctx.killed_ids.insert(v_id);
+                ctx.pheromones.deposit(
+                    entities[idx].physics.x,
+                    entities[idx].physics.y,
+                    PheromoneType::Danger,
+                    0.5,
+                );
+                let v_age = ctx.tick - v_b;
+                ctx.pop_stats.record_death(v_age);
+                let ev = LiveEvent::Death {
+                    id: v_id,
+                    age: v_age,
+                    offspring: v_o,
+                    tick: ctx.tick,
+                    timestamp: Utc::now().to_rfc3339(),
+                    cause: "predation".to_string(),
+                };
+                let _ = ctx.logger.log_event(ev.clone());
+                ctx.events.push(ev);
+            }
         }
     }
 }
@@ -275,6 +294,7 @@ pub fn reproduce_asexual(
             last_hidden: [0.0; 6],
             last_aggression: 0.0,
             last_share_intent: 0.0,
+            last_signal: 0.0, // NEW
         },
     }
 }
@@ -343,6 +363,7 @@ pub fn reproduce_with_mate(
             last_hidden: [0.0; 6],
             last_aggression: 0.0,
             last_share_intent: 0.0,
+            last_signal: 0.0, // NEW
         },
     }
 }

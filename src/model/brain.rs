@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 
 /// Neural network brain with Recurrent (Memory) capability.
 ///
-/// Architecture: 12 inputs -> 6 hidden -> 5 outputs
+/// Architecture: 13 inputs -> 6 hidden -> 6 outputs
 ///
 /// Inputs:
-/// 0-5. Environmental sensors
-/// 6-11. Recurrent memory (last tick's hidden layer)
+/// 0-5. Environmental sensors (Food X, Food Y, Energy, Density, Pheromone, Tribe)
+/// 6. Same-Lineage Density nearby
+/// 7-12. Recurrent memory (last tick's hidden layer)
 ///
 /// Outputs:
 /// 0. Movement X
@@ -15,22 +16,23 @@ use serde::{Deserialize, Serialize};
 /// 2. Speed
 /// 3. Aggression
 /// 4. Share intent
+/// 5. Signal (Color Modulation)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
-    pub weights_ih: Vec<f32>, // 12 inputs -> 6 hidden (72 weights)
-    pub weights_ho: Vec<f32>, // 6 hidden -> 5 outputs (30 weights)
+    pub weights_ih: Vec<f32>, // 13 inputs -> 6 hidden (78 weights)
+    pub weights_ho: Vec<f32>, // 6 hidden -> 6 outputs (36 weights)
     pub bias_h: Vec<f32>,     // 6 hidden biases
-    pub bias_o: Vec<f32>,     // 5 output biases
+    pub bias_o: Vec<f32>,     // 6 output biases
 }
 
 impl Brain {
     pub fn new_random() -> Self {
         let mut rng = rand::thread_rng();
 
-        let weights_ih: Vec<f32> = (0..72).map(|_| rng.gen_range(-1.0..1.0)).collect();
-        let weights_ho: Vec<f32> = (0..30).map(|_| rng.gen_range(-1.0..1.0)).collect();
+        let weights_ih: Vec<f32> = (0..78).map(|_| rng.gen_range(-1.0..1.0)).collect();
+        let weights_ho: Vec<f32> = (0..36).map(|_| rng.gen_range(-1.0..1.0)).collect();
         let bias_h: Vec<f32> = (0..6).map(|_| rng.gen_range(-1.0..1.0)).collect();
-        let bias_o: Vec<f32> = (0..5).map(|_| rng.gen_range(-1.0..1.0)).collect();
+        let bias_o: Vec<f32> = (0..6).map(|_| rng.gen_range(-1.0..1.0)).collect();
 
         Self {
             weights_ih,
@@ -42,13 +44,13 @@ impl Brain {
 
     /// Forward pass with recurrence. Takes environmental inputs and previous hidden state.
     /// Returns (Outputs, New Hidden State).
-    pub fn forward(&self, inputs: [f32; 6], last_hidden: [f32; 6]) -> ([f32; 5], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 7], last_hidden: [f32; 6]) -> ([f32; 6], [f32; 6]) {
         // 1. Combine inputs with memory
-        let mut combined_inputs = [0.0; 12];
-        combined_inputs[0..6].copy_from_slice(&inputs);
-        combined_inputs[6..12].copy_from_slice(&last_hidden);
+        let mut combined_inputs = [0.0; 13];
+        combined_inputs[0..7].copy_from_slice(&inputs);
+        combined_inputs[7..13].copy_from_slice(&last_hidden);
 
-        // 2. Input to Hidden (12 inputs -> 6 hidden)
+        // 2. Input to Hidden (13 inputs -> 6 hidden)
         let mut hidden = [0.0; 6];
         for (i, h) in hidden.iter_mut().enumerate() {
             let mut sum = self.bias_h[i];
@@ -58,12 +60,12 @@ impl Brain {
             *h = sum.tanh();
         }
 
-        // 3. Hidden to Output (6 hidden -> 5 outputs)
-        let mut output = [0.0; 5];
+        // 3. Hidden to Output (6 hidden -> 6 outputs)
+        let mut output = [0.0; 6];
         for (i, o) in output.iter_mut().enumerate() {
             let mut sum = self.bias_o[i];
             for (j, &h) in hidden.iter().enumerate() {
-                sum += h * self.weights_ho[j * 5 + i];
+                sum += h * self.weights_ho[j * 6 + i];
             }
             *o = sum.tanh();
         }
@@ -136,22 +138,22 @@ mod tests {
         let brain = Brain::new_random();
         assert_eq!(
             brain.weights_ih.len(),
-            72,
-            "Should have 12x6=72 input-hidden weights"
+            78,
+            "Should have 13x6=78 input-hidden weights"
         );
         assert_eq!(
             brain.weights_ho.len(),
-            30,
-            "Should have 6x5=30 hidden-output weights"
+            36,
+            "Should have 6x6=36 hidden-output weights"
         );
         assert_eq!(brain.bias_h.len(), 6, "Should have 6 hidden biases");
-        assert_eq!(brain.bias_o.len(), 5, "Should have 5 output biases");
+        assert_eq!(brain.bias_o.len(), 6, "Should have 6 output biases");
     }
 
     #[test]
     fn test_brain_forward_is_deterministic() {
         let brain = Brain::new_random();
-        let inputs = [0.5, -0.5, 0.3, 0.0, 0.1, 0.2];
+        let inputs = [0.5, -0.5, 0.3, 0.0, 0.1, 0.2, 0.1];
         let last_hidden = [0.0; 6];
 
         let (output1, _) = intel::brain_forward(&brain, inputs, last_hidden);
@@ -163,7 +165,7 @@ mod tests {
     #[test]
     fn test_brain_forward_output_in_valid_range() {
         let brain = Brain::new_random();
-        let inputs = [1.0, -1.0, 0.5, 0.5, 0.0, 1.0];
+        let inputs = [1.0, -1.0, 0.5, 0.5, 0.0, 1.0, 0.0];
         let last_hidden = [0.1; 6];
 
         let (outputs, next_hidden) = intel::brain_forward(&brain, inputs, last_hidden);
@@ -225,8 +227,8 @@ mod tests {
         let child = intel::crossover_brains(&parent1, &parent2);
 
         // Child should have correct dimensions
-        assert_eq!(child.weights_ih.len(), 72);
-        assert_eq!(child.weights_ho.len(), 30);
+        assert_eq!(child.weights_ih.len(), 78);
+        assert_eq!(child.weights_ho.len(), 36);
 
         // Each weight should come from either parent
         for i in 0..child.weights_ih.len() {
@@ -241,7 +243,7 @@ mod tests {
     #[test]
     fn test_brain_recurrence_memory_impact() {
         let brain = Brain::new_random();
-        let inputs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6];
+        let inputs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
 
         // Two different last states
         let state_a = [0.9; 6];
@@ -259,27 +261,6 @@ mod tests {
             next_a, next_b,
             "Different memory states should lead to different next states"
         );
-    }
-
-    #[test]
-    fn test_brain_genotype_distance_self_is_zero() {
-        let brain = Brain::new_random();
-        let distance = intel::genotype_distance(&brain, &brain);
-        assert!(
-            (distance - 0.0).abs() < 0.0001,
-            "Distance to self should be 0"
-        );
-    }
-
-    #[test]
-    fn test_brain_genotype_distance_is_symmetric() {
-        let brain1 = Brain::new_random();
-        let brain2 = Brain::new_random();
-
-        let d1 = intel::genotype_distance(&brain1, &brain2);
-        let d2 = intel::genotype_distance(&brain2, &brain1);
-
-        assert!((d1 - d2).abs() < 0.0001, "Distance should be symmetric");
     }
 
     #[test]

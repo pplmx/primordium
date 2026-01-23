@@ -107,6 +107,9 @@ pub struct Intel {
     /// Last computed sharing intent output.
     #[serde(skip)]
     pub last_share_intent: f32,
+    /// NEW: Last computed signaling output (-1.0 to 1.0).
+    #[serde(skip)]
+    pub last_signal: f32,
 }
 
 /// The full genetic payload of an entity.
@@ -222,12 +225,34 @@ impl Entity {
                 last_hidden: [0.0; 6],
                 last_aggression: 0.0,
                 last_share_intent: 0.0,
+                last_signal: 0.0,
             },
         }
     }
 
     pub fn color(&self) -> Color {
-        Color::Rgb(self.physics.r, self.physics.g, self.physics.b)
+        // Base tribe color
+        let (r, g, b) = (self.physics.r, self.physics.g, self.physics.b);
+
+        // Modulate based on signaling output (-1.0 to 1.0)
+        let signal = self.intel.last_signal;
+        if signal > 0.0 {
+            // Brighten (Warning/Intimidation)
+            let factor = 1.0 + signal as f64 * 0.5;
+            Color::Rgb(
+                (r as f64 * factor).min(255.0) as u8,
+                (g as f64 * factor).min(255.0) as u8,
+                (b as f64 * factor).min(255.0) as u8,
+            )
+        } else {
+            // Darken (Stealth/Camouflage)
+            let factor = 1.0 + signal as f64 * 0.7; // signal is negative here
+            Color::Rgb(
+                (r as f64 * factor).max(20.0) as u8,
+                (g as f64 * factor).max(20.0) as u8,
+                (b as f64 * factor).max(20.0) as u8,
+            )
+        }
     }
 
     pub fn status(

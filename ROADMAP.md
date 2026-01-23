@@ -236,6 +236,34 @@ toml = "0.8"
 - **WASM Client Enhancement**: Network state tracking, migration stats, peer awareness.
 - **Bug Fixes**: Entity DNA serialization for cross-universe migration, WebRenderer terrain completeness.
 
+### Phase 23: Phenotypic Specialization & Unified Genotype ✅
+
+- **Unified Genotype**: Integrated neural weights and physical traits into a single genetic sequence.
+- **Evolvable Morphology**: Mutable Sensing Range (3-15), Max Speed (0.5-3.0), and Max Energy (100-500).
+- **Metabolic Trade-offs**: Sensing and Speed capability increase base idle/move costs.
+- **Biomechanical Inertia**: Energy storage capacity affects mass and steering responsiveness.
+- **HexDNA 2.0**: Upgraded protocol for 100% fidelity cross-universe migrations.
+
+### Phase 24: Lineage & Macroevolution ✅
+
+- **Ancestral Tracking**: Every entity assigned a `lineage_id` descending from original founders.
+- **Inheritance Engine**: Preservation of lineage during crossover and mutation.
+- **Dynastic Dominance**: TUI visualization of top 3 dominant ancestral lines.
+- **Hive Ancestry**: Lineage preservation across global migrations.
+
+### Phase 25: Social Complexity & Defense Evolution ✅
+
+- **Group Defense**: Proximity to same-lineage members reduces damage from predation.
+- **Dynamic Signaling**: 6th neural output for real-time color modulation (stealth/warning).
+- **Lineage Sensor**: 13th neural input detects nearby same-lineage density for evolved herding.
+- **Social Pheromones**: Integrated presence-based herding behavior.
+
+### Phase 26: Divine Interface v2 - Interactive Deity 🚧
+
+- **Real-time Terrain Editing**: Mouse-driven brush for placing Walls, Oasis, and Rivers.
+- **Genetic Engineering**: Select an entity to manually edit its neural weights or phenotype.
+- **Disaster Dispatcher**: Manually trigger Dust Bowls, Plagues, or Resource Booms.
+
 ---
 
 ## 📊 Development Timeline
@@ -265,6 +293,10 @@ toml = "0.8"
 | Phase 20 | Cognitive Synthesis | ✅ Complete |
 | Phase 21 | Environmental Fluidity | ✅ Complete |
 | Phase 22 | Parallel Evolution | ✅ Complete |
+| Phase 23 | Phenotypic Specialization | ✅ Complete |
+| Phase 24 | Lineage & Macroevolution | ✅ Complete |
+| Phase 25 | Social Complexity | ✅ Complete |
+| Phase 26 | Interactive Deity | 🚧 In Progress |
 
 ---
 

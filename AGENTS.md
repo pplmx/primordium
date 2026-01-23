@@ -29,7 +29,7 @@ src/
 │   ├── state/           # 数据层 (entity, terrain, environment, food, pheromone, pathogen)
 │   ├── systems/         # 系统层 (intel, action, biological, social, ecological, environment, stats)
 │   ├── infra/           # 基础设施 (blockchain, network)
-│   ├── brain.rs         # 神经网络 (12-6-5 RNN-lite)
+│   ├── brain.rs         # 神经网络 (13-6-6 RNN-lite)
 │   ├── quadtree.rs      # 空间索引 (实为 SpatialHash)
 │   ├── world.rs         # 协调器
 │   ├── config.rs        # 配置
@@ -49,14 +49,14 @@ src/
 2. **Intel** (Rayon 并行) — 神经网络推理
 3. **Action** — 移动、边界
 4. **Biological** — 代谢、死亡
-5. **Social** — 捕食、繁殖
+5. **Social** — 捕食、繁殖、群体防御 (Group Defense)
 6. **Ecological** — 食物生成
 7. **Environment** — 时代、季节
 8. **Stats** — 统计更新 (含 Lineage Stats)
 
 ---
 
-## 🧬 Entity Architecture (Phase 24)
+## 🧬 Entity Architecture (Phase 25)
 
 Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
@@ -68,12 +68,12 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
     - `Intel`: Decision center.
         - `Genotype`: The inheritable payload (encodes the DNA).
             - **Phenotypic Genes**: `sensing_range`, `max_speed`, `max_energy`.
-            - **Neural Genes**: `Brain` (12-6-5 RNN-lite).
+            - **Neural Genes**: `Brain` (13-6-6 RNN-lite).
             - **Ancestral Gene**: `lineage_id` (Unique identifier for the ancestral line).
 
 ### Brain Details
 
-- **Architecture**: 12 inputs (6 sensors + 6 memory) → 6 hidden → 5 outputs.
+- **Architecture**: 13 inputs (7 sensors + 6 memory) → 6 hidden → 6 outputs.
 - **Memory**: The 6 hidden layer values from $T-1$ are fed back as inputs for $T$.
 
 ### Action System Trade-offs
