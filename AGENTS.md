@@ -1,89 +1,149 @@
 # Agent Project Memory: Primordium
 
-This file contains critical project-specific knowledge for AI agents working on Primordium.
+> AI Agent 专用快速参考。详细信息请查阅对应文档。
 
-## 🏗️ Architecture & Layout
+## 📚 Documentation Index
 
-### TUI Structure (ratatui)
-- **Status Bar (Top)**: 4 lines.
-  1. CPU Gauge + Era Icon/Name.
-  2. RAM Gauge + Resource State Icon.
-  3. World Stats (Pop, Species, Gen, AvgLife, Entropy).
-  4. **Legend Bar**: Displays symbols for Entity Status (●♦♥†♣☣◦) and Terrain (▲≈◊░█*).
-- **Sparklines (Middle-Top)**: 2 panes for CPU Load and Population Health.
-- **World (Center)**: The main simulation grid.
-- **Live Chronicle (Bottom)**: Scrolling log of events (Birth, Death, Climate Shift, etc.).
-- **Brain Panel (Right)**: Neural network visualization (toggled with 'B').
+| 需求 | 参考文档 |
+|------|----------|
+| 项目架构、目录结构、设计哲学 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| 神经网络拓扑、输入输出 | [`docs/wiki/BRAIN.md`](./docs/wiki/BRAIN.md) |
+| 生态系统、能量公式、代谢 | [`docs/wiki/ECOSYSTEM.md`](./docs/wiki/ECOSYSTEM.md) |
+| HexDNA、遗传、变异逻辑 | [`docs/wiki/GENETICS.md`](./docs/wiki/GENETICS.md) |
+| 用户手册、控制键位 | [`docs/MANUAL.md`](./docs/MANUAL.md) / [`docs/MANUAL_zh.md`](./docs/MANUAL_zh.md) |
+| 项目概述、快速开始 | [`README.md`](./README.md) / [`docs/README_zh.md`](./docs/README_zh.md) |
+| 版本变更记录 | [`CHANGELOG.md`](./CHANGELOG.md) |
 
-### Project Modularization
-- `src/app/`: Split from the original monolithic `app.rs`.
-- `src/model/`: Simulation core.
-  - `world.rs`: Systemic decomposition (Perception, Action, Biological, Social).
-  - `entity.rs`: Component-based entity structure (Physics, Metabolism, Health, Intel).
-  - `brain.rs`: Recurrent neural network (RNN-lite) with Rayon-parallelized inference.
-  - `terrain.rs`: Dynamic terrain grid with fertility and disasters.
+---
 
-## ⚡ Performance & Scaling (Phase 20-21)
+## 🏗️ Quick Architecture Reference
 
-- **Parallel updates**: `Perception` and `Neural` systems use `Rayon` (`par_iter`).
-- **Spatial Hashing**: Separate grids for `entities` and `food` for $O(1)$ sensing.
-- **Buffer Pooling**: Reuse `Vec` and `HashSet` in `World` to minimize allocation jitter.
-- **Snapshots**: Use `EntitySnapshot` for read-only parallel perception.
+> 详见 [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 
-## 🔗 Hardware Resonance Logic
+```
+src/
+├── main.rs              # TUI 入口
+├── lib.rs               # 库入口 (WASM 导出)
+├── app/                 # TUI 应用层 (state, render, input, help, onboarding)
+├── model/               # 模拟引擎核心
+│   ├── state/           # 数据层 (entity, terrain, environment, food, pheromone, pathogen)
+│   ├── systems/         # 系统层 (intel, action, biological, social, ecological, environment, stats)
+│   ├── infra/           # 基础设施 (blockchain, network)
+│   ├── brain.rs         # 神经网络 (12-6-5 RNN-lite)
+│   ├── quadtree.rs      # 空间索引 (实为 SpatialHash)
+│   ├── world.rs         # 协调器
+│   ├── config.rs        # 配置
+│   ├── history.rs       # 事件日志
+│   └── migration.rs     # 实体迁移
+├── ui/                  # 渲染抽象 (tui, web_renderer)
+├── client/              # WASM 客户端 (wasm32 only)
+├── server/              # P2P 中继服务器
+└── bin/                 # 工具 (verify, analyze)
+```
 
-- **CPU Usage -> Climate**:
-  - < 30%: Temperate (x1.0 metabolism)
-  - 30-60%: Warm (x1.5)
-  - 60-80%: Hot (x2.0)
-  - > 80%: Scorching (x3.0)
-- **RAM Usage -> Resource Scarcity**:
-  - < 50%: Abundant
-  - 50-70%: Strained
-  - 70-90%: Scarce
-  - > 90%: Famine (Death/Starvation risk high)
+### Systems Execution Order
 
-## 🧬 Biology & Ecology
+`World::update` 每 tick 执行顺序:
 
-- **Recurrent Brain**: 12 inputs (6 sensors + 6 memory inputs), 6 hidden, 5 outputs. Supports temporal coherence.
-- **Life Cycles**: Entities are born as **Juveniles** (◦). Must survive for `maturity_age` (150 ticks) before reproducing.
-- **Trophic Levels**: Herbivores (H-) vs Carnivores (C-).
-- **Terrain Health**: Soil fertility regenerates at 0.001/tick. Barren state (░) below 0.15 fertility.
-- **Disasters**: Dust Bowl triggered by Heat Wave + High Population. Wipes out fertility on Plains.
-- **Pathogens**: Proximity-based transmission (radius 2.0). Immunity gained through survival.
-- **Circadian Rhythms**: Day/Night cycle (2000 ticks). 40% metabolism reduction at night.
+1. **Perception** (Rayon 并行) — 感知计算
+2. **Intel** (Rayon 并行) — 神经网络推理
+3. **Action** — 移动、边界
+4. **Biological** — 代谢、死亡
+5. **Social** — 捕食、繁殖
+6. **Ecological** — 食物生成
+7. **Environment** — 时代、季节
+8. **Stats** — 统计更新
+
+---
 
 ## 🧪 Testing Strategy
 
-- **Unit Tests**: Located in `src/model/*.rs`.
-- **Integration Tests**: Located in `tests/`.
-  - `simulation_logic.rs`: Lifecycle and reproduction.
-  - `genetic_flow.rs`: DNA protocols (HexDNA).
-  - `ecology.rs`: Terrain fertility and trophic niche.
-  - `pathogens.rs`: Contagion dynamics.
-  - `disasters.rs`: Dust bowl trigger and collision physics.
+- **Unit Tests**: `src/model/**/*.rs`
+- **Integration Tests**: `tests/`
 
-## ⚓ Git Hooks (Husky)
+| 文件 | 覆盖范围 |
+|------|----------|
+| `lifecycle.rs` | 生命周期、繁殖 |
+| `genetic_flow.rs` | HexDNA、Genetic Surge |
+| `ecology.rs` | 土壤肥力、营养级 |
+| `pathogens.rs` | 传染、免疫 |
+| `disasters.rs` | Dust Bowl、碰撞 |
+| `environment_coupling.rs` | 硬件耦合 (CPU→气候, RAM→资源) |
+| `migration_network.rs` | 实体迁移、P2P |
+| `persistence.rs` | 状态序列化 |
+| `social_dynamics.rs` | 部落、能量共享 |
+| `stress_test.rs` | 高负载基准 (1500+ 实体) |
+| `world_evolution.rs` | 时代演进、昼夜节律 |
 
-- **pre-commit**: `cargo test` + `cargo fmt --all -- --check` + `cargo clippy --all-targets --all-features -- -D warnings`.
-- **pre-push**: Full `cargo test` suite.
+---
+
+## ⚓ Git Hooks
+
+- **pre-commit**: `cargo test` + `cargo fmt --check` + `cargo clippy -D warnings`
+- **pre-push**: Full test suite
+
+---
 
 ## 📝 Maintenance Protocol
 
-- **Synchronous Updates**: Whenever adding new features or changing functionality, you **MUST**:
-  1.  Update existing tests or add new tests to cover the changes.
-  2.  Update all relevant documentation in both **English and Chinese** (README, MANUAL, ARCHITECTURE, etc.).
-  3.  Reflect any core logic changes in this `AGENTS.md` file.
+功能变更时 **必须同步更新**:
 
-## 💡 Lessons Learned & Gotchas
+1. ✅ 测试用例
+2. ✅ 中英文文档 (README, MANUAL, ARCHITECTURE 等)
+3. ✅ 本文件 (如涉及 agent 关键信息)
 
-1. **Clippy Sensitivity**: In tests, avoid `let mut x = X::default(); x.field = val;`. Prefer `let mut x = X { field: val, ..X::default() };` to avoid `field_reassign_with_default`.
-2. **DNA Serialization**: `import_migrant` requires actual HexDNA string parsing via `Brain::from_hex`.
-3. **Parallel Updates**: When using `Rayon` for entity updates, use the `EntitySnapshot` pattern and Buffer Pooling to avoid mutable borrow conflicts and allocation jitter.
-4. **Disaster Sync**: Terrain disasters should be triggered by World and handled in TerrainGrid update.
+---
 
-## 🛠️ Tooling & Productivity
+## 💡 Gotchas & Lessons Learned
 
-- **Search**: Prefer `rg` (ripgrep).
-- **Find**: Prefer `fd` (or `fdfind`).
-- **Consistency**: Avoid PowerShell-specific syntax in bash commands.
+### Clippy 陷阱
+
+```rust
+// ❌ BAD - field_reassign_with_default
+let mut x = X::default();
+x.field = val;
+
+// ✅ GOOD
+let x = X { field: val, ..X::default() };
+```
+
+### 文件命名注意
+
+- `quadtree.rs` 实际实现的是 **SpatialHash**,不是四叉树
+
+### WASM 条件编译
+
+- 多数模块受 `#[cfg(target_arch = "wasm32")]` 门控
+- 调试时注意编译目标
+
+### DNA 序列化
+
+- `import_migrant` 需要通过 `Brain::from_hex` 解析真实 HexDNA 字符串
+
+### 并行更新
+
+- 使用 `EntitySnapshot` 模式避免可变借用冲突
+- Buffer Pooling 减少分配抖动
+
+### 灾害同步
+
+- 地形灾害由 `World` 触发,在 `TerrainGrid` 更新中处理
+
+---
+
+## 📦 Binary Targets
+
+| Binary | Command | Purpose |
+|--------|---------|---------|
+| `primordium` | `cargo run --release` | TUI 模拟 |
+| `server` | `cargo run --bin server` | P2P 中继 (port 3000) |
+| `verify` | `cargo run --bin verify` | 区块链验证 |
+| `analyze` | `cargo run --bin analyze` | 历史分析 |
+
+---
+
+## 🛠️ Tooling
+
+- **Search**: `rg` (ripgrep)
+- **Find**: `fd` / `fdfind`
+- **Avoid**: PowerShell 特定语法
