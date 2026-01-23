@@ -1,4 +1,3 @@
-use primordium_lib::model::brain::Brain;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::infra::network::{NetMessage, PeerInfo};
 use primordium_lib::model::state::entity::Entity;
@@ -12,7 +11,7 @@ fn test_entity_migration_via_network() {
     entity.metabolism.generation = 5;
 
     // 1. Pack entity into migration message
-    let brain_dna = serde_json::to_string(&entity.intel.brain).unwrap();
+    let brain_dna = entity.intel.genotype.to_hex();
     let msg = NetMessage::MigrateEntity {
         dna: brain_dna.clone(),
         energy: entity.metabolism.energy as f32,
@@ -44,7 +43,8 @@ fn test_entity_migration_via_network() {
         let mut world = World::new(0, config).unwrap();
 
         let mut new_entity = Entity::new(0.0, 0.0, 100);
-        new_entity.intel.brain = serde_json::from_str(&dna).unwrap();
+        let genotype = primordium_lib::model::state::entity::Genotype::from_hex(&dna).unwrap();
+        new_entity.intel.genotype = genotype;
         new_entity.metabolism.energy = energy as f64;
         new_entity.metabolism.generation = generation;
 
@@ -64,7 +64,7 @@ fn test_entity_migration_with_hex_dna() {
     entity.metabolism.generation = 10;
 
     // Use hex encoding (production method)
-    let brain_hex = entity.intel.brain.to_hex();
+    let brain_hex = entity.intel.genotype.to_hex();
 
     let msg = NetMessage::MigrateEntity {
         dna: brain_hex.clone(),
@@ -77,11 +77,15 @@ fn test_entity_migration_with_hex_dna() {
     let parsed: NetMessage = serde_json::from_str(&json).unwrap();
 
     if let NetMessage::MigrateEntity { dna, energy, .. } = parsed {
-        // Reconstruct brain from hex
-        let brain = Brain::from_hex(&dna).expect("Failed to parse hex DNA");
+        // Reconstruct genotype from hex
+        let restored_genotype = primordium_lib::model::state::entity::Genotype::from_hex(&dna)
+            .expect("Failed to parse hex DNA");
 
         // Verify brain was reconstructed correctly
-        assert_eq!(brain.to_hex(), brain_hex);
+        assert_eq!(
+            restored_genotype.brain.to_hex(),
+            entity.intel.genotype.brain.to_hex()
+        );
         assert!((energy - 200.0).abs() < 0.01);
     } else {
         panic!("Expected MigrateEntity");

@@ -32,9 +32,13 @@ impl World {
         entity.metabolism.energy = energy as f64;
         entity.metabolism.generation = generation;
 
-        // Deserialize DNA (Brain)
-        if let Ok(brain) = crate::model::brain::Brain::from_hex(&dna) {
-            entity.intel.brain = brain;
+        // Deserialize DNA (Genotype)
+        if let Ok(genotype) = crate::model::state::entity::Genotype::from_hex(&dna) {
+            entity.intel.genotype = genotype;
+            // Sync phenotype
+            entity.physics.sensing_range = entity.intel.genotype.sensing_range;
+            entity.physics.max_speed = entity.intel.genotype.max_speed;
+            entity.metabolism.max_energy = entity.intel.genotype.max_energy;
         }
 
         self.entities.push(entity);

@@ -223,8 +223,13 @@ impl World {
             .enumerate()
             .map(|(i, e)| {
                 let (dx_f, dy_f) = ecological::sense_nearest_food(e, &self.food, &self.food_hash);
-                let nearby_indices = self.spatial_hash.query(e.physics.x, e.physics.y, 5.0);
-                let (pheromone_food, _) = self.pheromones.sense(e.physics.x, e.physics.y, 3.0);
+                let sensing_radius = e.physics.sensing_range;
+                let nearby_indices =
+                    self.spatial_hash
+                        .query(e.physics.x, e.physics.y, sensing_radius);
+                let (pheromone_food, _) =
+                    self.pheromones
+                        .sense(e.physics.x, e.physics.y, sensing_radius / 2.0);
                 let tribe_count = nearby_indices
                     .iter()
                     .filter(|&&n_idx| {
@@ -232,8 +237,8 @@ impl World {
                     })
                     .count();
                 [
-                    (dx_f / 20.0).clamp(-1.0, 1.0) as f32,
-                    (dy_f / 20.0).clamp(-1.0, 1.0) as f32,
+                    (dx_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
+                    (dy_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
                     (e.metabolism.energy / e.metabolism.max_energy) as f32,
                     (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
                     pheromone_food,
@@ -245,7 +250,9 @@ impl World {
         current_entities
             .par_iter()
             .zip(perception_buffer.par_iter())
-            .map(|(e, inputs)| intel::brain_forward(&e.intel.brain, *inputs, e.intel.last_hidden))
+            .map(|(e, inputs)| {
+                intel::brain_forward(&e.intel.genotype.brain, *inputs, e.intel.last_hidden)
+            })
             .collect_into_vec(&mut decision_buffer);
 
         for i in 0..current_entities.len() {

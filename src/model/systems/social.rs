@@ -1,6 +1,5 @@
 //! Social system - handles predation, reproduction, and legendary archiving.
 
-use crate::model::brain::Brain;
 use crate::model::config::{AppConfig, GameMode};
 use crate::model::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
 use crate::model::quadtree::SpatialHash;
@@ -175,23 +174,24 @@ pub(crate) fn repro_logic(
         }
     }
     if let Some(m_idx) = mate_idx {
-        let mut cb =
-            intel::crossover_brains(&entities[idx].intel.brain, &entities[m_idx].intel.brain);
-        intel::mutate_brain(&mut cb, &config.evolution);
+        let mut child_genotype = intel::crossover_genotypes(
+            &entities[idx].intel.genotype,
+            &entities[m_idx].intel.genotype,
+        );
+        intel::mutate_genotype(&mut child_genotype, &config.evolution);
+
         let child = reproduce_with_mate(
             &mut entities[idx],
             tick,
-            cb,
+            child_genotype,
             config.evolution.speciation_rate,
         );
+
         entities[idx].metabolism.energy -= 50.0;
         Some(child)
     } else {
-        Some(reproduce_asexual(
-            &mut entities[idx],
-            tick,
-            &config.evolution,
-        ))
+        let child = reproduce_asexual(&mut entities[idx], tick, &config.evolution);
+        Some(child)
     }
 }
 
@@ -207,8 +207,8 @@ pub fn reproduce_asexual(
     parent.metabolism.energy = child_energy;
     parent.metabolism.offspring_count += 1;
 
-    let mut child_brain = parent.intel.brain.clone();
-    child_brain.mutate_with_config(config);
+    let mut child_genotype = parent.intel.genotype.clone();
+    intel::mutate_genotype(&mut child_genotype, config);
 
     let r = {
         let change = rng.gen_range(-15..=15);
@@ -252,11 +252,13 @@ pub fn reproduce_asexual(
             symbol: '●',
             home_x: parent.physics.x,
             home_y: parent.physics.y,
+            sensing_range: child_genotype.sensing_range,
+            max_speed: child_genotype.max_speed,
         },
         metabolism: Metabolism {
             role: child_role,
             energy: child_energy,
-            max_energy: parent.metabolism.max_energy,
+            max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: tick,
             generation: parent.metabolism.generation + 1,
@@ -268,7 +270,7 @@ pub fn reproduce_asexual(
             immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
         },
         intel: Intel {
-            brain: child_brain,
+            genotype: child_genotype,
             last_hidden: [0.0; 6],
             last_aggression: 0.0,
             last_share_intent: 0.0,
@@ -280,7 +282,7 @@ pub fn reproduce_asexual(
 pub fn reproduce_with_mate(
     parent: &mut Entity,
     tick: u64,
-    child_brain: Brain,
+    child_genotype: crate::model::state::entity::Genotype,
     speciation_rate: f32,
 ) -> Entity {
     let mut rng = rand::thread_rng();
@@ -317,11 +319,13 @@ pub fn reproduce_with_mate(
             symbol: '●',
             home_x: parent.physics.x,
             home_y: parent.physics.y,
+            sensing_range: child_genotype.sensing_range,
+            max_speed: child_genotype.max_speed,
         },
         metabolism: Metabolism {
             role: child_role,
             energy: child_energy,
-            max_energy: parent.metabolism.max_energy,
+            max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: tick,
             generation: parent.metabolism.generation + 1,
@@ -333,7 +337,7 @@ pub fn reproduce_with_mate(
             immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
         },
         intel: Intel {
-            brain: child_brain,
+            genotype: child_genotype,
             last_hidden: [0.0; 6],
             last_aggression: 0.0,
             last_share_intent: 0.0,
@@ -377,7 +381,7 @@ pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) {
             peak_energy: entity.metabolism.peak_energy,
             birth_timestamp: "".to_string(),
             death_timestamp: Utc::now().to_rfc3339(),
-            brain_dna: entity.intel.brain.clone(),
+            brain_dna: entity.intel.genotype.brain.clone(),
             color_rgb: (entity.physics.r, entity.physics.g, entity.physics.b),
         });
     }

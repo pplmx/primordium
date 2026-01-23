@@ -56,6 +56,33 @@ src/
 
 ---
 
+## 🧬 Entity Architecture (Phase 23)
+
+Entities follow a Component-Based (CBE) model with a unified **Genotype**.
+
+### Structural Hierarchy
+
+- `Entity`
+    - `Physics`: Phenotype expression (sensing, speed).
+    - `Metabolism`: Phenotype expression (energy capacity).
+    - `Intel`: Decision center.
+        - `Genotype`: The inheritable payload (encodes the DNA).
+            - **Phenotypic Genes**: `sensing_range`, `max_speed`, `max_energy`.
+            - **Neural Genes**: `Brain` (12-6-5 RNN-lite).
+
+### Brain Details
+
+- **Architecture**: 12 inputs (6 sensors + 6 memory) → 6 hidden → 5 outputs.
+- **Memory**: The 6 hidden layer values from $T-1$ are fed back as inputs for $T$.
+
+### Action System Trade-offs
+
+- **Sensing Radius**: +0.1 → +2% base idle cost.
+- **Max Speed**: +0.1 → +5% movement cost.
+- **Inertia**: $Acceleration \propto \frac{1}{MaxEnergy}$. High energy capacity reduces steering responsiveness.
+
+---
+
 ## 🧪 Testing Strategy
 
 - **Unit Tests**: `src/model/**/*.rs`
@@ -118,7 +145,7 @@ let x = X { field: val, ..X::default() };
 
 ### DNA 序列化
 
-- `import_migrant` 需要通过 `Brain::from_hex` 解析真实 HexDNA 字符串
+- `import_migrant` 需要通过 `Genotype::from_hex` 解析包含物理基因与神经网络的完整 HexDNA 字符串。
 
 ### 并行更新
 

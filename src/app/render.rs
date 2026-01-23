@@ -280,6 +280,20 @@ impl App {
                     ),
                     ratatui::text::Span::raw(format!("{}", entity.metabolism.offspring_count)),
                 ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Sensing: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(format!("{:.1}", entity.physics.sensing_range)),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Speed:   ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(format!("{:.1}", entity.physics.max_speed)),
+                ]));
                 lines.push(ratatui::text::Line::from(""));
                 lines.push(ratatui::text::Line::from(" Neural Network Weights:"));
 
@@ -305,7 +319,7 @@ impl App {
                         }
                     )));
                     for j in 0..6 {
-                        let w = entity.intel.brain.weights_ih[i * 6 + j];
+                        let w = entity.intel.genotype.brain.weights_ih[i * 6 + j];
                         let symbol = if w > 0.5 {
                             "█"
                         } else if w > 0.0 {
@@ -327,7 +341,7 @@ impl App {
                     let mut spans = Vec::new();
                     spans.push(ratatui::text::Span::raw("    "));
                     for j in 0..5 {
-                        let w = entity.intel.brain.weights_ho[i * 5 + j];
+                        let w = entity.intel.genotype.brain.weights_ho[i * 5 + j];
                         let symbol = if w > 0.5 {
                             "█"
                         } else if w > 0.0 {
@@ -359,7 +373,8 @@ impl App {
                 }
 
                 lines.push(ratatui::text::Line::from(""));
-                let dna_short = &entity.intel.brain.to_hex()[..16];
+                let dna_short = &entity.intel.genotype.to_hex()[..16];
+
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
                         " [C] Export DNA ",

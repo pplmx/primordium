@@ -27,13 +27,17 @@ When an entity kills another, it gains a portion of the target's energy:
 ### Social Interaction
 
 #### Energy Sharing
+
 Entities can altruistically share energy with tribe members:
+
 - **Transfer**: 5% of giver's energy per tick.
 - **Threshold**: Giver must have **> 70%** energy.
 - **Requirements**: Distance < 2.0 units, same tribe (Manhattan RGB distance < 60).
 
 #### Territoriality
+
 Entities are more defensive near their birthplace:
+
 - **Bonus**: **1.5x Aggression bonus** if within **8.0 units** of birth coordinates.
 
 ### World Eras
@@ -62,3 +66,25 @@ $$ P_{new} = P_{old} \times (1.0 - DecayRate) $$
 
 - **Default decay rate**: 0.5% per tick.
 - **Cleanup threshold**: Strengths below 0.01 are reset to 0.0.
+
+## Phenotypic Trade-offs
+
+The evolutionary advantage of superior physical traits is balanced by increased metabolic and physical costs.
+
+### Sensing Cost
+
+Extended perception requires more neural processing and sensory maintenance.
+
+- **Cost**: Every **+0.1** increase in Sensing Range adds **+2%** to the base Idle Cost.
+
+### Movement Cost
+
+High-speed locomotion is energy-intensive.
+
+- **Cost**: Every **+0.1** increase in Max Speed adds **+5%** to the movement cost multiplier.
+
+### Inertia & Responsiveness
+
+Larger energy reserves increase the physical "mass" of the entity.
+
+- **Effect**: Entities with higher **Max Energy** have higher inertia, reducing their acceleration and overall responsiveness to neural steering commands.

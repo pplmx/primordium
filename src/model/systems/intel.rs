@@ -109,3 +109,59 @@ pub fn crossover_brains(parent1: &Brain, parent2: &Brain) -> Brain {
     }
     child
 }
+
+/// Mutate physical phenotype traits within a genotype.
+pub fn mutate_genotype(
+    genotype: &mut crate::model::state::entity::Genotype,
+    config: &crate::model::config::EvolutionConfig,
+) {
+    let mut rng = rand::thread_rng();
+
+    // 1. Mutate Brain
+    mutate_brain(&mut genotype.brain, config);
+
+    // 2. Mutate Traits
+    let mut mutate_trait = |v: &mut f64, min: f64, max: f64| {
+        let r = rng.gen::<f32>();
+        if r < config.mutation_rate {
+            *v += rng.gen_range(-config.mutation_amount as f64..config.mutation_amount as f64) * *v;
+        }
+        *v = v.clamp(min, max);
+    };
+
+    mutate_trait(&mut genotype.sensing_range, 3.0, 15.0);
+    mutate_trait(&mut genotype.max_speed, 0.5, 3.0);
+    mutate_trait(&mut genotype.max_energy, 100.0, 500.0);
+}
+
+/// Crossover between two genotypes.
+pub fn crossover_genotypes(
+    p1: &crate::model::state::entity::Genotype,
+    p2: &crate::model::state::entity::Genotype,
+) -> crate::model::state::entity::Genotype {
+    let mut rng = rand::thread_rng();
+
+    let brain = crossover_brains(&p1.brain, &p2.brain);
+    let sensing_range = if rng.gen_bool(0.5) {
+        p1.sensing_range
+    } else {
+        p2.sensing_range
+    };
+    let max_speed = if rng.gen_bool(0.5) {
+        p1.max_speed
+    } else {
+        p2.max_speed
+    };
+    let max_energy = if rng.gen_bool(0.5) {
+        p1.max_energy
+    } else {
+        p2.max_energy
+    };
+
+    crate::model::state::entity::Genotype {
+        brain,
+        sensing_range,
+        max_speed,
+        max_energy,
+    }
+}

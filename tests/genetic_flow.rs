@@ -25,7 +25,7 @@ fn test_entity_import_export() {
     let mut world = World::new(1, config).expect("Failed to create world");
 
     let original_entity = world.entities[0].clone();
-    let dna = original_entity.intel.brain.to_hex();
+    let dna = original_entity.intel.genotype.to_hex();
 
     // Manual import to world
     world.import_migrant(dna.clone(), 100.0, 5);
@@ -38,8 +38,8 @@ fn test_entity_import_export() {
 
     assert_eq!(imported.metabolism.energy, 100.0);
     assert_eq!(imported.metabolism.generation, 5);
-    // Brains should match
-    assert_eq!(imported.intel.brain.to_hex(), dna);
+    // Genotypes should match
+    assert_eq!(imported.intel.genotype.to_hex(), dna);
 }
 
 #[test]
@@ -50,19 +50,19 @@ fn test_genetic_surge() {
     let before_surge_dnas: Vec<String> = world
         .entities
         .iter()
-        .map(|e| e.intel.brain.to_hex())
+        .map(|e| e.intel.genotype.to_hex())
         .collect();
 
     // Simulate surge (same logic as in app/input.rs)
     use primordium_lib::model::systems::intel;
     for entity in &mut world.entities {
-        intel::mutate_brain(&mut entity.intel.brain, &world.config.evolution);
+        intel::mutate_genotype(&mut entity.intel.genotype, &world.config.evolution);
     }
 
     let after_surge_dnas: Vec<String> = world
         .entities
         .iter()
-        .map(|e| e.intel.brain.to_hex())
+        .map(|e| e.intel.genotype.to_hex())
         .collect();
 
     for i in 0..10 {

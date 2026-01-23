@@ -1,5 +1,5 @@
 use crate::app::state::App;
-use crate::model::brain::Brain;
+use crate::model::systems::intel;
 use crate::ui::renderer::WorldWidget;
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::style::Color;
@@ -46,10 +46,11 @@ impl App {
             }
             KeyCode::Char('x') | KeyCode::Char('X') => {
                 for entity in &mut self.world.entities {
-                    entity
-                        .intel
-                        .brain
-                        .mutate_with_config(&self.config.evolution);
+                    intel::mutate_genotype(&mut entity.intel.genotype, &self.config.evolution);
+                    // Sync phenotype
+                    entity.physics.sensing_range = entity.intel.genotype.sensing_range;
+                    entity.physics.max_speed = entity.intel.genotype.max_speed;
+                    entity.metabolism.max_energy = entity.intel.genotype.max_energy;
                 }
                 self.event_log
                     .push_back(("GENETIC SURGE!".to_string(), Color::Red));
@@ -57,7 +58,7 @@ impl App {
             KeyCode::Char('c') | KeyCode::Char('C') => {
                 if let Some(id) = self.selected_entity {
                     if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
-                        let dna = entity.intel.brain.to_hex();
+                        let dna = entity.intel.genotype.to_hex();
                         let _ = fs::write("exported_dna.txt", &dna);
                         self.event_log.push_back((
                             "DNA exported to exported_dna.txt".to_string(),
@@ -68,10 +69,17 @@ impl App {
             }
             KeyCode::Char('v') | KeyCode::Char('V') => {
                 if let Ok(dna) = fs::read_to_string("dna_infuse.txt") {
-                    if let Ok(brain) = Brain::from_hex(dna.trim()) {
+                    if let Ok(genotype) =
+                        crate::model::state::entity::Genotype::from_hex(dna.trim())
+                    {
                         let mut e =
                             crate::model::state::entity::Entity::new(50.0, 25.0, self.world.tick);
-                        e.intel.brain = brain;
+                        e.intel.genotype = genotype;
+                        // Sync phenotype
+                        e.physics.sensing_range = e.intel.genotype.sensing_range;
+                        e.physics.max_speed = e.intel.genotype.max_speed;
+                        e.metabolism.max_energy = e.intel.genotype.max_energy;
+
                         self.world.entities.push(e);
                         self.event_log.push_back((
                             "AVATAR INFUSED from dna_infuse.txt".to_string(),

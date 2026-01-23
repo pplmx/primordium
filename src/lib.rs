@@ -80,12 +80,13 @@ impl Simulation {
 
                 if leaving {
                     migrants.push(NetMessage::MigrateEntity {
-                        dna: e.intel.brain.to_hex(),
+                        dna: e.intel.genotype.to_hex(),
                         energy: e.metabolism.energy as f32,
                         generation: e.metabolism.generation,
                         species_name: e.name(),
                     });
                 }
+
                 !leaving
             });
 

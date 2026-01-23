@@ -22,7 +22,7 @@ fn test_tribe_solidarity_no_aggression() {
     e2.physics.g = 100;
     e2.physics.b = 100;
 
-    e1.intel.brain = e2.intel.brain.clone();
+    e1.intel.genotype.brain = e2.intel.genotype.brain.clone();
     e1.metabolism.role = EntityRole::Carnivore;
     e2.metabolism.role = EntityRole::Herbivore;
 
@@ -63,7 +63,7 @@ fn test_energy_sharing_between_allies() {
     e2.physics.g = 200;
     e2.physics.b = 200;
 
-    e1.intel.brain = e2.intel.brain.clone(); // Same tribe
+    e1.intel.genotype.brain = e2.intel.genotype.brain.clone(); // Same tribe
     e1.metabolism.energy = 500.0;
     e2.metabolism.energy = 10.0;
 
@@ -120,8 +120,8 @@ fn test_inter_tribe_predation() {
 
     // Mutate E2 brain significantly to ensure different tribe (redundant with color, but safe)
     use primordium_lib::model::systems::intel;
-    intel::mutate_brain(&mut e2.intel.brain, &world.config.evolution);
-    intel::mutate_brain(&mut e2.intel.brain, &world.config.evolution);
+    intel::mutate_brain(&mut e2.intel.genotype.brain, &world.config.evolution);
+    intel::mutate_brain(&mut e2.intel.genotype.brain, &world.config.evolution);
 
     world.entities.push(e1);
     world.entities.push(e2);

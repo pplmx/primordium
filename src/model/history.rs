@@ -108,7 +108,7 @@ impl PopulationStats {
         let mut weight_freq = HashMap::new();
         for e in entities {
             // Sample first 8 weights for performance
-            for &w in &e.intel.brain.weights_ih[0..8] {
+            for &w in &e.intel.genotype.brain.weights_ih[0..8] {
                 let bin = (w * 5.0).round() as i32; // Bin into 0.2 increments
                 *weight_freq.entry(bin).or_insert(0.0) += 1.0;
             }
@@ -129,13 +129,13 @@ impl PopulationStats {
         for e in entities {
             let mut found = false;
             for rep in &representatives {
-                if e.intel.brain.genotype_distance(rep) < threshold {
+                if e.intel.genotype.brain.genotype_distance(rep) < threshold {
                     found = true;
                     break;
                 }
             }
             if !found {
-                representatives.push(&e.intel.brain);
+                representatives.push(&e.intel.genotype.brain);
             }
         }
         self.species_count = representatives.len();

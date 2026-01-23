@@ -55,6 +55,10 @@ pub struct Physics {
     pub home_x: f64,
     /// Birth Y coordinate (home territory center).
     pub home_y: f64,
+    /// NEW: How far the entity can sense food/neighbors.
+    pub sensing_range: f64,
+    /// NEW: Maximum movement speed capability.
+    pub max_speed: f64,
 }
 
 /// Metabolic state: energy, lifecycle, and reproduction tracking.
@@ -64,7 +68,7 @@ pub struct Metabolism {
     pub role: EntityRole,
     /// Current energy level.
     pub energy: f64,
-    /// Maximum energy capacity.
+    /// Maximum energy capacity (Stomach Size).
     pub max_energy: f64,
     /// Historical peak energy (fitness indicator).
     pub peak_energy: f64,
@@ -90,8 +94,8 @@ pub struct Health {
 /// Intelligence component: neural network brain and decision state.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Intel {
-    /// Neural network brain for decision making.
-    pub brain: Brain,
+    /// The inherited genotype (Physical traits + Brain).
+    pub genotype: Genotype,
     /// Hidden layer activation from previous tick (recurrent memory).
     #[serde(skip)]
     pub last_hidden: [f32; 6],
@@ -101,6 +105,37 @@ pub struct Intel {
     /// Last computed sharing intent output.
     #[serde(skip)]
     pub last_share_intent: f32,
+}
+
+/// The full genetic payload of an entity.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Genotype {
+    pub brain: Brain,
+    pub sensing_range: f64,
+    pub max_speed: f64,
+    pub max_energy: f64,
+}
+
+impl Genotype {
+    pub fn new_random() -> Self {
+        Self {
+            brain: Brain::new_random(),
+            sensing_range: 5.0,
+            max_speed: 1.0,
+            max_energy: 200.0,
+        }
+    }
+
+    pub fn to_hex(&self) -> String {
+        let bytes = serde_json::to_vec(self).unwrap_or_default();
+        hex::encode(bytes)
+    }
+
+    pub fn from_hex(hex_str: &str) -> anyhow::Result<Self> {
+        let bytes = hex::decode(hex_str)?;
+        let gt = serde_json::from_slice(&bytes)?;
+        Ok(gt)
+    }
 }
 
 /// A living entity in the simulation world.
@@ -143,6 +178,8 @@ impl Entity {
             EntityRole::Carnivore
         };
 
+        let genotype = Genotype::new_random();
+
         Self {
             id: Uuid::new_v4(),
             parent_id: None,
@@ -157,11 +194,13 @@ impl Entity {
                 symbol: '●',
                 home_x: x,
                 home_y: y,
+                sensing_range: genotype.sensing_range,
+                max_speed: genotype.max_speed,
             },
             metabolism: Metabolism {
                 role,
                 energy: 100.0,
-                max_energy: 200.0,
+                max_energy: genotype.max_energy,
                 peak_energy: 100.0,
                 birth_tick: tick,
                 generation: 1,
@@ -173,7 +212,7 @@ impl Entity {
                 immunity: rng.gen_range(0.0..0.3),
             },
             intel: Intel {
-                brain: Brain::new_random(),
+                genotype,
                 last_hidden: [0.0; 6],
                 last_aggression: 0.0,
                 last_share_intent: 0.0,

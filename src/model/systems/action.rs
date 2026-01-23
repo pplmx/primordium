@@ -15,18 +15,35 @@ pub fn action_system(
     width: u16,
     height: u16,
 ) {
-    let speed_mult = 1.0 + (outputs[2] as f64 + 1.0) / 2.0;
+    // 1. Calculate phenotypic modifiers
+    let speed_cap = entity.physics.max_speed;
+    let sensing_radius = entity.physics.sensing_range;
+    let stomach_penalty = (entity.metabolism.max_energy - 200.0) / 1000.0;
+
+    // 2. Speed and Aggression
+    let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * speed_cap;
     let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
     entity.intel.last_aggression = (outputs[3] + 1.0) / 2.0;
     entity.intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
-    entity.physics.vx = entity.physics.vx * 0.8 + (outputs[0] as f64) * 0.2;
-    entity.physics.vy = entity.physics.vy * 0.8 + (outputs[1] as f64) * 0.2;
+
+    // 3. Inertia/Responsiveness based on stomach size
+    let inertia = (0.8 - stomach_penalty).clamp(0.4, 0.85);
+    entity.physics.vx = entity.physics.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
+    entity.physics.vy = entity.physics.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
+
+    // 4. Calculate Costs
     let metabolism_mult = env.metabolism_multiplier();
+    // Move cost scales with speed capability
     let mut move_cost = config.metabolism.base_move_cost * metabolism_mult * speed_mult;
     if predation_mode {
         move_cost *= 2.0;
     }
-    entity.metabolism.energy -= move_cost + config.metabolism.base_idle_cost * metabolism_mult;
+
+    // Idle cost scales with sensing capability
+    let sensing_cost_mod = 1.0 + (sensing_radius - 5.0).max(0.0) * 0.1;
+    let idle_cost = config.metabolism.base_idle_cost * metabolism_mult * sensing_cost_mod;
+
+    entity.metabolism.energy -= move_cost + idle_cost;
     handle_movement(entity, speed_mult, terrain, width, height);
 }
 

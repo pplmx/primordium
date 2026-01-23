@@ -6,6 +6,29 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 23: Phenotypic Specialization] - 2026-01-23
+
+### Evolutionary Leap: Physical Diversification & Trade-offs
+
+Organisms are no longer physically identical. Evolution now acts on physical traits (Phenotypes) in tandem with neural intelligence, creating a more diverse and specialized ecosystem.
+
+#### ✨ Features
+
+- **Unified Genotype**: Integrated physical traits directly into the genetic sequence. All attributes are now mutable, inheritable, and subject to selection.
+- **Variable Sensing Range**: Organisms can evolve perception radii between 3.0 and 15.0 units.
+- **Variable Max Speed**: Locomotive capabilities now range from 0.5 to 3.0 units/tick.
+- **Variable Max Energy**: Energy storage capacity (stomach size) is now an evolvable trait (100-500).
+
+#### 🛠️ Technical Achievements
+
+- **Phenotypic Trade-off Engine**: Implemented dynamic metabolic scaling. Superior traits now carry heavy costs:
+    - Sensing: +0.1 range -> +2% idle cost.
+    - Speed: +0.1 speed -> +5% movement cost.
+- **Biomechanical Inertia**: Introduced a mass-responsiveness model where higher energy capacity reduces acceleration (steering responsiveness).
+- **Inheritance Sync**: Optimized the reproduction system to ensure phenotypic genes are correctly synced between Genotype and Component states.
+
+---
+
 ## [Phase 22: Parallel Evolution & Global Hive] - 2026-01-23
 
 ### Evolutionary Leap: Distributed Intelligence & The Multiverse
