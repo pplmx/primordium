@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 32: Life History Strategies (R/K Selection)] - 2026-01-23
+
+### Evolutionary Leap: Maturation Rates & Parental Investment
+
+Phase 32 introduces biological life history strategies, allowing organisms to evolve their reproductive and developmental patterns. Lineages can now specialize as "R-strategists" (producing many low-investment offspring quickly) or "K-strategists" (investing heavily in fewer, high-quality offspring).
+
+#### ✨ Features
+
+- **Life History Genes**: Added `reproductive_investment` (0.1-0.9) and `maturity_gene` (0.5-2.0) to the genotype.
+- **R/K Selection Mechanics**: Organisms can now evolve the ratio of energy passed to offspring and the time required to reach maturity.
+- **Growth-Size Coupling**: An entity's `max_energy` (stomach size) now scales with its `maturity_gene`, creating a trade-off between rapid generation turnover and individual resilience.
+- **Developmental Momentum**: Specialists with high maturity genes start life with significantly higher energy reserves but face a much longer juvenile period.
+
+#### 🛠️ Technical Achievements
+
+- **Genetic Strategy Engine**: Updated the reproduction system to factor in evolvable investment ratios.
+- **Dynamic Maturity Gates**: Refactored the `Biological` system to handle variable maturation thresholds per entity.
+- **HexDNA Update**: Extended the serialization protocol to include Life History genes.
+
+---
+
 ## [Phase 31: Metabolic Niches & Resource Diversity] - 2026-01-23
 
 ### Evolutionary Leap: Dietary Specialization & Typed Resources

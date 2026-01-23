@@ -33,6 +33,23 @@ Phase 23 introduces a set of specialized phenotypic genes that define the physic
 | **Sensing Range** | 3.0 - 15.0 | Radius of environmental perception. |
 | **Max Speed** | 0.5 - 3.0 | Maximum velocity achievable. |
 | **Max Energy** | 100 - 500 | Total energy storage capacity. |
+| **Metabolic Niche** | 0.0 - 1.0 | Specialization for specific nutrient types. |
+
+## Life History Genes (Phase 32)
+
+Phase 32 introduces **Life History Strategies**, allowing lineages to evolve different reproductive and developmental patterns.
+
+| Gene | Range | Impact |
+| ---- | ----- | ------ |
+| **Reproductive Investment** | 0.1 - 0.9 | The ratio of parental energy transferred to offspring. |
+| **Maturity Gene** | 0.5 - 2.0 | Multiplier for standard maturity age (150 ticks). |
+
+### Growth vs Size Trade-off
+
+An entity's **Max Energy** (stomach size) is now coupled with its **Maturity Gene**. Larger maturity multipliers allow for significantly larger energy capacities, enabling a "Slow and Steady" survival strategy.
+
+- **Fast Maturity** (< 1.0): Smaller energy capacity, faster generation turnover.
+- **Slow Maturity** (> 1.0): Massive energy capacity, longer developmental period.
 
 ## Genotype Structure (Unified)
 

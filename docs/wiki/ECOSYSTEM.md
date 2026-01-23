@@ -129,6 +129,23 @@ High-speed locomotion is energy-intensive.
 
 - **Cost**: Every **+0.1** increase in Max Speed adds **+5%** to the movement cost multiplier.
 
+## Reproductive Strategies (Phase 32)
+
+Phase 32 introduces **R/K Selection Theory** into the evolutionary engine, allowing lineages to adapt their life history to environmental stability.
+
+### Strategy R (Opportunists)
+Evolved for unstable or unpredictable environments where rapid population growth is key.
+- **Traits**: Low maturity age, low parental investment (`reproductive_investment`).
+- **Advantage**: High turnover rate; can quickly colonize empty habitats after disasters (e.g., Dust Bowl).
+
+### Strategy K (Specialists)
+Evolved for stable, competitive environments where individual quality outweighs quantity.
+- **Traits**: High maturity age, high parental investment (`reproductive_investment`).
+- **Advantage**: Offspring start with massive energy reserves, making them highly resilient to initial competition or famine.
+
+### Developmental Momentum
+Large specialists take significantly longer to reach adulthood due to the `maturity_gene` multiplier. However, their coupled **Max Energy** capacity allows them to survive long periods of scarcity that would wipe out Strategy R populations.
+
 ### Inertia & Responsiveness
 
 Larger energy reserves increase the physical "mass" of the entity.

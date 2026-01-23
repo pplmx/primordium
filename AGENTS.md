@@ -56,7 +56,7 @@ src/
 
 ---
 
-## 🧬 Entity Architecture (Phase 31)
+## 🧬 Entity Architecture (Phase 32)
 
 Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
@@ -68,7 +68,13 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
     - `Intel`: Decision center.
         - `Genotype`: The inheritable payload (encodes the DNA).
             - **Phenotypic Genes**: `sensing_range`, `max_speed`, `max_energy`, `metabolic_niche`.
+            - **Life History Genes**: `reproductive_investment`, `maturity_gene`.
             - **Neural Genes**: `Brain` (Dynamic Graph-based NEAT-lite).
+
+### Life History Strategies (Phase 32)
+
+- **Investment**: `reproductive_investment` (0.1 to 0.9) defines the % of parent energy given to offspring.
+- **Maturation**: `maturity_gene` (0.5 to 2.0) scales the time needed to reach adulthood and the `max_energy` ceiling.
 
 ### Brain Details
 
