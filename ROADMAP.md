@@ -398,12 +398,19 @@ toml = "0.8"
 - **Registry Pruning**: Automated cleanup of extinct, low-impact lineages to ensure long-term performance.
 - **Eco-Dashboard**: Global Fertility and Matter Recycling Rate metrics for ecosystem health monitoring.
 
-### Phase 45: Global Hive - Robust P2P Connectivity 🚧
+### Phase 45: Global Hive - Robust P2P Connectivity ✅
 
 - **Enhanced Migration Protocol**: Versioned entity transfer with checksums to prevent cross-universe corruption.
 - **Backpressure & Flux Control**: Inbound/Outbound buffers to prevent population spikes during massive migrations.
 - **Universal Lineage Tracking**: Stable ID preservation for lineages moving between multiple world instances.
 - **Hive-Aware UI**: Real-time network health, peer counts, and migration traffic monitoring.
+
+### Phase 46: Evolutionary Stable Strategy (ESS) & Social Topology 🚧
+
+- **Hamilton's Rule Integration**: Social benefits (Sharing, Defense) weighted by genetic relatedness ($r$).
+- **Social Punishment**: Reputation-based mechanics where "betrayers" or "exploiters" face community retaliation.
+- **Speciation Branching**: Improved visualization of the social tree, showing how groups diverge into tribes.
+- **Social Interventions**: Divine tools to enforce peace zones or war zones to steer group behaviors.
 
 ## 📊 Development Timeline
 
@@ -413,7 +420,8 @@ toml = "0.8"
 | Phase 42 | Adaptive Radiations | ✅ Complete |
 | Phase 43 | Adaptive Speciation | ✅ Complete |
 | Phase 44 | Nutrient Cycling | ✅ Complete |
-| Phase 45 | Global Hive | 🚧 In Progress |
+| Phase 45 | Global Hive | ✅ Complete |
+| Phase 46 | Social Strategy | 🚧 In Progress |
 
 ---
 

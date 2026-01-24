@@ -95,12 +95,10 @@ pub struct Intel {
     /// Last computed aggression output.
     #[serde(skip)]
     pub last_aggression: f32,
-    /// Last computed sharing intent output.
-    #[serde(skip)]
     pub last_share_intent: f32,
-    /// NEW: Last computed signaling output (-1.0 to 1.0).
-    #[serde(skip)]
     pub last_signal: f32,
+    /// NEW: Phase 46 - Social Reputation (0.0 to 1.0)
+    pub reputation: f32,
 }
 
 /// The full genetic payload of an entity.
@@ -162,6 +160,13 @@ impl Genotype {
             + (self.trophic_potential - other.trophic_potential).abs();
 
         brain_dist + trait_dist
+    }
+
+    /// NEW: Phase 46 - Coefficient of relatedness (0.0 to 1.0)
+    /// Derived from genetic distance: r = 2^(-dist * 0.5)
+    pub fn relatedness(&self, other: &Genotype) -> f32 {
+        let dist = self.distance(other);
+        (2.0f32).powf(-dist * 0.5)
     }
 }
 
@@ -227,6 +232,7 @@ impl Entity {
                 last_aggression: 0.0,
                 last_share_intent: 0.0,
                 last_signal: 0.0,
+                reputation: 1.0, // Start with clean slate
             },
         }
     }

@@ -11,6 +11,12 @@ use std::collections::HashSet;
 /// Process entity infection and immunity.
 pub fn biological_system(entity: &mut Entity) {
     process_infection(entity);
+
+    // Phase 46: Reputation Recovery
+    // Slow natural recovery towards baseline (1.0)
+    if entity.intel.reputation < 1.0 {
+        entity.intel.reputation = (entity.intel.reputation + 0.001).min(1.0);
+    }
 }
 
 /// Try to infect an entity with a pathogen.

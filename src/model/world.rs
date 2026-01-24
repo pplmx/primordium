@@ -63,6 +63,10 @@ pub enum InteractionCommand {
         y: f64,
         amount: f32,
     },
+    UpdateReputation {
+        target_id: uuid::Uuid,
+        delta: f32,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -83,6 +87,7 @@ pub struct World {
     pub hall_of_fame: HallOfFame,
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
+    pub social_grid: Vec<Vec<u8>>, // NEW: 0: Normal, 1: Peace, 2: War
     pub lineage_registry: LineageRegistry,
     pub fossil_registry: FossilRegistry,
     pub log_dir: String,
@@ -157,15 +162,17 @@ impl World {
             food,
             tick: 0,
             logger,
-            config,
             spatial_hash: SpatialHash::new(5.0),
             food_hash: SpatialHash::new(5.0),
             pop_stats: PopulationStats::new(),
             hall_of_fame: HallOfFame::new(),
             terrain,
             pheromones,
+            social_grid: vec![vec![0; config.world.width as usize]; config.world.height as usize],
             lineage_registry,
+            config,
             fossil_registry: FossilRegistry::default(),
+
             log_dir: log_dir.to_string(),
             active_pathogens: Vec::new(),
             best_legends: std::collections::HashMap::new(),
@@ -490,23 +497,62 @@ impl World {
                     let targets = self.spatial_hash.query(e.physics.x, e.physics.y, 1.5);
                     for t_idx in targets {
                         let v_snap = &entity_snapshots[t_idx];
-                        if v_snap.id != e.id && !social::are_same_tribe(e, &current_entities[t_idx])
-                        {
+                        let r = e
+                            .intel
+                            .genotype
+                            .relatedness(&current_entities[t_idx].intel.genotype);
+
+                        let sx = (e.physics.x as usize).min(self.width as usize - 1);
+                        let sy = (e.physics.y as usize).min(self.height as usize - 1);
+                        let social_mode = self.social_grid[sy][sx];
+
+                        // Social Grid Effects
+                        let is_peace_zone = social_mode == 1;
+                        let is_war_zone = social_mode == 2;
+
+                        // Punishment: Can attack same tribe if their reputation is low (< 0.5) or in War Zone
+                        let can_predate = (!social::are_same_tribe(e, &current_entities[t_idx])
+                            || current_entities[t_idx].intel.reputation < 0.5
+                            || is_war_zone)
+                            && !is_peace_zone;
+
+                        if v_snap.id != e.id && can_predate {
                             let allies = self.spatial_hash.query(v_snap.x, v_snap.y, 3.0);
-                            let ally_count = allies
+                            let sum_relatedness: f32 = allies
                                 .iter()
-                                .filter(|&&a_idx| {
-                                    entity_snapshots[a_idx].id != v_snap.id
-                                        && entity_snapshots[a_idx].lineage_id == v_snap.lineage_id
+                                .filter(|&&a_idx| entity_snapshots[a_idx].id != v_snap.id)
+                                .map(|&a_idx| {
+                                    current_entities[a_idx]
+                                        .intel
+                                        .genotype
+                                        .relatedness(&current_entities[t_idx].intel.genotype)
                                 })
-                                .count();
-                            let defense_mult = (1.0 - (ally_count as f64 * 0.15)).max(0.4);
-                            if (e.metabolism.energy * territorial_bonus)
-                                > (v_snap.energy / defense_mult)
-                            {
+                                .sum();
+
+                            let mut defense_mult = (1.0 - (sum_relatedness as f64 * 0.15)).max(0.4);
+                            if is_war_zone {
+                                defense_mult *= 1.5; // Harder to defend in war zone? No, easier to kill.
+                                                     // Actually, let's just boost attacker power.
+                            }
+
+                            let mut attacker_power = e.metabolism.energy * territorial_bonus;
+                            if is_war_zone {
+                                attacker_power *= 2.0;
+                            }
+
+                            if attacker_power > (v_snap.energy / defense_mult) {
                                 let gain = v_snap.energy
                                     * (e.metabolism.trophic_potential as f64)
                                     * (1.0 - (self.pop_stats.biomass_c / 10000.0)).max(0.5);
+
+                                // Betrayal Penalty
+                                if r > 0.5 {
+                                    local_cmds.push(InteractionCommand::UpdateReputation {
+                                        target_id: e.id,
+                                        delta: -0.3,
+                                    });
+                                }
+
                                 local_cmds.push(InteractionCommand::Kill {
                                     target_id: v_snap.id,
                                     attacker_lineage: e.metabolism.lineage_id,
@@ -527,11 +573,12 @@ impl World {
                     let targets = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
                     for t_idx in targets {
                         let t_snap = &entity_snapshots[t_idx];
-                        if t_snap.id != e.id
-                            && social::are_same_tribe(e, &current_entities[t_idx])
-                            && t_snap.energy < e.metabolism.energy
-                        {
-                            let amount = e.metabolism.energy * 0.05;
+                        let r = e
+                            .intel
+                            .genotype
+                            .relatedness(&current_entities[t_idx].intel.genotype);
+                        if t_snap.id != e.id && r > 0.25 && t_snap.energy < e.metabolism.energy {
+                            let amount = e.metabolism.energy * 0.05 * r as f64;
                             local_cmds.push(InteractionCommand::TransferEnergy {
                                 target_id: t_snap.id,
                                 amount,
@@ -539,6 +586,11 @@ impl World {
                             local_cmds.push(InteractionCommand::TransferEnergy {
                                 target_id: e.id,
                                 amount: -amount,
+                            });
+                            // Reputation Reward
+                            local_cmds.push(InteractionCommand::UpdateReputation {
+                                target_id: e.id,
+                                delta: 0.1 * r,
                             });
                         }
                     }
@@ -779,6 +831,12 @@ impl World {
                 }
                 InteractionCommand::Fertilize { x, y, amount } => {
                     self.terrain.fertilize(x, y, amount);
+                }
+                InteractionCommand::UpdateReputation { target_id, delta } => {
+                    if let Some(&idx) = id_to_index.get(&target_id) {
+                        current_entities[idx].intel.reputation =
+                            (current_entities[idx].intel.reputation + delta).clamp(0.0, 1.0);
+                    }
                 }
             }
         }

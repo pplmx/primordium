@@ -154,9 +154,41 @@ impl App {
                 }
             }
             // BRUSH SELECTION
-            KeyCode::Char('!') => self.brush_type = TerrainType::Plains,
-            KeyCode::Char('@') => self.brush_type = TerrainType::Mountain,
-            KeyCode::Char('#') => self.brush_type = TerrainType::River,
+            KeyCode::Char('j') | KeyCode::Char('J') => {
+                self.is_social_brush = !self.is_social_brush;
+                self.event_log.push_back((
+                    format!(
+                        "Brush mode: {}",
+                        if self.is_social_brush {
+                            "Social (Peace/War)"
+                        } else {
+                            "Terrain"
+                        }
+                    ),
+                    Color::Cyan,
+                ));
+            }
+            KeyCode::Char('!') => {
+                if self.is_social_brush {
+                    self.social_brush = 0;
+                } else {
+                    self.brush_type = TerrainType::Plains;
+                }
+            }
+            KeyCode::Char('@') => {
+                if self.is_social_brush {
+                    self.social_brush = 1;
+                } else {
+                    self.brush_type = TerrainType::Mountain;
+                }
+            }
+            KeyCode::Char('#') => {
+                if self.is_social_brush {
+                    self.social_brush = 2;
+                } else {
+                    self.brush_type = TerrainType::River;
+                }
+            }
             KeyCode::Char('$') => self.brush_type = TerrainType::Oasis,
             KeyCode::Char('%') => self.brush_type = TerrainType::Wall,
             KeyCode::Char('^') => self.brush_type = TerrainType::Barren,
@@ -301,9 +333,15 @@ impl App {
                     };
 
                     if painted {
-                        self.world
-                            .terrain
-                            .set_cell_type(wx as u16, wy as u16, self.brush_type);
+                        if self.is_social_brush {
+                            let ix = (wx as usize).min(self.world.width as usize - 1);
+                            let iy = (wy as usize).min(self.world.height as usize - 1);
+                            self.world.social_grid[iy][ix] = self.social_brush;
+                        } else {
+                            self.world
+                                .terrain
+                                .set_cell_type(wx as u16, wy as u16, self.brush_type);
+                        }
                     }
                 }
             }

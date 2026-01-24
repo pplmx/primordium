@@ -213,7 +213,7 @@ impl App {
             ];
             f.render_widget(
                 Paragraph::new(ratatui::text::Line::from(legend_spans)),
-                status_lines[3],
+                status_lines[4],
             );
 
             // SPARKLINE PANES
@@ -499,10 +499,14 @@ impl App {
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
                     ratatui::text::Span::raw(format!(
-                        "{:.1}/{:.1}",
-                        entity.metabolism.energy, entity.metabolism.max_energy
+                        "{:.0}/{:.0} | Gen: {} | Rep: {:.2}",
+                        entity.metabolism.energy,
+                        entity.metabolism.max_energy,
+                        entity.metabolism.generation,
+                        entity.intel.reputation,
                     )),
                 ]));
+
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
                         " Age:    ",

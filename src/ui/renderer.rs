@@ -86,6 +86,29 @@ impl<'a> Widget for WorldWidget<'a> {
                         if terrain.fertility < 0.3 && terrain.terrain_type != TerrainType::Desert {
                             cell.set_fg(Color::Rgb(100, 50, 50));
                         }
+
+                        // NEW: Phase 46 - Social Grid Visualization (Background)
+                        let sm = self.world.social_grid[y as usize][x as usize];
+                        if sm == 1 {
+                            // Peace Zone
+                            cell.set_bg(Color::Rgb(0, 0, 80));
+                        } else if sm == 2 {
+                            // War Zone
+                            cell.set_bg(Color::Rgb(80, 0, 0));
+                        }
+                    }
+                } else {
+                    // Check social grid even for Plains
+                    let screen_x = inner.x + x;
+                    let screen_y = inner.y + y;
+                    if screen_x < inner.right() && screen_y < inner.bottom() {
+                        let cell = buf.get_mut(screen_x, screen_y);
+                        let sm = self.world.social_grid[y as usize][x as usize];
+                        if sm == 1 {
+                            cell.set_bg(Color::Rgb(0, 0, 80));
+                        } else if sm == 2 {
+                            cell.set_bg(Color::Rgb(80, 0, 0));
+                        }
                     }
                 }
             }

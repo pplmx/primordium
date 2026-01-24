@@ -303,6 +303,7 @@ pub fn reproduce_asexual(
             last_aggression: 0.0,
             last_share_intent: 0.0,
             last_signal: 0.0,
+            reputation: 1.0,
         },
     }
 }
@@ -361,6 +362,7 @@ pub fn reproduce_with_mate(
             last_aggression: 0.0,
             last_share_intent: 0.0,
             last_signal: 0.0,
+            reputation: 1.0,
         },
     }
 }
@@ -440,6 +442,7 @@ pub fn reproduce_asexual_parallel(
                 last_aggression: 0.0,
                 last_share_intent: 0.0,
                 last_signal: 0.0,
+                reputation: 1.0,
             },
         },
         dist,
@@ -496,6 +499,7 @@ pub fn reproduce_with_mate_parallel(
             last_aggression: 0.0,
             last_share_intent: 0.0,
             last_signal: 0.0,
+            reputation: 1.0,
         },
     }
 }
