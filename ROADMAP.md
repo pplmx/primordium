@@ -436,11 +436,12 @@ toml = "0.8"
 - **Leadership Auras**: Visual highlights for Soldiers and Alphas in specialized view modes.
 - **Collective Reinforcement**: Socially-aware Hebbian learning loop that associates vocal signals with survival rewards.
 
-### Phase 51: Symbiosis (The Bond) 🚧
+### Phase 51: Symbiosis (The Bond) ✅
 
 - **Biological Bonding**: Implementation of physical attachment between entities via the `Bond` neural output.
-- **Kinematic Coupling**: Bonded pairs move as a unified physics body, sharing momentum and inertia.
-- **Metabolic Fusion**: Direct energy channels allowing bonded partners to equalize metabolic reserves instantly.
+- **Kinematic Coupling**: Bonded pairs move as a unified physics body (Spring-mass damper logic).
+- **Metabolic Fusion**: Bidirectional energy equalization (not just one-way donation) to create true shared organisms.
+- **Bond Maintenance**: Distance-based bond integrity checks (Break if dist > 20.0).
 - **Specialized Roles**: Emergence of "Pilot" (Movement specialist) and "Turret" (Defense specialist) pairs.
 
 ---

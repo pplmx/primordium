@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 51: Symbiosis (The Bond)] - 2026-01-24
+
+### Evolutionary Leap: Biological Fusion
+
+Phase 51 fundamentally changes the unit of selection from the individual to the **bonded pair**. Organisms can now form physical and metabolic bonds with compatible partners, moving as a single kinematic unit and sharing energy to survive harsh conditions. This introduces the concept of **Obligate Symbiosis**, where two specialized entities (e.g., a high-speed "Pilot" and a high-defense "Turret") can outperform generalists.
+
+#### ✨ Features
+
+- **Kinematic Coupling**: Bonded entities are physically tethered by a spring-mass damper system. Movement forces are shared, allowing pairs to coordinate locomotion or drag injured partners to safety.
+- **Metabolic Fusion**: Implemented a bidirectional energy equalization protocol. Instead of simple one-way donations, bonded pairs continuously balance their metabolic reserves, creating a shared energy pool.
+- **Bond Maintenance**: Bonds are now dynamically maintained based on proximity. Pairs that drift too far apart (Distance > 20.0) due to external forces or lack of coordination will snap their bond.
+- **Symbiotic Selection**: Neural networks can now evolve specific `Bond` output strategies to actively seek or reject partners based on genetic compatibility.
+
+#### 🛠️ Technical Achievements
+
+- **Spring Force Physics**: Integrated a Hooke's Law simulation into the `Action` system, applying corrective velocity vectors to bonded pairs in parallel.
+- **Context-Aware Action System**: Refactored `ActionContext` to include read-only access to the global `EntitySnapshot` buffer, enabling thread-safe partner lookups during parallel updates.
+- **Equalization Logic**: Enhanced the `InteractionCommand` pipeline to support precise, bidirectional energy transfer commands (`TransferEnergy`) without race conditions.
+
+---
+
 ## [Phase 50: Visualizing the Invisible (Collective Intelligence)] - 2026-01-24
 
 ### Evolutionary Leap: Perception of the Abstract

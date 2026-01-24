@@ -329,7 +329,14 @@ impl World {
             e.metabolism.prev_energy = e.metabolism.energy;
             e.intel.rank = social::calculate_social_rank(e, self.tick);
             if let Some(p_id) = e.intel.bonded_to {
-                if !entity_snapshots.iter().any(|s| s.id == p_id) {
+                if let Some(partner) = entity_snapshots.iter().find(|s| s.id == p_id) {
+                    let dx = partner.x - e.physics.x;
+                    let dy = partner.y - e.physics.y;
+                    if (dx * dx + dy * dy) > 400.0 {
+                        // Break bond if distance > 20.0
+                        e.intel.bonded_to = None;
+                    }
+                } else {
                     e.intel.bonded_to = None;
                 }
             }
@@ -408,16 +415,25 @@ impl World {
                     if outputs[8] < 0.2 {
                         cmds.push(InteractionCommand::BondBreak { target_idx: i });
                     } else if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
-                        if entity_snapshots[p_idx].energy < 50.0 && e.metabolism.energy > 100.0 {
-                            let amount = e.metabolism.energy * 0.1;
-                            cmds.push(InteractionCommand::TransferEnergy {
-                                target_idx: p_idx,
-                                amount,
-                            });
-                            cmds.push(InteractionCommand::TransferEnergy {
-                                target_idx: i,
-                                amount: -amount,
-                            });
+                        // Phase 51: Metabolic Fusion (Bidirectional Equalization)
+                        let self_energy = e.metabolism.energy;
+                        let partner_energy = entity_snapshots[p_idx].energy;
+
+                        // If I have significantly more energy, share it to equalize
+                        if self_energy > partner_energy + 2.0 {
+                            let diff = self_energy - partner_energy;
+                            // Transfer 5% of the difference per tick
+                            let amount = diff * 0.05;
+                            if amount > 0.1 {
+                                cmds.push(InteractionCommand::TransferEnergy {
+                                    target_idx: p_idx,
+                                    amount,
+                                });
+                                cmds.push(InteractionCommand::TransferEnergy {
+                                    target_idx: i,
+                                    amount: -amount,
+                                });
+                            }
                         }
                     }
                 } else if social::can_share(e)
@@ -532,6 +548,7 @@ impl World {
                     config: &self.config,
                     terrain: &self.terrain,
                     pheromones: &mut self.pheromones,
+                    snapshots: &entity_snapshots,
                     width: self.width,
                     height: self.height,
                 },

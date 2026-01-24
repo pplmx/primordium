@@ -1,0 +1,62 @@
+use primordium_lib::model::config::AppConfig;
+use primordium_lib::model::state::entity::Entity;
+use primordium_lib::model::state::environment::Environment;
+use primordium_lib::model::state::pheromone::PheromoneGrid;
+use primordium_lib::model::state::terrain::TerrainGrid;
+use primordium_lib::model::systems::action::{action_system, ActionContext};
+use primordium_lib::model::world::EntitySnapshot;
+
+#[test]
+fn test_symbiosis_spring_force() {
+    let mut e1 = Entity::new(10.0, 10.0, 0);
+    let e2 = Entity::new(15.0, 10.0, 0); // 5.0 units away (Rest length is 2.0)
+
+    e1.intel.bonded_to = Some(e2.id);
+
+    let snapshot = EntitySnapshot {
+        id: e2.id,
+        lineage_id: e2.metabolism.lineage_id,
+        x: e2.physics.x,
+        y: e2.physics.y,
+        energy: 100.0,
+        birth_tick: 0,
+        offspring_count: 0,
+        r: 0,
+        g: 0,
+        b: 0,
+        rank: 0.5,
+        status: primordium_lib::model::state::entity::EntityStatus::Bonded,
+    };
+
+    let env = Environment::default();
+    let config = AppConfig::default();
+    let terrain = TerrainGrid::generate(20, 20, 42);
+    let mut pheromones = PheromoneGrid::new(20, 20);
+
+    let mut ctx = ActionContext {
+        env: &env,
+        config: &config,
+        terrain: &terrain,
+        pheromones: &mut pheromones,
+        snapshots: &[snapshot],
+        width: 20,
+        height: 20,
+    };
+
+    // Outputs: Neutral movement (should stay still if no spring)
+    // outputs[0] (dx) = 0.0 -> target vx 0.0
+    let outputs = [0.0; 9];
+
+    e1.physics.vx = 0.0;
+    e1.physics.vy = 0.0;
+
+    action_system(&mut e1, outputs, &mut ctx);
+
+    // Spring should pull e1 towards e2 (positive x direction)
+    // e1 is at 10, e2 is at 15. Force vector is (1, 0).
+    assert!(
+        e1.physics.vx > 0.001,
+        "Spring force should pull entity towards partner. VX: {}",
+        e1.physics.vx
+    );
+}

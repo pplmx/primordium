@@ -66,6 +66,7 @@ fn test_high_speed_metabolic_exhaustion() {
         config: &config,
         terrain: &terrain,
         pheromones: &mut pheromones,
+        snapshots: &[],
         width: 100,
         height: 100,
     };
@@ -101,6 +102,7 @@ fn test_inertia_responsiveness_penalty() {
         config: &config,
         terrain: &terrain,
         pheromones: &mut pheromones,
+        snapshots: &[],
         width: 100,
         height: 100,
     };

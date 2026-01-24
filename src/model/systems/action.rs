@@ -11,6 +11,7 @@ pub struct ActionContext<'a> {
     pub config: &'a AppConfig,
     pub terrain: &'a TerrainGrid,
     pub pheromones: &'a mut crate::model::state::pheromone::PheromoneGrid,
+    pub snapshots: &'a [crate::model::world::EntitySnapshot],
     pub width: u16,
     pub height: u16,
 }
@@ -41,6 +42,30 @@ pub fn action_system(entity: &mut Entity, outputs: [f32; 9], ctx: &mut ActionCon
     let brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64 * 0.02)
         + (entity.intel.genotype.brain.connections.len() as f64 * 0.005);
     let idle_cost = (ctx.config.metabolism.base_idle_cost + brain_maintenance) * metabolism_mult;
+
+    // Phase 51: Kinematic Coupling (Spring Force)
+    if let Some(partner_id) = entity.intel.bonded_to {
+        if let Some(partner) = ctx.snapshots.iter().find(|s| s.id == partner_id) {
+            let dx = partner.x - entity.physics.x;
+            let dy = partner.y - entity.physics.y;
+            let dist = (dx * dx + dy * dy).sqrt();
+
+            // Spring constant k, rest length L
+            let k = 0.05;
+            let rest_length = 2.0;
+
+            if dist > rest_length {
+                let force = (dist - rest_length) * k;
+                let fx = (dx / dist) * force;
+                let fy = (dy / dist) * force;
+
+                // Apply force to velocity (mass is effectively 1.0 for now, or use max_energy as mass?)
+                // Using mass = 1.0 for responsiveness
+                entity.physics.vx += fx;
+                entity.physics.vy += fy;
+            }
+        }
+    }
 
     entity.metabolism.energy -= move_cost + idle_cost + signal_cost;
 
@@ -146,6 +171,7 @@ mod tests {
             config: &config,
             terrain: &terrain,
             pheromones: &mut pheromones,
+            snapshots: &[],
             width: 20,
             height: 20,
         };
@@ -169,6 +195,7 @@ mod tests {
             config: &config,
             terrain: &terrain,
             pheromones: &mut pheromones,
+            snapshots: &[],
             width: 20,
             height: 20,
         };
@@ -178,6 +205,7 @@ mod tests {
             config: &config,
             terrain: &terrain,
             pheromones: &mut pheromones,
+            snapshots: &[],
             width: 20,
             height: 20,
         };
@@ -200,6 +228,7 @@ mod tests {
             config: &config,
             terrain: &terrain,
             pheromones: &mut pheromones,
+            snapshots: &[],
             width: 20,
             height: 20,
         };

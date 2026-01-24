@@ -21,6 +21,7 @@ fn test_semantic_pheromone_roundtrip() {
         config: &config,
         terrain: &world.terrain,
         pheromones: &mut world.pheromones,
+        snapshots: &[],
         width: 100,
         height: 100,
     };

@@ -74,6 +74,7 @@ fn test_metabolic_cost_of_signaling() {
         config: &config,
         terrain: &terrain,
         pheromones: &mut pheromones,
+        snapshots: &[],
         width: 100,
         height: 100,
     };
@@ -85,6 +86,7 @@ fn test_metabolic_cost_of_signaling() {
         config: &config,
         terrain: &terrain,
         pheromones: &mut pheromones,
+        snapshots: &[],
         width: 100,
         height: 100,
     };
