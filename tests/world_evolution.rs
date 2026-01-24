@@ -3,7 +3,6 @@ use primordium_lib::model::state::environment::{Environment, Era};
 use primordium_lib::model::systems::environment as environment_system;
 
 #[test]
-#[ignore = "Logic verified but fails silently in test runner - requires deep debugging"]
 fn test_era_transition_sequence() {
     let mut env = Environment::default();
     let mut stats = PopulationStats::new();
@@ -24,9 +23,9 @@ fn test_era_transition_sequence() {
     );
 
     // 3. Trigger Flourishing (Requires population and diversity)
-    // Era transition logic: current_era == DawnOfLife && pop > 200 && species > 3
     stats.population = 300;
     stats.species_count = 5;
+    stats.biodiversity_hotspots = 2; // Required for new Flourishing trigger
     environment_system::update_era(&mut env, 15000, &stats);
 
     assert_eq!(

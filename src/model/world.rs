@@ -797,6 +797,18 @@ impl World {
         social::handle_extinction(&self.entities, self.tick, &mut events, &mut self.logger);
         let pop_count = self.entities.len();
         let mut mutation_scale = self.config.evolution.mutation_rate;
+
+        // Apply Era-based Mutation Scaling
+        use crate::model::state::environment::Era;
+        let era_mutation_mult = match env.current_era {
+            Era::Primordial => 1.5,
+            Era::DawnOfLife => 1.0,
+            Era::Flourishing => 1.2,
+            Era::DominanceWar => 0.8,
+            Era::ApexEra => 0.5,
+        };
+        mutation_scale *= era_mutation_mult;
+
         if self.config.evolution.population_aware && pop_count > 0 {
             if pop_count < self.config.evolution.bottleneck_threshold {
                 mutation_scale *=

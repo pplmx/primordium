@@ -26,6 +26,11 @@
 
 * **规范**: 包含所有演进逻辑（动词）。
 * **原则**: 逻辑以纯函数或 Stateless 的过程存在。通过 `Context` 结构体访问 State。
+    * **`ecological.rs`**: 处理食性级联（Trophic Cascades）与资源自平衡。
+    * **`environment.rs`**: 环境演替、生物群落（Biomes）转换、碳循环及时代（Era）更替逻辑。
+    * **`social.rs`**: 社交行为、捕食者-猎物动态及群体防御（Group Defense）。
+    * **`stats.rs`**: 宏观指标计算与多样性热点（Biodiversity Hotspots）探测。
+    * **`intel.rs` / `biological.rs`**: 神经决策推理与代谢生命史策略。
 
 ### C. 基础设施层 (Model::Infra)
 
@@ -35,19 +40,18 @@
 * **原则**: 隔离模拟宇宙与外部系统的交互逻辑。
     * **`blockchain.rs`**: 基于 OpenTimestamps 的区块链锚定，为演化史提供不可篡改的证据。
     * **`network.rs`**: 定义跨宇宙迁移的 JSON 协议 (`NetMessage`) 及对等体元数据。
+    * **`lineage_tree.rs`**: 基于 `petgraph` 的宏观演化分析引擎，记录谱系的分支与演化树。
 
 ### D. 核心引擎组件 (Core Engine Components)
 
 这些模块位于 `src/model/` 根目录，作为支撑整个模拟运行的“物理常数”和“核心基座”：
 
 * **`brain.rs` (Intel/Will)**: 模拟实体的神经网络模型及推理引擎。采用基于图结构的 NEAT-lite 架构，支持拓扑演化与时间连贯性。
-* **`quadtree.rs` (Spatial Index)**: 高性能空间索引（Spatial Hash），为碰撞检测和感知提供物理加速。
-* **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议，实现实体的序列化与反序列化。
-* **`world.rs` (Coordinator)**: 整个模拟宇宙的“总线”，负责统筹调度所有状态与系统。
+* **`quadtree.rs` (Spatial Index)**: 高性能空间索引（Spatial Hash）。采用行分区（Row-partitioned）并行优化，为碰撞检测和感知提供物理加速。
+* **`world.rs` (Coordinator)**: 整个模拟宇宙的“总线”。采用三阶段并行更新环（Snapshot -> Parallel Proposals -> Sequential Apply），通过 Rayon 实现大规模并行化。
 * **`config.rs` (Constants)**: 模拟宇宙的物理规则参数。
-* **`history.rs` (Archive)**: 模拟时空的观测记录。
-* **`lineage_tree.rs` (Ancestry)**: 基于 `petgraph` 的宏观演化分析引擎，记录谱系的分支与演化树。
-* **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议。
+* **`history.rs` (Archive)**: 模拟时空的观测记录，支持周期性状态快照与考古学回溯（Fossil Record）。
+* **`migration.rs` (Engine Bus)**: 处理跨引擎（跨 Universe）的实体迁移协议，实现实体的序列化与反序列化。
 
 ## 4. 其它顶级组件
 
@@ -132,3 +136,9 @@ src/
 * **Phase 32**: **Life History Strategies (R/K Selection)**。实现了生活史策略的遗传。通过 `reproductive_investment` 和 `maturity_gene` 基因，生物可以演化出“多而弱”的 R 策略或“少而精”的 K 策略。建立了发育缩放逻辑（Body size ∝ Maturity），模拟了生长周期与体型的生物学平衡。
 * **Phase 32.5**: **Hardening & Quality Lockdown**。完成了全量集成测试修复与引擎硬化。引入了 `ActionContext` 设计模式，确保了 19x8 复杂神经架构下的逻辑稳定性，并验证了在极端代谢压力与网络损坏 DNA 情况下的生存边界。
 * **Phase 34**: **The Tree of Life (Ancestry Visualization)**。引入了基于 `petgraph` 的谱系树 analysis 系统 (`lineage_tree.rs`)。实现了对种群宏观演化路径的实时追踪，支持在 TUI 中可视化优势王朝的演化分支，并提供 Graphviz/DOT 格式导出功能。
+* **Phase 35**: **Trophic Cascades**。引入了自调节的食性级联（Trophic Cascade）机制。实现了捕食者-猎物种群数量的自动调节循环，并配套了生态稳定性告警系统 (EcoAlert)，用于监测生态系统的崩溃风险。
+* **Phase 38**: **Environmental Succession**。引入了环境演替机制。支持动态生物群落（平原、森林、沙漠）的自动转换，建立了全球碳循环模型（碳排放 vs 碳汇），并实现了多样性热点（Biodiversity Hotspots）的自动探测。
+* **Phase 39**: **Resilience & Stasis**。强化了种群韧性逻辑。在极小种群（<10 个体）中引入遗传漂变（Genetic Drift），并实现了基于种群密度的动态突变率缩放（Population-aware Mutation Scaling），平衡演化的探索与利用。
+* **Phase 40**: **Archeology & Deep History**。建立了考古学与深层历史记录系统。支持持久化的化石档案 (`logs/fossils.json`) 以记录绝灭的传奇谱系，并引入了周期性的宏观状态快照，允许用户在 TUI 中回溯世界演化历史。
+* **Phase 41**: **Massive Parallelism**。实现了大规模并行化仿真。基于 Rayon 构建了三阶段更新环（快照 -> 并行提案 -> 顺序应用），并优化了行分区（Row-partitioned）的空间哈希算法，支持万级实体的高性能模拟。
+* **Phase 42**: **Macro-Environmental Pressures**。引入了宏观环境压力系统。根据不同时代（Era）自动调整选择压力（如代谢率、突变率缩放），由生物量、碳水平和多样性等宏观指标驱动时代的更替。

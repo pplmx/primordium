@@ -39,16 +39,17 @@ fn test_era_transitions() {
     // Transition to Flourishing
     stats.population = 300;
     stats.species_count = 5;
+    stats.biodiversity_hotspots = 2; // Required for new Flourishing trigger
     environment_system::update_era(&mut env, 7000, &stats);
     assert_eq!(env.current_era, Era::Flourishing);
 
-    // Transition to DominanceWar (High CPU stress)
-    env.cpu_usage = 85.0;
+    // Transition to DominanceWar (High Carbon Level)
+    env.carbon_level = 900.0;
     environment_system::update_era(&mut env, 8000, &stats);
     assert_eq!(env.current_era, Era::DominanceWar);
 
     // Transition to ApexEra
-    stats.top_fitness = 6000.0;
+    stats.top_fitness = 9000.0; // Comfortably above 8000
     environment_system::update_era(&mut env, 9000, &stats);
     assert_eq!(env.current_era, Era::ApexEra);
 }

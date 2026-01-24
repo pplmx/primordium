@@ -49,18 +49,24 @@ pub fn update_era(env: &mut Environment, tick: u64, pop_stats: &PopulationStats)
     // Era Transition Logic
     use crate::model::state::environment::Era;
     if env.current_era == Era::Primordial {
-        if tick > 5000 && pop_stats.avg_lifespan > 200.0 {
+        // Dawn of Life: Needs either stability or a critical mass of biomass
+        if (tick > 5000 && pop_stats.avg_lifespan > 200.0) || pop_stats.biomass_h > 2000.0 {
             env.current_era = Era::DawnOfLife;
         }
     } else if env.current_era == Era::DawnOfLife {
-        if pop_stats.population > 200 && pop_stats.species_count > 3 {
+        // Flourishing: Needs biodiversity hotspots and healthy population
+        if pop_stats.biodiversity_hotspots >= 2 && pop_stats.population > 150 {
             env.current_era = Era::Flourishing;
         }
-    } else if env.current_era == Era::Flourishing && env.cpu_usage > 70.0 {
-        env.current_era = Era::DominanceWar;
+    } else if env.current_era == Era::Flourishing {
+        // Dominance War: Triggered by resource scarcity or high carbon (climate stress)
+        if env.carbon_level > 800.0 || (pop_stats.biomass_c / pop_stats.biomass_h.max(1.0)) > 0.3 {
+            env.current_era = Era::DominanceWar;
+        }
     }
 
-    if pop_stats.top_fitness > 5000.0 {
+    // Apex Era: Peak fitness reached
+    if pop_stats.top_fitness > 8000.0 {
         env.current_era = Era::ApexEra;
     }
 }

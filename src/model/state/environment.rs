@@ -254,6 +254,15 @@ impl Environment {
             }
         };
 
+        // Apply Era-based selection pressure
+        let era_mult = match self.current_era {
+            Era::Primordial => 1.0,
+            Era::DawnOfLife => 0.9,
+            Era::Flourishing => 1.1,
+            Era::DominanceWar => 1.5,
+            Era::ApexEra => 1.2,
+        };
+
         // Apply circadian mult (rest at night)
         let circadian = if matches!(self.time_of_day(), TimeOfDay::Night) {
             0.6 // 40% reduction at night
@@ -262,7 +271,7 @@ impl Environment {
         };
 
         // Apply season modifier
-        base * self.current_season.metabolism_multiplier() * circadian
+        base * era_mult * self.current_season.metabolism_multiplier() * circadian
     }
 
     pub fn food_spawn_multiplier(&self) -> f64 {
