@@ -444,6 +444,13 @@ toml = "0.8"
 - **Bond Maintenance**: Distance-based bond integrity checks (Break if dist > 20.0).
 - **Specialized Roles**: Emergence of "Pilot" (Movement specialist) and "Turret" (Defense specialist) pairs.
 
+### Phase 52: Emergent Architecture (Terraforming) 🚧
+
+- **Active Terrain Modification**: New neural outputs allowing entities to `Dig` (convert Wall/Mountain → Plains) and `Build` (convert Plains → Wall).
+- **Nest Construction**: Creation of safe zones that reduce metabolic costs for offspring.
+- **Hydrological Engineering**: Digging "canals" to extend River effects (speed/fertility) into drylands.
+- **Ecological Feedback**: Artificial structures impacting local wind/temperature (microclimates).
+
 ---
 
 ## 🌱 Philosophy
