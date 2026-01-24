@@ -112,6 +112,69 @@ impl<'a> Widget for WorldWidget<'a> {
                                 cell.set_fg(terrain.terrain_type.color());
                             }
                         }
+                        3 => {
+                            // RANK HEATMAP
+                            // Find highest rank in world for normalization
+                            let max_rank = self
+                                .world
+                                .entities
+                                .iter()
+                                .map(|e| e.intel.rank)
+                                .fold(0.0, f32::max)
+                                .max(0.1);
+
+                            // Find average rank at this cell
+                            let mut cell_rank = 0.0;
+                            let mut count = 0;
+                            let radius = 3.0;
+                            let nearby = self.world.spatial_hash.query(x as f64, y as f64, radius);
+                            for &idx in &nearby {
+                                cell_rank += self.world.entities[idx].intel.rank;
+                                count += 1;
+                            }
+                            if count > 0 {
+                                let val = (cell_rank / count as f32) / max_rank;
+                                let intensity = (val * 255.0) as u8;
+                                cell.set_bg(Color::Rgb(intensity / 2, 0, intensity));
+                            // Purple/Magenta for rank
+                            } else {
+                                cell.set_bg(Color::Rgb(10, 10, 10));
+                            }
+
+                            if terrain.terrain_type != TerrainType::Plains {
+                                cell.set_symbol(terrain.terrain_type.symbol().to_string().as_str());
+                                cell.set_fg(terrain.terrain_type.color());
+                            }
+                        }
+                        4 => {
+                            // VOCAL PROPAGATION HEATMAP
+                            // Sense vocalization at this cell
+                            let mut vocal_sum = 0.0;
+                            let radius = 5.0;
+                            let nearby = self.world.spatial_hash.query(x as f64, y as f64, radius);
+                            for &idx in &nearby {
+                                let dist = ((self.world.entities[idx].physics.x - x as f64)
+                                    .powi(2)
+                                    + (self.world.entities[idx].physics.y - y as f64).powi(2))
+                                .sqrt();
+                                let falloff = (1.0 - (dist / radius)).max(0.0) as f32;
+                                vocal_sum +=
+                                    self.world.entities[idx].intel.last_vocalization * falloff;
+                            }
+
+                            let intensity = (vocal_sum.min(1.0) * 255.0) as u8;
+                            if intensity > 10 {
+                                cell.set_bg(Color::Rgb(intensity, intensity, 0));
+                            // Yellow for sound
+                            } else {
+                                cell.set_bg(Color::Rgb(10, 10, 10));
+                            }
+
+                            if terrain.terrain_type != TerrainType::Plains {
+                                cell.set_symbol(terrain.terrain_type.symbol().to_string().as_str());
+                                cell.set_fg(terrain.terrain_type.color());
+                            }
+                        }
                         _ => {
                             // NORMAL VIEW
                             if terrain.terrain_type != TerrainType::Plains {
@@ -164,6 +227,17 @@ impl<'a> Widget for WorldWidget<'a> {
                 let cell = buf.get_mut(x, y);
                 cell.set_symbol(&entity.symbol_for_status(status).to_string());
                 cell.set_fg(entity.color_for_status(status));
+
+                // Alpha/Soldier Aura in certain view modes
+                if self.view_mode == 3 || self.view_mode == 2 {
+                    if entity.intel.rank > 0.9 {
+                        // Alpha Aura - Pulsing? No, just highlight
+                        cell.set_bg(Color::Rgb(100, 100, 0));
+                    } else if status == crate::model::state::entity::EntityStatus::Soldier {
+                        // Soldier Aura
+                        cell.set_bg(Color::Rgb(80, 0, 0));
+                    }
+                }
             }
         }
     }

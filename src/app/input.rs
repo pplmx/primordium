@@ -102,12 +102,23 @@ impl App {
                 self.event_log
                     .push_back(("View: SOCIAL ZONES".to_string(), Color::Cyan));
             }
+            KeyCode::Char('4') if !self.show_help && self.onboarding_step.is_none() => {
+                self.view_mode = 3;
+                self.event_log
+                    .push_back(("View: RANK HEATMAP".to_string(), Color::Magenta));
+            }
+            KeyCode::Char('5') if !self.show_help && self.onboarding_step.is_none() => {
+                self.view_mode = 4;
+                self.event_log
+                    .push_back(("View: VOCAL PROPAGATION".to_string(), Color::Yellow));
+            }
 
             // Help tab navigation (only when help is open)
             KeyCode::Char('1') if self.show_help => self.help_tab = 0,
             KeyCode::Char('2') if self.show_help => self.help_tab = 1,
             KeyCode::Char('3') if self.show_help => self.help_tab = 2,
             KeyCode::Char('4') if self.show_help => self.help_tab = 3,
+            KeyCode::Char('5') if self.show_help => self.help_tab = 4,
             // Onboarding navigation (Enter key)
             KeyCode::Enter if self.onboarding_step.is_some() => {
                 self.advance_onboarding();

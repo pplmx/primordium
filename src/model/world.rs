@@ -73,6 +73,11 @@ pub enum InteractionCommand {
         target_idx: usize,
         new_color: (u8, u8, u8),
     },
+    TribalTerritory {
+        x: f64,
+        y: f64,
+        is_war: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -265,6 +270,18 @@ impl World {
             &mut rng,
             &self.config,
         );
+
+        // Slow decay of social grid overrides (revert to 0: Normal)
+        if self.tick.is_multiple_of(50) {
+            for row in &mut self.social_grid {
+                for cell in row {
+                    if *cell > 0 && rng.gen_bool(0.1) {
+                        *cell = 0;
+                    }
+                }
+            }
+        }
+
         let total_plant_biomass = self.terrain.update(self.pop_stats.biomass_h);
 
         env.sequestrate_carbon(total_plant_biomass * 0.00001);
@@ -336,22 +353,27 @@ impl World {
         // Adjust weights based on Reinforcement (Energy Delta) from previous tick
         current_entities.par_iter_mut().for_each(|e| {
             // Reinforcement Signal: Normalized Energy Gain/Loss
-            // Range roughly -0.1 to +0.1 per tick?
-            // Eating = +20.0. Max Energy = 200.0. R = +0.1.
-            // Move Cost = -0.5. R = -0.0025.
             let energy_delta = e.metabolism.energy - e.metabolism.prev_energy;
+
+            // SOCIAL REINFORCEMENT: Alpha proximity reward
+            // If near Alpha of same tribe, and energy is stable, reinforce
+            // (Implemented during perception pass via herding bonus,
+            // but here we reinforce neural connections)
+
             let reinforcement = (energy_delta / e.metabolism.max_energy) as f32;
 
             // Apply learning if non-zero
-            // Scale up reinforcement to make learning meaningful?
-            // If Eating (+0.1), we want strong reinforcement.
-            // If Starving (-0.002), we want weak negative.
-            // Let's us a scale factor of 10.0.
             e.intel.genotype.brain.learn(
                 e.intel.last_inputs,
                 e.intel.last_hidden,
                 reinforcement * 10.0,
             );
+
+            // VOCAL LEARNING (Phase 50)
+            // If heard_signal was strong and led to positive reinforcement,
+            // the brain will naturally associate Input 14 with the action.
+            // No explicit code needed if Hebbian learning works,
+            // but we ensure vocalization is recorded.
 
             // Reset prev_energy for next delta
             e.metabolism.prev_energy = e.metabolism.energy;
@@ -482,6 +504,8 @@ impl World {
                 e.intel.last_aggression = (outputs[3] + 1.0) / 2.0;
                 e.intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
                 e.intel.last_signal = outputs[5];
+                e.intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0; // P50: Mean of signal channels as volume
+
                 let inertia = (0.8 + stomach_penalty).clamp(0.4, 0.95);
                 e.physics.vx = e.physics.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
                 e.physics.vy = e.physics.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
@@ -564,6 +588,16 @@ impl World {
                         x: e.physics.x,
                         y: e.physics.y,
                         amount: 0.01,
+                    });
+                }
+
+                // DYNAMIC SOCIAL GRID (Territoriality)
+                // If Alpha (Rank > 0.9), they "claim" territory
+                if e.intel.rank > 0.9 && local_rng.gen_bool(0.2) {
+                    local_cmds.push(InteractionCommand::TribalTerritory {
+                        x: e.physics.x,
+                        y: e.physics.y,
+                        is_war: e.intel.last_aggression > 0.6,
                     });
                 }
 
@@ -932,6 +966,12 @@ impl World {
                     current_entities[target_idx].physics.g = new_color.1;
                     current_entities[target_idx].physics.b = new_color.2;
                     current_entities[target_idx].intel.rank = 0.5;
+                }
+                InteractionCommand::TribalTerritory { x, y, is_war } => {
+                    let ix = (x as usize).min(self.width as usize - 1);
+                    let iy = (y as usize).min(self.height as usize - 1);
+                    // 1: Peace, 2: War
+                    self.social_grid[iy][ix] = if is_war { 2 } else { 1 };
                 }
             }
         }

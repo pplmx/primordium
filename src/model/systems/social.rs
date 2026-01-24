@@ -76,11 +76,13 @@ pub fn are_same_tribe(e1: &Entity, e2: &Entity) -> bool {
     color_dist < 60
 }
 
+/// [DEPRECATED] Use InteractionCommand patterns in World::update.
 /// Check if entity can share energy (>70% full)
 pub fn can_share(entity: &Entity) -> bool {
     entity.metabolism.energy > entity.metabolism.max_energy * 0.7
 }
 
+/// [DEPRECATED] Use InteractionCommand patterns in World::update.
 /// Share energy with another entity.
 pub fn share_energy(entity: &mut Entity, max_amount: f64) -> f64 {
     let share = max_amount.min(entity.metabolism.energy * 0.15); // Share up to 15%
@@ -88,6 +90,7 @@ pub fn share_energy(entity: &mut Entity, max_amount: f64) -> f64 {
     share
 }
 
+/// [DEPRECATED] Use InteractionCommand patterns in World::update.
 /// Handle predation between entities.
 pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut PredationContext) {
     let territorial_bonus = get_territorial_aggression(&entities[idx]);
@@ -163,6 +166,8 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
         }
     }
 }
+
+/// [DEPRECATED] Use InteractionCommand patterns in World::update.
 /// Handle energy sharing between same-tribe entities.
 pub fn handle_sharing(idx: usize, entities: &mut [Entity], ctx: &mut PredationContext) {
     if !can_share(&entities[idx]) || entities[idx].intel.last_share_intent < 0.5 {
@@ -197,6 +202,7 @@ pub fn handle_sharing(idx: usize, entities: &mut [Entity], ctx: &mut PredationCo
     }
 }
 
+/// [DEPRECATED] Use InteractionCommand patterns in World::update.
 /// Handle entity reproduction.
 pub fn handle_reproduction(
     idx: usize,
@@ -214,6 +220,7 @@ pub fn handle_reproduction(
     repro_logic(idx, entities, killed_ids, spatial_hash, config, tick)
 }
 
+/// [DEPRECATED] Use InteractionCommand patterns in World::update.
 pub(crate) fn repro_logic(
     idx: usize,
     entities: &mut [Entity],

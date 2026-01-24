@@ -6,6 +6,26 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 50: Visualizing the Invisible (Collective Intelligence)] - 2026-01-24
+
+### Evolutionary Leap: Perception of the Abstract
+Phase 50 transforms the simulation's observability. The complex internal states introduced in previous phases—social rank, vocal signals, and territorial claims—are now brought to the surface through a multi-layered heatmapping system. Entities no longer just "hear" or "rank" each other in the dark; the simulation now visualizes the emergence of collective intelligence and dynamic sovereignty.
+
+#### ✨ Features
+- **Rank Heatmap (View 4)**: Real-time visualization of social stratification. Purple/Magenta gradients reveal how tribes organize around Alphas and how Omega-rank entities are marginalized.
+- **Vocal Propagation (View 5)**: Yellow "sound waves" visualize signal density. Watch how alarm calls and coordination signals ripple through the population, moving from noise to meaning.
+- **Soldier & Alpha Auras**: High-impact individuals (Soldiers/Alphas) now possess visual "auras" in social views, making leadership and defense structures immediately apparent.
+- **Dynamic Territoriality**: Tribes now actively "claim" territory. Alpha entities automatically flip local social grids to "Peace" (for kin) or "War" (for rivals) based on their aggression, creating emergent borders.
+- **Collective Reinforcement**: Enhanced Hebbian learning loop that rewards social proximity and vocal coordination, accelerating the evolution of complex group behaviors.
+
+#### 🛠️ Technical Achievements
+- **Spatial Heatmap Engine**: Implemented high-performance spatial queries in `WorldWidget` to render real-time propagation of abstract signals (Vocalization, Rank density).
+- **Dynamic Social Grid Logic**: Integrated `TribalTerritory` commands into the 3-pass parallel update loop, allowing Alphas to steer regional rules dynamically.
+- **Vocal Output Normalization**: Standardized vocalization intensity from neural outputs, enabling Input 14 (Hearing) to carry consistent semantic volume.
+- **Legacy Refactoring**: Marked and deprecated sequential social systems, ensuring 100% of social interaction logic utilizes the thread-safe parallel Command pattern.
+
+---
+
 ## [Phase 49: Advanced Social Hierarchies (Tribal Warfare)] - 2026-01-24
 
 ### Evolutionary Leap: The Rise of Leaders and Armies

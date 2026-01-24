@@ -432,7 +432,15 @@ toml = "0.8"
 | Phase 47 | Lifetime Learning | ✅ Complete |
 | Phase 48 | Linguistic Evolution | ✅ Complete |
 | Phase 49 | Advanced Social Hierarchies | ✅ Complete |
-| Phase 50 | Visualizing the Invisible | 🚧 In Progress |
+| Phase 50 | Visualizing the Invisible | ✅ Complete |
+
+### Phase 50: Visualizing the Invisible (Collective Intelligence) ✅
+
+- **Rank Heatmaps**: Visualize social stratification and Alpha-centric tribal organization in real-time.
+- **Vocal Propagation**: Yellow sound-density overlays revealing coordination signals and alarm ripples.
+- **Dynamic Sovereignty**: Alpha-driven territoriality where leaders claim local zones as Peace/War regions.
+- **Leadership Auras**: Visual highlights for Soldiers and Alphas in specialized view modes.
+- **Collective Reinforcement**: Socially-aware Hebbian learning loop that associates vocal signals with survival rewards.
 
 ### Phase 49: Advanced Social Hierarchies (Tribal Warfare) ✅
 

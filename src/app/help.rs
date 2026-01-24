@@ -22,7 +22,13 @@ impl App {
         f.render_widget(Clear, help_area);
 
         // Tab titles
-        let tab_titles = ["[1]Controls", "[2]Symbols", "[3]Concepts", "[4]Eras"];
+        let tab_titles = [
+            "[1]Controls",
+            "[2]Symbols",
+            "[3]Concepts",
+            "[4]Eras",
+            "[5]Visuals",
+        ];
         let mut tab_spans = Vec::new();
         for (i, title) in tab_titles.iter().enumerate() {
             if i == self.help_tab as usize {
@@ -53,7 +59,7 @@ impl App {
                 " [[/]]     Archeology Seek (Time)",
                 " [↑/↓]     Fossil Select (in Archeology)",
                 " [G]       Resurrect Fossil (Cloning)",
-                " [1/2/3]   Switch View (Normal/Soil/Social)",
+                " [1-5]     Switch View modes",
                 " [J]       Toggle Social Brush (Peace/War)",
                 " [H]       Toggle this Help",
                 " [X]       Genetic Surge (mutate all)",
@@ -133,6 +139,22 @@ impl App {
                 "    or Predator dominance",
                 "",
                 " 👑 ApexEra     - Fitness > 8000",
+            ],
+            4 => vec![
+                "",
+                " 👁️  VISUALIZATION MODES [1-5]",
+                " ─────────────────────────────────",
+                " [1] Normal      - Default view",
+                " [2] Fertility   - Soil health (G:Healthy, R:Depleted)",
+                " [3] Social      - Peace (B) and War (R) zones",
+                " [4] Rank        - Social hierarchy (Purple: High Rank)",
+                " [5] Vocal       - Vocal signal propagation (Yellow)",
+                "",
+                " 🪖  SPECIAL INDICATORS",
+                " ─────────────────────────────────",
+                " ⚔️  Soldier      - High rank + aggressive",
+                " Alpha Highlight - Golden aura in Social/Rank views",
+                " Soldier Aura    - Dark red aura in Social/Rank views",
             ],
             _ => vec![""],
         };
