@@ -19,10 +19,28 @@ The entire `Genotype` struct is serialized via `serde_json` and converted to a s
 
 Each time an entity reproduces:
 
-1. **Crossover**: Offspring takes attributes from both parents (50/50 chance per gene).
+1. **Crossover**: Offspring takes attributes from both parents (50/50 chance per gene or NEAT-aligned innovation mapping).
 2. **Standard Mutation**: A probability (**0.1**) to alter a gene/weight value by ±0.2.
 3. **Genetic Drift**: A small probability (**0.01**) for a "macro-mutation" (±0.5 change).
-4. **Speciation**: A **2% chance** for a massive shift in `trophic_potential` (±0.4), potentially flipping the organism's ecological role.
+4. **Adaptive Speciation (Phase 43)**: 
+    - Real-time monitoring of **Genetic Distance**.
+    - If the distance between offspring and parent exceeds the **Speciation Threshold** (default: 5.0), the child is assigned a new `lineage_id`, marking the birth of a new species.
+    - Factors in distance include brain topology differences and phenotypic trait shifts.
+
+## Genetic Distance Formula (Phase 43)
+
+The distance $D$ between two genomes is calculated as:
+
+$$ D = D_{brain} + \sum \frac{|Trait_{A} - Trait_{B}|}{Scale} $$
+
+Where:
+- $D_{brain}$: NEAT topology distance (Excess + Disjoint + Weight diff).
+- Traits: Sensing Range (scale 5.0), Max Speed (scale 1.0), Max Energy (scale 100.0), Metabolic Niche, Trophic Potential.
+
+## Registry Pruning (Phase 44)
+
+To maintain performance during long-running simulations with high speciation rates, the `LineageRegistry` automatically prunes the tree:
+- **Criteria**: Extinct lineages with < 3 total entities produced and no legendary representatives are deleted every 1000 ticks.
 
 ## Phenotypic Genes
 

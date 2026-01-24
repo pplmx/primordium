@@ -35,27 +35,27 @@ pub struct EntitySnapshot {
 #[derive(Debug)]
 pub enum InteractionCommand {
     Kill {
-        target_id: uuid::Uuid,
+        target_idx: usize,
         attacker_lineage: uuid::Uuid,
         energy_gain: f64,
         cause: String,
     },
     TransferEnergy {
-        target_id: uuid::Uuid,
+        target_idx: usize,
         amount: f64,
     },
     Birth {
-        parent_id: uuid::Uuid,
+        parent_idx: usize,
         baby: Box<Entity>,
-        genetic_distance: f32, // NEW: Track distance for evolutionary velocity
+        genetic_distance: f32,
     },
     EatFood {
         food_index: usize,
-        attacker_id: uuid::Uuid,
+        attacker_idx: usize,
         energy_gain: f64,
     },
     Infect {
-        target_id: uuid::Uuid,
+        target_idx: usize,
         pathogen: crate::model::state::pathogen::Pathogen,
     },
     Fertilize {
@@ -64,7 +64,7 @@ pub enum InteractionCommand {
         amount: f32,
     },
     UpdateReputation {
-        target_id: uuid::Uuid,
+        target_idx: usize,
         delta: f32,
     },
 }
@@ -482,7 +482,7 @@ impl World {
                     && (e.physics.vx * kin_vx + e.physics.vy * kin_vy) > 0.5
                 {
                     local_cmds.push(InteractionCommand::TransferEnergy {
-                        target_id: e.id,
+                        target_idx: i,
                         amount: 0.05,
                     });
                 }
@@ -554,19 +554,19 @@ impl World {
                                 // Betrayal Penalty
                                 if r > 0.5 {
                                     local_cmds.push(InteractionCommand::UpdateReputation {
-                                        target_id: e.id,
+                                        target_idx: i,
                                         delta: -0.3,
                                     });
                                 }
 
                                 local_cmds.push(InteractionCommand::Kill {
-                                    target_id: v_snap.id,
+                                    target_idx: t_idx,
                                     attacker_lineage: e.metabolism.lineage_id,
                                     energy_gain: gain,
                                     cause: "predation".to_string(),
                                 });
                                 local_cmds.push(InteractionCommand::TransferEnergy {
-                                    target_id: e.id,
+                                    target_idx: i,
                                     amount: gain - 10.0,
                                 });
                                 break;
@@ -586,16 +586,16 @@ impl World {
                         if t_snap.id != e.id && r > 0.25 && t_snap.energy < e.metabolism.energy {
                             let amount = e.metabolism.energy * 0.05 * r as f64;
                             local_cmds.push(InteractionCommand::TransferEnergy {
-                                target_id: t_snap.id,
+                                target_idx: t_idx,
                                 amount,
                             });
                             local_cmds.push(InteractionCommand::TransferEnergy {
-                                target_id: e.id,
+                                target_idx: i,
                                 amount: -amount,
                             });
                             // Reputation Reward
                             local_cmds.push(InteractionCommand::UpdateReputation {
-                                target_id: e.id,
+                                target_idx: i,
                                 delta: 0.1 * r,
                             });
                         }
@@ -638,7 +638,7 @@ impl World {
                         }
 
                         local_cmds.push(InteractionCommand::Birth {
-                            parent_id: e.id,
+                            parent_idx: i,
                             baby: Box::new(social::reproduce_with_mate_parallel(
                                 e,
                                 self.tick,
@@ -647,7 +647,7 @@ impl World {
                             genetic_distance: dist,
                         });
                         local_cmds.push(InteractionCommand::TransferEnergy {
-                            target_id: e.id,
+                            target_idx: i,
                             amount: -50.0,
                         });
                     } else {
@@ -658,7 +658,7 @@ impl World {
                             current_entities.len(),
                         );
                         local_cmds.push(InteractionCommand::Birth {
-                            parent_id: e.id,
+                            parent_idx: i,
                             baby: Box::new(baby),
                             genetic_distance: dist,
                         });
@@ -679,7 +679,7 @@ impl World {
                         if gain > 0.1 {
                             local_cmds.push(InteractionCommand::EatFood {
                                 food_index: f_idx,
-                                attacker_id: e.id,
+                                attacker_idx: i,
                                 energy_gain: gain,
                             });
                         }
@@ -693,7 +693,7 @@ impl World {
                             && local_rng.gen::<f32>() < path.transmission
                         {
                             local_cmds.push(InteractionCommand::Infect {
-                                target_id: entity_snapshots[t_idx].id,
+                                target_idx: t_idx,
                                 pathogen: path.clone(),
                             });
                         }
@@ -702,7 +702,7 @@ impl World {
                     for path in &self.active_pathogens {
                         if local_rng.gen::<f32>() < path.transmission * 0.01 {
                             local_cmds.push(InteractionCommand::Infect {
-                                target_id: e.id,
+                                target_idx: i,
                                 pathogen: path.clone(),
                             });
                         }
@@ -719,60 +719,53 @@ impl World {
             .collect();
 
         // Pass 3: Apply Commands
-        let id_to_index: std::collections::HashMap<uuid::Uuid, usize> = current_entities
-            .iter()
-            .enumerate()
-            .map(|(idx, e)| (e.id, idx))
-            .collect();
         for cmd in interaction_commands {
             match cmd {
                 InteractionCommand::Kill {
-                    target_id,
+                    target_idx,
                     attacker_lineage,
                     energy_gain,
                     cause,
                 } => {
+                    let target_id = current_entities[target_idx].id;
                     if !killed_ids.contains(&target_id) {
-                        if let Some(&v_idx) = id_to_index.get(&target_id) {
-                            killed_ids.insert(target_id);
-                            self.pop_stats.record_death(
-                                self.tick - current_entities[v_idx].metabolism.birth_tick,
-                            );
-                            let ev = LiveEvent::Death {
-                                id: target_id,
-                                age: self.tick - current_entities[v_idx].metabolism.birth_tick,
-                                offspring: current_entities[v_idx].metabolism.offspring_count,
-                                tick: self.tick,
-                                timestamp: Utc::now().to_rfc3339(),
-                                cause,
-                            };
-                            let _ = self.logger.log_event(ev.clone());
-                            events.push(ev);
-                            self.lineage_consumption
-                                .push((attacker_lineage, energy_gain));
-                            self.pheromones.deposit(
-                                current_entities[v_idx].physics.x,
-                                current_entities[v_idx].physics.y,
-                                PheromoneType::Danger,
-                                0.5,
-                            );
-                        }
+                        killed_ids.insert(target_id);
+                        self.pop_stats.record_death(
+                            self.tick - current_entities[target_idx].metabolism.birth_tick,
+                        );
+                        let ev = LiveEvent::Death {
+                            id: target_id,
+                            age: self.tick - current_entities[target_idx].metabolism.birth_tick,
+                            offspring: current_entities[target_idx].metabolism.offspring_count,
+                            tick: self.tick,
+                            timestamp: Utc::now().to_rfc3339(),
+                            cause,
+                        };
+                        let _ = self.logger.log_event(ev.clone());
+                        events.push(ev);
+                        self.lineage_consumption
+                            .push((attacker_lineage, energy_gain));
+                        self.pheromones.deposit(
+                            current_entities[target_idx].physics.x,
+                            current_entities[target_idx].physics.y,
+                            PheromoneType::Danger,
+                            0.5,
+                        );
                     }
                 }
-                InteractionCommand::TransferEnergy { target_id, amount } => {
-                    if let Some(&idx) = id_to_index.get(&target_id) {
-                        // Skip dead entities (energy <= 0) and already killed entities
-                        if !killed_ids.contains(&target_id)
-                            && current_entities[idx].metabolism.energy > 0.0
-                        {
-                            current_entities[idx].metabolism.energy =
-                                (current_entities[idx].metabolism.energy + amount)
-                                    .clamp(0.0, current_entities[idx].metabolism.max_energy);
-                        }
+                InteractionCommand::TransferEnergy { target_idx, amount } => {
+                    let target_id = current_entities[target_idx].id;
+                    // Skip dead entities (energy <= 0) and already killed entities
+                    if !killed_ids.contains(&target_id)
+                        && current_entities[target_idx].metabolism.energy > 0.0
+                    {
+                        current_entities[target_idx].metabolism.energy =
+                            (current_entities[target_idx].metabolism.energy + amount)
+                                .clamp(0.0, current_entities[target_idx].metabolism.max_energy);
                     }
                 }
                 InteractionCommand::Birth {
-                    parent_id: _,
+                    parent_idx: _,
                     baby,
                     genetic_distance,
                 } => {
@@ -795,58 +788,53 @@ impl World {
                 }
                 InteractionCommand::EatFood {
                     food_index,
-                    attacker_id,
+                    attacker_idx,
                     energy_gain,
                 } => {
                     if !eaten_food_indices.contains(&food_index) {
-                        if let Some(&idx) = id_to_index.get(&attacker_id) {
-                            if !killed_ids.contains(&attacker_id)
-                                && current_entities[idx].metabolism.energy > 0.0
-                            {
-                                eaten_food_indices.insert(food_index);
-                                current_entities[idx].metabolism.energy =
-                                    (current_entities[idx].metabolism.energy + energy_gain)
-                                        .min(current_entities[idx].metabolism.max_energy);
-                                self.lineage_consumption.push((
-                                    current_entities[idx].metabolism.lineage_id,
-                                    energy_gain,
-                                ));
-                                self.terrain.deplete(
-                                    current_entities[idx].physics.x,
-                                    current_entities[idx].physics.y,
-                                    0.01,
-                                );
-                            }
+                        let attacker_id = current_entities[attacker_idx].id;
+                        if !killed_ids.contains(&attacker_id)
+                            && current_entities[attacker_idx].metabolism.energy > 0.0
+                        {
+                            eaten_food_indices.insert(food_index);
+                            current_entities[attacker_idx].metabolism.energy =
+                                (current_entities[attacker_idx].metabolism.energy + energy_gain)
+                                    .min(current_entities[attacker_idx].metabolism.max_energy);
+                            self.lineage_consumption.push((
+                                current_entities[attacker_idx].metabolism.lineage_id,
+                                energy_gain,
+                            ));
+                            self.terrain.deplete(
+                                current_entities[attacker_idx].physics.x,
+                                current_entities[attacker_idx].physics.y,
+                                0.01,
+                            );
                         }
                     }
                 }
                 InteractionCommand::Infect {
-                    target_id,
+                    target_idx,
                     pathogen,
                 } => {
-                    if let Some(&idx) = id_to_index.get(&target_id) {
-                        if !killed_ids.contains(&target_id)
-                            && current_entities[idx].health.pathogen.is_none()
-                            && rand::thread_rng().gen::<f32>()
-                                > current_entities[idx].health.immunity
-                        {
-                            current_entities[idx].health.pathogen = Some(pathogen);
-                            current_entities[idx].health.infection_timer = 100;
-                        }
+                    let target_id = current_entities[target_idx].id;
+                    if !killed_ids.contains(&target_id)
+                        && current_entities[target_idx].health.pathogen.is_none()
+                        && rand::thread_rng().gen::<f32>()
+                            > current_entities[target_idx].health.immunity
+                    {
+                        current_entities[target_idx].health.pathogen = Some(pathogen);
+                        current_entities[target_idx].health.infection_timer = 0;
                     }
                 }
                 InteractionCommand::Fertilize { x, y, amount } => {
                     self.terrain.fertilize(x, y, amount);
                 }
-                InteractionCommand::UpdateReputation { target_id, delta } => {
-                    if let Some(&idx) = id_to_index.get(&target_id) {
-                        current_entities[idx].intel.reputation =
-                            (current_entities[idx].intel.reputation + delta).clamp(0.0, 1.0);
-                    }
+                InteractionCommand::UpdateReputation { target_idx, delta } => {
+                    current_entities[target_idx].intel.reputation =
+                        (current_entities[target_idx].intel.reputation + delta).clamp(0.0, 1.0);
                 }
             }
         }
-
         for (l_id, amount) in &self.lineage_consumption {
             self.lineage_registry.record_consumption(*l_id, *amount);
         }

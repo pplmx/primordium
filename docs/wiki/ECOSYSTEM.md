@@ -15,7 +15,25 @@ Where:
 - $E_{base} = 0.5$ (Idle cost)
 - $C_{move} = 1.0$ (Base movement cost; Terrain/Predation modifiers apply)
 - $C_{think} = 0.1$
-- $M_{env}$: Environmental multiplier (Night: 0.6, CPU-load: 1.0-3.0)
+- $M_{env}$: Environmental multiplier. 
+    - **Circadian**: Day=1.0, Night=0.6.
+    - **Climate**: Temperate=1.0, Warm=1.5, Hot=2.0, Scorching=3.0.
+    - **Era Pressure**: Primordial=1.0, DawnOfLife=0.9, Flourishing=1.1, DominanceWar=1.5, ApexEra=1.2.
+    - **Hardware Coupling**: Linked to CPU load (1.0-3.0).
+
+### Nutrient Cycling & Niche Construction (Phase 44)
+
+The ecosystem is now a closed loop where life actively constructs its own niche.
+
+#### Corpse Fertilization
+Death is not an exit, but a return. When an entity dies (hunger, predation, or old age), it returns a percentage of its stored biomass to the soil:
+- **Formula**: Soil Fertility $+= (\frac{MaxEnergy}{100} \times 0.02)$.
+- **Impact**: High-death zones (battlefields or famine sites) become fertile hotspots, accelerating plant recovery.
+
+#### Metabolic Feedback (Excretion)
+High-energy entities (Energy > 70%) moving across the world have a **10% chance** per tick to "excrete" nutrients.
+- **Effect**: Increases local Soil Fertility by **0.01**.
+- **Impact**: Population centers naturally "farm" their surroundings, encouraging localized food blooms.
 
 ### Trophic Continuum (Phase 33)
 
@@ -69,15 +87,15 @@ The relationship between life and land is bidirectional:
 - **Depletion**: Overgrazing reduces soil fertility.
 - **Recovery**: The presence of biomass and the absence of grazing pressure allow fertility to recover over time, enabling the land to transition back from Desert to Plains, and eventually to Forest.
 
-### Social Interaction
+### Social Interaction & Game Theory (Phase 46)
 
-#### Energy Sharing
+#### Inclusive Fitness (Hamilton's Rule)
 
-Entities can altruistically share energy with tribe members:
+Social behaviors are now governed by the **Coefficient of Relatedness ($r$)**, where $r = 2^{-dist \times 0.5}$.
 
-- **Transfer**: 5% of giver's energy per tick.
-- **Threshold**: Giver must have **> 70%** energy.
-- **Requirements**: Distance < 2.0 units, same tribe (Manhattan RGB distance < 60).
+- **Energy Sharing**: Entities share energy only if $r > 0.25$.
+- **Formula**: Shared Amount $= Energy \times 0.05 \times r$.
+- **Requirement**: Giver must be > 70% full.
 
 #### Territoriality
 
@@ -85,13 +103,28 @@ Entities are more defensive near their birthplace:
 
 - **Bonus**: **1.5x Aggression bonus** if within **8.0 units** of birth coordinates.
 
-#### Social Defense
+#### Social Defense (Phase 46)
 
-Lineage members provide mutual protection against predators:
+Lineage protection is no longer binary. It scales with the sum of relatedness in the vicinity.
 
-- **Group Defense**: Damage received is reduced based on nearby lineage allies.
-- **Multiplier**: Ranges from **1.0** (isolated) down to **0.4** (dense group).
-- **Formula**: $M_{defense} = \max(0.4, 1.0 - (Allies \times 0.1))$
+- **Group Defense**: $M_{defense} = \max(0.4, 1.0 - (\sum r \times 0.15))$
+- **Impact**: Closely related clusters are almost immune to external predation, while "outsiders" with no kin are vulnerable.
+
+#### Reputation & Punishment (Phase 46)
+
+The ecosystem enforces cooperation through a **Reputation System** (0.0 to 1.0).
+
+- **Betrayal**: Attacking an entity with $r > 0.5$ (kin) reduces reputation by **0.3**.
+- **Exploitation**: Low reputation (< 0.5) entities lose tribe protection and can be hunted by their own kin.
+- **Altruism**: Sharing energy increases reputation proportionally to $r$.
+- **Recovery**: Reputation slowly recovers towards 1.0 over time (0.001 per tick).
+
+#### Social Grid & Zones (Phase 46)
+
+The simulation space can be partitioned into **Social Zones**:
+
+- **Peace Zone (Blue)**: Predation is strictly forbidden. Favors specialization and metabolic efficiency.
+- **War Zone (Red)**: Attack power is doubled (2x). Allows intra-lineage predation regardless of reputation.
 
 #### Social Coordination (Phase 30)
 
@@ -108,16 +141,17 @@ Entities can modulate their appearance for communication or camouflage:
 - **Signal**: Real-time color modulation (Brighten/Warning vs Darken/Stealth).
 - **Cost**: Actively signaling costs **0.1 energy per unit** of modulation intensity.
 
-### World Eras
+### World Eras (Phase 42)
 
-The simulation progresses through narrative eras based on global metrics:
+The simulation progresses through narrative eras triggered by macro-ecological metrics rather than simple time:
 
-| Era | Trigger |
-| --- | ------- |
-| **Genesis** | Initial state (Tick 0) |
-| **Dawn of Life**| `tick > 5000` AND `avg_lifespan > 200` |
-| **Flourishing** | `population > 200` AND `species_count > 3` |
-| **Apex Era** | `top_fitness > 5000` |
+| Era | Primary Trigger | Effect |
+| --- | ------- | ------ |
+| **Primordial** | Initial state (Tick 0) | Chaos adaptation, high mutation. |
+| **Dawn of Life**| `AvgLifespan > 200` OR `HerbivoreBiomass > 2000` | Stable population emerging. |
+| **Flourishing** | `Hotspots >= 2` AND `Population > 150` | High diversity, adaptive radiation. |
+| **Dominance War** | `CO2 > 800` OR `PredatorBiomass % > 30%` | Resource scarcity, metabolic stress (1.5x). |
+| **Apex Era** | `TopFitness > 8000` | Peak evolution reached, stability focus. |
 
 ### Photosynthesis (Food Growth)
 

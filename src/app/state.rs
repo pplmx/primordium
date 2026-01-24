@@ -53,6 +53,7 @@ pub struct App {
     pub archeology_index: usize,
     pub selected_fossil_index: usize, // NEW
     pub onboarding_step: Option<u8>,  // None=done, Some(0-2)=onboarding screens
+    pub view_mode: u8,                // NEW: 0: Normal, 1: Fertility, 2: Social
     // Layout tracking
     pub last_world_rect: Rect,
     // Live Data
@@ -117,6 +118,7 @@ impl App {
             } else {
                 Some(0) // Start onboarding for first-time users
             },
+            view_mode: 0,
             last_world_rect: Rect::default(),
             event_log: VecDeque::with_capacity(15),
             network_state: crate::model::infra::network::NetworkState::default(),

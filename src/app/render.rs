@@ -33,7 +33,7 @@ impl App {
         self.last_world_rect = left_layout[2];
 
         if self.screensaver {
-            let world_widget = WorldWidget::new(&self.world, true);
+            let world_widget = WorldWidget::new(&self.world, true, self.view_mode);
             f.render_widget(world_widget, f.size());
         } else {
             // STATUS BAR
@@ -117,8 +117,15 @@ impl App {
             biomass_bar.push(']');
 
             let pressure = (self.env.metabolism_multiplier() - 1.0) * 100.0;
+            let view_str = match self.view_mode {
+                1 => " [Fertility] ",
+                2 => " [Social] ",
+                _ => " [Normal] ",
+            };
+
             let world_stats = vec![
                 ratatui::text::Span::raw(format!("Pop: {} | ", self.world.entities.len())),
+                ratatui::text::Span::styled(view_str, Style::default().fg(Color::Cyan)),
                 ratatui::text::Span::styled(
                     "Biomass: ",
                     Style::default().add_modifier(Modifier::BOLD),
@@ -244,7 +251,7 @@ impl App {
                 .style(Style::default().fg(Color::Magenta));
             f.render_widget(pop_spark, spark_layout[1]);
 
-            let world_widget = WorldWidget::new(&self.world, false);
+            let world_widget = WorldWidget::new(&self.world, false, self.view_mode);
             f.render_widget(world_widget, left_layout[2]);
 
             let chronicle_block = Block::default()

@@ -6,6 +6,66 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 46: Evolutionary Stable Strategy (ESS) & Social Topology] - 2026-01-24
+
+### Evolutionary Leap: The Logic of Altruism
+
+Phase 46 moves beyond simple tribe matching by implementing a rigorous game-theoretic framework for social interaction. Entities now make decisions based on genetic relatedness and social reputation, leading to emergent cooperation and self-policing groups.
+
+#### ✨ Features
+
+- **Hamilton's Rule Integration**: Social benefits (Defense, Sharing) are now weighted by the Coefficient of Relatedness ($r$), derived from genetic distance.
+- **Reputation System**: Entities track a `reputation` metric. Altruistic acts (sharing) build reputation, while "betrayal" (attacking kin) destroys it.
+- **Social Punishment**: Low-reputation entities lose the protection of their tribe and can be hunted by kin, simulating the evolution of moral policing.
+- **Social Grid & Zones**: Divine brush tool (J) allows partitioning the world into Peace Zones (no predation) and War Zones (doubled attack power), enabling steered social experiments.
+
+---
+
+## [Phase 45: Global Hive - Robust P2P Connectivity] - 2026-01-24
+
+### Evolutionary Leap: Multiverse Integrity
+
+Phase 45 transforms the experimental P2P migration system into a production-ready "Global Hive" protocol, ensuring entities can move between universes without corruption or logical inconsistencies.
+
+#### ✨ Features
+
+- **Versioned Migration (Fingerprinting)**: World configurations are now hashed into unique fingerprints. Migration is only permitted between worlds with compatible physical/evolutionary constants.
+- **Data Integrity (SHA-256 Checksums)**: Every migrating entity is verified via SHA-256 to ensure DNA and metabolic state survive network transit.
+- **Backpressure Flow Control**: Implementation of inbound migration buffers (max 5 per tick) to prevent local population spikes and CPU saturation during massive migrations.
+- **Hive Dashboard**: Real-time TUI display of network health, peer counts, and migration flux.
+
+---
+
+## [Phase 44: Niche Construction & Nutrient Cycling] - 2026-01-24
+
+### Evolutionary Leap: The Great Cycle
+
+Phase 44 implements a closed-loop nutrient cycle, allowing biological activity to actively construct and maintain its local environment.
+
+#### ✨ Features
+
+- **Corpse Fertilization**: Death now returns a percentage of its stored biomass to the soil's fertility, creating "fertile graveyards" that boost vegetation.
+- **Metabolic Feedback (Excretion)**: High-energy entities moving across the terrain have a 10% chance to fertilize the soil, simulating natural excretion and niche construction.
+- **Lineage Registry Pruning**: Automatic garbage collection of extinct, low-impact lineages every 1,000 ticks to maintain peak performance during deep-time simulations.
+- **Soil Dashboard**: Real-time tracking of Global Average Fertility in the TUI status bar.
+
+---
+
+## [Phase 42-43: Adaptive Speciation & Era Dynamics] - 2026-01-24
+
+### Evolutionary Leap: Divergent Evolution
+
+Phases 42 and 43 focus on macro-evolutionary branching and the environmental forcing of adaptive radiations. The simulation now transitions between narrative eras based on global metrics rather than simple time.
+
+#### ✨ Features
+
+- **Automatic Speciation**: Real-time lineage splitting based on a genetic distance threshold (NEAT topology + Phenotypic traits).
+- **Era Transitions**: Dynamic shift between Primordial, Dawn of Life, Flourishing, and Dominance War eras triggered by Biomass, CO2, and Biodiversity metrics.
+- **Evolutionary Velocity**: Slide-window metrics tracking the "intensity" of genetic drift in the population.
+- **Fossil Resurrection**: Users can now select fossils in the archeology tool (Y) and resurrect/clone ancient genotypes back into the living world (G).
+
+---
+
 ## [Phase 41: Massive Parallelism & Spatial Indexing] - 2026-01-24
 
 ### Evolutionary Leap: Multi-Core Cognitive Scaling

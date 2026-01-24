@@ -53,6 +53,7 @@ impl App {
                 " [[/]]     Archeology Seek (Time)",
                 " [↑/↓]     Fossil Select (in Archeology)",
                 " [G]       Resurrect Fossil (Cloning)",
+                " [1/2/3]   Switch View (Normal/Soil/Social)",
                 " [J]       Toggle Social Brush (Peace/War)",
                 " [H]       Toggle this Help",
                 " [X]       Genetic Surge (mutate all)",

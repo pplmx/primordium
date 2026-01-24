@@ -36,6 +36,8 @@ The brain starts with a standard minimal configuration but grows dynamically:
 | 12 | `NT` | Nutrient Type of nearest food (0.0=Green, 1.0=Blue) |
 | 13 | `TP` | Internal Trophic Potential (0.0=Herbivore, 1.0=Carnivore) |
 
+> **Note**: While **Reputation** (Phase 46) is currently a system-level metric used for social punishment, future iterations will expose it as Input ID 20 to allow for reputation-aware decision making.
+
 ### Recurrent Inputs (14-19)
 
 | ID | Sensor | Description |

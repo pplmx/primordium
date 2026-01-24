@@ -9,11 +9,16 @@ use crate::model::world::World;
 pub struct WorldWidget<'a> {
     world: &'a World,
     screensaver: bool,
+    view_mode: u8, // NEW
 }
 
 impl<'a> WorldWidget<'a> {
-    pub fn new(world: &'a World, screensaver: bool) -> Self {
-        Self { world, screensaver }
+    pub fn new(world: &'a World, screensaver: bool, view_mode: u8) -> Self {
+        Self {
+            world,
+            screensaver,
+            view_mode,
+        }
     }
 
     pub fn get_inner_area(area: Rect, screensaver: bool) -> Rect {
@@ -74,40 +79,57 @@ impl<'a> Widget for WorldWidget<'a> {
         for y in 0..inner.height.min(self.world.terrain.height) {
             for x in 0..inner.width.min(self.world.terrain.width) {
                 let terrain = self.world.terrain.get_cell(x, y);
-                // Only render non-plains terrain to avoid clutter
-                if terrain.terrain_type != TerrainType::Plains {
-                    let screen_x = inner.x + x;
-                    let screen_y = inner.y + y;
-                    if screen_x < inner.right() && screen_y < inner.bottom() {
-                        let cell = buf.get_mut(screen_x, screen_y);
-                        cell.set_symbol(&terrain.terrain_type.symbol().to_string());
-                        cell.set_fg(terrain.terrain_type.color());
-                        // NEW: Show soil stress/exhaustion by dimming
-                        if terrain.fertility < 0.3 && terrain.terrain_type != TerrainType::Desert {
-                            cell.set_fg(Color::Rgb(100, 50, 50));
-                        }
+                let screen_x = inner.x + x;
+                let screen_y = inner.y + y;
+                if screen_x < inner.right() && screen_y < inner.bottom() {
+                    let cell = buf.get_mut(screen_x, screen_y);
 
-                        // NEW: Phase 46 - Social Grid Visualization (Background)
-                        let sm = self.world.social_grid[y as usize][x as usize];
-                        if sm == 1 {
-                            // Peace Zone
-                            cell.set_bg(Color::Rgb(0, 0, 80));
-                        } else if sm == 2 {
-                            // War Zone
-                            cell.set_bg(Color::Rgb(80, 0, 0));
+                    // VIEW MODES
+                    match self.view_mode {
+                        1 => {
+                            // FERTILITY HEATMAP
+                            let f = terrain.fertility;
+                            let r = (255.0 * (1.0 - f)) as u8;
+                            let g = (255.0 * f) as u8;
+                            cell.set_bg(Color::Rgb(r / 4, g / 2, 0));
+                            if terrain.terrain_type != TerrainType::Plains {
+                                cell.set_symbol(terrain.terrain_type.symbol().to_string().as_str());
+                                cell.set_fg(terrain.terrain_type.color());
+                            }
                         }
-                    }
-                } else {
-                    // Check social grid even for Plains
-                    let screen_x = inner.x + x;
-                    let screen_y = inner.y + y;
-                    if screen_x < inner.right() && screen_y < inner.bottom() {
-                        let cell = buf.get_mut(screen_x, screen_y);
-                        let sm = self.world.social_grid[y as usize][x as usize];
-                        if sm == 1 {
-                            cell.set_bg(Color::Rgb(0, 0, 80));
-                        } else if sm == 2 {
-                            cell.set_bg(Color::Rgb(80, 0, 0));
+                        2 => {
+                            // SOCIAL ZONES & REPUTATION HEATMAP
+                            let sm = self.world.social_grid[y as usize][x as usize];
+                            if sm == 1 {
+                                cell.set_bg(Color::Rgb(0, 0, 100)); // Peace
+                            } else if sm == 2 {
+                                cell.set_bg(Color::Rgb(100, 0, 0)); // War
+                            } else {
+                                cell.set_bg(Color::Rgb(20, 20, 20));
+                            }
+                            if terrain.terrain_type != TerrainType::Plains {
+                                cell.set_symbol(terrain.terrain_type.symbol().to_string().as_str());
+                                cell.set_fg(terrain.terrain_type.color());
+                            }
+                        }
+                        _ => {
+                            // NORMAL VIEW
+                            if terrain.terrain_type != TerrainType::Plains {
+                                cell.set_symbol(terrain.terrain_type.symbol().to_string().as_str());
+                                cell.set_fg(terrain.terrain_type.color());
+                                if terrain.fertility < 0.3
+                                    && terrain.terrain_type != TerrainType::Desert
+                                {
+                                    cell.set_fg(Color::Rgb(100, 50, 50));
+                                }
+                            }
+                            // Show Social Zones even in normal view but subtle
+                            let sm = self.world.social_grid[y as usize][x as usize];
+                            if sm == 1 {
+                                cell.set_bg(Color::Rgb(0, 0, 40));
+                            } else if sm == 2 {
+                                cell.set_bg(Color::Rgb(40, 0, 0));
+                            }
                         }
                     }
                 }

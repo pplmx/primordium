@@ -86,6 +86,23 @@ impl App {
                     self.onboarding_step = None; // Close onboarding if help opened
                 }
             }
+            // View Mode Switching (only if help and onboarding closed)
+            KeyCode::Char('1') if !self.show_help && self.onboarding_step.is_none() => {
+                self.view_mode = 0;
+                self.event_log
+                    .push_back(("View: NORMAL".to_string(), Color::White));
+            }
+            KeyCode::Char('2') if !self.show_help && self.onboarding_step.is_none() => {
+                self.view_mode = 1;
+                self.event_log
+                    .push_back(("View: FERTILITY HEATMAP".to_string(), Color::Green));
+            }
+            KeyCode::Char('3') if !self.show_help && self.onboarding_step.is_none() => {
+                self.view_mode = 2;
+                self.event_log
+                    .push_back(("View: SOCIAL ZONES".to_string(), Color::Cyan));
+            }
+
             // Help tab navigation (only when help is open)
             KeyCode::Char('1') if self.show_help => self.help_tab = 0,
             KeyCode::Char('2') if self.show_help => self.help_tab = 1,
