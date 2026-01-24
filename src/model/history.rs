@@ -43,7 +43,6 @@ impl FossilRegistry {
 
     pub fn add_fossil(&mut self, fossil: Fossil) {
         self.fossils.push(fossil);
-        // Keep only top 100 interesting fossils
         if self.fossils.len() > 100 {
             self.fossils
                 .sort_by(|a, b| b.total_offspring.cmp(&a.total_offspring));
@@ -87,7 +86,6 @@ pub enum LiveEvent {
         tick: u64,
         timestamp: String,
     },
-    /// NEW: Phase 40 - Periodic World Snapshot for Playback
     Snapshot {
         tick: u64,
         stats: PopulationStats,
@@ -99,7 +97,7 @@ pub enum LiveEvent {
 pub struct Legend {
     pub id: Uuid,
     pub parent_id: Option<Uuid>,
-    pub lineage_id: Uuid, // NEW
+    pub lineage_id: Uuid,
     pub birth_tick: u64,
     pub death_tick: u64,
     pub lifespan: u64,
@@ -119,17 +117,12 @@ pub struct PopulationStats {
     pub avg_brain_entropy: f64,
     pub species_count: usize,
     pub top_fitness: f64,
-    /// NEW: Biomass per trophic level (Plants, Herbivores, Predators)
     pub biomass_h: f64,
     pub biomass_c: f64,
     pub food_count: usize,
-    /// NEW: Count of entities per lineage.
     pub lineage_counts: HashMap<Uuid, usize>,
-    /// NEW: Phase 38 - Atmospheric Carbon Level
     pub carbon_level: f64,
-    /// NEW: Phase 38 - Number of identified biodiversity hotspots
     pub biodiversity_hotspots: usize,
-    /// NEW: Phase 39 - Current mutation scaling factor
     pub mutation_scale: f32,
     recent_deaths: VecDeque<f64>,
 }
@@ -192,23 +185,18 @@ impl PopulationStats {
             return;
         }
 
-        // Calculate biodiversity hotspots (rough approximation)
-        // Divide world into 10x10 sectors
         let mut sectors: HashMap<(i32, i32), HashSet<Uuid>> = HashMap::new();
-
         for e in entities {
             *self
                 .lineage_counts
                 .entry(e.metabolism.lineage_id)
                 .or_insert(0) += 1;
-
             let tp = e.metabolism.trophic_potential;
             if tp < 0.4 {
                 self.biomass_h += e.metabolism.energy;
             } else if tp > 0.6 {
                 self.biomass_c += e.metabolism.energy;
             }
-
             let sx = (e.physics.x / 10.0) as i32;
             let sy = (e.physics.y / 10.0) as i32;
             sectors
@@ -216,10 +204,8 @@ impl PopulationStats {
                 .or_default()
                 .insert(e.metabolism.lineage_id);
         }
-
         self.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
 
-        // 1. Recalculate Entropy (Shannon entropy of connection count buckets)
         let mut complexity_freq = HashMap::new();
         for e in entities {
             let conn_count = e
@@ -230,7 +216,7 @@ impl PopulationStats {
                 .iter()
                 .filter(|c| c.enabled)
                 .count();
-            let bucket = (conn_count / 10) * 10; // Bin into buckets of 10 connections
+            let bucket = (conn_count / 10) * 10;
             *complexity_freq.entry(bucket).or_insert(0.0) += 1.0;
         }
         let total_samples = complexity_freq.values().sum::<f64>();
@@ -243,7 +229,6 @@ impl PopulationStats {
         }
         self.avg_brain_entropy = entropy;
 
-        // 2. Count Species (Genotype distance clustering)
         let mut representatives: Vec<&crate::model::brain::Brain> = Vec::new();
         let threshold = 2.0;
         for e in entities {
@@ -297,24 +282,34 @@ impl HallOfFame {
 
 pub struct HistoryLogger {
     live_file: Option<BufWriter<File>>,
+    log_dir: String,
 }
 
 impl HistoryLogger {
     pub fn new() -> anyhow::Result<Self> {
-        if !std::path::Path::new("logs").exists() {
-            std::fs::create_dir_all("logs")?;
+        Self::new_at("logs")
+    }
+
+    pub fn new_at(dir: &str) -> anyhow::Result<Self> {
+        if !std::path::Path::new(dir).exists() {
+            std::fs::create_dir_all(dir)?;
         }
+        let file_path = format!("{}/live.jsonl", dir);
         let file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open("logs/live.jsonl")?;
+            .open(file_path)?;
         Ok(Self {
             live_file: Some(BufWriter::new(file)),
+            log_dir: dir.to_string(),
         })
     }
 
     pub fn new_dummy() -> Self {
-        Self { live_file: None }
+        Self {
+            live_file: None,
+            log_dir: "".to_string(),
+        }
     }
 
     pub fn log_event(&mut self, event: LiveEvent) -> anyhow::Result<()> {
@@ -328,11 +323,11 @@ impl HistoryLogger {
 
     pub fn archive_legend(&self, legend: Legend) -> anyhow::Result<()> {
         if self.live_file.is_some() {
+            let file_path = format!("{}/legends.json", self.log_dir);
             let mut file = OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open("logs/legends.json")?;
-
+                .open(file_path)?;
             let json = serde_json::to_string(&legend)?;
             writeln!(file, "{}", json)?;
         }
@@ -340,7 +335,8 @@ impl HistoryLogger {
     }
 
     pub fn get_all_legends(&self) -> anyhow::Result<Vec<Legend>> {
-        let file = match File::open("logs/legends.json") {
+        let file_path = format!("{}/legends.json", self.log_dir);
+        let file = match File::open(file_path) {
             Ok(f) => f,
             Err(_) => return Ok(vec![]),
         };
@@ -360,7 +356,8 @@ impl HistoryLogger {
     }
 
     pub fn get_snapshots(&self) -> anyhow::Result<Vec<(u64, PopulationStats)>> {
-        let file = match File::open("logs/live.jsonl") {
+        let file_path = format!("{}/live.jsonl", self.log_dir);
+        let file = match File::open(file_path) {
             Ok(f) => f,
             Err(_) => return Ok(vec![]),
         };
@@ -407,7 +404,6 @@ impl LiveEvent {
                 (msg, Color::Red)
             }
             LiveEvent::ClimateShift { from, to, .. } => {
-                // Provide context on what the climate change means
                 let effect = match to.as_str() {
                     "Temperate" => "☀️ Temperate - Metabolism ×1.0 (stable)",
                     "Warm" => "🔥 Warm - Metabolism ×1.5 (faster drain)",

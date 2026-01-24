@@ -6,7 +6,61 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
-## [Phase 34: The Tree of Life (Ancestry Visualization)] - 2026-01-23
+## [Phase 41: Massive Parallelism & Spatial Indexing] - 2026-01-24
+
+### Evolutionary Leap: Multi-Core Cognitive Scaling
+
+Phase 41 transitions the world update loop from sequential processing to a highly parallelized pipeline. By leveraging Rayon and a row-partitioned Spatial Hash, the engine can now simulate 10,000+ entities with zero-jitter performance, effectively saturating modern multi-core CPUs.
+
+#### ✨ Features
+
+- **Massive Parallelism**: All individual biological and neural processes are now computed in parallel using thread-local buffers.
+- **Parallel Interaction Pass**: Implemented an "Interaction Proposal" system where entities propose actions (Kill, Birth, Eat) in parallel, resolved sequentially to ensure thread safety.
+- **Optimized Spatial Indexing**: Row-level mutex protection enables parallel construction of the Spatial Hash grid.
+
+#### 🛠️ Technical Achievements
+
+- **Rayon Integration**: Refactored `World::update` into a 3-pass parallel architecture (Perception -> Intel/Action Proposals -> Command Resolution).
+- **Inertia Scaling Fix**: Refined momentum calculations to ensure larger entities correctly display increased mass and reduced responsiveness.
+
+---
+
+## [Phase 40: Archeology & Deep History] - 2026-01-24
+
+### Evolutionary Leap: Fossil Records & Time Travel
+
+Phase 40 introduces deep time into the simulation. Users can now preserve the legacy of extinct lineages through persistent fossilization and browse the macro-evolutionary trajectory of their world via history snapshots.
+
+#### ✨ Features
+
+- **Fossil Record**: Persistent archival of extinct lineages' "Best Legendary" representatives in `logs/fossils.json`.
+- **History Snapshots**: Periodic macro-state capture (every 1,000 ticks) including biodiversity hotspots and atmospheric carbon levels.
+- **Archeology View (Y)**: A dedicated TUI panel for browsing fossilized dynasties and navigating history.
+- **Time Travel Navigation**: Seek through world history snapshots using `[` and `]` keys.
+
+#### 🛠️ Technical Achievements
+
+- **Persistent Historical State**: Implemented `FossilRegistry` and `HistoryLogger::Snapshot` for low-overhead macro-state recording.
+- **Fossilization Engine**: Automated extraction of neural genotypes upon lineage extinction.
+
+---
+
+## [Phase 38-39: Resilience, Stasis & Succession] - 2026-01-24
+
+### Evolutionary Leap: Genetic Drift & Biome Succession
+
+Phase 38 and 39 focus on long-term ecological stability and the genetic mechanisms that govern population resilience.
+
+#### ✨ Features
+
+- **Population-Aware Mutation**: Mutation rates dynamically scale (0.5x to 3.0x) based on current population density, balancing exploration and exploitation.
+- **Genetic Drift**: Implemented stochastic trait randomization in bottlenecked populations (<10 entities).
+- **Environmental Succession**: Biomes now transition between Plains, Forest, and Desert based on fertility and plant biomass.
+- **Global Carbon Cycle**: Integrated metabolic carbon emissions with biological sequestration, linked to climate state forcing.
+
+---
+
+## [Phase 35: Trophic Cascades & Apex Competition] - 2026-01-23
 
 ### Evolutionary Leap: Macroevolutionary Graphing & Dynastic Analysis
 

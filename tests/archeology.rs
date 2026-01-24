@@ -4,38 +4,59 @@ use primordium_lib::model::world::World;
 
 #[test]
 fn test_fossilization_and_snapshots() {
+    let log_dir = "logs_test_archeology_isolated";
+    let _ = std::fs::remove_dir_all(log_dir);
+    let _ = std::fs::create_dir_all(log_dir);
+
     let mut config = AppConfig::default();
     config.world.width = 20;
     config.world.height = 20;
     config.world.initial_population = 1;
 
-    let mut world = World::new(1, config).unwrap();
+    let mut world = World::new_at(1, config, log_dir).unwrap();
+
     let mut env = Environment::default();
 
     let l_id = world.entities[0].metabolism.lineage_id;
+
+    // Debug: Check initial state
+    let initial_pop = world
+        .lineage_registry
+        .lineages
+        .get(&l_id)
+        .map(|r| r.current_population)
+        .unwrap_or(0);
+    assert_eq!(initial_pop, 1, "Initial population should be 1");
 
     // 1. Force a "Legend" state
     world.entities[0].metabolism.offspring_count = 100;
     world.entities[0].metabolism.peak_energy = 500.0;
 
-    // 2. Kill it through starvation (setting energy to 0)
+    // 2. Kill it through starvation
     world.entities[0].metabolism.energy = 0.0;
 
-    // Update world - this should trigger record_death and archive_if_legend
+    // Run update
     world.update(&mut env).unwrap();
 
-    // Ensure it's extinct in registry
+    // Debug: Check entity count
+    assert_eq!(
+        world.entities.len(),
+        0,
+        "Entity should be dead after starvation"
+    );
+
     assert!(
         world
             .lineage_registry
             .lineages
             .get(&l_id)
             .unwrap()
-            .is_extinct
+            .is_extinct,
+        "Lineage should be extinct after population death"
     );
 
-    // 3. Fast forward to tick 1000 (where snapshot and fossilization happen)
-    while world.tick < 1000 {
+    // 3. Fast forward to tick 1001 (where snapshot and fossilization happen every 1000)
+    while world.tick < 1001 {
         world.update(&mut env).unwrap();
     }
 

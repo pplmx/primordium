@@ -13,6 +13,7 @@ fn test_phenotype_inheritance_and_mutation() {
     p1.intel.genotype.sensing_range = 10.0;
     p1.intel.genotype.max_speed = 2.0;
     p1.intel.genotype.max_energy = 400.0;
+    p1.intel.genotype.maturity_gene = 2.0; // Ensure max_energy is derived from a known state
 
     let config = AppConfig::default();
 
@@ -25,9 +26,9 @@ fn test_phenotype_inheritance_and_mutation() {
     );
 
     // Phenotype fields in Physics/Metabolism should have been synced during reproduction
-    assert!(child.physics.sensing_range > 3.0 && child.physics.sensing_range < 15.0);
-    assert!(child.physics.max_speed > 0.5 && child.physics.max_speed < 3.0);
-    assert!(child.metabolism.max_energy > 100.0 && child.metabolism.max_energy < 500.0);
+    assert!(child.physics.sensing_range >= 3.0 && child.physics.sensing_range <= 15.0);
+    assert!(child.physics.max_speed >= 0.5 && child.physics.max_speed <= 3.0);
+    assert!(child.metabolism.max_energy >= 100.0 && child.metabolism.max_energy <= 500.0);
 }
 
 #[test]

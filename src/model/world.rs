@@ -31,6 +31,34 @@ pub struct EntitySnapshot {
     pub b: u8,
 }
 
+/// NEW: Phase 41 - Commands generated during parallel interaction pass
+#[derive(Debug)]
+pub enum InteractionCommand {
+    Kill {
+        target_id: uuid::Uuid,
+        attacker_lineage: uuid::Uuid,
+        energy_gain: f64,
+        cause: String,
+    },
+    TransferEnergy {
+        target_id: uuid::Uuid,
+        amount: f64,
+    },
+    Birth {
+        parent_id: uuid::Uuid,
+        baby: Box<Entity>,
+    },
+    EatFood {
+        food_index: usize,
+        attacker_id: uuid::Uuid,
+        energy_gain: f64,
+    },
+    Infect {
+        target_id: uuid::Uuid,
+        pathogen: crate::model::state::pathogen::Pathogen,
+    },
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct World {
     pub width: u16,
@@ -51,6 +79,7 @@ pub struct World {
     pub pheromones: PheromoneGrid,
     pub lineage_registry: LineageRegistry,
     pub fossil_registry: FossilRegistry,
+    pub log_dir: String,
     pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
 
     #[serde(skip, default)]
@@ -76,11 +105,18 @@ pub struct World {
 
 impl World {
     pub fn new(initial_population: usize, config: AppConfig) -> anyhow::Result<Self> {
+        Self::new_at(initial_population, config, "logs")
+    }
+
+    pub fn new_at(
+        initial_population: usize,
+        config: AppConfig,
+        log_dir: &str,
+    ) -> anyhow::Result<Self> {
         let mut rng = rand::thread_rng();
         let mut entities = Vec::with_capacity(initial_population);
-        let logger = HistoryLogger::new()?;
-        let mut lineage_registry = LineageRegistry::load("logs/lineages.json").unwrap_or_default();
-        let fossil_registry = FossilRegistry::load("logs/fossils.json").unwrap_or_default();
+        let logger = HistoryLogger::new_at(log_dir)?;
+        let mut lineage_registry = LineageRegistry::new();
         for _ in 0..initial_population {
             let e = Entity::new(
                 rng.gen_range(1.0..config.world.width as f64 - 1.0),
@@ -123,7 +159,8 @@ impl World {
             terrain,
             pheromones,
             lineage_registry,
-            fossil_registry,
+            fossil_registry: FossilRegistry::default(),
+            log_dir: log_dir.to_string(),
             active_pathogens: Vec::new(),
             best_legends: std::collections::HashMap::new(),
             killed_ids: HashSet::new(),
@@ -135,6 +172,14 @@ impl World {
             energy_transfers: Vec::new(),
             lineage_consumption: Vec::new(),
         })
+    }
+
+    pub fn load_persistent(&mut self) -> anyhow::Result<()> {
+        self.lineage_registry =
+            LineageRegistry::load(format!("{}/lineages.json", self.log_dir)).unwrap_or_default();
+        self.fossil_registry =
+            FossilRegistry::load(&format!("{}/fossils.json", self.log_dir)).unwrap_or_default();
+        Ok(())
     }
 
     fn update_best_legend(&mut self, legend: crate::model::history::Legend) {
@@ -401,104 +446,307 @@ impl World {
             }
         }
 
-        for i in 0..current_entities.len() {
-            if killed_ids.contains(&current_entities[i].id) {
-                continue;
-            }
-            let kin_vx = perception_buffer[i][6] as f64;
-            let kin_vy = perception_buffer[i][7] as f64;
-            if kin_vx != 0.0 || kin_vy != 0.0 {
-                let dot_product = current_entities[i].physics.vx * kin_vx
-                    + current_entities[i].physics.vy * kin_vy;
-                if dot_product > 0.5 {
-                    current_entities[i].metabolism.energy += 0.05;
+        // Pass 2: Interaction Proposals
+        let interaction_commands: Vec<InteractionCommand> = current_entities
+            .par_iter()
+            .enumerate()
+            .filter_map(|(i, e)| {
+                if killed_ids.contains(&e.id) {
+                    return None;
                 }
-            }
-            if current_entities[i].metabolism.energy <= 0.0 {
-                biological::handle_death(
-                    i,
-                    &current_entities,
-                    self.tick,
-                    "starvation",
-                    &mut self.pop_stats,
-                    &mut events,
-                    &mut self.logger,
-                );
-                continue;
-            }
-            biological::handle_infection(
-                i,
-                &mut current_entities,
-                &killed_ids,
-                &self.active_pathogens,
-                &self.spatial_hash,
-                &mut rng,
-            );
-            let outputs = decision_buffer[i].0;
-            let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
-            if predation_mode {
-                let mut ctx = social::PredationContext {
-                    snapshots: &entity_snapshots,
-                    killed_ids: &mut killed_ids,
-                    events: &mut events,
-                    config: &self.config,
-                    spatial_hash: &self.spatial_hash,
-                    pheromones: &mut self.pheromones,
-                    pop_stats: &mut self.pop_stats,
-                    logger: &mut self.logger,
-                    tick: self.tick,
-                    energy_transfers: &mut energy_transfers,
-                    lineage_consumption: &mut self.lineage_consumption,
-                };
-                social::handle_predation(i, &mut current_entities, &mut ctx);
-            }
-            let mut share_ctx = social::PredationContext {
-                snapshots: &entity_snapshots,
-                killed_ids: &mut killed_ids,
-                events: &mut events,
-                config: &self.config,
-                spatial_hash: &self.spatial_hash,
-                pheromones: &mut self.pheromones,
-                pop_stats: &mut self.pop_stats,
-                logger: &mut self.logger,
-                tick: self.tick,
-                energy_transfers: &mut energy_transfers,
-                lineage_consumption: &mut self.lineage_consumption,
-            };
-            social::handle_sharing(i, &mut current_entities, &mut share_ctx);
-            let mut feed_ctx = ecological::FeedingContext {
-                food: &self.food,
-                food_hash: &self.food_hash,
-                eaten_indices: &mut eaten_food_indices,
-                terrain: &mut self.terrain,
-                pheromones: &mut self.pheromones,
-                food_value: self.config.metabolism.food_value,
-                lineage_consumption: &mut self.lineage_consumption,
-            };
-            ecological::handle_feeding_optimized(i, &mut current_entities, &mut feed_ctx);
-            if let Some(baby) = social::handle_reproduction(
-                i,
-                &mut current_entities,
-                &killed_ids,
-                &self.spatial_hash,
-                &self.config,
-                self.tick,
-            ) {
-                self.lineage_registry.record_birth(
-                    baby.metabolism.lineage_id,
-                    baby.metabolism.generation,
-                    self.tick,
-                );
-                let ev = LiveEvent::Birth {
-                    id: baby.id,
-                    parent_id: Some(current_entities[i].id),
-                    gen: baby.metabolism.generation,
-                    tick: self.tick,
-                    timestamp: Utc::now().to_rfc3339(),
-                };
-                let _ = self.logger.log_event(ev.clone());
-                events.push(ev);
-                new_babies.push(baby);
+                let mut local_cmds = Vec::new();
+                let mut local_rng = rand::thread_rng();
+
+                let kin_vx = perception_buffer[i][6] as f64;
+                let kin_vy = perception_buffer[i][7] as f64;
+                if (kin_vx != 0.0 || kin_vy != 0.0)
+                    && (e.physics.vx * kin_vx + e.physics.vy * kin_vy) > 0.5
+                {
+                    local_cmds.push(InteractionCommand::TransferEnergy {
+                        target_id: e.id,
+                        amount: 0.05,
+                    });
+                }
+
+                let outputs = decision_buffer[i].0;
+                let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
+                if predation_mode {
+                    let territorial_bonus = social::get_territorial_aggression(e);
+                    let targets = self.spatial_hash.query(e.physics.x, e.physics.y, 1.5);
+                    for t_idx in targets {
+                        let v_snap = &entity_snapshots[t_idx];
+                        if v_snap.id != e.id && !social::are_same_tribe(e, &current_entities[t_idx])
+                        {
+                            let allies = self.spatial_hash.query(v_snap.x, v_snap.y, 3.0);
+                            let ally_count = allies
+                                .iter()
+                                .filter(|&&a_idx| {
+                                    entity_snapshots[a_idx].id != v_snap.id
+                                        && entity_snapshots[a_idx].lineage_id == v_snap.lineage_id
+                                })
+                                .count();
+                            let defense_mult = (1.0 - (ally_count as f64 * 0.15)).max(0.4);
+                            if (e.metabolism.energy * territorial_bonus)
+                                > (v_snap.energy / defense_mult)
+                            {
+                                let gain = v_snap.energy
+                                    * (e.metabolism.trophic_potential as f64)
+                                    * (1.0 - (self.pop_stats.biomass_c / 10000.0)).max(0.5);
+                                local_cmds.push(InteractionCommand::Kill {
+                                    target_id: v_snap.id,
+                                    attacker_lineage: e.metabolism.lineage_id,
+                                    energy_gain: gain,
+                                    cause: "predation".to_string(),
+                                });
+                                local_cmds.push(InteractionCommand::TransferEnergy {
+                                    target_id: e.id,
+                                    amount: gain - 10.0,
+                                });
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if social::can_share(e) && e.intel.last_share_intent >= 0.5 {
+                    let targets = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
+                    for t_idx in targets {
+                        let t_snap = &entity_snapshots[t_idx];
+                        if t_snap.id != e.id
+                            && social::are_same_tribe(e, &current_entities[t_idx])
+                            && t_snap.energy < e.metabolism.energy
+                        {
+                            let amount = e.metabolism.energy * 0.05;
+                            local_cmds.push(InteractionCommand::TransferEnergy {
+                                target_id: t_snap.id,
+                                amount,
+                            });
+                            local_cmds.push(InteractionCommand::TransferEnergy {
+                                target_id: e.id,
+                                amount: -amount,
+                            });
+                        }
+                    }
+                }
+
+                if e.is_mature(self.tick, self.config.metabolism.maturity_age)
+                    && e.metabolism.energy > self.config.metabolism.reproduction_threshold
+                {
+                    let mate_indices = self.spatial_hash.query(e.physics.x, e.physics.y, 3.0);
+                    let mut mate_idx = None;
+                    for m_idx in mate_indices {
+                        if m_idx != i
+                            && entity_snapshots[m_idx].energy > 100.0
+                            && (1.0
+                                - (current_entities[m_idx].metabolism.trophic_potential
+                                    - e.intel.genotype.mate_preference)
+                                    .abs())
+                                > 0.8
+                        {
+                            mate_idx = Some(m_idx);
+                            break;
+                        }
+                    }
+                    if let Some(m_idx) = mate_idx {
+                        let mut child_genotype = intel::crossover_genotypes(
+                            &e.intel.genotype,
+                            &current_entities[m_idx].intel.genotype,
+                        );
+                        intel::mutate_genotype(
+                            &mut child_genotype,
+                            &self.config.evolution,
+                            current_entities.len(),
+                        );
+                        local_cmds.push(InteractionCommand::Birth {
+                            parent_id: e.id,
+                            baby: Box::new(social::reproduce_with_mate_parallel(
+                                e,
+                                self.tick,
+                                child_genotype,
+                            )),
+                        });
+                        local_cmds.push(InteractionCommand::TransferEnergy {
+                            target_id: e.id,
+                            amount: -50.0,
+                        });
+                    } else {
+                        local_cmds.push(InteractionCommand::Birth {
+                            parent_id: e.id,
+                            baby: Box::new(social::reproduce_asexual_parallel(
+                                e,
+                                self.tick,
+                                &self.config.evolution,
+                                current_entities.len(),
+                            )),
+                        });
+                    }
+                }
+
+                let (dx_f, dy_f, _) =
+                    ecological::sense_nearest_food(e, &self.food, &self.food_hash);
+                if (dx_f * dx_f + dy_f * dy_f) < 4.0 {
+                    let candidates = self.food_hash.query(e.physics.x, e.physics.y, 2.0);
+                    if let Some(&f_idx) = candidates.first() {
+                        let niche_eff = 1.0
+                            - (e.intel.genotype.metabolic_niche - self.food[f_idx].nutrient_type)
+                                .abs();
+                        let gain = self.config.metabolism.food_value
+                            * niche_eff as f64
+                            * (1.0 - e.metabolism.trophic_potential) as f64;
+                        if gain > 0.1 {
+                            local_cmds.push(InteractionCommand::EatFood {
+                                food_index: f_idx,
+                                attacker_id: e.id,
+                                energy_gain: gain,
+                            });
+                        }
+                    }
+                }
+
+                if let Some(ref path) = e.health.pathogen {
+                    let targets = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
+                    for t_idx in targets {
+                        if entity_snapshots[t_idx].id != e.id
+                            && local_rng.gen::<f32>() < path.transmission
+                        {
+                            local_cmds.push(InteractionCommand::Infect {
+                                target_id: entity_snapshots[t_idx].id,
+                                pathogen: path.clone(),
+                            });
+                        }
+                    }
+                } else {
+                    for path in &self.active_pathogens {
+                        if local_rng.gen::<f32>() < path.transmission * 0.01 {
+                            local_cmds.push(InteractionCommand::Infect {
+                                target_id: e.id,
+                                pathogen: path.clone(),
+                            });
+                        }
+                    }
+                }
+
+                if local_cmds.is_empty() {
+                    None
+                } else {
+                    Some(local_cmds)
+                }
+            })
+            .flatten()
+            .collect();
+
+        // Pass 3: Apply Commands
+        let id_to_index: std::collections::HashMap<uuid::Uuid, usize> = current_entities
+            .iter()
+            .enumerate()
+            .map(|(idx, e)| (e.id, idx))
+            .collect();
+        for cmd in interaction_commands {
+            match cmd {
+                InteractionCommand::Kill {
+                    target_id,
+                    attacker_lineage,
+                    energy_gain,
+                    cause,
+                } => {
+                    if !killed_ids.contains(&target_id) {
+                        if let Some(&v_idx) = id_to_index.get(&target_id) {
+                            killed_ids.insert(target_id);
+                            self.pop_stats.record_death(
+                                self.tick - current_entities[v_idx].metabolism.birth_tick,
+                            );
+                            let ev = LiveEvent::Death {
+                                id: target_id,
+                                age: self.tick - current_entities[v_idx].metabolism.birth_tick,
+                                offspring: current_entities[v_idx].metabolism.offspring_count,
+                                tick: self.tick,
+                                timestamp: Utc::now().to_rfc3339(),
+                                cause,
+                            };
+                            let _ = self.logger.log_event(ev.clone());
+                            events.push(ev);
+                            self.lineage_consumption
+                                .push((attacker_lineage, energy_gain));
+                            self.pheromones.deposit(
+                                current_entities[v_idx].physics.x,
+                                current_entities[v_idx].physics.y,
+                                PheromoneType::Danger,
+                                0.5,
+                            );
+                        }
+                    }
+                }
+                InteractionCommand::TransferEnergy { target_id, amount } => {
+                    if let Some(&idx) = id_to_index.get(&target_id) {
+                        // Skip dead entities (energy <= 0) and already killed entities
+                        if !killed_ids.contains(&target_id)
+                            && current_entities[idx].metabolism.energy > 0.0
+                        {
+                            current_entities[idx].metabolism.energy =
+                                (current_entities[idx].metabolism.energy + amount)
+                                    .clamp(0.0, current_entities[idx].metabolism.max_energy);
+                        }
+                    }
+                }
+                InteractionCommand::Birth { baby, .. } => {
+                    self.lineage_registry.record_birth(
+                        baby.metabolism.lineage_id,
+                        baby.metabolism.generation,
+                        self.tick,
+                    );
+                    let ev = LiveEvent::Birth {
+                        id: baby.id,
+                        parent_id: baby.parent_id,
+                        gen: baby.metabolism.generation,
+                        tick: self.tick,
+                        timestamp: Utc::now().to_rfc3339(),
+                    };
+                    let _ = self.logger.log_event(ev.clone());
+                    events.push(ev);
+                    new_babies.push(*baby);
+                }
+                InteractionCommand::EatFood {
+                    food_index,
+                    attacker_id,
+                    energy_gain,
+                } => {
+                    if !eaten_food_indices.contains(&food_index) {
+                        if let Some(&idx) = id_to_index.get(&attacker_id) {
+                            if !killed_ids.contains(&attacker_id)
+                                && current_entities[idx].metabolism.energy > 0.0
+                            {
+                                eaten_food_indices.insert(food_index);
+                                current_entities[idx].metabolism.energy =
+                                    (current_entities[idx].metabolism.energy + energy_gain)
+                                        .min(current_entities[idx].metabolism.max_energy);
+                                self.lineage_consumption.push((
+                                    current_entities[idx].metabolism.lineage_id,
+                                    energy_gain,
+                                ));
+                                self.terrain.deplete(
+                                    current_entities[idx].physics.x,
+                                    current_entities[idx].physics.y,
+                                    0.01,
+                                );
+                            }
+                        }
+                    }
+                }
+                InteractionCommand::Infect {
+                    target_id,
+                    pathogen,
+                } => {
+                    if let Some(&idx) = id_to_index.get(&target_id) {
+                        if !killed_ids.contains(&target_id)
+                            && current_entities[idx].health.pathogen.is_none()
+                            && rand::thread_rng().gen::<f32>()
+                                > current_entities[idx].health.immunity
+                        {
+                            current_entities[idx].health.pathogen = Some(pathogen);
+                            current_entities[idx].health.infection_timer = 100;
+                        }
+                    }
+                }
             }
         }
 
@@ -506,15 +754,6 @@ impl World {
             self.lineage_registry.record_consumption(*l_id, *amount);
         }
         self.lineage_consumption.clear();
-        for (target_idx, amount) in &energy_transfers {
-            if *target_idx < current_entities.len()
-                && !killed_ids.contains(&current_entities[*target_idx].id)
-            {
-                current_entities[*target_idx].metabolism.energy =
-                    (current_entities[*target_idx].metabolism.energy + amount)
-                        .min(current_entities[*target_idx].metabolism.max_energy);
-            }
-        }
 
         for e in current_entities {
             if killed_ids.contains(&e.id) {
@@ -524,13 +763,14 @@ impl World {
                 }
                 continue;
             }
+
             if e.metabolism.energy <= 0.0 {
                 self.lineage_registry.record_death(e.metabolism.lineage_id);
                 if let Some(legend) = social::archive_if_legend(&e, self.tick, &self.logger) {
                     self.update_best_legend(legend);
                 }
-            }
-            if e.metabolism.energy > 0.0 {
+                // Do not add to alive_entities
+            } else {
                 alive_entities.push(e);
             }
         }
@@ -603,8 +843,12 @@ impl World {
             }
         }
         if self.tick.is_multiple_of(1000) {
-            let _ = self.lineage_registry.save("logs/lineages.json");
-            let _ = self.fossil_registry.save("logs/fossils.json");
+            let _ = self
+                .lineage_registry
+                .save(format!("{}/lineages.json", self.log_dir));
+            let _ = self
+                .fossil_registry
+                .save(&format!("{}/fossils.json", self.log_dir));
             let snap_ev = LiveEvent::Snapshot {
                 tick: self.tick,
                 stats: self.pop_stats.clone(),

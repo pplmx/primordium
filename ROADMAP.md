@@ -370,7 +370,19 @@ toml = "0.8"
 - **Playback Infrastructure**: Implemented `Snapshot` events in `HistoryLogger` to track macro-evolutionary state over time.
 - **Time Travel Navigation**: Added keyboard controls (`[` and `]`) to seek through historical snapshots within the Archeology Tool.
 
-### Phase 41: Massive Parallelism & GPGPU 🚧
+### Phase 41: Massive Parallelism & Spatial Indexing ✅
+
+- **Rayon Integration**: Multi-threaded brain processing and perception lookups for 10,000+ entities.
+- **3-Pass Update Strategy**: Parallelized world update pipeline (Snapshot -> Interaction Proposals -> Sequential Resolution).
+- **Spatial Scaling**: Row-partitioned Spatial Hash with parallel construction.
+- **Performance**: Zero-jitter simulation scaling across all CPU cores.
+
+### Phase 42: Adaptive Radiations & Macro-Environmental Pressures 🚧
+
+- **Dynamic Era Transitions**: Automated shifts in world epochs based on global biomass, carbon levels, and biodiversity indices.
+- **Evolutionary Forcing**: Eras impact global mutation rates, resource spawn patterns, and metabolic costs to force "Adaptive Radiations".
+- **Ecological Indicators**: TUI visualization of "World Stability" and "Evolutionary Velocity".
+- **Feedback Loops**: Carbon levels impacting climate state (Global Warming) and biome succession rates.
 
 
 
@@ -417,7 +429,8 @@ toml = "0.8"
 | Phase 39 | Ecosystem Resilience | ✅ Complete |
 | Phase 39.5 | Perf & Observability | ✅ Complete |
 | Phase 40 | Archeology Tool | ✅ Complete |
-| Phase 41 | Massive Parallelism | 🚧 In Progress |
+| Phase 41 | Massive Parallelism | ✅ Complete |
+| Phase 42 | Adaptive Radiations | 🚧 In Progress |
 
 ---
 

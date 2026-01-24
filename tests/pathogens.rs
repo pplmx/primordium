@@ -5,10 +5,12 @@ use primordium_lib::model::world::World;
 
 #[test]
 fn test_pathogen_transmission() {
+    let log_dir = "logs_test_pathogens";
+    let _ = std::fs::remove_dir_all(log_dir);
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.game_mode = primordium_lib::model::config::GameMode::Cooperative; // Disable predation
-    let mut world = World::new(0, config).expect("Failed to create world");
+    let mut world = World::new_at(0, config, log_dir).expect("Failed to create world");
     let mut env = Environment::default();
 
     // 1. Setup Infected Patient Zero
@@ -30,6 +32,7 @@ fn test_pathogen_transmission() {
     let mut victim = primordium_lib::model::state::entity::Entity::new(10.0, 10.0, 0);
     victim.physics.vx = 0.0;
     victim.physics.vy = 0.0;
+    victim.health.immunity = 0.0; // Ensure no immunity for deterministic test
     world.entities.push(victim);
 
     // 3. Update world to spread infection

@@ -8,6 +8,7 @@ fn test_death_by_brain_bloat() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config.clone()).unwrap();
+    world.food.clear(); // Ensure no food for starvation test
     let mut env = Environment::default();
 
     // 1. Create an entity with a massive brain

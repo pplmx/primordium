@@ -365,6 +365,132 @@ pub fn reproduce_with_mate(
     }
 }
 
+/// NEW: Phase 41 - Parallel-friendly reproduction
+pub fn reproduce_asexual_parallel(
+    parent: &Entity,
+    tick: u64,
+    config: &crate::model::config::EvolutionConfig,
+    population: usize,
+) -> Entity {
+    let mut rng = rand::thread_rng();
+    let investment = parent.intel.genotype.reproductive_investment as f64;
+    let child_energy = parent.metabolism.energy * investment;
+
+    let mut child_genotype = parent.intel.genotype.clone();
+    intel::mutate_genotype(&mut child_genotype, config, population);
+
+    let r = {
+        let change = rng.gen_range(-15..=15);
+        (parent.physics.r as i16 + change).clamp(0, 255) as u8
+    };
+    let g = {
+        let change = rng.gen_range(-15..=15);
+        (parent.physics.g as i16 + change).clamp(0, 255) as u8
+    };
+    let b = {
+        let change = rng.gen_range(-15..=15);
+        (parent.physics.b as i16 + change).clamp(0, 255) as u8
+    };
+
+    use crate::model::state::entity::{Health, Intel, Metabolism, Physics};
+    use uuid::Uuid;
+
+    Entity {
+        id: Uuid::new_v4(),
+        parent_id: Some(parent.id),
+        physics: Physics {
+            x: parent.physics.x,
+            y: parent.physics.y,
+            vx: parent.physics.vx,
+            vy: parent.physics.vy,
+            r,
+            g,
+            b,
+            symbol: '●',
+            home_x: parent.physics.x,
+            home_y: parent.physics.y,
+            sensing_range: child_genotype.sensing_range,
+            max_speed: child_genotype.max_speed,
+        },
+        metabolism: Metabolism {
+            trophic_potential: child_genotype.trophic_potential,
+            energy: child_energy,
+            max_energy: child_genotype.max_energy,
+            peak_energy: child_energy,
+            birth_tick: tick,
+            generation: parent.metabolism.generation + 1,
+            offspring_count: 0,
+            lineage_id: child_genotype.lineage_id,
+        },
+        health: Health {
+            pathogen: None,
+            infection_timer: 0,
+            immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+        },
+        intel: Intel {
+            genotype: child_genotype,
+            last_hidden: [0.0; 6],
+            last_aggression: 0.0,
+            last_share_intent: 0.0,
+            last_signal: 0.0,
+        },
+    }
+}
+
+pub fn reproduce_with_mate_parallel(
+    parent: &Entity,
+    tick: u64,
+    child_genotype: crate::model::state::entity::Genotype,
+) -> Entity {
+    let mut rng = rand::thread_rng();
+    let investment = parent.intel.genotype.reproductive_investment as f64;
+    let child_energy = parent.metabolism.energy * investment;
+
+    use crate::model::state::entity::{Health, Intel, Metabolism, Physics};
+    use uuid::Uuid;
+
+    Entity {
+        id: Uuid::new_v4(),
+        parent_id: Some(parent.id),
+        physics: Physics {
+            x: parent.physics.x,
+            y: parent.physics.y,
+            vx: parent.physics.vx,
+            vy: parent.physics.vy,
+            r: parent.physics.r,
+            g: parent.physics.g,
+            b: parent.physics.b,
+            symbol: '●',
+            home_x: parent.physics.x,
+            home_y: parent.physics.y,
+            sensing_range: child_genotype.sensing_range,
+            max_speed: child_genotype.max_speed,
+        },
+        metabolism: Metabolism {
+            trophic_potential: child_genotype.trophic_potential,
+            energy: child_energy,
+            max_energy: child_genotype.max_energy,
+            peak_energy: child_energy,
+            birth_tick: tick,
+            generation: parent.metabolism.generation + 1,
+            offspring_count: 0,
+            lineage_id: child_genotype.lineage_id,
+        },
+        health: Health {
+            pathogen: None,
+            infection_timer: 0,
+            immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+        },
+        intel: Intel {
+            genotype: child_genotype,
+            last_hidden: [0.0; 6],
+            last_aggression: 0.0,
+            last_share_intent: 0.0,
+            last_signal: 0.0,
+        },
+    }
+}
+
 /// Handle extinction event.
 pub fn handle_extinction(
     entities: &[Entity],

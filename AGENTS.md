@@ -85,6 +85,18 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 - **Population-Aware Mutation**: Mutation scaling (0.5x to 3.0x) based on population density to balance exploration and exploitation.
 - **Genetic Drift**: Stochastic trait randomization in bottlenecked populations (<10 entities).
 
+### Archeology & History (Phase 40)
+
+- **Fossil Record**: Persistent archival of extinct legendary genotypes in `logs/fossils.json`.
+- **Snapshots**: Periodic macro-state capture (every 1,000 ticks) for history browsing.
+- **TUI Archeology**: Navigate world history with `[` / `]` keys in the `Y` view.
+
+### Massive Parallelism (Phase 41)
+
+- **Rayon Integration**: Parallelized Perception and Intel/Action systems.
+- **Command Proposals**: 3-pass update loop (Snapshot -> Parallel Proposals -> Sequential Apply).
+- **Spatial Scaling**: Optimized for 10,000+ entities via row-partitioned Spatial Hash.
+
 ### Life History Strategies (Phase 32)
 
 - **Investment**: `reproductive_investment` (0.1 to 0.9) defines the % of parent energy given to offspring.
