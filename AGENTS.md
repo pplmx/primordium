@@ -104,11 +104,21 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
 ### Brain Details
 
-- **Architecture**: Dynamic graph-based topology. Initialized as 21 inputs (14 sensors + 6 memory + 1 hearing) → 6 hidden → 8 outputs.
+- **Architecture**: Dynamic graph-based topology. Initialized as 22 inputs (14 sensors + 6 memory + 1 hearing + 1 partner_energy) → 6 hidden → 9 outputs.
 - **Topological Evolution**: Supports "Add Node" and "Add Connection" mutations with Innovation Tracking for crossover.
 - **Memory**: The 6 initial hidden layer values from $T-1$ are fed back as inputs for $T$ (Mapped to indices 14..20).
 - **Hearing**: Standard input at index 20.
-- **Outputs**: Standard outputs at indices 21..29.
+- **Partner Energy**: Input at index 21.
+- **Outputs**: Standard outputs at indices 22..31.
+    - 22: Move X
+    - 23: Move Y
+    - 24: Speed
+    - 25: Aggression
+    - 26: Share Intent
+    - 27: Color
+    - 28: Vocalization A
+    - 29: Vocalization B
+    - 30: Bond Request
 - **Metabolic Cost**: 0.02 per hidden node + 0.005 per enabled connection.
 
 ### Metabolic Niches (Phase 31)

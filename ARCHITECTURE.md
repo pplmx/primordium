@@ -28,7 +28,7 @@
 * **原则**: 逻辑以纯函数或 Stateless 的过程存在。通过 `Context` 结构体访问 State。
     * **`ecological.rs`**: 处理食性级联（Trophic Cascades）与资源自平衡。
     * **`environment.rs`**: 环境演替、生物群落（Biomes）转换、碳循环及时代（Era）更替逻辑。
-    * **`social.rs`**: 社交行为、捕食者-猎物动态及群体防御（Group Defense）。
+    * **`social.rs`**: 社交行为、捕食者-猎物动态、群体防御（Group Defense）及共生系统（Symbiosis）。
     * **`stats.rs`**: 宏观指标计算与多样性热点（Biodiversity Hotspots）探测。
     * **`intel.rs` / `biological.rs`**: 神经决策推理与代谢生命史策略。
 

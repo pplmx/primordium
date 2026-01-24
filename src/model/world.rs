@@ -80,6 +80,9 @@ pub enum InteractionCommand {
         target_idx: usize,
         partner_id: uuid::Uuid,
     },
+    BondBreak {
+        target_idx: usize,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -401,7 +404,10 @@ impl World {
                     }
                 }
                 if let Some(p_id) = e.intel.bonded_to {
-                    if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
+                    // Voluntary bond breaking: if Bond output < 0.2
+                    if outputs[8] < 0.2 {
+                        cmds.push(InteractionCommand::BondBreak { target_idx: i });
+                    } else if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
                         if entity_snapshots[p_idx].energy < 50.0 && e.metabolism.energy > 100.0 {
                             let amount = e.metabolism.energy * 0.1;
                             cmds.push(InteractionCommand::TransferEnergy {
@@ -566,6 +572,9 @@ impl World {
                     partner_id,
                 } => {
                     current_entities[target_idx].intel.bonded_to = Some(partner_id);
+                }
+                InteractionCommand::BondBreak { target_idx } => {
+                    current_entities[target_idx].intel.bonded_to = None;
                 }
                 InteractionCommand::Birth {
                     parent_idx,
