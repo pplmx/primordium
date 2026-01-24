@@ -78,6 +78,10 @@ pub enum InteractionCommand {
         y: f64,
         is_war: bool,
     },
+    Bond {
+        target_idx: usize,
+        partner_id: uuid::Uuid,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -116,9 +120,9 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 15]>,
+    perception_buffer: Vec<[f32; 16]>,
     #[serde(skip, default)]
-    decision_buffer: Vec<([f32; 8], [f32; 6])>,
+    decision_buffer: Vec<([f32; 9], [f32; 6])>,
     #[serde(skip, default)]
     energy_transfers: Vec<(usize, f64)>,
     #[serde(skip, default)]
@@ -360,7 +364,7 @@ impl World {
             // (Implemented during perception pass via herding bonus,
             // but here we reinforce neural connections)
 
-            let reinforcement = (energy_delta / e.metabolism.max_energy) as f32;
+            let reinforcement = (energy_delta / e.metabolism.max_energy.max(1.0)) as f32;
 
             // Apply learning if non-zero
             e.intel.genotype.brain.learn(
@@ -369,17 +373,18 @@ impl World {
                 reinforcement * 10.0,
             );
 
-            // VOCAL LEARNING (Phase 50)
-            // If heard_signal was strong and led to positive reinforcement,
-            // the brain will naturally associate Input 14 with the action.
-            // No explicit code needed if Hebbian learning works,
-            // but we ensure vocalization is recorded.
-
             // Reset prev_energy for next delta
             e.metabolism.prev_energy = e.metabolism.energy;
 
             // Update Social Rank
             e.intel.rank = social::calculate_social_rank(e, self.tick);
+
+            // Phase 51: Bond Persistence Check
+            if let Some(p_id) = e.intel.bonded_to {
+                if !entity_snapshots.iter().any(|s| s.id == p_id) {
+                    e.intel.bonded_to = None;
+                }
+            }
         });
 
         current_entities
@@ -458,10 +463,20 @@ impl World {
                     0.0
                 };
 
+                // SYMBIOSIS: Sense partner energy if bonded
+                let mut partner_energy = 0.0;
+                if let Some(p_id) = e.intel.bonded_to {
+                    if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
+                        partner_energy = (entity_snapshots[p_idx].energy
+                            / e.metabolism.max_energy.max(1.0))
+                            as f32;
+                    }
+                }
+
                 [
                     (dx_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
                     (dy_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
-                    (e.metabolism.energy / e.metabolism.max_energy) as f32,
+                    (e.metabolism.energy / e.metabolism.max_energy.max(1.0)) as f32,
                     (nearby_indices.len().saturating_sub(1) as f32 / 10.0).min(1.0),
                     pheromone_food,
                     (tribe_count as f32 / 5.0).min(1.0),
@@ -473,7 +488,8 @@ impl World {
                     (e.metabolism.birth_tick as f32 / self.tick.max(1) as f32).min(1.0),
                     f_type,
                     e.metabolism.trophic_potential,
-                    avg_hearing, // Input 14 (15th input)
+                    avg_hearing,    // Input 14
+                    partner_energy, // Input 15 (Index 21 in brain)
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
@@ -611,6 +627,37 @@ impl World {
                 }
 
                 let outputs = decision_buffer[i].0;
+
+                // Phase 51: SYMBIOSIS - Attempt to Bond
+                if e.intel.bonded_to.is_none() {
+                    if let Some(p_id) =
+                        social::handle_symbiosis(i, &current_entities, outputs, &self.spatial_hash)
+                    {
+                        local_cmds.push(InteractionCommand::Bond {
+                            target_idx: i,
+                            partner_id: p_id,
+                        });
+                    }
+                }
+
+                // Phase 51: Mutualistic Energy Transfer
+                if let Some(p_id) = e.intel.bonded_to {
+                    if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
+                        let p_snap = &entity_snapshots[p_idx];
+                        if p_snap.energy < 50.0 && e.metabolism.energy > 100.0 {
+                            let amount = e.metabolism.energy * 0.1;
+                            local_cmds.push(InteractionCommand::TransferEnergy {
+                                target_idx: p_idx,
+                                amount,
+                            });
+                            local_cmds.push(InteractionCommand::TransferEnergy {
+                                target_idx: i,
+                                amount: -amount,
+                            });
+                        }
+                    }
+                }
+
                 let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
                 if predation_mode {
                     let territorial_bonus = social::get_territorial_aggression(e);
@@ -972,6 +1019,12 @@ impl World {
                     let iy = (y as usize).min(self.height as usize - 1);
                     // 1: Peace, 2: War
                     self.social_grid[iy][ix] = if is_war { 2 } else { 1 };
+                }
+                InteractionCommand::Bond {
+                    target_idx,
+                    partner_id,
+                } => {
+                    current_entities[target_idx].intel.bonded_to = Some(partner_id);
                 }
             }
         }

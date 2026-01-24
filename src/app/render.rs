@@ -613,9 +613,9 @@ impl App {
                     ),
                 ]));
 
-                // Visualize Output Nodes (21..30)
+                // Visualize Output Nodes (21..29)
                 let mut out_spans = vec![ratatui::text::Span::raw(" Out: ")];
-                for i in 21..30 {
+                for i in 21..29 {
                     let val = *activations.get(&i).unwrap_or(&0.0);
                     let color = if val > 0.5 {
                         Color::Yellow
@@ -635,7 +635,6 @@ impl App {
                         26 => "Cl",
                         27 => "EA",
                         28 => "EB",
-                        29 => "Vc",
                         _ => "?",
                     };
                     out_spans.push(ratatui::text::Span::styled(
@@ -648,7 +647,7 @@ impl App {
                 lines.push(ratatui::text::Line::from(format!(
                     "  Nodes:       {} ({} hidden)",
                     entity.intel.genotype.brain.nodes.len(),
-                    entity.intel.genotype.brain.nodes.len().saturating_sub(30) + 6
+                    entity.intel.genotype.brain.nodes.len().saturating_sub(29) // 21 in + 8 out = 29
                 )));
                 lines.push(ratatui::text::Line::from(format!(
                     "  Connections: {}",
@@ -688,7 +687,7 @@ impl App {
                         _ => format!("H-{}", c.from),
                     };
                     let to_label = match c.to {
-                        21..=29 => format!("O-{}", c.to - 21),
+                        21..=28 => format!("O-{}", c.to - 21),
                         _ => format!("H-{}", c.to),
                     };
 

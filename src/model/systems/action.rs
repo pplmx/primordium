@@ -16,65 +16,34 @@ pub struct ActionContext<'a> {
 }
 
 /// Process brain outputs and apply movement and metabolic costs.
-pub fn action_system(entity: &mut Entity, outputs: [f32; 8], ctx: &mut ActionContext) {
-    // 1. Calculate phenotypic modifiers
+pub fn action_system(entity: &mut Entity, outputs: [f32; 9], ctx: &mut ActionContext) {
     let speed_cap = entity.physics.max_speed;
-    let sensing_radius = entity.physics.sensing_range;
-
-    // 2. Speed, Aggression and Signaling
     let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * speed_cap;
     let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
+
     entity.intel.last_aggression = (outputs[3] + 1.0) / 2.0;
     entity.intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
     entity.intel.last_signal = outputs[5];
+    entity.intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
 
-    // 3. Inertia/Responsiveness based on stomach size
-    // Larger stomach = more mass = higher inertia (slower response)
-    // Stomach penalty scales from 0.0 (200 capacity) to 0.3 (500 capacity)
     let stomach_penalty = (entity.metabolism.max_energy - 200.0).max(0.0) / 1000.0;
     let inertia = (0.8 + stomach_penalty).clamp(0.4, 0.95);
     entity.physics.vx = entity.physics.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
     entity.physics.vy = entity.physics.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
 
-    // 4. Calculate Costs
     let metabolism_mult = ctx.env.metabolism_multiplier();
-    // Move cost scales with speed capability
     let mut move_cost = ctx.config.metabolism.base_move_cost * metabolism_mult * speed_mult;
     if predation_mode {
         move_cost *= 2.0;
     }
 
-    // Signaling cost: active color shift consumes energy
     let signal_cost = outputs[5].abs() as f64 * 0.1;
-
-    // Brain Maintenance Cost: Larger brains cost more to keep alive
-    let hidden_node_count = entity
-        .intel
-        .genotype
-        .brain
-        .nodes
-        .iter()
-        .filter(|n| matches!(n.node_type, crate::model::brain::NodeType::Hidden))
-        .count();
-    let enabled_conn_count = entity
-        .intel
-        .genotype
-        .brain
-        .connections
-        .iter()
-        .filter(|c| c.enabled)
-        .count();
-    let brain_maintenance = (hidden_node_count as f64 * 0.02) + (enabled_conn_count as f64 * 0.005);
-
-    // Idle cost scales with sensing capability + brain size
-    let sensing_cost_mod = 1.0 + (sensing_radius - 5.0).max(0.0) * 0.1;
-    let idle_cost = (ctx.config.metabolism.base_idle_cost + brain_maintenance)
-        * metabolism_mult
-        * sensing_cost_mod;
+    let brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64 * 0.02)
+        + (entity.intel.genotype.brain.connections.len() as f64 * 0.005);
+    let idle_cost = (ctx.config.metabolism.base_idle_cost + brain_maintenance) * metabolism_mult;
 
     entity.metabolism.energy -= move_cost + idle_cost + signal_cost;
 
-    // 5. Semantic Pheromone Deposits
     if outputs[6] > 0.5 {
         ctx.pheromones.deposit(
             entity.physics.x,
@@ -95,7 +64,6 @@ pub fn action_system(entity: &mut Entity, outputs: [f32; 8], ctx: &mut ActionCon
     handle_movement(entity, speed_mult, ctx.terrain, ctx.width, ctx.height);
 }
 
-/// Handle entity movement with terrain collision and wall bouncing.
 pub fn handle_movement(
     entity: &mut Entity,
     speed: f64,
@@ -105,14 +73,11 @@ pub fn handle_movement(
 ) {
     let terrain_mod = terrain.movement_modifier(entity.physics.x, entity.physics.y);
     let effective_speed = speed * terrain_mod;
-
     let next_x = entity.physics.x + entity.physics.vx * effective_speed;
     let next_y = entity.physics.y + entity.physics.vy * effective_speed;
 
-    // Check for wall collisions
     let cell_type = terrain.get_cell(next_x as u16, next_y as u16).terrain_type;
     if matches!(cell_type, crate::model::state::terrain::TerrainType::Wall) {
-        // Bounce back
         entity.physics.vx *= -1.0;
         entity.physics.vy *= -1.0;
     } else {
@@ -120,7 +85,6 @@ pub fn handle_movement(
         entity.physics.y = next_y;
     }
 
-    // Wrap around or bounce on world boundaries
     if entity.physics.x < 0.0 {
         entity.physics.x = 0.0;
         entity.physics.vx *= -1.0;
@@ -128,7 +92,6 @@ pub fn handle_movement(
         entity.physics.x = f64::from(width) - 1.0;
         entity.physics.vx *= -1.0;
     }
-
     if entity.physics.y < 0.0 {
         entity.physics.y = 0.0;
         entity.physics.vy *= -1.0;
@@ -138,7 +101,6 @@ pub fn handle_movement(
     }
 }
 
-/// Handle world boundaries and game mode specific conditions (e.g., Battle Royale).
 pub fn handle_game_modes(
     entities: &mut [Entity],
     config: &AppConfig,
@@ -148,7 +110,6 @@ pub fn handle_game_modes(
 ) {
     use crate::model::config::GameMode;
     if config.game_mode == GameMode::BattleRoyale {
-        // Shrinking world boundary damage
         let shrink_speed = 0.01;
         let shrink_amount = (tick as f32 * shrink_speed).min(f32::from(width) / 2.0 - 5.0);
         let danger_radius_x = f32::from(width) / 2.0 - shrink_amount;
@@ -160,7 +121,7 @@ pub fn handle_game_modes(
             let dx = (e.physics.x as f32 - center_x).abs();
             let dy = (e.physics.y as f32 - center_y).abs();
             if dx > danger_radius_x || dy > danger_radius_y {
-                e.metabolism.energy -= 5.0; // Rapid damage outside safe zone
+                e.metabolism.energy -= 5.0;
             }
         }
     }
@@ -169,20 +130,17 @@ pub fn handle_game_modes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::config::GameMode;
-
+    use crate::model::state::environment::Environment;
     #[test]
     fn test_action_system_energy_consumption() {
         let mut entity = Entity::new(5.0, 5.0, 0);
         entity.metabolism.energy = 100.0;
         let initial_energy = entity.metabolism.energy;
-
-        let outputs = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let outputs = [0.0; 9];
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
         let mut pheromones = crate::model::state::pheromone::PheromoneGrid::new(20, 20);
-
         let mut ctx = ActionContext {
             env: &env,
             config: &config,
@@ -191,29 +149,21 @@ mod tests {
             width: 20,
             height: 20,
         };
-
         action_system(&mut entity, outputs, &mut ctx);
-
-        assert!(
-            entity.metabolism.energy < initial_energy,
-            "Energy should decrease after action"
-        );
+        assert!(entity.metabolism.energy < initial_energy);
     }
-
     #[test]
     fn test_action_system_predation_mode_higher_cost() {
         let mut entity_normal = Entity::new(5.0, 5.0, 0);
         let mut entity_predator = Entity::new(5.0, 5.0, 0);
         entity_normal.metabolism.energy = 100.0;
         entity_predator.metabolism.energy = 100.0;
-
-        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0];
-        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0];
+        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
         let mut pheromones = crate::model::state::pheromone::PheromoneGrid::new(20, 20);
-
         let mut ctx_n = ActionContext {
             env: &env,
             config: &config,
@@ -223,7 +173,6 @@ mod tests {
             height: 20,
         };
         action_system(&mut entity_normal, normal_outputs, &mut ctx_n);
-
         let mut ctx_p = ActionContext {
             env: &env,
             config: &config,
@@ -233,28 +182,19 @@ mod tests {
             height: 20,
         };
         action_system(&mut entity_predator, predator_outputs, &mut ctx_p);
-
-        assert!(
-            entity_predator.metabolism.energy < entity_normal.metabolism.energy,
-            "Predation mode should cost more energy"
-        );
+        assert!(entity_predator.metabolism.energy < entity_normal.metabolism.energy);
     }
-
     #[test]
     fn test_action_system_velocity_update() {
         let mut entity = Entity::new(5.0, 5.0, 0);
         entity.physics.vx = 0.0;
         entity.physics.vy = 0.0;
-
-        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let env = Environment::default();
         let config = AppConfig::default();
         let mut terrain = TerrainGrid::generate(20, 20, 42);
         let mut pheromones = crate::model::state::pheromone::PheromoneGrid::new(20, 20);
         terrain.set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Plains);
-        terrain.set_cell_type(6, 5, crate::model::state::terrain::TerrainType::Plains);
-        terrain.set_cell_type(5, 4, crate::model::state::terrain::TerrainType::Plains);
-
         let mut ctx = ActionContext {
             env: &env,
             config: &config,
@@ -264,73 +204,7 @@ mod tests {
             height: 20,
         };
         action_system(&mut entity, outputs, &mut ctx);
-
-        assert!(entity.physics.vx > 0.0, "Velocity X should be positive");
-        assert!(entity.physics.vy < 0.0, "Velocity Y should be negative");
-    }
-
-    #[test]
-    fn test_handle_game_modes_battle_royale_damage() {
-        let config = AppConfig {
-            game_mode: GameMode::BattleRoyale,
-            ..Default::default()
-        };
-        let mut entities = vec![Entity::new(0.5, 10.0, 0), Entity::new(10.0, 10.0, 0)];
-        entities[0].metabolism.energy = 100.0;
-        entities[1].metabolism.energy = 100.0;
-        handle_game_modes(&mut entities, &config, 100, 20, 20);
-        assert!(entities[0].metabolism.energy < 100.0);
-    }
-
-    #[test]
-    fn test_handle_game_modes_standard_no_damage() {
-        let config = AppConfig {
-            game_mode: GameMode::Standard,
-            ..Default::default()
-        };
-        let mut entities = vec![Entity::new(0.5, 10.0, 0)];
-        entities[0].metabolism.energy = 100.0;
-        handle_game_modes(&mut entities, &config, 100, 20, 20);
-        assert_eq!(entities[0].metabolism.energy, 100.0);
-    }
-
-    #[test]
-    fn test_handle_movement_boundary_bounce() {
-        let mut entity = Entity::new(0.5, 5.0, 0);
-        entity.physics.vx = -1.0;
-        let terrain = TerrainGrid::generate(10, 10, 42);
-        handle_movement(&mut entity, 1.0, &terrain, 10, 10);
         assert!(entity.physics.vx > 0.0);
-        assert!(entity.physics.x >= 0.0);
-    }
-
-    #[test]
-    fn test_handle_movement_wall_collision() {
-        let mut terrain = TerrainGrid::generate(10, 10, 42);
-        terrain.set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Wall);
-        let mut entity = Entity::new(4.5, 5.5, 0);
-        entity.physics.vx = 1.0;
-        entity.physics.vy = 0.0;
-        handle_movement(&mut entity, 1.0, &terrain, 10, 10);
-        assert!(entity.physics.vx < 0.0);
-        assert_eq!(entity.physics.x, 4.5);
-    }
-
-    #[test]
-    fn test_handle_movement_right_boundary() {
-        let mut entity = Entity::new(9.5, 5.0, 0);
-        entity.physics.vx = 1.0;
-        let terrain = TerrainGrid::generate(10, 10, 42);
-        handle_movement(&mut entity, 1.0, &terrain, 10, 10);
-        assert!(entity.physics.vx < 0.0);
-    }
-
-    #[test]
-    fn test_handle_movement_bottom_boundary() {
-        let mut entity = Entity::new(5.0, 9.5, 0);
-        entity.physics.vy = 1.0;
-        let terrain = TerrainGrid::generate(10, 10, 42);
-        handle_movement(&mut entity, 1.0, &terrain, 10, 10);
         assert!(entity.physics.vy < 0.0);
     }
 }

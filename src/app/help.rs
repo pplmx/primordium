@@ -93,6 +93,7 @@ impl App {
                 " ◦  Juvenile  - Too young to mate",
                 " ☣  Infected  - Carrying pathogen",
                 " ♣  Sharing   - Giving energy",
+                " ⚭  Bonded    - Symbiotic pairing",
                 "",
                 " 🗺️  TERRAIN TYPES",
                 " ─────────────────────────────────",

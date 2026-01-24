@@ -12,8 +12,8 @@ fn test_semantic_pheromone_roundtrip() {
 
     // 1. Entity A: Emits Signal A
     let mut e_emitter = Entity::new(10.0, 10.0, 0);
-    // [movX, movY, speed, aggro, share, color, emitA, emitB]
-    let outputs = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    // [movX, movY, speed, aggro, share, color, emitA, emitB, bond]
+    let outputs = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 
     use primordium_lib::model::systems::action::{action_system, ActionContext};
     let mut ctx = ActionContext {

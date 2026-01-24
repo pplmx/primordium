@@ -104,9 +104,11 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
 ### Brain Details
 
-- **Architecture**: Dynamic graph-based topology. Initialized as 20 inputs (14 sensors + 6 memory) → 6 hidden → 8 outputs.
+- **Architecture**: Dynamic graph-based topology. Initialized as 21 inputs (14 sensors + 6 memory + 1 hearing) → 6 hidden → 8 outputs.
 - **Topological Evolution**: Supports "Add Node" and "Add Connection" mutations with Innovation Tracking for crossover.
-- **Memory**: The 6 initial hidden layer values from $T-1$ are fed back as inputs for $T$.
+- **Memory**: The 6 initial hidden layer values from $T-1$ are fed back as inputs for $T$ (Mapped to indices 14..20).
+- **Hearing**: Standard input at index 20.
+- **Outputs**: Standard outputs at indices 21..29.
 - **Metabolic Cost**: 0.02 per hidden node + 0.005 per enabled connection.
 
 ### Metabolic Niches (Phase 31)
@@ -221,7 +223,7 @@ let x = X { field: val, ..X::default() };
 - 地形灾害由 `World` 触发,在 `TerrainGrid` 更新中处理
 
 ### 神经网络 Fix
-- Output Nodes 应为 20..28 (共8个)。之前版本曾有 Off-by-one 错误 (21..30)，已在 Phase 49 修复。
+- Output Nodes 应为 21..29 (共8个)。之前版本曾有 Off-by-one 错误及 ID 重叠 (Input 20 vs Output 20)，已在 Phase 50 修复。
 
 ---
 

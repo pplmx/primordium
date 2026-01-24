@@ -14,6 +14,10 @@ The brain starts with a standard minimal configuration but grows dynamically:
 - **Initial Hidden Layer**: 6 Neurons
 - **Initial Output Layer**: 8 Neurons
 - **Dynamic Growth**: Through mutations, new hidden nodes and connections can be added indefinitely.
+- **Node ID Mapping (Phase 50 Fixed)**: 
+  - Inputs: 0..21 (0-13 Env, 14-19 Memory, 20 Hear)
+  - Outputs: 21..29
+  - Initial Hidden: 29..35
 
 ## Inputs (Sensors)
 
@@ -36,7 +40,7 @@ The brain starts with a standard minimal configuration but grows dynamically:
 | 12 | `NT` | Nutrient Type of nearest food (0.0=Green, 1.0=Blue) |
 | 13 | `TP` | Internal Trophic Potential (0.0=Herbivore, 1.0=Carnivore) |
 
-> **Note**: While **Reputation** (Phase 46) is currently a system-level metric used for social punishment, future iterations will expose it as Input ID 20 to allow for reputation-aware decision making.
+> **Note**: While **Reputation** (Phase 46) is currently a system-level metric used for social punishment, future iterations will expose it as Input ID 21 to allow for reputation-aware decision making.
 
 ### Recurrent Inputs (14-19)
 
