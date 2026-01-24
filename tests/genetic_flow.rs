@@ -30,7 +30,16 @@ fn test_entity_import_export() {
     let dna = original_entity.intel.genotype.to_hex();
 
     // Manual import to world
-    world.import_migrant(dna.clone(), 100.0, 5);
+    let fingerprint = world.config.fingerprint();
+
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(dna.as_bytes());
+    hasher.update(100.0f32.to_be_bytes());
+    hasher.update(5u32.to_be_bytes());
+    let checksum = hex::encode(hasher.finalize());
+
+    let _ = world.import_migrant(dna.clone(), 100.0, 5, &fingerprint, &checksum);
 
     let imported = world
         .entities

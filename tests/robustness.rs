@@ -60,9 +60,10 @@ fn test_multiverse_version_compatibility_resilience() {
     let mut world = World::new(0, config).unwrap();
 
     let partial_dna_hex = hex::encode("{\"brain\": {\"weights_ih\": []}}"); // Incomplete genotype
+    let fingerprint = world.config.fingerprint();
 
     // This should log an error or fail silently but NOT panic
-    world.import_migrant(partial_dna_hex, 100.0, 1);
+    let _ = world.import_migrant(partial_dna_hex, 100.0, 1, &fingerprint, "dummy_checksum");
 
     // If it didn't panic, it's successful for this robustness test
     assert!(world.entities.len() <= 1);

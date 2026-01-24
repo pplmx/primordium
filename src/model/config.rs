@@ -97,4 +97,14 @@ impl AppConfig {
         }
         default
     }
+
+    /// NEW: Phase 45 - Unique hash of physics/evolution constants
+    pub fn fingerprint(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        // Hash key constants that MUST match for stable migration
+        hasher.update(format!("{:?}", self.metabolism).as_bytes());
+        hasher.update(format!("{:?}", self.evolution).as_bytes());
+        hex::encode(hasher.finalize())
+    }
 }

@@ -70,7 +70,16 @@ fn test_multiverse_lineage_preservation() {
     // Import into a new world
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
-    world.import_migrant(dna, 100.0, 1);
+    let fingerprint = world.config.fingerprint();
+
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(dna.as_bytes());
+    hasher.update(100.0f32.to_be_bytes());
+    hasher.update(1u32.to_be_bytes());
+    let checksum = hex::encode(hasher.finalize());
+
+    let _ = world.import_migrant(dna, 100.0, 1, &fingerprint, &checksum);
 
     assert_eq!(
         world.entities[0].metabolism.lineage_id, original_lineage,

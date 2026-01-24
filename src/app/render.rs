@@ -43,6 +43,7 @@ impl App {
                     Constraint::Length(1), // CPU + Era
                     Constraint::Length(1), // RAM + Resources
                     Constraint::Length(1), // World Stats
+                    Constraint::Length(1), // Hive Dashboard (NEW)
                     Constraint::Length(1), // Legend
                 ])
                 .split(left_layout[0]);
@@ -153,6 +154,27 @@ impl App {
                 Paragraph::new(ratatui::text::Line::from(world_stats))
                     .style(Style::default().fg(Color::DarkGray)),
                 status_lines[2],
+            );
+
+            // HIVE DASHBOARD
+            let ns = &self.network_state;
+            let hive_stats = vec![
+                ratatui::text::Span::styled(" 🕸  Hive: ", Style::default().fg(Color::Cyan)),
+                ratatui::text::Span::raw(format!(
+                    "{} Peers | In: {} | Out: {} | Status: ",
+                    ns.peers.len(),
+                    ns.migrations_received,
+                    ns.migrations_sent
+                )),
+                if ns.client_id.is_some() {
+                    ratatui::text::Span::styled("Online", Style::default().fg(Color::Green))
+                } else {
+                    ratatui::text::Span::styled("Offline (Native)", Style::default().fg(Color::Red))
+                },
+            ];
+            f.render_widget(
+                Paragraph::new(ratatui::text::Line::from(hive_stats)),
+                status_lines[3],
             );
 
             // LEGEND BAR

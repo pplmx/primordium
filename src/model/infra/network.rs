@@ -31,7 +31,9 @@ pub enum NetMessage {
         energy: f32,
         generation: u32,
         species_name: String, // Basic metadata
-                              // We don't send position as it spawns randomly on edge
+        /// NEW: Phase 45 - Validation fields
+        fingerprint: String, // Hash of sender's world config
+        checksum: String,     // Hash of (dna + energy + gen)
     },
     /// Server -> All Clients: Broadcast stats
     StatsUpdate {
@@ -46,6 +48,19 @@ pub enum NetMessage {
     },
     /// Server -> All Clients: Broadcast list of connected peers
     PeerList { peers: Vec<PeerInfo> },
+}
+
+/// Network state visible to the simulation
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct NetworkState {
+    /// List of connected peers
+    pub peers: Vec<PeerInfo>,
+    /// This client's ID (assigned by server)
+    pub client_id: Option<Uuid>,
+    /// Total migrations sent
+    pub migrations_sent: usize,
+    /// Total migrations received
+    pub migrations_received: usize,
 }
 
 #[cfg(test)]
@@ -138,6 +153,8 @@ mod tests {
             energy: 150.5,
             generation: 7,
             species_name: "TestOrganism".to_string(),
+            fingerprint: "hash".to_string(),
+            checksum: "sum".to_string(),
         };
 
         let json = serde_json::to_string(&msg).expect("Failed to serialize");
@@ -148,12 +165,16 @@ mod tests {
             energy,
             generation,
             species_name,
+            fingerprint,
+            checksum,
         } = parsed
         {
             assert_eq!(dna, "ABCD1234");
             assert!((energy - 150.5).abs() < 0.01);
             assert_eq!(generation, 7);
             assert_eq!(species_name, "TestOrganism");
+            assert_eq!(fingerprint, "hash");
+            assert_eq!(checksum, "sum");
         } else {
             panic!("Expected MigrateEntity message");
         }

@@ -53,16 +53,20 @@ impl Simulation {
 
         // Network Logic
         if let Some(net) = &self.network {
-            // 1. Process incoming migrations
-            for msg in net.pop_pending() {
+            // 1. Process incoming migrations (limited to 5 per tick for backpressure)
+            for msg in net.pop_pending_limited(5) {
                 if let NetMessage::MigrateEntity {
                     dna,
                     energy,
                     generation,
+                    fingerprint,
+                    checksum,
                     ..
                 } = msg
                 {
-                    self.world.import_migrant(dna, energy, generation);
+                    let _ =
+                        self.world
+                            .import_migrant(dna, energy, generation, &fingerprint, &checksum);
                     #[cfg(target_arch = "wasm32")]
                     web_sys::console::log_1(&JsValue::from_str(
                         "Entity migrated into this universe!",
@@ -79,11 +83,24 @@ impl Simulation {
                     || e.physics.y > (self.world.height as f64 - 2.0);
 
                 if leaving {
+                    let dna = e.intel.genotype.to_hex();
+                    let energy = e.metabolism.energy as f32;
+                    let generation = e.metabolism.generation;
+
+                    use sha2::{Digest, Sha256};
+                    let mut hasher = Sha256::new();
+                    hasher.update(dna.as_bytes());
+                    hasher.update(energy.to_be_bytes());
+                    hasher.update(generation.to_be_bytes());
+                    let checksum = hex::encode(hasher.finalize());
+
                     migrants.push(NetMessage::MigrateEntity {
-                        dna: e.intel.genotype.to_hex(),
-                        energy: e.metabolism.energy as f32,
-                        generation: e.metabolism.generation,
+                        dna,
+                        energy,
+                        generation,
                         species_name: e.name(),
+                        fingerprint: self.world.config.fingerprint(),
+                        checksum,
                     });
                 }
 

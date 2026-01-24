@@ -391,12 +391,19 @@ toml = "0.8"
 - **Enhanced Archeology**: Direct interaction with fossils (Resurrection/Cloning) to reintroduce extinct genotypes.
 - **TUI Dashboard v3**: Integrated Era Selection Pressure indicators and detailed Fossil Record browser.
 
-### Phase 44: Niche Construction & Nutrient Cycling 🚧
+### Phase 44: Niche Construction & Nutrient Cycling ✅
 
 - **Corpse Fertilization**: Death returns a percentage of metabolic energy to the terrain's soil fertility.
 - **Metabolic Feedback**: Entities "excrete" nutrients during movement, favoring plant growth in highly populated areas.
 - **Registry Pruning**: Automated cleanup of extinct, low-impact lineages to ensure long-term performance.
 - **Eco-Dashboard**: Global Fertility and Matter Recycling Rate metrics for ecosystem health monitoring.
+
+### Phase 45: Global Hive - Robust P2P Connectivity 🚧
+
+- **Enhanced Migration Protocol**: Versioned entity transfer with checksums to prevent cross-universe corruption.
+- **Backpressure & Flux Control**: Inbound/Outbound buffers to prevent population spikes during massive migrations.
+- **Universal Lineage Tracking**: Stable ID preservation for lineages moving between multiple world instances.
+- **Hive-Aware UI**: Real-time network health, peer counts, and migration traffic monitoring.
 
 ## 📊 Development Timeline
 
@@ -405,7 +412,8 @@ toml = "0.8"
 | Phase 41 | Massive Parallelism | ✅ Complete |
 | Phase 42 | Adaptive Radiations | ✅ Complete |
 | Phase 43 | Adaptive Speciation | ✅ Complete |
-| Phase 44 | Nutrient Cycling | 🚧 In Progress |
+| Phase 44 | Nutrient Cycling | ✅ Complete |
+| Phase 45 | Global Hive | 🚧 In Progress |
 
 ---
 

@@ -50,6 +50,23 @@ impl LineageRegistry {
         entry.is_extinct = false;
     }
 
+    pub fn record_migration_in(&mut self, id: Uuid, gen: u32, tick: u64) {
+        let entry = self.lineages.entry(id).or_insert_with(|| LineageRecord {
+            id,
+            name: format!("Migrant-{}", &id.to_string()[..4]),
+            first_appearance_tick: tick,
+            ..Default::default()
+        });
+        entry.current_population += 1;
+        if entry.current_population > entry.peak_population {
+            entry.peak_population = entry.current_population;
+        }
+        if gen > entry.max_generation {
+            entry.max_generation = gen;
+        }
+        entry.is_extinct = false;
+    }
+
     pub fn record_death(&mut self, id: Uuid) {
         if let Some(record) = self.lineages.get_mut(&id) {
             record.current_population = record.current_population.saturating_sub(1);

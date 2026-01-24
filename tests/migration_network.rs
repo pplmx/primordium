@@ -2,6 +2,7 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::infra::network::{NetMessage, PeerInfo};
 use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::world::World;
+use sha2::Digest;
 use uuid::Uuid;
 
 #[test]
@@ -12,11 +13,22 @@ fn test_entity_migration_via_network() {
 
     // 1. Pack entity into migration message
     let brain_dna = entity.intel.genotype.to_hex();
+    let config = AppConfig::default();
+
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(brain_dna.as_bytes());
+    hasher.update((entity.metabolism.energy as f32).to_be_bytes());
+    hasher.update(entity.metabolism.generation.to_be_bytes());
+    let checksum = hex::encode(hasher.finalize());
+
     let msg = NetMessage::MigrateEntity {
         dna: brain_dna.clone(),
         energy: entity.metabolism.energy as f32,
         generation: entity.metabolism.generation,
         species_name: "TestTribe".to_string(),
+        fingerprint: config.fingerprint(),
+        checksum,
     };
 
     // 2. Serialize message for "transport"
@@ -31,6 +43,8 @@ fn test_entity_migration_via_network() {
         energy,
         generation,
         species_name,
+        fingerprint,
+        checksum,
     } = received_msg
     {
         assert_eq!(dna, brain_dna);
@@ -42,13 +56,9 @@ fn test_entity_migration_via_network() {
         let config = AppConfig::default();
         let mut world = World::new(0, config).unwrap();
 
-        let mut new_entity = Entity::new(0.0, 0.0, 100);
-        let genotype = primordium_lib::model::state::entity::Genotype::from_hex(&dna).unwrap();
-        new_entity.intel.genotype = genotype;
-        new_entity.metabolism.energy = energy as f64;
-        new_entity.metabolism.generation = generation;
-
-        world.entities.push(new_entity);
+        world
+            .import_migrant(dna, energy, generation, &fingerprint, &checksum)
+            .expect("Failed to import");
         assert_eq!(world.entities.len(), 1);
         assert_eq!(world.entities[0].metabolism.energy, 175.0);
     } else {
@@ -65,12 +75,21 @@ fn test_entity_migration_with_hex_dna() {
 
     // Use hex encoding (production method)
     let brain_hex = entity.intel.genotype.to_hex();
+    let config = AppConfig::default();
+
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(brain_hex.as_bytes());
+    hasher.update((entity.metabolism.energy as f32).to_be_bytes());
+    hasher.update(entity.metabolism.generation.to_be_bytes());
+    let checksum = hex::encode(hasher.finalize());
 
     let msg = NetMessage::MigrateEntity {
         dna: brain_hex.clone(),
         energy: entity.metabolism.energy as f32,
         generation: entity.metabolism.generation,
         species_name: entity.name(),
+        fingerprint: config.fingerprint(),
+        checksum,
     };
 
     let json = serde_json::to_string(&msg).unwrap();

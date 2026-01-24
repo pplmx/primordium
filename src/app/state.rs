@@ -55,6 +55,7 @@ pub struct App {
     pub last_world_rect: Rect,
     // Live Data
     pub event_log: VecDeque<(String, Color)>,
+    pub network_state: crate::model::infra::network::NetworkState, // NEW
 }
 
 impl App {
@@ -114,6 +115,7 @@ impl App {
             },
             last_world_rect: Rect::default(),
             event_log: VecDeque::with_capacity(15),
+            network_state: crate::model::infra::network::NetworkState::default(),
         })
     }
 

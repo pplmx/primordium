@@ -1,23 +1,10 @@
-use crate::model::infra::network::{NetMessage, PeerInfo};
+use crate::model::infra::network::{NetMessage, NetworkState, PeerInfo};
 use serde_json;
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{ErrorEvent, MessageEvent, WebSocket};
-
-/// Network state visible to the simulation
-#[derive(Clone, Default)]
-pub struct NetworkState {
-    /// List of connected peers
-    pub peers: Vec<PeerInfo>,
-    /// This client's ID (assigned by server)
-    pub client_id: Option<uuid::Uuid>,
-    /// Total migrations sent
-    pub migrations_sent: usize,
-    /// Total migrations received
-    pub migrations_received: usize,
-}
 
 #[derive(Clone)]
 pub struct NetworkManager {
@@ -124,6 +111,12 @@ impl NetworkManager {
 
     pub fn pop_pending(&self) -> Vec<NetMessage> {
         self.pending_migrations.borrow_mut().drain(..).collect()
+    }
+
+    pub fn pop_pending_limited(&self, limit: usize) -> Vec<NetMessage> {
+        let mut pending = self.pending_migrations.borrow_mut();
+        let count = pending.len().min(limit);
+        pending.drain(..count).collect()
     }
 
     /// Get current network state (peers, stats)
