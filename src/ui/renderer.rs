@@ -2,6 +2,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::widgets::{Block, Borders, Widget};
+use std::collections::HashMap;
 
 use crate::model::state::terrain::TerrainType;
 use crate::model::world::World;
@@ -74,6 +75,16 @@ impl<'a> Widget for WorldWidget<'a> {
         }
 
         let inner = Self::get_inner_area(area, self.screensaver);
+
+        // Pre-calculate screen positions for O(1) partner lookup
+        let mut screen_positions = HashMap::new();
+        for entity in &self.world.entities {
+            if let Some((x, y)) =
+                Self::world_to_screen(entity.physics.x, entity.physics.y, area, self.screensaver)
+            {
+                screen_positions.insert(entity.id, (x, y));
+            }
+        }
 
         for y in 0..inner.height.min(self.world.terrain.height) {
             for x in 0..inner.width.min(self.world.terrain.width) {
@@ -194,6 +205,61 @@ impl<'a> Widget for WorldWidget<'a> {
                 }
                 if entity.intel.bonded_to.is_some() {
                     cell.set_bg(Color::Rgb(80, 80, 0));
+                }
+            }
+        }
+
+        // Phase 51: Draw Symbiosis Bonds (Post-Process Line Rendering)
+        for entity in &self.world.entities {
+            if let Some(partner_id) = entity.intel.bonded_to {
+                // Only draw if we have screen positions for both
+                if let (Some(&(x1, y1)), Some(&(x2, y2))) = (
+                    screen_positions.get(&entity.id),
+                    screen_positions.get(&partner_id),
+                ) {
+                    // Bresenham's Line Algorithm
+                    let mut x0 = x1 as i16;
+                    let mut y0 = y1 as i16;
+                    let x_end = x2 as i16;
+                    let y_end = y2 as i16;
+
+                    let dx = (x_end - x0).abs();
+                    let dy = -(y_end - y0).abs();
+                    let sx = if x0 < x_end { 1 } else { -1 };
+                    let sy = if y0 < y_end { 1 } else { -1 };
+                    let mut err = dx + dy;
+
+                    // Draw max 10 steps
+                    let mut steps = 0;
+                    while steps < 10 {
+                        if x0 == x_end && y0 == y_end {
+                            break;
+                        }
+                        let e2 = 2 * err;
+                        if e2 >= dy {
+                            err += dy;
+                            x0 += sx;
+                        }
+                        if e2 <= dx {
+                            err += dx;
+                            y0 += sy;
+                        }
+
+                        // Check bounds
+                        if x0 >= inner.left() as i16
+                            && x0 < inner.right() as i16
+                            && y0 >= inner.top() as i16
+                            && y0 < inner.bottom() as i16
+                        {
+                            let b_cell = buf.get_mut(x0 as u16, y0 as u16);
+                            // Only draw over empty space or terrain, don't overwrite entities
+                            if b_cell.symbol() == " " || b_cell.symbol() == "·" {
+                                b_cell.set_symbol("·");
+                                b_cell.set_fg(Color::Yellow);
+                            }
+                        }
+                        steps += 1;
+                    }
                 }
             }
         }
