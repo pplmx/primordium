@@ -233,6 +233,7 @@ let x = X { field: val, ..X::default() };
 - 地形灾害由 `World` 触发,在 `TerrainGrid` 更新中处理
 
 ### 神经网络 Fix
+
 - Output Nodes 应为 21..29 (共8个)。之前版本曾有 Off-by-one 错误及 ID 重叠 (Input 20 vs Output 20)，已在 Phase 50 修复。
 
 ---

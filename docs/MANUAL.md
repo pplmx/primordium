@@ -162,6 +162,7 @@ Primordium preserves the deep history of your world through two key mechanisms:
 ### Carbon Cycle & Warming
 
 The simulation features a global **Carbon Cycle**:
+
 - **Emissions**: Metabolic activity from all entities increases atmospheric CO2.
 - **Sequestration**: Plant biomass and Forests act as carbon sinks.
 - **Global Warming**: High CO2 levels shift the climate state towards **Scorching**, increasing metabolic drain for all life.

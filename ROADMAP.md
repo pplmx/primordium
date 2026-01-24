@@ -405,34 +405,28 @@ toml = "0.8"
 - **Universal Lineage Tracking**: Stable ID preservation for lineages moving between multiple world instances.
 - **Hive-Aware UI**: Real-time network health, peer counts, and migration traffic monitoring.
 
-### Phase 46: Evolutionary Stable Strategy (ESS) & Social Topology 🚧
+### Phase 46: Evolutionary Stable Strategy (ESS) & Social Topology ✅
 
 - **Hamilton's Rule Integration**: Social benefits (Sharing, Defense) weighted by genetic relatedness ($r$).
 - **Social Punishment**: Reputation-based mechanics where "betrayers" or "exploiters" face community retaliation.
 - **Speciation Branching**: Improved visualization of the social tree, showing how groups diverge into tribes.
 - **Social Interventions**: Divine tools to enforce peace zones or war zones to steer group behaviors.
 
-### Phase 47: Lifetime Learning (Neuroplasticity) 🚧
+### Phase 47: Lifetime Learning (Neuroplasticity) ✅
 
 - **Hebbian Learning**: Real-time weight adjustment based on neural co-activation ($\Delta w = \eta \cdot pre \cdot post$).
 - **Reinforcement Signals**: Global modulators (Food=+1, Pain=-1) guiding plasticity towards survival strategies.
 - **Epigenetic Priming**: Lamarckian inheritance where offspring inherit learned weight biases.
 - **Neural Dashboard**: Activity heatmap and plasticity visualization in TUI.
 
-## 📊 Development Timeline
+### Phase 48: Linguistic Evolution ✅
 
-| Phase | Milestone | Status |
-| ------- | ------------ | --------- |
-| Phase 41 | Massive Parallelism | ✅ Complete |
-| Phase 42 | Adaptive Radiations | ✅ Complete |
-| Phase 43 | Adaptive Speciation | ✅ Complete |
-| Phase 44 | Nutrient Cycling | ✅ Complete |
-| Phase 45 | Global Hive | ✅ Complete |
-| Phase 46 | Social Strategy | ✅ Complete |
-| Phase 47 | Lifetime Learning | ✅ Complete |
-| Phase 48 | Linguistic Evolution | ✅ Complete |
-| Phase 49 | Advanced Social Hierarchies | ✅ Complete |
-| Phase 50 | Visualizing the Invisible | ✅ Complete |
+### Phase 49: Advanced Social Hierarchies (Tribal Warfare) ✅
+
+- **Tribal Splits**: Mechanisms for large tribes to fracture into competing factions based on genetic drift or leadership crises.
+- **Warfare Logic**: Organized aggression where "Soldier" castes attack foreign entities.
+- **Leadership Roles**: Emergence of "Alpha" entities that influence the movement of their tribe.
+- **Territory Claims**: Persistent memory of "Home Turf" and defense bonuses.
 
 ### Phase 50: Visualizing the Invisible (Collective Intelligence) ✅
 
@@ -442,12 +436,12 @@ toml = "0.8"
 - **Leadership Auras**: Visual highlights for Soldiers and Alphas in specialized view modes.
 - **Collective Reinforcement**: Socially-aware Hebbian learning loop that associates vocal signals with survival rewards.
 
-### Phase 49: Advanced Social Hierarchies (Tribal Warfare) ✅
+### Phase 51: Symbiosis (The Bond) 🚧
 
-- **Tribal Splits**: Mechanisms for large tribes to fracture into competing factions based on genetic drift or leadership crises.
-- **Warfare Logic**: Organized aggression where "Soldier" castes attack foreign entities.
-- **Leadership Roles**: Emergence of "Alpha" entities that influence the movement of their tribe.
-- **Territory Claims**: Persistent memory of "Home Turf" and defense bonuses.
+- **Biological Bonding**: Implementation of physical attachment between entities via the `Bond` neural output.
+- **Kinematic Coupling**: Bonded pairs move as a unified physics body, sharing momentum and inertia.
+- **Metabolic Fusion**: Direct energy channels allowing bonded partners to equalize metabolic reserves instantly.
+- **Specialized Roles**: Emergence of "Pilot" (Movement specialist) and "Turret" (Defense specialist) pairs.
 
 ---
 
@@ -457,5 +451,5 @@ Primordium is an experiment in **emergent complexity**. You provide the rules, t
 
 Every run is unique. Every lineage is precious. Every extinction teaches us something.
 
-*Last updated: 2026-01-21*
+*Last updated: 2026-01-24*
 *Version: 0.0.1*
