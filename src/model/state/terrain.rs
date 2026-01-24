@@ -205,7 +205,6 @@ impl TerrainGrid {
                     // 1. Local Biological Feedback
                     let fertility_gain =
                         (global_recovery_rate + (cell.plant_biomass * 0.0001)).max(-0.05);
-                    cell.fertility = (cell.fertility + fertility_gain).clamp(0.0, 1.0);
 
                     let r = match cell.terrain_type {
                         TerrainType::Forest => 0.05,
@@ -214,14 +213,16 @@ impl TerrainGrid {
                         TerrainType::Desert => 0.005,
                         _ => 0.0,
                     };
-                    let k = cell.fertility * 100.0;
-                    if cell.plant_biomass < k {
-                        cell.plant_biomass +=
-                            r * cell.plant_biomass * (1.0 - (cell.plant_biomass / k));
-                    }
-                    if r > 0.0 {
-                        cell.fertility = (cell.fertility - (cell.plant_biomass * 0.00005)).max(0.0);
-                    }
+
+                    let plant_loss = if r > 0.0 {
+                        cell.plant_biomass * 0.00005
+                    } else {
+                        0.0
+                    };
+
+                    cell.fertility = (cell.fertility + fertility_gain - plant_loss).clamp(0.0, 1.0);
+
+                    let _k = cell.fertility * 100.0;
 
                     cell.biomass_accumulation *= 0.999;
                     if is_dust_bowl && cell.terrain_type == TerrainType::Plains {

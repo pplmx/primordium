@@ -12,6 +12,8 @@ fn test_fossilization_and_snapshots() {
     config.world.width = 20;
     config.world.height = 20;
     config.world.initial_population = 1;
+    config.world.initial_food = 0;
+    config.world.max_food = 0;
 
     let mut world = World::new_at(1, config, log_dir).unwrap();
 
