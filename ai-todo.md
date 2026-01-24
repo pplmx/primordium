@@ -1,7 +1,6 @@
-# Primordium Documentation Update Todo (Phases 33-35)
+# Primordium Documentation Update Todo
 
-## 완료된 작업
-- [x] Update `docs/wiki/BRAIN.md` with Phase 33 inputs and trophic spectrum behavior <!-- ID: 0 -->
-- [x] Update `docs/wiki/ECOSYSTEM.md` with Trophic Continuum and Phase 35 Ecosystem Stability <!-- ID: 1 -->
-- [x] Update `docs/wiki/GENETICS.md` with `trophic_potential` and Phase 34 Ancestry <!-- ID: 2 -->
-
+## Future Documentation Tasks
+- [ ] Document Phase 50 features (Visualization) when complete.
+- [ ] Create a dedicated tutorial for user-steered evolution.
+- [ ] Expand "Genetic Flow" wiki with specific gene mutation ranges.

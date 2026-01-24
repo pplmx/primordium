@@ -15,7 +15,7 @@ Where:
 - $E_{base} = 0.5$ (Idle cost)
 - $C_{move} = 1.0$ (Base movement cost; Terrain/Predation modifiers apply)
 - $C_{think} = 0.1$
-- $M_{env}$: Environmental multiplier. 
+- $M_{env}$: Environmental multiplier.
     - **Circadian**: Day=1.0, Night=0.6.
     - **Climate**: Temperate=1.0, Warm=1.5, Hot=2.0, Scorching=3.0.
     - **Era Pressure**: Primordial=1.0, DawnOfLife=0.9, Flourishing=1.1, DominanceWar=1.5, ApexEra=1.2.
@@ -141,6 +141,33 @@ Entities can modulate their appearance for communication or camouflage:
 - **Signal**: Real-time color modulation (Brighten/Warning vs Darken/Stealth).
 - **Cost**: Actively signaling costs **0.1 energy per unit** of modulation intensity.
 
+### Advanced Social Hierarchy (Phase 49)
+
+Tribes have evolved from egalitarian groups to stratified societies with leaders and specialized castes.
+
+#### Social Rank
+Every entity calculates a `rank` (0.0 to 1.0) based on four pillars of fitness:
+- **Energy Reserves** (30%): Immediate survival capability.
+- **Age Experience** (30%): Proof of survival skills (`age / 2000`).
+- **Offspring Count** (10%): Evolutionary success.
+- **Reputation** (30%): Social trust and altruism history.
+
+#### Leadership Vectors
+Rank dictates influence. Entities perceive the movement vector of the highest-ranking local tribe member (the "Alpha").
+- **Alpha Influence**: Lower-ranking entities are drawn to follow the Alpha's path, creating organized movement without hard-coded flocking.
+
+#### The Soldier Caste
+A specialized phenotype emerges at the intersection of high rank and aggression.
+- **Requirements**: `Rank > 0.8` AND `Aggression_Output > 0.5`.
+- **Role**: Soldiers are the dedicated defenders/invaders of the tribe.
+- **Combat Bonus**: Soldiers deal **1.5x damage**. In designated **War Zones**, this bonus increases to **2.0x**.
+
+#### Tribal Splitting (The Fracture)
+When varying success levels create tension in high-density areas, tribes can fracture.
+- **Trigger**: An entity with **Low Rank (<0.2)** in a **High Density (>0.8)** environment.
+- **Mechanism**: The entity initiates a "Schism", mutating its color significantly to founding a new, distinct tribe.
+- **Effect**: Reduces local competition by breaking the "Same Tribe" protection pact, allowing the new tribe to fight for resources or migrate away.
+
 ### World Eras (Phase 42)
 
 The simulation progresses through narrative eras triggered by macro-ecological metrics rather than simple time:
@@ -239,7 +266,7 @@ Phase 34 shifts the analytical focus from individual survival to the structural 
 As entities mutate and form distinct clusters, the system identifies significant genetic divergence and creates new nodes in the "Tree of Life." This allows users to trace any dominant organism back to its primordial ancestor.
 
 ### Ancestry Visualization (The 'A' View)
-The TUI now includes a dedicated **Ancestry** tab (toggled via the `A` key). 
+The TUI now includes a dedicated **Ancestry** tab (toggled via the `A` key).
 - **Top 5 Dynasties**: Visualizes the most successful evolutionary branches currently active in the simulation.
 - **Trophic Overlay**: Colors nodes based on their dominant metabolic strategy (Herbivore vs. Carnivore).
 - **DOT Export**: Pressing `Shift+A` exports the current evolutionary tree in Graphviz/DOT format for external high-resolution analysis.

@@ -106,6 +106,7 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 - **Tribe Formation**: Color-similar entities form protective tribes (no intra-tribe attacks)
 - **Territorial Behavior**: Entities are more aggressive near their birth location
 - **Energy Sharing**: High-energy entities can share with starving neighbors (♣)
+- **Advanced Hierarchy (Phase 49)**: Soldier castes defend the tribe; Alphas influence movement; overcrowded tribes fracture.
 
 ### 🌌 Global Hive & Networking (Phase 22)
 

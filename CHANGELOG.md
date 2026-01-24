@@ -6,6 +6,27 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 49: Advanced Social Hierarchies (Tribal Warfare)] - 2026-01-24
+
+### Evolutionary Leap: The Rise of Leaders and Armies
+
+Phase 49 introduces sophisticated social stratification. Tribes are no longer egalitarian blobs; they now have Alphas (leaders) and Soldier castes. When population stress disrupts social cohesion, large tribes will fracture into competing factions, simulating civil wars and schisms.
+
+#### ✨ Features
+
+- **Social Rank System**: Entities now have a calculated `rank` (0.0-1.0) based on Energy (30%), Age (30%), Offspring (10%), and Reputation (30%).
+- **Soldier Caste**: High-ranking (>0.8) and aggressive (>0.5) entities become **Soldiers** (`⚔`). They deal **1.5x damage** generally and **2.0x damage** in War Zones.
+- **Tribal Splitting**: Overcrowding combined with low social rank triggers "Fracture" events, where marginalized groups mutate their color to form new, rival tribes.
+- **Leadership Vectors**: Entities now perceive and are influenced by the movement of local Alphas (highest-ranking kin).
+
+#### 🛠️ Technical Achievements
+
+- **Rank & Leadership Engine**: Implemented `calculate_social_rank` and Alpha-weighted movement vectors in `world.rs` Pass 1.
+- **Dynamic Status Logic**: Refactored `EntityStatus` to prioritize role-based states (Soldier) over behavioral states (Hunting).
+- **Brain Architecture Fix**: Corrected a critical off-by-one error in the Neural Network output layer (Node 20 vs 21), ensuring correct action mapping.
+
+---
+
 ## [Phase 46: Evolutionary Stable Strategy (ESS) & Social Topology] - 2026-01-24
 
 ### Evolutionary Leap: The Logic of Altruism

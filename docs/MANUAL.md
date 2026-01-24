@@ -71,6 +71,7 @@ Entities are represented by symbols indicating their current physiological state
 - `♣` **Sharing**: Altruistic state, giving energy to nearby tribe members.
 - `☣` **Infected**: Carrying a pathogen, loses energy and spreads disease.
 - `◦` **Juvenile**: Immature state, unable to reproduce.
+- `⚔` **Soldier**: High-rank, aggressive defender. Deals 1.5x damage (2.0x in War Zones).
 
 ### Colors (Tribes)
 
@@ -112,10 +113,18 @@ When entities reproduce, their offspring inherits a mix of parents' DNA with sli
 
 - **Attributes**: Speed, Range, Metabolism, Niche, Sexual Preference.
 - **Brain**: Topology and weights are mutated.
-- **Population-Aware Mutation**: 
+- **Population-Aware Mutation**:
     - **Bottleneck**: In small populations, mutation rates increase (up to 3x) to find survival strategies.
     - **Stasis**: In large stable populations, mutation is halved to preserve fit genes.
 - **Genetic Drift**: Tiny populations (<10) may experience random major trait flips.
+
+### Social Hierarchy (Phase 49)
+
+Tribes are organized into hierarchies based on a **Rank** score (Energy + Age + Offspring + Reputation).
+
+- **Alpha Leadership**: Entities are influenced by the movement of the highest-ranking local member (Alpha).
+- **Soldier Caste**: Entities with High Rank (>0.8) and High Aggression (>0.5) become Soldiers. They are the primary defenders of the tribe.
+- **Tribal Splitting**: If a low-ranking entity (Omega) is trapped in an overcrowded area, it may initiate a **Fracture**, changing color and starting a new, rival tribe to escape the competitive pressure.
 
 ---
 

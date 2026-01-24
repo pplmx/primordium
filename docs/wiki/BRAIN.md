@@ -10,7 +10,7 @@ In earlier phases, entities used a fixed MLP (Multilayer Perceptron) architectur
 
 The brain starts with a standard minimal configuration but grows dynamically:
 
-- **Initial Input Layer**: 20 Neurons (14 Environment, 6 Recurrent)
+- **Initial Input Layer**: 21 Neurons (14 Environment + 6 Recurrent + 1 Hearing)
 - **Initial Hidden Layer**: 6 Neurons
 - **Initial Output Layer**: 8 Neurons
 - **Dynamic Growth**: Through mutations, new hidden nodes and connections can be added indefinitely.
@@ -43,6 +43,7 @@ The brain starts with a standard minimal configuration but grows dynamically:
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
 | 14-19| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
+| 20   | `Hear`   | Hearing Input (Signal strength at location) |
 
 ## Trophic Spectrum Influence (Phase 33)
 

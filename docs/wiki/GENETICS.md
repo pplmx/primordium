@@ -22,7 +22,7 @@ Each time an entity reproduces:
 1. **Crossover**: Offspring takes attributes from both parents (50/50 chance per gene or NEAT-aligned innovation mapping).
 2. **Standard Mutation**: A probability (**0.1**) to alter a gene/weight value by ±0.2.
 3. **Genetic Drift**: A small probability (**0.01**) for a "macro-mutation" (±0.5 change).
-4. **Adaptive Speciation (Phase 43)**: 
+4. **Adaptive Speciation (Phase 43)**:
     - Real-time monitoring of **Genetic Distance**.
     - If the distance between offspring and parent exceeds the **Speciation Threshold** (default: 5.0), the child is assigned a new `lineage_id`, marking the birth of a new species.
     - Factors in distance include brain topology differences and phenotypic trait shifts.
@@ -52,7 +52,9 @@ Phase 23 introduces a set of specialized phenotypic genes that define the physic
 | **Max Speed** | 0.5 - 3.0 | Maximum velocity achievable. |
 | **Max Energy** | 100 - 500 | Total energy storage capacity. |
 | **Metabolic Niche** | 0.0 - 1.0 | Specialization for nutrient types (Green vs Blue). |
+| **Metabolic Niche** | 0.0 - 1.0 | Specialization for nutrient types (Green vs Blue). |
 | **Trophic Potential**| 0.0 - 1.0 | Dietary strategy (Herbivore vs Carnivore). |
+| **Mate Preference** | 0.0 - 1.0 | Sexual selection bias (Preferred Trophic Potential in mates). |
 
 ## Life History Genes (Phase 32)
 
@@ -102,7 +104,7 @@ By utilizing `petgraph`, the engine constructs a real-time Directed Acyclic Grap
 Phase 38 introduces new environmental pressures that drive genetic selection and lineage distribution.
 
 ### Biodiversity Hotspots
-The simulation now identifies **Biodiversity Hotspots**—geographic regions with a high concentration of distinct lineages. 
+The simulation now identifies **Biodiversity Hotspots**—geographic regions with a high concentration of distinct lineages.
 - **Selection Pressure**: These areas exhibit intense competition, favoring lineages with high neural efficiency and specialized `metabolic_niche` traits.
 - **Lineage Density**: Hotspots are determined by the count of unique `lineage_id`s within a grid cell, providing a macro-genetic metric for the world's health.
 

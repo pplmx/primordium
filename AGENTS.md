@@ -133,6 +133,13 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 - **Max Speed**: +0.1 → +5% movement cost.
 - **Inertia**: $Acceleration \propto \frac{1}{MaxEnergy}$. High energy capacity reduces steering responsiveness.
 
+### Social Hierarchy (Phase 49)
+
+- **Rank Calculation**: Score = Energy(30%) + Age(30%) + Offspring(10%) + Reputation(30%).
+- **Soldier Caste**: Requires Rank > 0.8 AND Aggression > 0.5. Bonus damage: 1.5x (flat), 2.0x (War Zone).
+- **Tribal Splitting**: Triggered by high density (>0.8) and low rank (<0.2). Result: New color mutation.
+- **Leadership Vector**: Calculated in `World::update` Pass 1. Influences movement in `Action` system.
+
 ---
 
 ## 🧪 Testing Strategy
@@ -157,6 +164,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 | `archeology.rs` | 考古学工具、化石记录、快照 |
 | `stress_test.rs` | 高负载基准 (1500+ 实体) |
 | `world_evolution.rs` | 时代演进、昼夜节律 |
+| `social_hierarchy.rs` | 社会等级、士兵阶层、部落分裂 |
 
 ---
 
@@ -211,6 +219,9 @@ let x = X { field: val, ..X::default() };
 ### 灾害同步
 
 - 地形灾害由 `World` 触发,在 `TerrainGrid` 更新中处理
+
+### 神经网络 Fix
+- Output Nodes 应为 20..28 (共8个)。之前版本曾有 Off-by-one 错误 (21..30)，已在 Phase 49 修复。
 
 ---
 

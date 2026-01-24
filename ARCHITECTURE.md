@@ -142,3 +142,4 @@ src/
 * **Phase 40**: **Archeology & Deep History**。建立了考古学与深层历史记录系统。支持持久化的化石档案 (`logs/fossils.json`) 以记录绝灭的传奇谱系，并引入了周期性的宏观状态快照，允许用户在 TUI 中回溯世界演化历史。
 * **Phase 41**: **Massive Parallelism**。实现了大规模并行化仿真。基于 Rayon 构建了三阶段更新环（快照 -> 并行提案 -> 顺序应用），并优化了行分区（Row-partitioned）的空间哈希算法，支持万级实体的高性能模拟。
 * **Phase 42**: **Macro-Environmental Pressures**。引入了宏观环境压力系统。根据不同时代（Era）自动调整选择压力（如代谢率、突变率缩放），由生物量、碳水平和多样性等宏观指标驱动时代的更替。
+* **Phase 49**: **Advanced Social Hierarchies**。实现了高级社会等级系统。引入了 **Social Rank**（社会等级）计算逻辑以及 **Soldier**（士兵）阶层。实现了基于密度的 **Tribal Splitting**（部落分裂）机制，当低等级个体处于拥挤环境时会自发分裂出新的敌对部落。修复了神经网络输出层的寻址偏移问题。

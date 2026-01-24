@@ -431,9 +431,10 @@ toml = "0.8"
 | Phase 46 | Social Strategy | ✅ Complete |
 | Phase 47 | Lifetime Learning | ✅ Complete |
 | Phase 48 | Linguistic Evolution | ✅ Complete |
-| Phase 49 | Advanced Social Hierarchies | 🚧 In Progress |
+| Phase 49 | Advanced Social Hierarchies | ✅ Complete |
+| Phase 50 | Visualizing the Invisible | 🚧 In Progress |
 
-### Phase 49: Advanced Social Hierarchies (Tribal Warfare) 🚧
+### Phase 49: Advanced Social Hierarchies (Tribal Warfare) ✅
 
 - **Tribal Splits**: Mechanisms for large tribes to fracture into competing factions based on genetic drift or leadership crises.
 - **Warfare Logic**: Organized aggression where "Soldier" castes attack foreign entities.
