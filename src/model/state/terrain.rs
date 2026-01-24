@@ -303,6 +303,12 @@ impl TerrainGrid {
         self.cells[iy][ix].fertility = (self.cells[iy][ix].fertility - amount).max(0.0);
     }
 
+    pub fn fertilize(&mut self, x: f64, y: f64, amount: f32) {
+        let ix = (x as usize).min(self.width as usize - 1);
+        let iy = (y as usize).min(self.height as usize - 1);
+        self.cells[iy][ix].fertility = (self.cells[iy][ix].fertility + amount).min(1.0);
+    }
+
     pub fn add_biomass(&mut self, x: f64, y: f64, amount: f32) {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
@@ -365,6 +371,22 @@ impl TerrainGrid {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
         self.cells[iy][ix].terrain_type = t;
+    }
+
+    pub fn average_fertility(&self) -> f32 {
+        let mut sum = 0.0;
+        let mut count = 0;
+        for row in &self.cells {
+            for cell in row {
+                sum += cell.fertility;
+                count += 1;
+            }
+        }
+        if count > 0 {
+            sum / count as f32
+        } else {
+            0.0
+        }
     }
 }
 

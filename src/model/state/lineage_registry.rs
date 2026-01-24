@@ -104,4 +104,14 @@ impl LineageRegistry {
             .map(|(id, _)| *id)
             .collect()
     }
+
+    pub fn prune(&mut self) {
+        // Prune lineages that are extinct and have produced less than 3 entities
+        // and have no legendary representative (best_legend_id).
+        self.lineages.retain(|_, record| {
+            !record.is_extinct
+                || record.total_entities_produced >= 3
+                || record.best_legend_id.is_some()
+        });
+    }
 }

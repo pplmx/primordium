@@ -124,7 +124,8 @@ pub struct PopulationStats {
     pub carbon_level: f64,
     pub biodiversity_hotspots: usize,
     pub mutation_scale: f32,
-    pub evolutionary_velocity: f32, // NEW: Moving average of genetic distances
+    pub evolutionary_velocity: f32,
+    pub global_fertility: f32, // NEW: Average fertility across the world
     recent_deaths: VecDeque<f64>,
     recent_distances: VecDeque<f32>, // NEW
 }
@@ -151,6 +152,7 @@ impl PopulationStats {
             biodiversity_hotspots: 0,
             mutation_scale: 1.0,
             evolutionary_velocity: 0.0,
+            global_fertility: 1.0,
             recent_deaths: VecDeque::with_capacity(100),
             recent_distances: VecDeque::with_capacity(100),
         }
@@ -183,12 +185,14 @@ impl PopulationStats {
         top_fitness: f64,
         carbon_level: f64,
         mutation_scale: f32,
+        terrain: &crate::model::state::terrain::TerrainGrid,
     ) {
         self.population = entities.len();
         self.food_count = food_count;
         self.top_fitness = top_fitness;
         self.carbon_level = carbon_level;
         self.mutation_scale = mutation_scale;
+        self.global_fertility = terrain.average_fertility();
         self.lineage_counts.clear();
         self.biomass_h = 0.0;
         self.biomass_c = 0.0;

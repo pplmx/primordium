@@ -377,60 +377,35 @@ toml = "0.8"
 - **Spatial Scaling**: Row-partitioned Spatial Hash with parallel construction.
 - **Performance**: Zero-jitter simulation scaling across all CPU cores.
 
-### Phase 42: Adaptive Radiations & Macro-Environmental Pressures 🚧
+### Phase 42: Adaptive Radiations & Macro-Environmental Pressures ✅
 
 - **Dynamic Era Transitions**: Automated shifts in world epochs based on global biomass, carbon levels, and biodiversity indices.
 - **Evolutionary Forcing**: Eras impact global mutation rates, resource spawn patterns, and metabolic costs to force "Adaptive Radiations".
 - **Ecological Indicators**: TUI visualization of "World Stability" and "Evolutionary Velocity".
 - **Feedback Loops**: Carbon levels impacting climate state (Global Warming) and biome succession rates.
 
+### Phase 43: Adaptive Speciation & Deep Evolutionary Insights ✅
 
+- **Automatic Speciation**: Real-time lineage splitting based on genetic distance (NEAT topology + Phenotypic traits).
+- **Evolutionary Velocity**: Slide-window metrics tracking the "speed" of genetic drift in the population.
+- **Enhanced Archeology**: Direct interaction with fossils (Resurrection/Cloning) to reintroduce extinct genotypes.
+- **TUI Dashboard v3**: Integrated Era Selection Pressure indicators and detailed Fossil Record browser.
+
+### Phase 44: Niche Construction & Nutrient Cycling 🚧
+
+- **Corpse Fertilization**: Death returns a percentage of metabolic energy to the terrain's soil fertility.
+- **Metabolic Feedback**: Entities "excrete" nutrients during movement, favoring plant growth in highly populated areas.
+- **Registry Pruning**: Automated cleanup of extinct, low-impact lineages to ensure long-term performance.
+- **Eco-Dashboard**: Global Fertility and Matter Recycling Rate metrics for ecosystem health monitoring.
 
 ## 📊 Development Timeline
 
 | Phase | Milestone | Status |
 | ------- | ------------ | --------- |
-| Phase 1 | First moving pixels | ✅ Complete |
-| Phase 2 | Natural selection visible | ✅ Complete |
-| Phase 3 | Hardware coupling working | ✅ Complete |
-| Phase 4 | Intelligent behavior emerges | ✅ Complete |
-| Phase 5 | Historical records complete | ✅ Complete |
-| Phase 5.5 | Blockchain integration | ✅ Complete |
-| Phase 6 | Production release | ✅ Complete |
-| Phase 7 | Divine Interface | ✅ Complete |
-| Phase 8 | Apex Predators & Genetic Synergy | ✅ Complete |
-| Phase 9 | The Omniscient Eye | ✅ Complete |
-| Phase 10 | Ecosystem Dynamics | ✅ Complete |
-| Phase 11 | Social Structures | ✅ Complete |
-| Phase 12 | WebAssembly Port | ✅ Complete |
-| Phase 13 | Multiplayer Primordium | ✅ Complete |
-| Phase 14 | Gameplay & Polish | ✅ Complete |
-| Phase 15 | Life Cycles | ✅ Complete |
-| Phase 16 | Trophic Levels | ✅ Complete |
-| Phase 17 | Ecological Succession | ✅ Complete |
-| Phase 18 | Pathogens & Immunity | ✅ Complete |
-| Phase 19 | Circadian Rhythms | ✅ Complete |
-| Phase 20 | Cognitive Synthesis | ✅ Complete |
-| Phase 21 | Environmental Fluidity | ✅ Complete |
-| Phase 22 | Parallel Evolution | ✅ Complete |
-| Phase 23 | Phenotypic Specialization | ✅ Complete |
-| Phase 24 | Lineage & Macroevolution | ✅ Complete |
-| Phase 25 | Social Complexity | ✅ Complete |
-| Phase 26 | Interactive Deity | ✅ Complete |
-| Phase 27 | Persistent Analytics | ✅ Complete |
-| Phase 28 | NEAT-lite Evolution | ✅ Complete |
-| Phase 29 | Semantic Language | ✅ Complete |
-| Phase 30 | Social Coordination | ✅ Complete |
-| Phase 31 | Metabolic Niches | ✅ Complete |
-| Phase 35 | Trophic Cascades | ✅ Complete |
-| Phase 36 | World Persistence | ✅ Complete |
-| Phase 37 | Sexual Selection | ✅ Complete |
-| Phase 38 | Dynamic Biomes | ✅ Complete |
-| Phase 39 | Ecosystem Resilience | ✅ Complete |
-| Phase 39.5 | Perf & Observability | ✅ Complete |
-| Phase 40 | Archeology Tool | ✅ Complete |
 | Phase 41 | Massive Parallelism | ✅ Complete |
-| Phase 42 | Adaptive Radiations | 🚧 In Progress |
+| Phase 42 | Adaptive Radiations | ✅ Complete |
+| Phase 43 | Adaptive Speciation | ✅ Complete |
+| Phase 44 | Nutrient Cycling | 🚧 In Progress |
 
 ---
 

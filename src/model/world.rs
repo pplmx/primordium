@@ -58,6 +58,11 @@ pub enum InteractionCommand {
         target_id: uuid::Uuid,
         pathogen: crate::model::state::pathogen::Pathogen,
     },
+    Fertilize {
+        x: f64,
+        y: f64,
+        amount: f32,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -469,6 +474,15 @@ impl World {
                     });
                 }
 
+                // P44: Metabolic Feedback (Excretion)
+                if e.metabolism.energy > e.metabolism.max_energy * 0.7 && local_rng.gen_bool(0.1) {
+                    local_cmds.push(InteractionCommand::Fertilize {
+                        x: e.physics.x,
+                        y: e.physics.y,
+                        amount: 0.01,
+                    });
+                }
+
                 let outputs = decision_buffer[i].0;
                 let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
                 if predation_mode {
@@ -763,6 +777,9 @@ impl World {
                         }
                     }
                 }
+                InteractionCommand::Fertilize { x, y, amount } => {
+                    self.terrain.fertilize(x, y, amount);
+                }
             }
         }
 
@@ -777,6 +794,12 @@ impl World {
                 if let Some(legend) = social::archive_if_legend(&e, self.tick, &self.logger) {
                     self.update_best_legend(legend);
                 }
+
+                // P44: Corpse Fertilization
+                let fert_amount = (e.metabolism.max_energy as f32 / 100.0) * 0.02;
+                self.terrain
+                    .fertilize(e.physics.x, e.physics.y, fert_amount);
+
                 continue;
             }
 
@@ -785,6 +808,12 @@ impl World {
                 if let Some(legend) = social::archive_if_legend(&e, self.tick, &self.logger) {
                     self.update_best_legend(legend);
                 }
+
+                // P44: Corpse Fertilization
+                let fert_amount = (e.metabolism.max_energy as f32 / 100.0) * 0.02;
+                self.terrain
+                    .fertilize(e.physics.x, e.physics.y, fert_amount);
+
                 // Do not add to alive_entities
             } else {
                 alive_entities.push(e);
@@ -842,6 +871,7 @@ impl World {
             mutation_scale,
             &mut self.pop_stats,
             &mut self.hall_of_fame,
+            &self.terrain,
         );
 
         if self.tick.is_multiple_of(100) {
@@ -885,6 +915,7 @@ impl World {
             let _ = self.logger.log_event(snap_ev.clone());
             events.push(snap_ev);
             self.handle_fossilization();
+            self.lineage_registry.prune(); // P44: Registry Pruning
         }
 
         Ok(events)

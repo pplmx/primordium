@@ -2,6 +2,7 @@ use crate::model::history::{HallOfFame, PopulationStats};
 use crate::model::state::entity::Entity;
 
 /// Update population statistics and Hall of Fame.
+#[allow(clippy::too_many_arguments)]
 pub fn update_stats(
     tick: u64,
     entities: &[Entity],
@@ -10,6 +11,7 @@ pub fn update_stats(
     mutation_scale: f32,
     pop_stats: &mut PopulationStats,
     hall_of_fame: &mut HallOfFame,
+    terrain: &crate::model::state::terrain::TerrainGrid,
 ) {
     if tick.is_multiple_of(60) {
         hall_of_fame.update(entities, tick);
@@ -24,6 +26,7 @@ pub fn update_stats(
             top_fitness,
             carbon_level,
             mutation_scale,
+            terrain,
         );
     }
 }

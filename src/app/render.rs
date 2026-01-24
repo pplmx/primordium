@@ -124,13 +124,17 @@ impl App {
                 ),
                 ratatui::text::Span::styled(biomass_bar, Style::default().fg(Color::Yellow)),
                 ratatui::text::Span::raw(format!(
-                    " | Species: {} | Gen: {} | AvgLife: {:.0} | CO2: {:.0} | Mut: {:.2}x",
+                    " | Species: {} | Gen: {} | AvgLife: {:.0} | CO2: {:.0} | Soil: {:.2}",
                     self.world.pop_stats.species_count,
                     max_gen,
                     self.world.pop_stats.avg_lifespan,
                     self.world.pop_stats.carbon_level,
-                    self.world.pop_stats.mutation_scale
+                    self.world.pop_stats.global_fertility,
                 )),
+                ratatui::text::Span::styled(
+                    format!(" | Mut: {:.2}x", self.world.pop_stats.mutation_scale),
+                    Style::default().fg(Color::DarkGray),
+                ),
                 ratatui::text::Span::styled(
                     format!(" | Vel: {:.2}", self.world.pop_stats.evolutionary_velocity),
                     Style::default().fg(Color::Magenta),
