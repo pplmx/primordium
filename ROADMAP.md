@@ -412,6 +412,13 @@ toml = "0.8"
 - **Speciation Branching**: Improved visualization of the social tree, showing how groups diverge into tribes.
 - **Social Interventions**: Divine tools to enforce peace zones or war zones to steer group behaviors.
 
+### Phase 47: Lifetime Learning (Neuroplasticity) 🚧
+
+- **Hebbian Learning**: Real-time weight adjustment based on neural co-activation ($\Delta w = \eta \cdot pre \cdot post$).
+- **Reinforcement Signals**: Global modulators (Food=+1, Pain=-1) guiding plasticity towards survival strategies.
+- **Epigenetic Priming**: Lamarckian inheritance where offspring inherit learned weight biases.
+- **Neural Dashboard**: Activity heatmap and plasticity visualization in TUI.
+
 ## 📊 Development Timeline
 
 | Phase | Milestone | Status |
@@ -421,7 +428,17 @@ toml = "0.8"
 | Phase 43 | Adaptive Speciation | ✅ Complete |
 | Phase 44 | Nutrient Cycling | ✅ Complete |
 | Phase 45 | Global Hive | ✅ Complete |
-| Phase 46 | Social Strategy | 🚧 In Progress |
+| Phase 46 | Social Strategy | ✅ Complete |
+| Phase 47 | Lifetime Learning | ✅ Complete |
+| Phase 48 | Linguistic Evolution | ✅ Complete |
+| Phase 49 | Advanced Social Hierarchies | 🚧 In Progress |
+
+### Phase 49: Advanced Social Hierarchies (Tribal Warfare) 🚧
+
+- **Tribal Splits**: Mechanisms for large tribes to fracture into competing factions based on genetic drift or leadership crises.
+- **Warfare Logic**: Organized aggression where "Soldier" castes attack foreign entities.
+- **Leadership Roles**: Emergence of "Alpha" entities that influence the movement of their tribe.
+- **Territory Claims**: Persistent memory of "Home Turf" and defense bonuses.
 
 ---
 

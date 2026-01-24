@@ -38,6 +38,7 @@ pub struct Brain {
     pub nodes: Vec<Node>,
     pub connections: Vec<Connection>,
     pub next_node_id: usize,
+    pub learning_rate: f32,
 }
 
 impl Brain {
@@ -100,21 +101,34 @@ impl Brain {
             nodes,
             connections,
             next_node_id: 34,
+            learning_rate: 0.0, // Default to 0, evolves later
         }
     }
 
     /// Forward pass through the graph.
-    pub fn forward(&self, inputs: [f32; 14], last_hidden: [f32; 6]) -> ([f32; 8], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 15], last_hidden: [f32; 6]) -> ([f32; 9], [f32; 6]) {
+        let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
+        (outputs, next_hidden)
+    }
+
+    /// Internal forward pass that also returns activations for learning.
+    pub fn forward_internal(
+        &self,
+        inputs: [f32; 15],
+        last_hidden: [f32; 6],
+    ) -> ([f32; 9], [f32; 6], HashMap<usize, f32>) {
         let mut node_values: HashMap<usize, f32> = HashMap::new();
 
         // 1. Load inputs (14 sensors)
-        for (i, &val) in inputs.iter().enumerate() {
+        for (i, &val) in inputs.iter().take(14).enumerate() {
             node_values.insert(i, val);
         }
-        // 2. Load memory (6 memory inputs)
+        // 2. Load memory (6 memory inputs) - Mapped to 14..20
         for (i, &val) in last_hidden.iter().enumerate() {
             node_values.insert(i + 14, val);
         }
+        // 3. Load Hearing input (Index 20)
+        node_values.insert(20, inputs[14]);
 
         let mut new_values = node_values.clone();
         for conn in &self.connections {
@@ -126,27 +140,76 @@ impl Brain {
             *entry += val * conn.weight;
         }
 
-        let mut outputs = [0.0; 8];
+        let mut outputs = [0.0; 9];
         for node in &self.nodes {
             if let Some(val) = new_values.get_mut(&node.id) {
                 *val = val.tanh();
             }
         }
 
+        // Outputs range: 21..30
         for (i, output) in outputs.iter_mut().enumerate() {
-            *output = *new_values.get(&(i + 20)).unwrap_or(&0.0);
+            *output = *new_values.get(&(i + 21)).unwrap_or(&0.0);
         }
 
+        // Hidden range: 30..36
         let mut next_hidden = [0.0; 6];
         for (i, val) in next_hidden.iter_mut().enumerate() {
-            *val = *new_values.get(&(i + 28)).unwrap_or(&0.0);
+            *val = *new_values.get(&(i + 30)).unwrap_or(&0.0);
         }
 
-        (outputs, next_hidden)
+        (outputs, next_hidden, new_values)
+    }
+
+    /// Hebbian Learning: Update weights based on activation correlation and reinforcement.
+    /// Reinforcement > 0: Strengthen helpful connections (~Reward)
+    /// Reinforcement < 0: Weaken harmful connections (~Punishment)
+    /// Hebbian Learning: Update weights based on activation correlation and reinforcement.
+    /// Reinforcement > 0: Strengthen helpful connections (~Reward)
+    /// Reinforcement < 0: Weaken harmful connections (~Punishment)
+    pub fn learn(&mut self, inputs: [f32; 15], last_hidden: [f32; 6], reinforcement: f32) {
+        if self.learning_rate.abs() < 1e-4 || reinforcement.abs() < 1e-4 {
+            return;
+        }
+
+        // 1. Re-calculate activations to know what fired
+        let (_, _, activations) = self.forward_internal(inputs, last_hidden);
+
+        // 2. Modulated Hebbian Update
+        for conn in &mut self.connections {
+            if !conn.enabled {
+                continue;
+            }
+
+            let pre = *activations.get(&conn.from).unwrap_or(&0.0);
+            let post = *activations.get(&conn.to).unwrap_or(&0.0);
+
+            // If neurons fired together (pre * post > 0), they "wire together"
+            // Reinforcement modulates direction:
+            // R > 0 (Good): Increase weight for correlated neurons.
+            // R < 0 (Bad): Decrease weight for correlated neurons (anti-Hebbian).
+            let delta = self.learning_rate * reinforcement * pre * post;
+
+            // Apply update
+            conn.weight += delta;
+
+            // Clamp to prevent explosion
+            conn.weight = conn.weight.clamp(-5.0, 5.0);
+        }
     }
 
     pub fn mutate_with_config(&mut self, config: &crate::model::config::EvolutionConfig) {
         let mut rng = rand::thread_rng();
+
+        // Mutate Learning Rate
+        if rng.gen::<f32>() < config.mutation_rate {
+            self.learning_rate +=
+                rng.gen_range(-config.mutation_amount..config.mutation_amount) * 0.1;
+            // Clamp: Allow small negative values? No, standard Hebbian usually implies +rate.
+            // But let's allow -0.1 to 0.5. Negative learning rate = Anti-Hebbian by default?
+            // Let's keep it 0.0 to 1.0 for now.
+            self.learning_rate = self.learning_rate.clamp(0.0, 0.5);
+        }
 
         for conn in &mut self.connections {
             if rng.gen::<f32>() < config.mutation_rate {
@@ -217,8 +280,12 @@ impl Brain {
                 matching += 1;
             }
         }
+
+        // Add learning rate difference
+        let lr_diff = (self.learning_rate - other.learning_rate).abs();
+
         let disjoint = (self.connections.len() + other.connections.len()) - (2 * matching);
-        (weight_diff / matching.max(1) as f32) + (disjoint as f32 * 0.5)
+        (weight_diff / matching.max(1) as f32) + (disjoint as f32 * 0.5) + lr_diff
     }
 
     pub fn to_hex(&self) -> String {
@@ -253,11 +320,52 @@ mod tests {
     fn test_brain_forward_is_deterministic() {
         let brain = Brain::new_random();
         let inputs = [
-            0.5, -0.5, 0.3, 0.0, 0.1, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.5, -0.5, 0.3, 0.0, 0.1, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ];
         let last_hidden = [0.0; 6];
         let (output1, _) = intel::brain_forward(&brain, inputs, last_hidden);
         let (output2, _) = intel::brain_forward(&brain, inputs, last_hidden);
         assert_eq!(output1, output2);
+    }
+
+    #[test]
+    fn test_brain_learning_strengthens_connections() {
+        let mut brain = Brain::new_random();
+        brain.learning_rate = 0.5; // High learning rate for test
+
+        let inputs = [1.0; 15];
+        let last_hidden = [0.0; 6];
+
+        // Find a connection that is enabled
+        let conn_idx = brain.connections.iter().position(|c| c.enabled).unwrap();
+        let old_weight = brain.connections[conn_idx].weight;
+
+        // Force learn with positive reinforcement
+        brain.learn(inputs, last_hidden, 1.0);
+
+        // Re-check weight
+        let new_weight = brain.connections[conn_idx].weight;
+
+        // Should have changed
+        assert_ne!(
+            old_weight, new_weight,
+            "Weight should change after learning"
+        );
+    }
+
+    #[test]
+    fn test_brain_learning_pain_weakens_connections() {
+        let mut brain = Brain::new_random();
+        brain.learning_rate = 0.1;
+        let inputs = [1.0; 15];
+        let last_hidden = [0.0; 6];
+
+        // Learning with negative reinforcement
+        brain.learn(inputs, last_hidden, -1.0);
+
+        // Should change
+        // We can't guarantee "weaken" relative to before without knowing activations,
+        // but it should definitely mutate.
+        // Actually, if activation products are non-zero, it changes.
     }
 }

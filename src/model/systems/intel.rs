@@ -3,11 +3,12 @@ use crate::model::config::EvolutionConfig;
 use rand::Rng;
 
 /// Forward pass through brain.
+/// Forward pass through brain.
 pub fn brain_forward(
     brain: &Brain,
-    inputs: [f32; 14],
+    inputs: [f32; 15],
     last_hidden: [f32; 6],
-) -> ([f32; 8], [f32; 6]) {
+) -> ([f32; 9], [f32; 6]) {
     brain.forward(inputs, last_hidden)
 }
 
@@ -105,15 +106,27 @@ pub fn mutate_genotype(
     }
     genotype.mate_preference = genotype.mate_preference.clamp(0.0, 1.0);
 
+    // NEW: Phase 47 - Mutate Learning Rate (0.0 to 0.5)
+    if rng.gen::<f32>() < effective_mutation_rate {
+        // Higher mutation for learning rate to kickstart it? No, keep standard.
+        // Actually, we delegate to brain.mutate_with_config, but brain is already mutated above.
+        // Wait, brain.mutate_with_config DOES mutate learning_rate (if I implemented it right).
+        // Let's verify brain.mutate_with_config implementation.
+        // Yes, Step 33 implementation included learning_rate mutation.
+        // So we don't need to do it here for the Brain struct fields.
+    }
+
     // NEW: Phase 39 - Genetic Drift
     // Small populations experience random trait randomization (Drift)
     if population < 10 && population > 0 && rng.gen_bool(0.05) {
         // Randomly flip a major trait
-        match rng.gen_range(0..4) {
+        match rng.gen_range(0..5) {
+            // Increased range
             0 => genotype.trophic_potential = rng.gen_range(0.0..1.0),
             1 => genotype.metabolic_niche = rng.gen_range(0.0..1.0),
             2 => genotype.mate_preference = rng.gen_range(0.0..1.0),
-            _ => genotype.maturity_gene = rng.gen_range(0.5..2.0),
+            3 => genotype.maturity_gene = rng.gen_range(0.5..2.0),
+            _ => genotype.brain.learning_rate = rng.gen_range(0.0..0.5),
         }
     }
 }
@@ -225,5 +238,10 @@ pub fn crossover_brains(p1: &Brain, p2: &Brain) -> Brain {
         nodes: child_nodes,
         connections: child_connections,
         next_node_id: p1.next_node_id.max(p2.next_node_id),
+        learning_rate: if rng.gen_bool(0.5) {
+            p1.learning_rate
+        } else {
+            p2.learning_rate
+        },
     }
 }

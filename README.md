@@ -57,6 +57,8 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 - **Efficiency Pressure**: Complexity carries a metabolic cost (0.02/node + 0.005/conn), preventing network bloat.
 - **Kin Recognition**: Entities sense the relative centroid of their lineage members (**KX**, **KY**), enabling collective herding behaviors.
 - **Semantic Language**: Active chemical signaling (**SA**, **SB**) provides a substrate for evolved social coordination.
+- **Linguistic Evolution (Phase 48)**: Entities possess **Hearing** (Input) and **Vocalization** (Output) channels, allowing for the emergence of alarm calls and mating songs.
+- **Lifetime Learning (Phase 47)**: Hebbian plasticity allows brains to adapt weights in real-time based on reinforcement signals (Food/Pain).
 - **Multi-threaded Inference**: Powered by **Rayon**, supporting 5000+ entities with zero-jitter performance.
 
 ### 👥 Social & Life History

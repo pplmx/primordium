@@ -587,16 +587,68 @@ impl App {
                         entity.intel.genotype.maturity_gene
                     )),
                 ]));
-                lines.push(ratatui::text::Line::from(""));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
-                        " Brain Complexity:",
+                        " Learning Rate: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(format!(
+                        "{:.4}",
+                        entity.intel.genotype.brain.learning_rate
+                    )),
+                ]));
+                lines.push(ratatui::text::Line::from(""));
+
+                // Calculate Real-Time Activations for Visualization
+                let (_, _, activations) = entity
+                    .intel
+                    .genotype
+                    .brain
+                    .forward_internal(entity.intel.last_inputs, entity.intel.last_hidden);
+
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Brain Activity (Hot/Cold):",
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
                 ]));
+
+                // Visualize Output Nodes (21..30)
+                let mut out_spans = vec![ratatui::text::Span::raw(" Out: ")];
+                for i in 21..30 {
+                    let val = *activations.get(&i).unwrap_or(&0.0);
+                    let color = if val > 0.5 {
+                        Color::Yellow
+                    } else if val > 0.0 {
+                        Color::Green
+                    } else if val > -0.5 {
+                        Color::Gray
+                    } else {
+                        Color::Red
+                    };
+                    let label = match i {
+                        21 => "Mx",
+                        22 => "My",
+                        23 => "Sp",
+                        24 => "Ag",
+                        25 => "Sh",
+                        26 => "Cl",
+                        27 => "EA",
+                        28 => "EB",
+                        29 => "Vc",
+                        _ => "?",
+                    };
+                    out_spans.push(ratatui::text::Span::styled(
+                        format!("{}:{:.1} ", label, val),
+                        Style::default().fg(color),
+                    ));
+                }
+                lines.push(ratatui::text::Line::from(out_spans));
+
                 lines.push(ratatui::text::Line::from(format!(
-                    "  Nodes:       {}",
-                    entity.intel.genotype.brain.nodes.len()
+                    "  Nodes:       {} ({} hidden)",
+                    entity.intel.genotype.brain.nodes.len(),
+                    entity.intel.genotype.brain.nodes.len().saturating_sub(30) + 6
                 )));
                 lines.push(ratatui::text::Line::from(format!(
                     "  Connections: {}",
@@ -610,62 +662,64 @@ impl App {
                         .count()
                 )));
                 lines.push(ratatui::text::Line::from(""));
-                lines.push(ratatui::text::Line::from(" Strongest Connections:"));
+                lines.push(ratatui::text::Line::from(
+                    " Strongest Connections (Active):",
+                ));
 
-                // Sort and show top 12 connections
+                // Sort and show top 12 connections, highlighting active ones
                 let mut conns = entity.intel.genotype.brain.connections.clone();
+                // Sort by magnitude * activation (contribution)? Or just magnitude?
+                // Let's stick to magnitude for stability, but color by input activation.
                 conns.sort_by(|a, b| b.weight.abs().partial_cmp(&a.weight.abs()).unwrap());
 
                 for c in conns.iter().filter(|c| c.enabled).take(12) {
+                    let pre_act = *activations.get(&c.from).unwrap_or(&0.0);
                     let from_label = match c.from {
-                        0..=17 => format!(
-                            "In-{}",
+                        0..=20 => format!(
+                            // Inputs 0-20
+                            "I-{}",
                             match c.from {
-                                0 => "FX",
-                                1 => "FY",
-                                2 => "EN",
-                                3 => "NB",
-                                4 => "PH",
-                                5 => "TR",
-                                6 => "KX",
-                                7 => "KY",
-                                8 => "SA",
-                                9 => "SB",
-                                10 => "WL",
-                                11 => "AG",
-                                _ => "Mem",
-                            }
-                        ),
-                        _ => format!("Hid-{}", c.from),
-                    };
-                    let to_label = match c.to {
-                        18..=25 => format!(
-                            "Out-{}",
-                            match c.to {
-                                18 => "MovX",
-                                19 => "MovY",
-                                20 => "Spd",
-                                21 => "Agg",
-                                22 => "Shr",
-                                23 => "Clr",
-                                24 => "EmA",
-                                25 => "EmB",
+                                0..=13 => "Sen",  // Sensors
+                                14..=19 => "Mem", // Memory
+                                20 => "Ear",      // Hearing
                                 _ => "?",
                             }
                         ),
-                        _ => format!("Hid-{}", c.to),
+                        _ => format!("H-{}", c.from),
+                    };
+                    let to_label = match c.to {
+                        21..=29 => format!("O-{}", c.to - 21),
+                        _ => format!("H-{}", c.to),
+                    };
+
+                    // Flow visualization:
+                    // If pre_act is high, the connection is "firing".
+                    // Color code:
+                    // Weight > 0: Green (Excitatory)
+                    // Weight < 0: Red (Inhibitory)
+                    // Brightness: Based on pre_act (Input intensity)
+
+                    let base_color = if c.weight > 0.0 {
+                        Color::Green
+                    } else {
+                        Color::Red
+                    };
+                    let style = if pre_act.abs() > 0.5 {
+                        Style::default().fg(base_color).add_modifier(Modifier::BOLD)
+                    // Bright/Active
+                    } else if pre_act.abs() > 0.1 {
+                        Style::default().fg(base_color) // Normal
+                    } else {
+                        Style::default().fg(Color::DarkGray) // Inactive path
                     };
 
                     lines.push(ratatui::text::Line::from(vec![
-                        ratatui::text::Span::raw(format!("  {} → {} ", from_label, to_label)),
                         ratatui::text::Span::styled(
-                            format!("{:.2}", c.weight),
-                            Style::default().fg(if c.weight > 0.0 {
-                                Color::Green
-                            } else {
-                                Color::Red
-                            }),
+                            format!("  {}→{} ", from_label, to_label),
+                            style,
                         ),
+                        ratatui::text::Span::styled(format!("{:.2}", c.weight), style),
+                        ratatui::text::Span::raw(format!(" (In:{:.1})", pre_act)),
                     ]));
                 }
 

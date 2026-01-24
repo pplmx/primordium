@@ -105,9 +105,9 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 14]>,
+    perception_buffer: Vec<[f32; 15]>,
     #[serde(skip, default)]
-    decision_buffer: Vec<([f32; 8], [f32; 6])>,
+    decision_buffer: Vec<([f32; 9], [f32; 6])>,
     #[serde(skip, default)]
     energy_transfers: Vec<(usize, f64)>,
     #[serde(skip, default)]
@@ -319,6 +319,31 @@ impl World {
         alive_entities.clear();
         energy_transfers.clear();
 
+        // Pass 0: Learning (Hebbian Plasticity)
+        // Adjust weights based on Reinforcement (Energy Delta) from previous tick
+        current_entities.par_iter_mut().for_each(|e| {
+            // Reinforcement Signal: Normalized Energy Gain/Loss
+            // Range roughly -0.1 to +0.1 per tick?
+            // Eating = +20.0. Max Energy = 200.0. R = +0.1.
+            // Move Cost = -0.5. R = -0.0025.
+            let energy_delta = e.metabolism.energy - e.metabolism.prev_energy;
+            let reinforcement = (energy_delta / e.metabolism.max_energy) as f32;
+
+            // Apply learning if non-zero
+            // Scale up reinforcement to make learning meaningful?
+            // If Eating (+0.1), we want strong reinforcement.
+            // If Starving (-0.002), we want weak negative.
+            // Let's us a scale factor of 10.0.
+            e.intel.genotype.brain.learn(
+                e.intel.last_inputs,
+                e.intel.last_hidden,
+                reinforcement * 10.0,
+            );
+
+            // Reset prev_energy for next delta
+            e.metabolism.prev_energy = e.metabolism.energy;
+        });
+
         current_entities
             .par_iter()
             .enumerate()
@@ -369,6 +394,22 @@ impl World {
                     wall_proximity = 1.0;
                 }
 
+                // Hearing: Average vocalization of nearby entities
+                let mut heard_signal = 0.0;
+                let mut heard_count = 0;
+                for &n_idx in &nearby_indices {
+                    if n_idx != i {
+                        // We hear what they said LAST tick
+                        heard_signal += current_entities[n_idx].intel.last_vocalization;
+                        heard_count += 1;
+                    }
+                }
+                let avg_hearing = if heard_count > 0 {
+                    heard_signal / heard_count as f32
+                } else {
+                    0.0
+                };
+
                 [
                     (dx_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
                     (dy_f / (sensing_radius * 4.0)).clamp(-1.0, 1.0) as f32,
@@ -384,6 +425,7 @@ impl World {
                     (e.metabolism.birth_tick as f32 / self.tick.max(1) as f32).min(1.0),
                     f_type,
                     e.metabolism.trophic_potential,
+                    avg_hearing, // Input 14 (15th input)
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
@@ -400,6 +442,9 @@ impl World {
             .par_iter_mut()
             .enumerate()
             .map(|(i, e)| {
+                // Phase 47: Inputs persistence for learning
+                e.intel.last_inputs = perception_buffer[i];
+
                 let (outputs, next_hidden) = decision_buffer[i];
                 e.intel.last_hidden = next_hidden;
                 let mut local_deposits = Vec::new();

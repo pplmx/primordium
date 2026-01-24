@@ -285,6 +285,7 @@ pub fn reproduce_asexual(
         metabolism: Metabolism {
             trophic_potential: child_genotype.trophic_potential,
             energy: child_energy,
+            prev_energy: child_energy,
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: tick,
@@ -303,7 +304,10 @@ pub fn reproduce_asexual(
             last_aggression: 0.0,
             last_share_intent: 0.0,
             last_signal: 0.0,
+            last_vocalization: 0.0,
             reputation: 1.0,
+            rank: 0.5,
+            last_inputs: [0.0; 15],
         },
     }
 }
@@ -344,6 +348,7 @@ pub fn reproduce_with_mate(
         metabolism: Metabolism {
             trophic_potential: child_genotype.trophic_potential,
             energy: child_energy,
+            prev_energy: child_energy,
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: tick,
@@ -362,7 +367,10 @@ pub fn reproduce_with_mate(
             last_aggression: 0.0,
             last_share_intent: 0.0,
             last_signal: 0.0,
+            last_vocalization: 0.0,
             reputation: 1.0,
+            rank: 0.5,
+            last_inputs: [0.0; 15],
         },
     }
 }
@@ -424,6 +432,7 @@ pub fn reproduce_asexual_parallel(
             metabolism: Metabolism {
                 trophic_potential: child_genotype.trophic_potential,
                 energy: child_energy,
+                prev_energy: child_energy,
                 max_energy: child_genotype.max_energy,
                 peak_energy: child_energy,
                 birth_tick: tick,
@@ -442,7 +451,10 @@ pub fn reproduce_asexual_parallel(
                 last_aggression: 0.0,
                 last_share_intent: 0.0,
                 last_signal: 0.0,
+                last_vocalization: 0.0,
                 reputation: 1.0,
+                rank: 0.5,
+                last_inputs: [0.0; 15],
             },
         },
         dist,
@@ -481,6 +493,7 @@ pub fn reproduce_with_mate_parallel(
         metabolism: Metabolism {
             trophic_potential: child_genotype.trophic_potential,
             energy: child_energy,
+            prev_energy: child_energy,
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: tick,
@@ -499,7 +512,10 @@ pub fn reproduce_with_mate_parallel(
             last_aggression: 0.0,
             last_share_intent: 0.0,
             last_signal: 0.0,
+            last_vocalization: 0.0,
             reputation: 1.0,
+            rank: 0.5,
+            last_inputs: [0.0; 15],
         },
     }
 }

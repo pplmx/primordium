@@ -59,6 +59,9 @@ pub struct Metabolism {
     pub trophic_potential: f32,
     /// Current energy level.
     pub energy: f64,
+    /// Energy level from previous tick (for reinforcement learning).
+    #[serde(skip)]
+    pub prev_energy: f64,
     /// Maximum energy capacity (Stomach Size).
     pub max_energy: f64,
     /// Historical peak energy (fitness indicator).
@@ -97,8 +100,15 @@ pub struct Intel {
     pub last_aggression: f32,
     pub last_share_intent: f32,
     pub last_signal: f32,
+    /// NEW: Phase 48 - Vocalization output (0.0-1.0)
+    pub last_vocalization: f32,
     /// NEW: Phase 46 - Social Reputation (0.0 to 1.0)
     pub reputation: f32,
+    /// NEW: Phase 49 - Social Rank (0.0 to 1.0, 1.0 = Alpha)
+    pub rank: f32,
+    /// NEW: Phase 47 - Last inputs for learning (Now includes Hearing)
+    #[serde(skip)]
+    pub last_inputs: [f32; 15],
 }
 
 /// The full genetic payload of an entity.
@@ -214,6 +224,7 @@ impl Entity {
             metabolism: Metabolism {
                 trophic_potential: genotype.trophic_potential,
                 energy: 100.0,
+                prev_energy: 100.0,
                 max_energy: genotype.max_energy,
                 peak_energy: 100.0,
                 birth_tick: tick,
@@ -232,7 +243,10 @@ impl Entity {
                 last_aggression: 0.0,
                 last_share_intent: 0.0,
                 last_signal: 0.0,
+                last_vocalization: 0.0,
                 reputation: 1.0, // Start with clean slate
+                rank: 0.5,       // Default rank (0.0 = Omega, 1.0 = Alpha)
+                last_inputs: [0.0; 15],
             },
         }
     }
