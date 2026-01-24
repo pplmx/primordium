@@ -38,6 +38,36 @@ pub fn get_territorial_aggression(entity: &Entity) -> f64 {
     }
 }
 
+/// Calculate social rank based on energy, age, offspring, and reputation.
+/// Returns value between 0.0 and 1.0.
+pub fn calculate_social_rank(entity: &Entity, tick: u64) -> f32 {
+    let energy_score =
+        (entity.metabolism.energy / entity.metabolism.max_energy).clamp(0.0, 1.0) as f32;
+    let age = tick - entity.metabolism.birth_tick;
+    let age_score = (age as f32 / 2000.0).min(1.0);
+    let offspring_score = (entity.metabolism.offspring_count as f32 / 20.0).min(1.0);
+    let rep_score = entity.intel.reputation.clamp(0.0, 1.0);
+
+    0.3 * energy_score + 0.3 * age_score + 0.1 * offspring_score + 0.3 * rep_score
+}
+
+/// Attempt to split into a new tribe if conditions are met.
+/// Returns Some(new_color) if split occurs, None otherwise.
+pub fn start_tribal_split(entity: &Entity, crowding: f32) -> Option<(u8, u8, u8)> {
+    // If very crowded and low rank (Omega), start a new faction
+    if crowding > 0.8 && entity.intel.rank < 0.2 {
+        let mut rng = rand::thread_rng();
+        // Shift color drastically to create a new marker
+        Some((
+            rng.gen_range(0..255),
+            rng.gen_range(0..255),
+            rng.gen_range(0..255),
+        ))
+    } else {
+        None
+    }
+}
+
 /// Check if two entities are in the same tribe.
 pub fn are_same_tribe(e1: &Entity, e2: &Entity) -> bool {
     let color_dist = (e1.physics.r as i32 - e2.physics.r as i32).abs()

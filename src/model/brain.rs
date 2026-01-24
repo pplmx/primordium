@@ -106,7 +106,7 @@ impl Brain {
     }
 
     /// Forward pass through the graph.
-    pub fn forward(&self, inputs: [f32; 15], last_hidden: [f32; 6]) -> ([f32; 9], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 15], last_hidden: [f32; 6]) -> ([f32; 8], [f32; 6]) {
         let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
         (outputs, next_hidden)
     }
@@ -116,7 +116,7 @@ impl Brain {
         &self,
         inputs: [f32; 15],
         last_hidden: [f32; 6],
-    ) -> ([f32; 9], [f32; 6], HashMap<usize, f32>) {
+    ) -> ([f32; 8], [f32; 6], HashMap<usize, f32>) {
         let mut node_values: HashMap<usize, f32> = HashMap::new();
 
         // 1. Load inputs (14 sensors)
@@ -140,16 +140,16 @@ impl Brain {
             *entry += val * conn.weight;
         }
 
-        let mut outputs = [0.0; 9];
+        let mut outputs = [0.0; 8];
         for node in &self.nodes {
             if let Some(val) = new_values.get_mut(&node.id) {
                 *val = val.tanh();
             }
         }
 
-        // Outputs range: 21..30
+        // Outputs range: 20..28
         for (i, output) in outputs.iter_mut().enumerate() {
-            *output = *new_values.get(&(i + 21)).unwrap_or(&0.0);
+            *output = *new_values.get(&(i + 20)).unwrap_or(&0.0);
         }
 
         // Hidden range: 30..36

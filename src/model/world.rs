@@ -29,6 +29,8 @@ pub struct EntitySnapshot {
     pub r: u8,
     pub g: u8,
     pub b: u8,
+    pub rank: f32,
+    pub status: crate::model::state::entity::EntityStatus,
 }
 
 /// NEW: Phase 41 - Commands generated during parallel interaction pass
@@ -66,6 +68,10 @@ pub enum InteractionCommand {
     UpdateReputation {
         target_idx: usize,
         delta: f32,
+    },
+    TribalSplit {
+        target_idx: usize,
+        new_color: (u8, u8, u8),
     },
 }
 
@@ -107,7 +113,7 @@ pub struct World {
     #[serde(skip, default)]
     perception_buffer: Vec<[f32; 15]>,
     #[serde(skip, default)]
-    decision_buffer: Vec<([f32; 9], [f32; 6])>,
+    decision_buffer: Vec<([f32; 8], [f32; 6])>,
     #[serde(skip, default)]
     energy_transfers: Vec<(usize, f64)>,
     #[serde(skip, default)]
@@ -301,7 +307,14 @@ impl World {
                 offspring_count: e.metabolism.offspring_count,
                 r: e.physics.r,
                 g: e.physics.g,
+
                 b: e.physics.b,
+                rank: e.intel.rank,
+                status: e.status(
+                    e.intel.genotype.max_energy * 0.5,
+                    self.tick,
+                    self.config.metabolism.maturity_age,
+                ),
             })
             .collect();
 
@@ -342,6 +355,9 @@ impl World {
 
             // Reset prev_energy for next delta
             e.metabolism.prev_energy = e.metabolism.energy;
+
+            // Update Social Rank
+            e.intel.rank = social::calculate_social_rank(e, self.tick);
         });
 
         current_entities
@@ -363,25 +379,35 @@ impl World {
                         n_idx != i && social::are_same_tribe(e, &current_entities[n_idx])
                     })
                     .count();
-                let mut kin_dx = 0.0;
-                let mut kin_dy = 0.0;
-                let mut kin_count = 0;
+
+                // LEADERSHIP VECTOR (Alpha Influence)
+                // Find highest ranking tribe member nearby
+                let mut alpha_dx = 0.0;
+                let mut alpha_dy = 0.0;
+                let mut highest_rank = e.intel.rank;
+
                 for &n_idx in &nearby_indices {
-                    if n_idx != i
-                        && current_entities[n_idx].metabolism.lineage_id == e.metabolism.lineage_id
-                    {
-                        kin_dx += current_entities[n_idx].physics.x - e.physics.x;
-                        kin_dy += current_entities[n_idx].physics.y - e.physics.y;
-                        kin_count += 1;
+                    if n_idx != i && social::are_same_tribe(e, &current_entities[n_idx]) {
+                        let n_rank = current_entities[n_idx].intel.rank;
+                        if n_rank > highest_rank {
+                            highest_rank = n_rank;
+                            alpha_dx = current_entities[n_idx].physics.x - e.physics.x;
+                            alpha_dy = current_entities[n_idx].physics.y - e.physics.y;
+                        }
                     }
                 }
-                let kin_vec_x = if kin_count > 0 {
-                    (kin_dx / kin_count as f64).clamp(-1.0, 1.0)
+
+                // Normalize vector
+                let dist = (alpha_dx * alpha_dx + alpha_dy * alpha_dy)
+                    .sqrt()
+                    .max(0.001);
+                let kin_vec_x = if highest_rank > e.intel.rank {
+                    alpha_dx / dist
                 } else {
                     0.0
                 };
-                let kin_vec_y = if kin_count > 0 {
-                    (kin_dy / kin_count as f64).clamp(-1.0, 1.0)
+                let kin_vec_y = if highest_rank > e.intel.rank {
+                    alpha_dy / dist
                 } else {
                     0.0
                 };
@@ -541,6 +567,15 @@ impl World {
                     });
                 }
 
+                // Tribal Split Check
+                let crowding = perception_buffer[i][3];
+                if let Some(new_color) = social::start_tribal_split(e, crowding) {
+                    local_cmds.push(InteractionCommand::TribalSplit {
+                        target_idx: i,
+                        new_color,
+                    });
+                }
+
                 let outputs = decision_buffer[i].0;
                 let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
                 if predation_mode {
@@ -587,6 +622,17 @@ impl World {
                             }
 
                             let mut attacker_power = e.metabolism.energy * territorial_bonus;
+
+                            // Soldier Bonus
+                            if e.status(
+                                self.config.metabolism.reproduction_threshold,
+                                self.tick,
+                                self.config.metabolism.maturity_age,
+                            ) == crate::model::state::entity::EntityStatus::Soldier
+                            {
+                                attacker_power *= 1.5;
+                            }
+
                             if is_war_zone {
                                 attacker_power *= 2.0;
                             }
@@ -877,6 +923,15 @@ impl World {
                 InteractionCommand::UpdateReputation { target_idx, delta } => {
                     current_entities[target_idx].intel.reputation =
                         (current_entities[target_idx].intel.reputation + delta).clamp(0.0, 1.0);
+                }
+                InteractionCommand::TribalSplit {
+                    target_idx,
+                    new_color,
+                } => {
+                    current_entities[target_idx].physics.r = new_color.0;
+                    current_entities[target_idx].physics.g = new_color.1;
+                    current_entities[target_idx].physics.b = new_color.2;
+                    current_entities[target_idx].intel.rank = 0.5;
                 }
             }
         }

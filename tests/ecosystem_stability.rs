@@ -58,6 +58,8 @@ fn test_hunter_competition_impact() {
             r: 255,
             g: 255,
             b: 255,
+            rank: 0.5,
+            status: primordium_lib::model::state::entity::EntityStatus::Foraging,
         },
         EntitySnapshot {
             id: prey.id,
@@ -70,6 +72,8 @@ fn test_hunter_competition_impact() {
             r: 0,
             g: 0,
             b: 0,
+            rank: 0.5,
+            status: primordium_lib::model::state::entity::EntityStatus::Foraging,
         },
     ];
 

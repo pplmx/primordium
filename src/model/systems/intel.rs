@@ -8,7 +8,7 @@ pub fn brain_forward(
     brain: &Brain,
     inputs: [f32; 15],
     last_hidden: [f32; 6],
-) -> ([f32; 9], [f32; 6]) {
+) -> ([f32; 8], [f32; 6]) {
     brain.forward(inputs, last_hidden)
 }
 

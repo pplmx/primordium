@@ -21,6 +21,8 @@ pub enum EntityStatus {
     Hunting,
     /// Default foraging behavior.
     Foraging,
+    /// High Rank (>0.8) + Aggressive. Dedicated warrior.
+    Soldier,
 }
 
 /// Physical properties: position, velocity, appearance, and home territory.
@@ -273,7 +275,7 @@ impl Entity {
 
     pub fn status(
         &self,
-        reproduction_threshold: f64,
+        _reproduction_threshold: f64,
         current_tick: u64,
         maturity_age: u64,
     ) -> EntityStatus {
@@ -288,10 +290,10 @@ impl Entity {
             && self.metabolism.energy > self.metabolism.max_energy * 0.7
         {
             EntityStatus::Sharing
+        } else if self.intel.rank > 0.8 && self.intel.last_aggression > 0.5 {
+            EntityStatus::Soldier
         } else if self.intel.last_aggression > 0.5 {
             EntityStatus::Hunting
-        } else if self.metabolism.energy > reproduction_threshold {
-            EntityStatus::Mating
         } else {
             EntityStatus::Foraging
         }
@@ -306,6 +308,7 @@ impl Entity {
             EntityStatus::Mating => '♥',
             EntityStatus::Hunting => '♦',
             EntityStatus::Foraging => '●',
+            EntityStatus::Soldier => '⚔',
         }
     }
 
@@ -318,6 +321,7 @@ impl Entity {
             EntityStatus::Mating => Color::Rgb(255, 105, 180),
             EntityStatus::Hunting => Color::Rgb(255, 69, 0),
             EntityStatus::Foraging => self.color(),
+            EntityStatus::Soldier => Color::Red,
         }
     }
 
