@@ -26,6 +26,7 @@ pub struct EvolutionConfig {
     pub drift_rate: f32,
     pub drift_amount: f32,
     pub speciation_rate: f32, // NEW: Chance for offspring to flip trophic role
+    pub speciation_threshold: f32, // NEW: Genetic distance threshold for automatic speciation
     /// NEW: Phase 39 - Scaling mutation based on population density
     pub population_aware: bool,
     pub bottleneck_threshold: usize, // e.g. 20
@@ -70,7 +71,8 @@ impl Default for AppConfig {
                 mutation_amount: 0.2,
                 drift_rate: 0.01,
                 drift_amount: 0.5,
-                speciation_rate: 0.02, // 2% chance to switch role
+                speciation_rate: 0.02,
+                speciation_threshold: 5.0, // Default threshold for new lineage
                 population_aware: true,
                 bottleneck_threshold: 20,
                 stasis_threshold: 500,

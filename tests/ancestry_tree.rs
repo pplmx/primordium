@@ -21,7 +21,7 @@ fn test_ancestry_tree_linking() {
         peak_energy: 100.0,
         birth_timestamp: "".to_string(),
         death_timestamp: "".to_string(),
-        brain_dna: primordium_lib::model::brain::Brain::new_random(),
+        genotype: primordium_lib::model::state::entity::Genotype::new_random(),
         color_rgb: (255, 0, 0),
     };
 

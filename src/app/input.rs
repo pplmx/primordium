@@ -38,6 +38,38 @@ impl App {
                     self.archeology_index += 1;
                 }
             }
+            KeyCode::Up if self.show_archeology => {
+                self.selected_fossil_index = self.selected_fossil_index.saturating_sub(1);
+            }
+            KeyCode::Down if self.show_archeology => {
+                if self.selected_fossil_index + 1 < self.world.fossil_registry.fossils.len() {
+                    self.selected_fossil_index += 1;
+                }
+            }
+            KeyCode::Char('g') | KeyCode::Char('G') if self.show_archeology => {
+                if let Some(fossil) = self
+                    .world
+                    .fossil_registry
+                    .fossils
+                    .get(self.selected_fossil_index)
+                {
+                    let mut e =
+                        crate::model::state::entity::Entity::new(50.0, 25.0, self.world.tick);
+                    e.intel.genotype = fossil.genotype.clone();
+                    // Sync phenotype
+                    e.physics.sensing_range = e.intel.genotype.sensing_range;
+                    e.physics.max_speed = e.intel.genotype.max_speed;
+                    e.metabolism.max_energy = e.intel.genotype.max_energy;
+                    e.metabolism.lineage_id = e.intel.genotype.lineage_id;
+                    e.metabolism.energy = e.metabolism.max_energy; // Spawn with full energy
+
+                    self.world.entities.push(e);
+                    self.event_log.push_back((
+                        format!("RESURRECTED: {} cloned into current world", fossil.name),
+                        Color::Magenta,
+                    ));
+                }
+            }
             KeyCode::Char('A') => {
                 if let Ok(tree) = self.world.logger.get_ancestry_tree(&self.world.entities) {
                     let dot = tree.to_dot();

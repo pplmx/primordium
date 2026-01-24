@@ -371,13 +371,19 @@ pub fn reproduce_asexual_parallel(
     tick: u64,
     config: &crate::model::config::EvolutionConfig,
     population: usize,
-) -> Entity {
+) -> (Entity, f32) {
     let mut rng = rand::thread_rng();
     let investment = parent.intel.genotype.reproductive_investment as f64;
     let child_energy = parent.metabolism.energy * investment;
 
     let mut child_genotype = parent.intel.genotype.clone();
     intel::mutate_genotype(&mut child_genotype, config, population);
+
+    // SPECIATION: Check if child has drifted too far from parent
+    let dist = parent.intel.genotype.distance(&child_genotype);
+    if dist > config.speciation_threshold {
+        child_genotype.lineage_id = Uuid::new_v4();
+    }
 
     let r = {
         let change = rng.gen_range(-15..=15);
@@ -395,46 +401,49 @@ pub fn reproduce_asexual_parallel(
     use crate::model::state::entity::{Health, Intel, Metabolism, Physics};
     use uuid::Uuid;
 
-    Entity {
-        id: Uuid::new_v4(),
-        parent_id: Some(parent.id),
-        physics: Physics {
-            x: parent.physics.x,
-            y: parent.physics.y,
-            vx: parent.physics.vx,
-            vy: parent.physics.vy,
-            r,
-            g,
-            b,
-            symbol: '●',
-            home_x: parent.physics.x,
-            home_y: parent.physics.y,
-            sensing_range: child_genotype.sensing_range,
-            max_speed: child_genotype.max_speed,
+    (
+        Entity {
+            id: Uuid::new_v4(),
+            parent_id: Some(parent.id),
+            physics: Physics {
+                x: parent.physics.x,
+                y: parent.physics.y,
+                vx: parent.physics.vx,
+                vy: parent.physics.vy,
+                r,
+                g,
+                b,
+                symbol: '●',
+                home_x: parent.physics.x,
+                home_y: parent.physics.y,
+                sensing_range: child_genotype.sensing_range,
+                max_speed: child_genotype.max_speed,
+            },
+            metabolism: Metabolism {
+                trophic_potential: child_genotype.trophic_potential,
+                energy: child_energy,
+                max_energy: child_genotype.max_energy,
+                peak_energy: child_energy,
+                birth_tick: tick,
+                generation: parent.metabolism.generation + 1,
+                offspring_count: 0,
+                lineage_id: child_genotype.lineage_id,
+            },
+            health: Health {
+                pathogen: None,
+                infection_timer: 0,
+                immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+            },
+            intel: Intel {
+                genotype: child_genotype,
+                last_hidden: [0.0; 6],
+                last_aggression: 0.0,
+                last_share_intent: 0.0,
+                last_signal: 0.0,
+            },
         },
-        metabolism: Metabolism {
-            trophic_potential: child_genotype.trophic_potential,
-            energy: child_energy,
-            max_energy: child_genotype.max_energy,
-            peak_energy: child_energy,
-            birth_tick: tick,
-            generation: parent.metabolism.generation + 1,
-            offspring_count: 0,
-            lineage_id: child_genotype.lineage_id,
-        },
-        health: Health {
-            pathogen: None,
-            infection_timer: 0,
-            immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
-        },
-        intel: Intel {
-            genotype: child_genotype,
-            last_hidden: [0.0; 6],
-            last_aggression: 0.0,
-            last_share_intent: 0.0,
-            last_signal: 0.0,
-        },
-    }
+        dist,
+    )
 }
 
 pub fn reproduce_with_mate_parallel(
@@ -528,7 +537,7 @@ pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) -> 
             peak_energy: entity.metabolism.peak_energy,
             birth_timestamp: "".to_string(),
             death_timestamp: Utc::now().to_rfc3339(),
-            brain_dna: entity.intel.genotype.brain.clone(),
+            genotype: entity.intel.genotype.clone(),
             color_rgb: (entity.physics.r, entity.physics.g, entity.physics.b),
         };
         let _ = logger.archive_legend(legend.clone());
@@ -650,6 +659,7 @@ mod tests {
             drift_rate: 0.0,
             drift_amount: 0.0,
             speciation_rate: 0.0,
+            speciation_threshold: 5.0,
             population_aware: false,
             bottleneck_threshold: 0,
             stasis_threshold: 1000,

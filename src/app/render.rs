@@ -115,6 +115,7 @@ impl App {
             }
             biomass_bar.push(']');
 
+            let pressure = (self.env.metabolism_multiplier() - 1.0) * 100.0;
             let world_stats = vec![
                 ratatui::text::Span::raw(format!("Pop: {} | ", self.world.entities.len())),
                 ratatui::text::Span::styled(
@@ -123,13 +124,25 @@ impl App {
                 ),
                 ratatui::text::Span::styled(biomass_bar, Style::default().fg(Color::Yellow)),
                 ratatui::text::Span::raw(format!(
-                    " | Species: {} | Gen: {} | AvgLife: {:.0} | CO2: {:.0} ppm | Mut: {:.2}x",
+                    " | Species: {} | Gen: {} | AvgLife: {:.0} | CO2: {:.0} | Mut: {:.2}x",
                     self.world.pop_stats.species_count,
                     max_gen,
                     self.world.pop_stats.avg_lifespan,
                     self.world.pop_stats.carbon_level,
                     self.world.pop_stats.mutation_scale
                 )),
+                ratatui::text::Span::styled(
+                    format!(" | Vel: {:.2}", self.world.pop_stats.evolutionary_velocity),
+                    Style::default().fg(Color::Magenta),
+                ),
+                ratatui::text::Span::styled(
+                    format!(" | Pressure: {:.0}%", pressure),
+                    Style::default().fg(if pressure > 50.0 {
+                        Color::Red
+                    } else {
+                        Color::Green
+                    }),
+                ),
             ];
 
             f.render_widget(
@@ -335,9 +348,12 @@ impl App {
         }
 
         lines.push(ratatui::text::Line::from(""));
-        lines.push(ratatui::text::Line::from(
-            " 🦴 Fossil Record (Extinct Icons)",
-        ));
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(
+                " 🦴 Fossil Record (Extinct Icons) ",
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+        ]));
 
         if self.world.fossil_registry.fossils.is_empty() {
             lines.push(ratatui::text::Line::from("  No fossils excavated yet."));
@@ -347,29 +363,39 @@ impl App {
                 .fossil_registry
                 .fossils
                 .iter()
-                .take(10)
                 .enumerate()
+                .take(15)
             {
+                let style = if i == self.selected_fossil_index {
+                    Style::default().bg(Color::Rgb(80, 80, 80)).fg(Color::White)
+                } else {
+                    Style::default().fg(Color::Rgb(
+                        fossil.color_rgb.0,
+                        fossil.color_rgb.1,
+                        fossil.color_rgb.2,
+                    ))
+                };
+
                 lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::raw(format!("  {}. ", i + 1)),
                     ratatui::text::Span::styled(
-                        &fossil.name,
-                        Style::default().fg(Color::Rgb(
-                            fossil.color_rgb.0,
-                            fossil.color_rgb.1,
-                            fossil.color_rgb.2,
-                        )),
+                        if i == self.selected_fossil_index {
+                            " > "
+                        } else {
+                            "   "
+                        },
+                        Style::default().fg(Color::Yellow),
                     ),
+                    ratatui::text::Span::styled(&fossil.name, style),
                     ratatui::text::Span::raw(format!(
-                        " (Max Gen: {}, Kids: {})",
+                        " (Gen: {}, Kids: {})",
                         fossil.max_generation, fossil.total_offspring
                     )),
                 ]));
-                lines.push(ratatui::text::Line::from(format!(
-                    "     Extinct at tick {}",
-                    fossil.extinct_tick
-                )));
             }
+            lines.push(ratatui::text::Line::from(""));
+            lines.push(ratatui::text::Line::from(
+                "  [↑/↓] Select Fossil  [G] Resurrect ",
+            ));
         }
 
         f.render_widget(Paragraph::new(lines).block(arch_block), area);

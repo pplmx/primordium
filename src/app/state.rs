@@ -49,7 +49,8 @@ pub struct App {
     pub show_archeology: bool,
     pub archeology_snapshots: Vec<(u64, crate::model::history::PopulationStats)>,
     pub archeology_index: usize,
-    pub onboarding_step: Option<u8>, // None=done, Some(0-2)=onboarding screens
+    pub selected_fossil_index: usize, // NEW
+    pub onboarding_step: Option<u8>,  // None=done, Some(0-2)=onboarding screens
     // Layout tracking
     pub last_world_rect: Rect,
     // Live Data
@@ -105,6 +106,7 @@ impl App {
             show_archeology: false,
             archeology_snapshots: Vec::new(),
             archeology_index: 0,
+            selected_fossil_index: 0,
             onboarding_step: if std::path::Path::new(".primordium_onboarded").exists() {
                 None
             } else {

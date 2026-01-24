@@ -151,6 +151,18 @@ impl Genotype {
         let gt = serde_json::from_slice(&bytes)?;
         Ok(gt)
     }
+
+    pub fn distance(&self, other: &Genotype) -> f32 {
+        let brain_dist = self.brain.genotype_distance(&other.brain);
+
+        let trait_dist = (self.sensing_range - other.sensing_range).abs() as f32 / 5.0
+            + (self.max_speed - other.max_speed).abs() as f32 / 1.0
+            + (self.max_energy - other.max_energy).abs() as f32 / 100.0
+            + (self.metabolic_niche - other.metabolic_niche).abs()
+            + (self.trophic_potential - other.trophic_potential).abs();
+
+        brain_dist + trait_dist
+    }
 }
 
 /// A living entity in the simulation world.

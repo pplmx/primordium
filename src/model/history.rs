@@ -17,7 +17,7 @@ pub struct Fossil {
     pub total_offspring: u32,
     pub extinct_tick: u64,
     pub peak_population: usize,
-    pub brain_dna: crate::model::brain::Brain,
+    pub genotype: crate::model::state::entity::Genotype,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -106,7 +106,7 @@ pub struct Legend {
     pub peak_energy: f64,
     pub birth_timestamp: String,
     pub death_timestamp: String,
-    pub brain_dna: crate::model::brain::Brain,
+    pub genotype: crate::model::state::entity::Genotype,
     pub color_rgb: (u8, u8, u8),
 }
 
@@ -124,7 +124,9 @@ pub struct PopulationStats {
     pub carbon_level: f64,
     pub biodiversity_hotspots: usize,
     pub mutation_scale: f32,
+    pub evolutionary_velocity: f32, // NEW: Moving average of genetic distances
     recent_deaths: VecDeque<f64>,
+    recent_distances: VecDeque<f32>, // NEW
 }
 
 impl Default for PopulationStats {
@@ -148,7 +150,20 @@ impl PopulationStats {
             carbon_level: 0.0,
             biodiversity_hotspots: 0,
             mutation_scale: 1.0,
+            evolutionary_velocity: 0.0,
             recent_deaths: VecDeque::with_capacity(100),
+            recent_distances: VecDeque::with_capacity(100),
+        }
+    }
+
+    pub fn record_birth_distance(&mut self, distance: f32) {
+        self.recent_distances.push_back(distance);
+        if self.recent_distances.len() > 100 {
+            self.recent_distances.pop_front();
+        }
+        if !self.recent_distances.is_empty() {
+            self.evolutionary_velocity =
+                self.recent_distances.iter().sum::<f32>() / self.recent_distances.len() as f32;
         }
     }
 

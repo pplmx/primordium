@@ -47,6 +47,7 @@ pub enum InteractionCommand {
     Birth {
         parent_id: uuid::Uuid,
         baby: Box<Entity>,
+        genetic_distance: f32, // NEW: Track distance for evolutionary velocity
     },
     EatFood {
         food_index: usize,
@@ -216,7 +217,7 @@ impl World {
                             total_offspring: record.total_entities_produced as u32,
                             extinct_tick: self.tick,
                             peak_population: record.peak_population,
-                            brain_dna: legend.brain_dna,
+                            genotype: legend.genotype.clone(),
                         };
                         self.fossil_registry.add_fossil(fossil);
                     }
@@ -557,6 +558,13 @@ impl World {
                             &self.config.evolution,
                             current_entities.len(),
                         );
+
+                        let dist = e.intel.genotype.distance(&child_genotype);
+                        // SPECIATION: Check if child has drifted too far from parent
+                        if dist > self.config.evolution.speciation_threshold {
+                            child_genotype.lineage_id = uuid::Uuid::new_v4();
+                        }
+
                         local_cmds.push(InteractionCommand::Birth {
                             parent_id: e.id,
                             baby: Box::new(social::reproduce_with_mate_parallel(
@@ -564,20 +572,23 @@ impl World {
                                 self.tick,
                                 child_genotype,
                             )),
+                            genetic_distance: dist,
                         });
                         local_cmds.push(InteractionCommand::TransferEnergy {
                             target_id: e.id,
                             amount: -50.0,
                         });
                     } else {
+                        let (baby, dist) = social::reproduce_asexual_parallel(
+                            e,
+                            self.tick,
+                            &self.config.evolution,
+                            current_entities.len(),
+                        );
                         local_cmds.push(InteractionCommand::Birth {
                             parent_id: e.id,
-                            baby: Box::new(social::reproduce_asexual_parallel(
-                                e,
-                                self.tick,
-                                &self.config.evolution,
-                                current_entities.len(),
-                            )),
+                            baby: Box::new(baby),
+                            genetic_distance: dist,
                         });
                     }
                 }
@@ -688,7 +699,12 @@ impl World {
                         }
                     }
                 }
-                InteractionCommand::Birth { baby, .. } => {
+                InteractionCommand::Birth {
+                    parent_id: _,
+                    baby,
+                    genetic_distance,
+                } => {
+                    self.pop_stats.record_birth_distance(genetic_distance);
                     self.lineage_registry.record_birth(
                         baby.metabolism.lineage_id,
                         baby.metabolism.generation,
