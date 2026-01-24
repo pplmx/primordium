@@ -9,9 +9,11 @@ pub fn handle_disasters(
     entity_count: usize,
     terrain: &mut TerrainGrid,
     rng: &mut impl Rng,
+    config: &crate::model::config::AppConfig,
 ) {
     // Trigger Dust Bowl disaster
-    if env.is_heat_wave() && entity_count > 300 && rng.gen_bool(0.01) {
+    if env.is_heat_wave() && entity_count > 300 && rng.gen_bool(config.world.disaster_chance as f64)
+    {
         terrain.trigger_dust_bowl(500);
     }
 }

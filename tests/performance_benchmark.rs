@@ -4,6 +4,7 @@ use primordium_lib::model::world::World;
 use std::time::Instant;
 
 #[test]
+#[ignore = "Massive benchmark - run manually with --ignored"]
 fn test_massive_population_performance() {
     let log_dir = "logs_test_perf";
     let _ = std::fs::remove_dir_all(log_dir);

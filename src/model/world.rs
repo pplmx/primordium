@@ -252,7 +252,13 @@ impl World {
         );
         self.pheromones.decay();
 
-        environment::handle_disasters(env, self.entities.len(), &mut self.terrain, &mut rng);
+        environment::handle_disasters(
+            env,
+            self.entities.len(),
+            &mut self.terrain,
+            &mut rng,
+            &self.config,
+        );
         let total_plant_biomass = self.terrain.update(self.pop_stats.biomass_h);
 
         env.sequestrate_carbon(total_plant_biomass * 0.00001);

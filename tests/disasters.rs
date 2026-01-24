@@ -51,6 +51,7 @@ fn test_wall_collisions() {
 fn test_dust_bowl_trigger() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
+    config.world.disaster_chance = 1.0; // P47: Forced deterministic trigger
     let mut world = World::new(0, config).unwrap();
 
     let mut env = Environment {
@@ -62,30 +63,24 @@ fn test_dust_bowl_trigger() {
     }
 
     // Need > 300 entities for trigger
-    for _ in 0..500 {
+    for _ in 0..310 {
         let mut e = Entity::new(5.0, 5.0, 0);
         e.metabolism.energy = 1000.0;
         world.entities.push(e);
     }
 
     let mut triggered = false;
-    for _ in 0..2000 {
+    // P47: Drastically reduced loop as it's now deterministic
+    for _ in 0..10 {
         world.update(&mut env).unwrap();
         if world.terrain.dust_bowl_timer > 0 {
             triggered = true;
             break;
         }
-        if world.entities.len() <= 300 {
-            for _ in 0..100 {
-                let mut e = Entity::new(5.0, 5.0, 0);
-                e.metabolism.energy = 1000.0;
-                world.entities.push(e);
-            }
-        }
     }
 
     assert!(
         triggered,
-        "Dust Bowl should trigger under high heat and population"
+        "Dust Bowl should trigger immediately under high heat and population with chance=1.0"
     );
 }

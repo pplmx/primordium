@@ -8,6 +8,8 @@ pub struct WorldConfig {
     pub initial_population: usize,
     pub initial_food: usize,
     pub max_food: usize,
+    /// NEW: Phase 47 - Disaster trigger probability (0.0 to 1.0)
+    pub disaster_chance: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -58,6 +60,7 @@ impl Default for AppConfig {
                 initial_population: 100,
                 initial_food: 30,
                 max_food: 50,
+                disaster_chance: 0.01, // Default 1%
             },
             metabolism: MetabolismConfig {
                 base_move_cost: 1.0,
