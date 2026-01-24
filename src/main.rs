@@ -17,6 +17,10 @@ struct Args {
     /// Game rules mode (Standard, Cooperative, BattleRoyale)
     #[arg(long, default_value = "standard")]
     gamemode: String,
+
+    /// Run in benchmark mode (headless, fixed ticks)
+    #[arg(long)]
+    benchmark: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -29,6 +33,25 @@ enum Mode {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+
+    if args.benchmark {
+        println!("Running in BENCHMARK mode (500 ticks)...");
+        let mut app = App::new()?;
+        let start = std::time::Instant::now();
+        for _ in 0..500 {
+            if let Err(e) = app.world.update(&mut app.env) {
+                eprintln!("Sim error: {e}");
+                break;
+            }
+        }
+        let dur = start.elapsed();
+        println!(
+            "Benchmark complete: 500 ticks in {:.2?} ({:.2} TPS)",
+            dur,
+            500.0 / dur.as_secs_f64()
+        );
+        return Ok(());
+    }
 
     match args.mode {
         Mode::Headless => {
