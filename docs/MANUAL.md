@@ -46,7 +46,11 @@ Primordium runs in two environments:
 | `y` | Toggle **Archeology & Fossil Record** |
 | `[` / `]` | **Time Travel** (Navigate History Snapshots) |
 | `+` / `-`| Increase / Decrease time scale |
-| `1 2 3 4` | Navigate Help Tabs (when open) |
+| `1 2 3 4 5` | **View Modes**: Normal, Fertility, Social, Rank, Vocal |
+| `j` | Toggle **Brush Mode** (Terrain / Social) |
+| `! @ #` | **Social Brush**: Neutral, Peace, War |
+| `$ % ^` | **Terrain Brush**: Oasis, Wall, Barren |
+| `Shift+1..4` | Navigate Help Tabs (when open) |
 
 ### Mouse Controls
 
@@ -55,6 +59,14 @@ Primordium runs in two environments:
 | `Left Click` | Select an entity / Change help tab |
 | `Left Drag` | **Paint Terrain** with selected brush |
 | `Right Click`| Inject Food Cluster |
+
+### View Modes (Phase 50)
+
+- **1: Normal**: Standard view.
+- **2: Fertility**: Green heatmap showing soil quality.
+- **3: Social Zones**: Cyan overlay showing Peace/War zones.
+- **4: Rank Heatmap** 👑: Purple/Magenta gradients revealing social stratification and Alpha leadership strength.
+- **5: Vocal Propagation** 🔉: Yellow ripples visualizing real-time sound wave propagation.
 
 ---
 
@@ -106,6 +118,7 @@ Each entity possesses a **Recurrent Neural Network** (RNN-lite) that evolves ove
     - **Memory**: 6 inputs are reserved for the previous tick's internal state.
 - **Outputs (Actions)**:
     - Move X / Y, Boost, Attack, Share, Signal.
+- **Collective Reinforcement (Phase 50)**: Hebbian learning now rewards social coordination (Vocalization sync) in addition to basic survival.
 
 ### Genetics & Adaptation
 
@@ -118,13 +131,22 @@ When entities reproduce, their offspring inherits a mix of parents' DNA with sli
     - **Stasis**: In large stable populations, mutation is halved to preserve fit genes.
 - **Genetic Drift**: Tiny populations (<10) may experience random major trait flips.
 
-### Social Hierarchy (Phase 49)
+### Social Hierarchy (Phase 49 & 50)
 
 Tribes are organized into hierarchies based on a **Rank** score (Energy + Age + Offspring + Reputation).
 
-- **Alpha Leadership**: Entities are influenced by the movement of the highest-ranking local member (Alpha).
-- **Soldier Caste**: Entities with High Rank (>0.8) and High Aggression (>0.5) become Soldiers. They are the primary defenders of the tribe.
+- **Alpha Leadership**: Entities are influenced by the movement of the highest-ranking local member (Alpha). Alphas emit a **Leadership Aura** (visible in View 4) that guides nearby kin.
+- **Soldier Caste**: Entities with High Rank (>0.8) and High Aggression (>0.5) become Soldiers. They are the primary defenders of the tribe and possess a **Combat Aura**.
+- **Dynamic Territoriality**: Alphas can automatically claim and mark zones. High-rank presence reinforces tribal boundaries, creating implicit **Peace** or **War** zones based on collective aggression.
 - **Tribal Splitting**: If a low-ranking entity (Omega) is trapped in an overcrowded area, it may initiate a **Fracture**, changing color and starting a new, rival tribe to escape the competitive pressure.
+
+### Social Brushes (Phase 50)
+
+Use `j` to toggle between **Terrain** and **Social** painting modes. Social brushes allow divine intervention in tribal relations:
+
+- **Neutral** (`!`): Clears any social zone override.
+- **Peace Zone** (`@`): Enforces non-aggression within the area. Entities are discouraged from attacking, regardless of neural state.
+- **War Zone** (`#`): 2x Damage multiplier for Soldiers. High-aggression area that triggers predatory instincts.
 
 ---
 
@@ -184,4 +206,4 @@ Primordium supports **Interstellar Migration**. Travel off the edge while "Onlin
 - [History & Archeology](../docs/wiki/HISTORY.md)
 
 ---
-*Last Updated: 2026-01-21*
+*Last Updated: 2026-01-24*
