@@ -300,6 +300,31 @@ impl TerrainGrid {
                                 row_transitions.push((x_u16, y_u16, TerrainType::Plains));
                             }
                         }
+                        TerrainType::River => {
+                            // Phase 54 Tuning: River Evaporation
+                            // Isolated rivers or rivers in low fertility zones can dry up
+                            let mut river_neighbors = 0;
+                            for dy in -1..=1 {
+                                for dx in -1..=1 {
+                                    if dx == 0 && dy == 0 {
+                                        continue;
+                                    }
+                                    let nx = x as i32 + dx;
+                                    let ny = y as i32 + dy;
+                                    if nx >= 0
+                                        && nx < type_grid[0].len() as i32
+                                        && ny >= 0
+                                        && ny < type_grid.len() as i32
+                                        && type_grid[ny as usize][nx as usize] == TerrainType::River
+                                    {
+                                        river_neighbors += 1;
+                                    }
+                                }
+                            }
+                            if river_neighbors == 0 && cell.fertility < 0.2 && rng.gen_bool(0.01) {
+                                row_transitions.push((x_u16, y_u16, TerrainType::Plains));
+                            }
+                        }
                         TerrainType::Desert => {
                             if cell.fertility > 0.3 {
                                 row_transitions.push((x_u16, y_u16, TerrainType::Plains));
