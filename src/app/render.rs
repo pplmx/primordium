@@ -611,6 +611,40 @@ impl App {
                         entity.intel.genotype.maturity_gene
                     )),
                 ]));
+
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Spec Bias: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(format!(
+                        "S:{:.1} E:{:.1} P:{:.1}",
+                        entity.intel.genotype.specialization_bias[0],
+                        entity.intel.genotype.specialization_bias[1],
+                        entity.intel.genotype.specialization_bias[2],
+                    )),
+                ]));
+
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Specialization: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::styled(
+                        match entity.intel.specialization {
+                            Some(s) => format!("{:?}", s),
+                            None => "None".to_string(),
+                        },
+                        if entity.intel.specialization.is_some() {
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(Color::DarkGray)
+                        },
+                    ),
+                ]));
+
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
                         " Learning Rate: ",
@@ -637,9 +671,9 @@ impl App {
                     ),
                 ]));
 
-                // Visualize Output Nodes (22..31)
+                // Visualize Output Nodes (22..33)
                 let mut out_spans = vec![ratatui::text::Span::raw(" Out: ")];
-                for i in 22..31 {
+                for i in 22..33 {
                     let val = *activations.get(&i).unwrap_or(&0.0);
                     let color = if val > 0.5 {
                         Color::Yellow
@@ -660,6 +694,8 @@ impl App {
                         28 => "EA",
                         29 => "EB",
                         30 => "Bn",
+                        31 => "Dg",
+                        32 => "Bl",
                         _ => "?",
                     };
                     out_spans.push(ratatui::text::Span::styled(
@@ -672,7 +708,7 @@ impl App {
                 lines.push(ratatui::text::Line::from(format!(
                     "  Nodes:       {} ({} hidden)",
                     entity.intel.genotype.brain.nodes.len(),
-                    entity.intel.genotype.brain.nodes.len().saturating_sub(31) // 22 in + 9 out = 31
+                    entity.intel.genotype.brain.nodes.len().saturating_sub(33) // 22 in + 11 out = 33
                 )));
                 lines.push(ratatui::text::Line::from(format!(
                     "  Connections: {}",
@@ -713,7 +749,7 @@ impl App {
                         _ => format!("H-{}", c.from),
                     };
                     let to_label = match c.to {
-                        22..=30 => format!("O-{}", c.to - 22),
+                        22..=32 => format!("O-{}", c.to - 22),
                         _ => format!("H-{}", c.to),
                     };
 

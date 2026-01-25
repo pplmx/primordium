@@ -61,7 +61,14 @@ pub fn action_system(
         base_idle *= 0.8; // 20% reduction
     }
 
-    let idle_cost = (base_idle + brain_maintenance) * metabolism_mult;
+    let mut idle_cost = (base_idle + brain_maintenance) * metabolism_mult;
+
+    // Phase 54: Symbiosis Efficiency Bonus
+    // If bonded, receive a 10% reduction in metabolic costs due to mutual aid.
+    if entity.intel.bonded_to.is_some() {
+        move_cost *= 0.9;
+        idle_cost *= 0.9;
+    }
 
     // Phase 51: Kinematic Coupling (Spring Force)
     if let Some(partner_id) = entity.intel.bonded_to {

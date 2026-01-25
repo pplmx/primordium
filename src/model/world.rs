@@ -407,7 +407,20 @@ impl World {
             .par_iter()
             .zip(perception_buffer.par_iter())
             .map(|(e, inputs)| {
-                intel::brain_forward(&e.intel.genotype.brain, *inputs, e.intel.last_hidden)
+                let (mut outputs, next_hidden) =
+                    intel::brain_forward(&e.intel.genotype.brain, *inputs, e.intel.last_hidden);
+
+                // Phase 55: Parasitic Manipulation
+                if let Some(ref path) = e.health.pathogen {
+                    if let Some((idx, offset)) = path.behavior_manipulation {
+                        let out_idx = idx.saturating_sub(22);
+                        if out_idx < 11 {
+                            outputs[out_idx] = (outputs[out_idx] + offset).clamp(-1.0, 1.0);
+                        }
+                    }
+                }
+
+                (outputs, next_hidden)
             })
             .collect_into_vec(&mut decision_buffer);
 
@@ -433,6 +446,44 @@ impl World {
                     if outputs[8] < 0.2 {
                         cmds.push(InteractionCommand::BondBreak { target_idx: i });
                     } else if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
+                        // Phase 54: Sexual Reproduction (Bonded Partners)
+                        // If both are mature and have high energy, reproduce sexually.
+                        let partner = &current_entities[p_idx];
+                        if e.is_mature(self.tick, self.config.metabolism.maturity_age)
+                            && partner.is_mature(self.tick, self.config.metabolism.maturity_age)
+                            && e.metabolism.energy > self.config.metabolism.reproduction_threshold
+                            && partner.metabolism.energy
+                                > self.config.metabolism.reproduction_threshold
+                        {
+                            let mut child_genotype = intel::crossover_genotypes(
+                                &e.intel.genotype,
+                                &partner.intel.genotype,
+                            );
+                            intel::mutate_genotype(
+                                &mut child_genotype,
+                                &self.config.evolution,
+                                current_entities.len(),
+                            );
+                            let dist = e.intel.genotype.distance(&child_genotype);
+                            if dist > self.config.evolution.speciation_threshold {
+                                child_genotype.lineage_id = uuid::Uuid::new_v4();
+                            }
+                            let baby =
+                                social::reproduce_with_mate_parallel(e, self.tick, child_genotype);
+                            cmds.push(InteractionCommand::Birth {
+                                parent_idx: i,
+                                baby: Box::new(baby),
+                                genetic_distance: dist,
+                            });
+                            // Also need to deduct energy from partner, but we handle it in InteractionCommand
+                            // Actually, let's just make the partner lose energy too.
+                            cmds.push(InteractionCommand::TransferEnergy {
+                                target_idx: p_idx,
+                                amount: -(partner.metabolism.energy
+                                    * partner.intel.genotype.reproductive_investment as f64),
+                            });
+                        }
+
                         // Phase 51: Metabolic Fusion (Bidirectional Equalization)
                         let self_energy = e.metabolism.energy;
                         let partner_energy = entity_snapshots[p_idx].energy;
@@ -491,7 +542,11 @@ impl World {
                 if outputs[3] > 0.5 {
                     let targets = self.spatial_hash.query(e.physics.x, e.physics.y, 1.5);
                     for t_idx in targets {
-                        if t_idx != i && !social::are_same_tribe(e, &current_entities[t_idx]) {
+                        let is_partner = e.intel.bonded_to == Some(entity_snapshots[t_idx].id);
+                        if t_idx != i
+                            && !social::are_same_tribe(e, &current_entities[t_idx])
+                            && !is_partner
+                        {
                             cmds.push(InteractionCommand::Kill {
                                 target_idx: t_idx,
                                 attacker_idx: i,

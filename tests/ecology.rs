@@ -30,6 +30,7 @@ fn test_terrain_fertility_cycle() {
         .push(primordium_lib::model::state::food::Food::new(ix, iy, 0.0));
 
     // 1. Check initial fertility
+    world.terrain.set_fertility(ix, iy, 0.5);
     let initial_fertility = world.terrain.get_cell(ix, iy).fertility;
 
     let mut _food_eaten = false;

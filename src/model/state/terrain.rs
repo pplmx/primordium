@@ -429,6 +429,13 @@ impl TerrainGrid {
         self.cells[iy][ix].terrain_type = t;
     }
 
+    /// Manually set cell fertility (useful for testing)
+    pub fn set_fertility(&mut self, x: u16, y: u16, f: f32) {
+        let ix = (x as usize).min(self.width as usize - 1);
+        let iy = (y as usize).min(self.height as usize - 1);
+        self.cells[iy][ix].fertility = f.clamp(0.0, 1.0);
+    }
+
     pub fn average_fertility(&self) -> f32 {
         let mut sum = 0.0;
         let mut count = 0;

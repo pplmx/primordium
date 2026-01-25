@@ -23,6 +23,7 @@ fn test_pathogen_transmission() {
         transmission: 1.0, // Guaranteed spread
         duration: 100,
         virulence: 2.0, // High virulence
+        behavior_manipulation: None,
     };
     patient_zero.health.pathogen = Some(pathogen.clone());
     patient_zero.health.infection_timer = pathogen.duration;
@@ -65,6 +66,7 @@ fn test_immunity_gain() {
         transmission: 1.0,
         duration: 1, // Rapid recovery
         virulence: 2.0,
+        behavior_manipulation: None,
     };
 
     entity.health.pathogen = Some(pathogen);
