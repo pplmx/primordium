@@ -6,6 +6,39 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 52-55: Emergent Engineering & Social Specialization] - 2026-01-25
+
+### Evolutionary Leap: Biological Terraforming & Parasitic Hijacking
+
+This multi-phase update transforms organisms from passive survivalists into active biological engineers and complex social actors. Lineages now actively reshape their environment through hydrological engineering and building protective structures, while new parasitic threats introduce sophisticated behavioral manipulation.
+
+#### ✨ Features
+
+- **Emergent Engineering (Phase 52)**:
+    - **Neural Terraforming**: Added `Dig` and `Build` neural outputs. Entities can convert terrain types based on their energy levels.
+    - **Hydrological Canals**: Digging adjacent to rivers allows entities to create functional canals, boosting local fertility.
+    - **Nests (Ω)**: Entities can construct protective nests that grant a 20% metabolic recovery bonus and a "Nursery" energy boost for newborns.
+- **Specialized Castes (Phase 53)**:
+    - **Caste Metering**: Lineages evolve specialized roles—**Soldier**, **Engineer**, or **Provider**—based on historical neural activity.
+    - **Role Buffs**: Engineers get 50% lower terraforming costs; Soldiers deal 1.5x damage; Providers reduce sharing energy loss by 50%.
+- **Interspecies Symbiosis (Phase 54)**:
+    - **Mutualistic Bonds**: Bonding is no longer restricted to kin. Mutualistic pairs receive a 10% reduction in all metabolic costs.
+    - **Interspecies Hybridization**: Bonded partners of different lineages can reproduce sexually, generating diverse hybrid genotypes.
+    - **River Dynamics**: Implemented river evaporation in low-fertility zones to balance biological terraforming.
+- **Parasitic Manipulation (Phase 55)**:
+    - **Neural Hijacking**: Pathogens can now possess "Behavior Manipulation" traits, forcing specific host neural outputs (e.g., forced aggression or vocalization) to accelerate viral spread.
+- **Vocal Propagation (Phase 48 Refinement)**:
+    - **SoundGrid**: Implemented real-time acoustic ripples with diffusion and decay. Entities "Hear" the aggregate volume of nearby calls.
+
+#### 🛠️ Technical Achievements
+
+- **Massive Parallel Pipeline (Phase 41 Scaling)**: Refactored the simulation update loop into a "Proposal Unzipping" pattern. All action and biological systems now run in full parallel using Rayon, supporting 10,000+ entities.
+- **Lock-Free Spatial Hash**: Implemented a parallel `fold`/`reduce` pattern for Spatial Hash construction, eliminating Mutex bottlenecks.
+- **Compressed Fossil Record**: Implemented Gzip-compressed storage for `fossils.json.gz`, reducing disk footprint by >60%.
+- **Enhanced TUI Neural View**: Updated brain visualization to support 11 outputs and real-time specialization meters.
+
+---
+
 ## [Phase 51: Symbiosis (The Bond)] - 2026-01-24
 
 ### Evolutionary Leap: Biological Fusion

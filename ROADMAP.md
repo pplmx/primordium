@@ -444,12 +444,37 @@ toml = "0.8"
 - **Bond Maintenance**: Distance-based bond integrity checks (Break if dist > 20.0).
 - **Specialized Roles**: Emergence of "Pilot" (Movement specialist) and "Turret" (Defense specialist) pairs.
 
-### Phase 52: Emergent Architecture (Terraforming) 🚧
+### Phase 52: Emergent Architecture (Terraforming) ✅
 
-- **Active Terrain Modification**: New neural outputs allowing entities to `Dig` (convert Wall/Mountain → Plains) and `Build` (convert Plains → Wall).
-- **Nest Construction**: Creation of safe zones that reduce metabolic costs for offspring.
-- **Hydrological Engineering**: Digging "canals" to extend River effects (speed/fertility) into drylands.
-- **Ecological Feedback**: Artificial structures impacting local wind/temperature (microclimates).
+- **Active Terrain Modification**: Added `Dig` and `Build` neural outputs allowing entities to reshape the world.
+- **Hydrological Engineering**: Construction of canals (River expansion) that boost local soil fertility via hydration coupling.
+- **Nest Construction (Ω)**: Protective structures that provide metabolic idle reduction and energy bonuses for offspring.
+- **Ecological Feedback**: Biological terraforming directly influencing biome succession (e.g., turning desert to plains via canal irrigation).
+
+### Phase 53: Specialized Castes & Behavioral Metering ✅
+
+- **Specialization Meters**: Entities evolve specialized roles—**Soldier**, **Engineer**, or **Provider**—based on their lifetime neural activity.
+- **Role Bonuses**: Engineers have 50% lower terraforming costs; Soldiers inflict 1.5x damage; Providers share energy with 50% less metabolic loss.
+- **Genetic Bias**: Inheritable predispositions towards specific castes, allowing lineages to evolve stable social structures.
+
+### Phase 54: Interspecies Symbiosis & Hybridization ✅
+
+- **Mutualistic Bonds**: Extended bonding to support inter-lineage partnerships with shared metabolic bonuses.
+- **Interspecies Hybridization**: Bonded partners of different lineages can reproduce sexually, enabling horizontal gene transfer and hybrid vigor.
+- **River Dynamics**: Implemented evaporation in low-fertility zones to balance biological canal engineering.
+
+### Phase 55: Parasitic Manipulation & Behavioral Hijacking ✅
+
+- **Neural Hijacking**: Advanced pathogens can force specific brain outputs (e.g., forced aggression, vocalization) to facilitate their spread.
+- **Pathogen Evolution**: Viral strains mutate their manipulation targets, creating dynamic behavioral epidemics.
+- **Compressed Fossil Record**: Transitioned to Gzip-compressed fossil storage (`fossils.json.gz`) for 60% disk savings.
+
+### Phase 56+: Future Horizons 🚧
+
+- **Atmospheric Chemistry**: Implementation of Oxygen/Nitrogen cycles affecting movement resistance and energy yield.
+- **Complex Life Cycles**: Metamorphosis (Larval -> Adult) with distinct neural topologies per stage.
+- **Multiverse Trade**: P2P resource exchange between connected simulation instances.
+- **Neural Archiving**: Exporting trained neural brains for external AI research.
 
 ---
 
@@ -459,5 +484,5 @@ Primordium is an experiment in **emergent complexity**. You provide the rules, t
 
 Every run is unique. Every lineage is precious. Every extinction teaches us something.
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-01-25*
 *Version: 0.0.1*
