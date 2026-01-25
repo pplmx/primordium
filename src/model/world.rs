@@ -94,6 +94,9 @@ pub enum InteractionCommand {
         attacker_idx: usize,
         is_nest: bool,
     },
+    Metamorphosis {
+        target_idx: usize,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -283,6 +286,9 @@ impl World {
         let total_plant_biomass = self.terrain.update(self.pop_stats.biomass_h);
         env.sequestrate_carbon(total_plant_biomass * 0.00001);
         env.add_carbon(self.entities.len() as f64 * 0.01);
+        env.consume_oxygen(
+            self.entities.len() as f64 * self.config.metabolism.oxygen_consumption_rate,
+        );
         env.tick();
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut rng);
         ecological::spawn_food(
@@ -624,6 +630,13 @@ impl World {
                         is_nest: outputs[10] > 0.9,
                     });
                 }
+                // Phase 58: Metamorphosis trigger
+                if !e.metabolism.has_metamorphosed
+                    && e.is_mature(self.tick, self.config.metabolism.maturity_age)
+                {
+                    cmds.push(InteractionCommand::Metamorphosis { target_idx: i });
+                }
+
                 if cmds.is_empty() {
                     None
                 } else {
@@ -634,17 +647,14 @@ impl World {
             .collect();
 
         let current_population = current_entities.len();
-        let (pheromone_proposals, sound_proposals): (
-            Vec<Vec<crate::model::state::pheromone::PheromoneDeposit>>,
-            Vec<Vec<crate::model::state::sound::SoundDeposit>>,
-        ) = current_entities
+        let action_results: Vec<action::ActionResult> = current_entities
             .par_iter_mut()
             .enumerate()
             .map(|(i, e)| {
                 let (outputs, next_hidden) = decision_buffer[i];
                 e.intel.last_hidden = next_hidden;
                 e.intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
-                let (p_deps, s_deps) = action::action_system(
+                let res = action::action_system(
                     e,
                     outputs,
                     &mut action::ActionContext {
@@ -657,18 +667,18 @@ impl World {
                     },
                 );
                 biological::biological_system(e, current_population);
-                (p_deps, s_deps)
+                res
             })
-            .unzip();
+            .collect();
 
-        let pheromone_proposals: Vec<_> = pheromone_proposals.into_iter().flatten().collect();
-        let sound_proposals: Vec<_> = sound_proposals.into_iter().flatten().collect();
-
-        for p in pheromone_proposals {
-            self.pheromones.deposit(p.x, p.y, p.ptype, p.amount);
-        }
-        for s in sound_proposals {
-            self.sound.deposit(s.x, s.y, s.amount);
+        for res in action_results {
+            for p in res.pheromones {
+                self.pheromones.deposit(p.x, p.y, p.ptype, p.amount);
+            }
+            for s in res.sounds {
+                self.sound.deposit(s.x, s.y, s.amount);
+            }
+            env.consume_oxygen(res.oxygen_drain);
         }
 
         for cmd in interaction_commands {
@@ -683,6 +693,9 @@ impl World {
                     if !killed_ids.contains(&tid) {
                         let mut multiplier = 1.0;
                         let attacker = &current_entities[attacker_idx];
+
+                        // Phase 56: High-intensity activity oxygen cost
+                        env.consume_oxygen(0.05);
 
                         // Phase 49: Soldier damage bonus (1.5x)
                         let attacker_status =
@@ -845,6 +858,9 @@ impl World {
                     let attacker = &mut current_entities[attacker_idx];
                     let mut energy_cost = 10.0;
 
+                    // Phase 56: Physical labor oxygen cost
+                    env.consume_oxygen(0.02);
+
                     // Phase 53: Engineer Caste Energy Reduction
                     if attacker.intel.specialization
                         == Some(crate::model::state::entity::Specialization::Engineer)
@@ -932,6 +948,10 @@ impl World {
                     let cell = self.terrain.get(x, y);
                     let attacker = &mut current_entities[attacker_idx];
                     let mut energy_cost = 15.0;
+
+                    // Phase 56: Physical labor oxygen cost
+                    env.consume_oxygen(0.03);
+
                     if attacker.intel.specialization
                         == Some(crate::model::state::entity::Specialization::Engineer)
                     {
@@ -965,6 +985,28 @@ impl World {
                             }
                         }
                     }
+                }
+                InteractionCommand::Metamorphosis { target_idx } => {
+                    let e = &mut current_entities[target_idx];
+                    e.metabolism.has_metamorphosed = true;
+                    e.metabolism.max_energy *= 1.5;
+                    e.metabolism.peak_energy = e.metabolism.max_energy;
+
+                    for _ in 0..5 {
+                        e.intel
+                            .genotype
+                            .brain
+                            .mutate_with_config(&self.config.evolution);
+                    }
+
+                    let ev = LiveEvent::Metamorphosis {
+                        id: e.id,
+                        name: e.name(),
+                        tick: self.tick,
+                        timestamp: Utc::now().to_rfc3339(),
+                    };
+                    let _ = self.logger.log_event(ev.clone());
+                    events.push(ev);
                 }
                 _ => {}
             }

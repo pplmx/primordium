@@ -41,6 +41,9 @@ Primordium runs in two environments:
 | `r` | Trigger **Resource Boom** (Spawn Food) |
 | `w` | **Save** Simulation State to `save.json` |
 | `o` | **Load** Simulation State from `save.json` |
+| `c` | **Export DNA** of selected entity to `exported_dna.txt` |
+| `C` | **Export Brain JSON** of selected entity to `logs/brain_<id>.json` |
+| `v` | **Infuse DNA** from `dna_infuse.txt` |
 | `a` | Toggle **Ancestry View** (Family Tree) |
 | `Shift+A` | Export Ancestry Tree to DOT file |
 | `y` | Toggle **Archeology & Fossil Record** |
@@ -50,7 +53,7 @@ Primordium runs in two environments:
 | `j` | Toggle **Brush Mode** (Terrain / Social) |
 | `! @ #` | **Social Brush**: Neutral, Peace, War |
 | `$ % ^` | **Terrain Brush**: Oasis, Wall, Barren |
-| `Shift+1..4` | Navigate Help Tabs (when open) |
+| `Shift+1..5` | Navigate Help Tabs (when open) |
 
 ### Mouse Controls
 
@@ -83,7 +86,15 @@ Entities are represented by symbols indicating their current physiological state
 - `♣` **Sharing**: Altruistic state, giving energy to nearby tribe members.
 - `☣` **Infected**: Carrying a pathogen, loses energy and spreads disease.
 - `◦` **Juvenile**: Immature state, unable to reproduce.
-- `⚔` **Soldier**: High-rank, aggressive defender. Deals 1.5x damage (2.0x in War Zones).
+- `⚔` **Soldier**: High-rank, aggressive defender. Deals 1.5x damage.
+
+### Specialized Castes (Phase 53)
+
+Entities can evolve specialized roles based on their activities:
+
+- **Soldier**: High damage dealer (1.5x). Higher metabolic cost.
+- **Engineer**: Expert at terraforming. 50% lower energy cost for Dig/Build.
+- **Provider**: Altruistic sharer. 50% lower energy penalty when sharing.
 
 ### Colors (Tribes)
 
@@ -103,6 +114,7 @@ Entities are colored based on their **genetic tribe**.
 - `▒` **Desert** (Tan): Resource-poor, high heat stress land. Plains degrade to Desert under low fertility.
 - `░` **Barren** (Brown): Overgrazed or disaster-struck land. Very low food growth.
 - `█` **Wall** (Dark Gray): Impassable physical barrier.
+- `Ω` **Nest** (Gold): Protective structures built by entities. Grant metabolic recovery and energy boost for offspring.
 - `*` **Food** (Green): Energy source spawned based on RAM usage.
 
 ---
@@ -159,13 +171,14 @@ Primordium preserves the deep history of your world through two key mechanisms:
 - **History Snapshots**: Every 1,000 ticks, the system captures a macro-state of the world (population, carbon, hotspots). Use the Archeology View (`y`) and Time Travel keys (`[`/`]`) to browse these snapshots.
 - **Fossil Record**: When a legendary lineage goes extinct, its genetic legacy and brain architecture are "fossilized" into a persistent registry (`logs/fossils.json`). You can view these ancestral icons in the Archeology panel.
 
-### Carbon Cycle & Warming
+### Carbon Cycle & Atmospheric Chemistry (Phase 56)
 
-The simulation features a global **Carbon Cycle**:
+The simulation features a global **Carbon & Oxygen Cycle**:
 
-- **Emissions**: Metabolic activity from all entities increases atmospheric CO2.
-- **Sequestration**: Plant biomass and Forests act as carbon sinks.
-- **Global Warming**: High CO2 levels shift the climate state towards **Scorching**, increasing metabolic drain for all life.
+- **CO2 (Carbon)**: Metabolic activity increases carbon. High carbon triggers Global Warming.
+- **O2 (Oxygen)**: Plant biomass and Forests produce Oxygen via photosynthesis.
+- **Metabolism**: Entities consume Oxygen. High O2 increases movement efficiency; low O2 (< 8%) causes hypoxic stress (extra energy drain).
+- **Global Warming**: High CO2 levels shift the climate state towards **Scorching**.
 
 ### Weather & Cycles
 
@@ -174,11 +187,12 @@ The simulation features a global **Carbon Cycle**:
     - **Day**: Peak light levels drive maximum food growth.
     - **Night**: Minimal growth; entities enter a "Resting" state with 40% lower idle metabolism.
 
-### Pathogens & Immunity
+### Pathogens & Parasites (Phase 55)
 
 Microscopic threats can emerge and spread:
 
 - **Contagion**: Disease spreads through proximity.
+- **Behavioral Hijacking**: Parasitic pathogens can force specific brain outputs (Aggression, Vocalization, Random Movement) to increase spread.
 - **Evolution**: Surviving an infection boosts `Immunity`.
 
 ### Disasters

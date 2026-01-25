@@ -15,6 +15,7 @@ pub enum NodeType {
 pub struct Node {
     pub id: usize,
     pub node_type: NodeType,
+    pub label: Option<String>,
 }
 
 /// A connection between two nodes.
@@ -48,18 +49,48 @@ impl Brain {
         let mut connections = Vec::new();
 
         // 1. Create Inputs (0..22)
-        for i in 0..22 {
+        let input_labels = [
+            "FoodDX",
+            "FoodDY",
+            "Energy",
+            "Density",
+            "Phero",
+            "Tribe",
+            "KX",
+            "KY",
+            "SA",
+            "SB",
+            "WL",
+            "AG",
+            "NT",
+            "TP",
+            "Mem0",
+            "Mem1",
+            "Mem2",
+            "Mem3",
+            "Mem4",
+            "Mem5",
+            "Hear",
+            "PartnerEnergy",
+        ];
+
+        for (i, label) in input_labels.iter().enumerate() {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Input,
+                label: Some(label.to_string()),
             });
-            // Input nodes: 0..21 (22 total)
         }
         // 2. Create Outputs (22..33)
-        for i in 22..33 {
+        let output_labels = [
+            "MoveX", "MoveY", "Speed", "Aggro", "Share", "Color", "EmitA", "EmitB", "Bond", "Dig",
+            "Build",
+        ];
+        for (i, label) in output_labels.iter().enumerate() {
             nodes.push(Node {
-                id: i,
+                id: i + 22,
                 node_type: NodeType::Output,
+                label: Some(label.to_string()),
             });
         }
         // 3. Create initial Hidden layer (33..39)
@@ -67,6 +98,7 @@ impl Brain {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Hidden,
+                label: None,
             });
         }
 
@@ -232,6 +264,7 @@ impl Brain {
                 self.nodes.push(Node {
                     id: new_id,
                     node_type: NodeType::Hidden,
+                    label: None,
                 });
                 self.connections.push(Connection {
                     from,

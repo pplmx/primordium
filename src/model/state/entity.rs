@@ -8,6 +8,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum EntityStatus {
     Starving,
+    Larva,
     Juvenile,
     Infected,
     Sharing,
@@ -53,6 +54,7 @@ pub struct Metabolism {
     pub generation: u32,
     pub offspring_count: u32,
     pub lineage_id: Uuid,
+    pub has_metamorphosed: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -198,6 +200,7 @@ impl Entity {
                 generation: 1,
                 offspring_count: 0,
                 lineage_id: genotype.lineage_id,
+                has_metamorphosed: false,
             },
             health: Health {
                 pathogen: None,
@@ -242,6 +245,8 @@ impl Entity {
             EntityStatus::Starving
         } else if self.health.pathogen.is_some() {
             EntityStatus::Infected
+        } else if !self.metabolism.has_metamorphosed {
+            EntityStatus::Larva
         } else if (current_tick - self.metabolism.birth_tick) < actual_maturity {
             EntityStatus::Juvenile
         } else if self.intel.bonded_to.is_some() {
@@ -263,6 +268,7 @@ impl Entity {
         match status {
             EntityStatus::Starving => '†',
             EntityStatus::Infected => '☣',
+            EntityStatus::Larva => '⋯',
             EntityStatus::Juvenile => '◦',
             EntityStatus::Sharing => '♣',
             EntityStatus::Mating => '♥',
@@ -277,6 +283,7 @@ impl Entity {
         match status {
             EntityStatus::Starving => Color::Rgb(150, 50, 50),
             EntityStatus::Infected => Color::Rgb(154, 205, 50),
+            EntityStatus::Larva => Color::Rgb(180, 180, 180),
             EntityStatus::Juvenile => Color::Rgb(200, 200, 255),
             EntityStatus::Sharing => Color::Rgb(100, 200, 100),
             EntityStatus::Mating => Color::Rgb(255, 105, 180),

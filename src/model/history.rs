@@ -99,6 +99,12 @@ pub enum LiveEvent {
         #[serde(default)]
         cause: String,
     },
+    Metamorphosis {
+        id: Uuid,
+        name: String,
+        tick: u64,
+        timestamp: String,
+    },
     ClimateShift {
         from: String,
         to: String,
@@ -478,6 +484,9 @@ impl LiveEvent {
                 (format!("Extinction at tick {}", tick), Color::Magenta)
             }
             LiveEvent::EcoAlert { message, .. } => (format!("⚠️ {}", message), Color::Yellow),
+            LiveEvent::Metamorphosis { name, .. } => {
+                (format!("✨ {} has metamorphosed!", name), Color::Yellow)
+            }
             LiveEvent::Snapshot { tick, .. } => (
                 format!("🏛️ Snapshot saved at tick {}", tick),
                 Color::DarkGray,

@@ -24,11 +24,11 @@ fn test_semantic_pheromone_roundtrip() {
         width: 100,
         height: 100,
     };
-    let (p_deps, s_deps) = action_system(&mut e_emitter, outputs, &mut ctx);
-    for d in p_deps {
+    let res = action_system(&mut e_emitter, outputs, &mut ctx);
+    for d in res.pheromones {
         world.pheromones.deposit(d.x, d.y, d.ptype, d.amount);
     }
-    for d in s_deps {
+    for d in res.sounds {
         world.sound.deposit(d.x, d.y, d.amount);
     }
 

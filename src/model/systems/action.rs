@@ -15,15 +15,19 @@ pub struct ActionContext<'a> {
     pub height: u16,
 }
 
+/// Result of an action system pass
+pub struct ActionResult {
+    pub pheromones: Vec<crate::model::state::pheromone::PheromoneDeposit>,
+    pub sounds: Vec<crate::model::state::sound::SoundDeposit>,
+    pub oxygen_drain: f64,
+}
+
 /// Process brain outputs and apply movement and metabolic costs.
 pub fn action_system(
     entity: &mut Entity,
     outputs: [f32; 11],
     ctx: &mut ActionContext,
-) -> (
-    Vec<crate::model::state::pheromone::PheromoneDeposit>,
-    Vec<crate::model::state::sound::SoundDeposit>,
-) {
+) -> ActionResult {
     let speed_cap = entity.physics.max_speed;
     let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * speed_cap;
     let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
@@ -39,7 +43,14 @@ pub fn action_system(
     entity.physics.vy = entity.physics.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
 
     let metabolism_mult = ctx.env.metabolism_multiplier();
-    let mut move_cost = ctx.config.metabolism.base_move_cost * metabolism_mult * speed_mult;
+    let oxygen_factor = (ctx.env.oxygen_level / 21.0).max(0.1);
+    let aerobic_boost = oxygen_factor.sqrt();
+
+    // Speed-dependent oxygen consumption
+    let activity_drain = (speed_mult - 1.0).max(0.0) * 0.01;
+
+    let mut move_cost =
+        ctx.config.metabolism.base_move_cost * metabolism_mult * speed_mult / aerobic_boost;
     if predation_mode {
         move_cost *= 2.0;
     }
@@ -48,7 +59,7 @@ pub fn action_system(
     let brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64 * 0.02)
         + (entity.intel.genotype.brain.connections.len() as f64 * 0.005);
 
-    // Phase 52: Nest Metabolic Benefit
+    // Nest Metabolic Benefit
     let mut base_idle = ctx.config.metabolism.base_idle_cost;
     let terrain_type = ctx
         .terrain
@@ -58,26 +69,29 @@ pub fn action_system(
         terrain_type,
         crate::model::state::terrain::TerrainType::Nest
     ) {
-        base_idle *= 0.8; // 20% reduction
+        base_idle *= 0.8;
     }
 
     let mut idle_cost = (base_idle + brain_maintenance) * metabolism_mult;
 
-    // Phase 54: Symbiosis Efficiency Bonus
-    // If bonded, receive a 10% reduction in metabolic costs due to mutual aid.
+    // Symbiosis Efficiency Bonus
     if entity.intel.bonded_to.is_some() {
         move_cost *= 0.9;
         idle_cost *= 0.9;
     }
 
-    // Phase 51: Kinematic Coupling (Spring Force)
+    // Hypoxia Stress
+    if ctx.env.oxygen_level < 8.0 {
+        idle_cost += 1.0;
+    }
+
+    // Kinematic Coupling (Spring Force)
     if let Some(partner_id) = entity.intel.bonded_to {
         if let Some(partner) = ctx.snapshots.iter().find(|s| s.id == partner_id) {
             let dx = partner.x - entity.physics.x;
             let dy = partner.y - entity.physics.y;
             let dist = (dx * dx + dy * dy).sqrt();
 
-            // Spring constant k, rest length L
             let k = 0.05;
             let rest_length = 2.0;
 
@@ -86,15 +100,13 @@ pub fn action_system(
                 let fx = (dx / dist) * force;
                 let fy = (dy / dist) * force;
 
-                // Apply force to velocity (mass is effectively 1.0 for now, or use max_energy as mass?)
-                // Using mass = 1.0 for responsiveness
                 entity.physics.vx += fx;
                 entity.physics.vy += fy;
             }
         }
     }
 
-    // Phase 49: Leadership Vector (Follow Alphas)
+    // Leadership Vector (Follow Alphas)
     if entity.intel.bonded_to.is_none() {
         let mut best_alpha_pos = None;
         let mut max_rank = entity.intel.rank;
@@ -151,7 +163,11 @@ pub fn action_system(
     }
 
     handle_movement(entity, speed_mult, ctx.terrain, ctx.width, ctx.height);
-    (pheromones, sounds)
+    ActionResult {
+        pheromones,
+        sounds,
+        oxygen_drain: activity_drain,
+    }
 }
 
 pub fn handle_movement(

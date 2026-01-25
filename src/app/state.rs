@@ -28,6 +28,8 @@ pub struct App {
     pub cpu_history: VecDeque<u64>,
     // Population History
     pub pop_history: VecDeque<u64>,
+    // NEW: Phase 56 - Atmospheric History
+    pub o2_history: VecDeque<u64>,
     // Neural Visualization
     pub show_brain: bool,
     pub selected_entity: Option<Uuid>,
@@ -96,6 +98,7 @@ impl App {
             env: Environment::default(),
             cpu_history: VecDeque::from(vec![0; 60]),
             pop_history: VecDeque::from(vec![0; 60]),
+            o2_history: VecDeque::from(vec![0; 60]),
             show_brain: false,
             selected_entity: None,
             brush_type: TerrainType::Plains,

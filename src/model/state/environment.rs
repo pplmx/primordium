@@ -134,8 +134,10 @@ pub struct Environment {
     pub day_cycle_ticks: u64, // Default: 2000
     // NEW: God Mode Overrides
     pub god_climate_override: Option<ClimateState>,
-    /// NEW: Phase 38 - Atmospheric Carbon Level (0.0 to 1000.0)
+    /// NEW: Phase 38 - Atmospheric Carbon Level (0.0 to 2000.0)
     pub carbon_level: f64,
+    /// NEW: Phase 56 - Atmospheric Oxygen Level (0.0 to 100.0, baseline 21.0)
+    pub oxygen_level: f64,
 }
 
 impl Default for Environment {
@@ -155,6 +157,7 @@ impl Default for Environment {
             day_cycle_ticks: 2000,
             god_climate_override: None,
             carbon_level: 300.0, // Baseline CO2
+            oxygen_level: 21.0,  // Baseline O2 (%)
         }
     }
 }
@@ -164,14 +167,24 @@ impl Environment {
         self.world_time = (self.world_time + 1) % self.day_cycle_ticks;
         // Natural carbon diffusion/decay
         self.carbon_level = (self.carbon_level * 0.9999 + 300.0 * 0.0001).clamp(0.0, 2000.0);
+        // Phase 56 Fix: Stronger natural oxygen buffer towards 21% for high populations
+        self.oxygen_level = (self.oxygen_level * 0.9 + 21.0 * 0.1).clamp(5.0, 50.0);
     }
 
     pub fn add_carbon(&mut self, amount: f64) {
         self.carbon_level = (self.carbon_level + amount).min(2000.0);
+        // Carbon displaces Oxygen slightly
+        self.oxygen_level = (self.oxygen_level - amount * 0.001).max(5.0);
     }
 
     pub fn sequestrate_carbon(&mut self, amount: f64) {
         self.carbon_level = (self.carbon_level - amount).max(0.0);
+        // Photosynthesis produces Oxygen - Boosted for ecological balance
+        self.oxygen_level = (self.oxygen_level + amount * 2.0).min(50.0);
+    }
+
+    pub fn consume_oxygen(&mut self, amount: f64) {
+        self.oxygen_level = (self.oxygen_level - amount).max(5.0);
     }
 
     pub fn time_of_day(&self) -> TimeOfDay {

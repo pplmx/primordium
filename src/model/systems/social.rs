@@ -153,6 +153,7 @@ pub fn reproduce_asexual_parallel(
                 generation: parent.metabolism.generation + 1,
                 offspring_count: 0,
                 lineage_id: child_genotype.lineage_id,
+                has_metamorphosed: false,
             },
             health: Health {
                 pathogen: None,
@@ -226,6 +227,7 @@ pub fn reproduce_with_mate_parallel(
             generation: parent.metabolism.generation + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
+            has_metamorphosed: false,
         },
         health: Health {
             pathogen: None,

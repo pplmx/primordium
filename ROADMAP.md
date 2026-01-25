@@ -469,12 +469,24 @@ toml = "0.8"
 - **Pathogen Evolution**: Viral strains mutate their manipulation targets, creating dynamic behavioral epidemics.
 - **Compressed Fossil Record**: Transitioned to Gzip-compressed fossil storage (`fossils.json.gz`) for 60% disk savings.
 
-### Phase 56+: Future Horizons 🚧
+### Phase 56: Atmospheric Chemistry (Gas Exchange) ✅
 
-- **Atmospheric Chemistry**: Implementation of Oxygen/Nitrogen cycles affecting movement resistance and energy yield.
+- **Oxygen Cycle**: Implemented Oxygen level tracking coupled to photosynthesis (Forests) and metabolism (Entities).
+- **Hypoxic Stress**: Low oxygen levels (< 8%) induce metabolic energy drain.
+- **Aerobic Efficiency**: High oxygen levels boost movement speed and efficiency.
+- **Atmospheric Displacement**: High CO2 levels slightly displace Oxygen, linking climate change to respiratory stress.
+
+### Phase 57: Neural Archiving (Brain Export) ✅
+
+- **JSON Brain Export**: Added `Shift+C` command to export the full neural graph of the selected entity to `logs/brain_<id>.json`.
+- **Archival Compatibility**: Brain exports include all node topologies, connection weights, and recurrence states for external analysis.
+
+### Phase 58+: Future Horizons 🚧
+
 - **Complex Life Cycles**: Metamorphosis (Larval -> Adult) with distinct neural topologies per stage.
 - **Multiverse Trade**: P2P resource exchange between connected simulation instances.
-- **Neural Archiving**: Exporting trained neural brains for external AI research.
+- **Genetic Engineering UI**: Mouse-driven gene editing for selected entities.
+- **Neural Research Tools**: Advanced brain activity visualizers and synaptic plasticity graphs.
 
 ---
 

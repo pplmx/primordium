@@ -95,6 +95,9 @@ impl App {
         self.pop_history.pop_front();
         self.pop_history.push_back(self.world.entities.len() as u64);
 
+        self.o2_history.pop_front();
+        self.o2_history.push_back(self.env.oxygen_level as u64);
+
         self.last_fps_update = Instant::now();
     }
 

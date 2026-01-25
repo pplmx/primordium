@@ -156,7 +156,7 @@ impl App {
                 self.event_log
                     .push_back(("GENETIC SURGE!".to_string(), Color::Red));
             }
-            KeyCode::Char('c') | KeyCode::Char('C') => {
+            KeyCode::Char('c') => {
                 if let Some(id) = self.selected_entity {
                     if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
                         let dna = entity.intel.genotype.to_hex();
@@ -165,6 +165,21 @@ impl App {
                             "DNA exported to exported_dna.txt".to_string(),
                             Color::Cyan,
                         ));
+                    }
+                }
+            }
+            KeyCode::Char('C') => {
+                if let Some(id) = self.selected_entity {
+                    if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
+                        if let Ok(json) = serde_json::to_string_pretty(&entity.intel.genotype.brain)
+                        {
+                            let filename = format!("logs/brain_{}.json", id);
+                            let _ = fs::write(&filename, json);
+                            self.event_log.push_back((
+                                format!("Brain JSON exported to {}", filename),
+                                Color::Magenta,
+                            ));
+                        }
                     }
                 }
             }

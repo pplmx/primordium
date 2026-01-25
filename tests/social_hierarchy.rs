@@ -13,6 +13,7 @@ fn test_rank_accumulation() {
     let mut env = Environment::default();
 
     let mut e = Entity::new(10.0, 10.0, 0);
+    e.metabolism.has_metamorphosed = true;
     e.metabolism.energy = e.metabolism.max_energy; // Max energy score (0.3)
     e.metabolism.offspring_count = 20; // Max offspring score (0.1)
     e.metabolism.birth_tick = 0;
@@ -47,6 +48,7 @@ fn test_soldier_classification() {
     let mut e = Entity::new(0.0, 0.0, 0);
     e.intel.rank = 0.9;
     e.intel.last_aggression = 0.8;
+    e.metabolism.has_metamorphosed = true;
 
     // Tick=200 > Maturity=100 -> Mature
     let status = e.status(100.0, 200, 100);
@@ -115,6 +117,7 @@ fn test_soldier_damage_bonus() {
     let mut env = Environment::default();
 
     let mut soldier = Entity::new(10.0, 10.0, 0);
+    soldier.metabolism.has_metamorphosed = true;
     world.tick = 1000; // Ensure mature
 
     // FORCE AGGRESSION VIA BRAIN

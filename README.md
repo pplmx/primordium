@@ -65,6 +65,7 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 
 - **Specialized Castes (Phase 53)**: Entities evolve into **Soldiers** (high damage, high cost), **Engineers** (efficient terraforming), or **Providers** (efficient sharing) based on their lifetime activities and genetic bias.
 - **R/K Selection Strategies**: Organisms evolve trade-offs between many weak offspring (Strategy R) or few high-investment heirs (Strategy K).
+- **Metabolic Niches**: Specialized digestion for Green vs Blue food types coupled to terrain geography.
 - **Interspecies Symbiosis (Phase 54)**: Mutualistic bonds can form between different lineages, granting metabolic bonuses and enabling **Interspecies Hybridization** (sexual crossover).
 - **Group Defense**: Proximity to same-lineage members reduces incoming predation damage.
 - **Persistent Lineages**: Success is tracked globally in the **Lineage Registry**.
@@ -73,6 +74,7 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 
 - **Dynamic Emergence**: Pathogens naturally emerge and mutate, affecting host health and energy.
 - **Parasitic Manipulation (Phase 55)**: Advanced pathogens can hijack host neural circuits, forcing specific behaviors (e.g., forced aggression or vocalization) to facilitate their own spread.
+- **Immunity Evolution**: Entities gain resistance after recovery and pass it to offspring with minor mutations.
 
 ### ⚡ Divine Interface v2
 
@@ -91,6 +93,8 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 
 - **Tree of Life (Phase 34)**: Real-time ancestry visualization using `petgraph`. Trace the branching history of the top 5 dominant dynasties.
 - **Era System**: Population-driven narrative engine tracks world epochs (Genesis, Expansion, Decline, etc.).
+- **Hall of Fame**: Real-time leaderboard of the top 3 fittest organisms.
+- **Advanced Analytics**: Brain entropy, average lifespan, and dual-sparkline population dynamics.
 - **Specialization Visualizer**: Real-time TUI brain view mapping 11 outputs and caste progression meters.
 
 ### 🏔️ Ecosystem Dynamics

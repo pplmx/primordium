@@ -132,11 +132,12 @@ impl App {
                 ),
                 ratatui::text::Span::styled(biomass_bar, Style::default().fg(Color::Yellow)),
                 ratatui::text::Span::raw(format!(
-                    " | Species: {} | Gen: {} | AvgLife: {:.0} | CO2: {:.0} | Soil: {:.2}",
+                    " | Species: {} | Gen: {} | AvgLife: {:.0} | CO2: {:.0} | O2: {:.1}% | Soil: {:.2}",
                     self.world.pop_stats.species_count,
                     max_gen,
                     self.world.pop_stats.avg_lifespan,
                     self.world.pop_stats.carbon_level,
+                    self.env.oxygen_level,
                     self.world.pop_stats.global_fertility,
                 )),
                 ratatui::text::Span::styled(
@@ -226,7 +227,11 @@ impl App {
             // SPARKLINE PANES
             let spark_layout = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .constraints([
+                    Constraint::Percentage(33),
+                    Constraint::Percentage(33),
+                    Constraint::Percentage(34),
+                ])
                 .split(left_layout[1]);
 
             let cpu_history: Vec<u64> = self.cpu_history.iter().cloned().collect();
@@ -250,6 +255,17 @@ impl App {
                 .data(&pop_history)
                 .style(Style::default().fg(Color::Magenta));
             f.render_widget(pop_spark, spark_layout[1]);
+
+            let o2_history: Vec<u64> = self.o2_history.iter().cloned().collect();
+            let o2_spark = Sparkline::default()
+                .block(
+                    Block::default()
+                        .title("Atmospheric O2 (60s)")
+                        .borders(Borders::LEFT),
+                )
+                .data(&o2_history)
+                .style(Style::default().fg(Color::Cyan));
+            f.render_widget(o2_spark, spark_layout[2]);
 
             let world_widget = WorldWidget::new(&self.world, false, self.view_mode);
             f.render_widget(world_widget, left_layout[2]);
