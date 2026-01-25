@@ -36,8 +36,8 @@ pub struct EntitySnapshot {
 pub enum InteractionCommand {
     Kill {
         target_idx: usize,
+        attacker_idx: usize,
         attacker_lineage: uuid::Uuid,
-        energy_gain: f64,
         cause: String,
     },
     TransferEnergy {
@@ -52,7 +52,6 @@ pub enum InteractionCommand {
     EatFood {
         food_index: usize,
         attacker_idx: usize,
-        energy_gain: f64,
     },
     Infect {
         target_idx: usize,
@@ -192,7 +191,7 @@ impl World {
         self.lineage_registry =
             LineageRegistry::load(format!("{}/lineages.json", self.log_dir)).unwrap_or_default();
         self.fossil_registry =
-            FossilRegistry::load(&format!("{}/fossils.json", self.log_dir)).unwrap_or_default();
+            FossilRegistry::load(&format!("{}/fossils.json.gz", self.log_dir)).unwrap_or_default();
         Ok(())
     }
 
@@ -476,8 +475,8 @@ impl World {
                         if t_idx != i && !social::are_same_tribe(e, &current_entities[t_idx]) {
                             cmds.push(InteractionCommand::Kill {
                                 target_idx: t_idx,
+                                attacker_idx: i,
                                 attacker_lineage: e.metabolism.lineage_id,
-                                energy_gain: entity_snapshots[t_idx].energy * 0.5,
                                 cause: "predation".to_string(),
                             });
                             break;
@@ -510,7 +509,6 @@ impl World {
                         cmds.push(InteractionCommand::EatFood {
                             food_index: f_idx,
                             attacker_idx: i,
-                            energy_gain: gain,
                         });
                     }
                 }
@@ -536,6 +534,7 @@ impl World {
             .flatten()
             .collect();
 
+        let current_population = current_entities.len();
         for (i, e) in current_entities.iter_mut().enumerate() {
             let (outputs, next_hidden) = decision_buffer[i];
             e.intel.last_hidden = next_hidden;
@@ -553,20 +552,21 @@ impl World {
                     height: self.height,
                 },
             );
-            biological::biological_system(e);
+            biological::biological_system(e, current_population);
         }
 
         for cmd in interaction_commands {
             match cmd {
                 InteractionCommand::Kill {
                     target_idx,
+                    attacker_idx,
                     attacker_lineage,
-                    energy_gain,
                     cause,
                 } => {
                     let tid = current_entities[target_idx].id;
                     if !killed_ids.contains(&tid) {
                         killed_ids.insert(tid);
+                        let energy_gain = current_entities[target_idx].metabolism.energy * 0.5;
                         self.pop_stats.record_death(
                             self.tick - current_entities[target_idx].metabolism.birth_tick,
                         );
@@ -582,6 +582,9 @@ impl World {
                         events.push(ev);
                         self.lineage_consumption
                             .push((attacker_lineage, energy_gain));
+                        current_entities[attacker_idx].metabolism.energy =
+                            (current_entities[attacker_idx].metabolism.energy + energy_gain)
+                                .min(current_entities[attacker_idx].metabolism.max_energy);
                     }
                 }
                 InteractionCommand::Bond {
@@ -625,10 +628,18 @@ impl World {
                 InteractionCommand::EatFood {
                     food_index,
                     attacker_idx,
-                    energy_gain,
                 } => {
                     if !eaten_food_indices.contains(&food_index) {
                         eaten_food_indices.insert(food_index);
+                        let e = &current_entities[attacker_idx];
+                        let niche_eff = 1.0
+                            - (e.intel.genotype.metabolic_niche
+                                - self.food[food_index].nutrient_type)
+                                .abs();
+                        let energy_gain = self.config.metabolism.food_value
+                            * niche_eff as f64
+                            * (1.0 - e.metabolism.trophic_potential) as f64;
+
                         current_entities[attacker_idx].metabolism.energy =
                             (current_entities[attacker_idx].metabolism.energy + energy_gain)
                                 .min(current_entities[attacker_idx].metabolism.max_energy);
@@ -696,7 +707,7 @@ impl World {
                 .save(format!("{}/lineages.json", self.log_dir));
             let _ = self
                 .fossil_registry
-                .save(&format!("{}/fossils.json", self.log_dir));
+                .save(&format!("{}/fossils.json.gz", self.log_dir));
             let snap_ev = LiveEvent::Snapshot {
                 tick: self.tick,
                 stats: self.pop_stats.clone(),

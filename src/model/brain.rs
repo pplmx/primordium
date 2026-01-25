@@ -31,7 +31,7 @@ pub struct Connection {
 ///
 /// Topology (Phase 51 Symbiosis):
 /// Inputs (0..22): 14 environmental + 6 recurrent + 1 hearing + 1 partner
-/// Outputs (22..31): MoveX, MoveY, Speed, Aggro, Share, Color, EmitA, EmitB, Bond
+/// Outputs (22..30): MoveX, MoveY, Speed, Aggro, Share, Color, EmitA, EmitB, Bond (9 nodes)
 /// Hidden (31..37): Initial hidden nodes
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
@@ -53,6 +53,7 @@ impl Brain {
                 id: i,
                 node_type: NodeType::Input,
             });
+            // Input nodes: 0..21 (22 total)
         }
         // 2. Create Outputs (22..31)
         for i in 22..31 {
@@ -149,7 +150,7 @@ impl Brain {
             }
         }
 
-        // Outputs range: 22..31
+        // Outputs range: 22..30
         for (i, output) in outputs.iter_mut().enumerate() {
             *output = *new_values.get(&(i + 22)).unwrap_or(&0.0);
         }

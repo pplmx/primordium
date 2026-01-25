@@ -43,6 +43,7 @@ toml = "0.8"
 petgraph = "0.6"
 rand = "0.8"
 rayon = "1.8"
+flate2 = "1.0"
 
 # Cryptography
 sha2 = "0.10"

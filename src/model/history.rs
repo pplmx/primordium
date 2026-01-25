@@ -1,10 +1,13 @@
 use crate::model::infra::lineage_tree::AncestryTree;
 use crate::model::state::entity::Entity;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::{File, OpenOptions};
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -27,18 +30,44 @@ pub struct FossilRegistry {
 
 impl FossilRegistry {
     pub fn save(&self, path: &str) -> anyhow::Result<()> {
-        let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, json)?;
+        let file = File::create(path)?;
+        let mut encoder = GzEncoder::new(file, Compression::default());
+        let json = serde_json::to_string(self)?;
+        encoder.write_all(json.as_bytes())?;
+        encoder.finish()?;
         Ok(())
     }
 
     pub fn load(path: &str) -> anyhow::Result<Self> {
-        if !std::path::Path::new(path).exists() {
+        // Try path as given, then try with .gz suffix
+        let path_gz = if path.ends_with(".gz") {
+            path.to_string()
+        } else {
+            format!("{}.gz", path)
+        };
+
+        let target_path = if std::path::Path::new(&path_gz).exists() {
+            &path_gz
+        } else if std::path::Path::new(path).exists() {
+            path
+        } else {
             return Ok(Self::default());
+        };
+
+        let file = File::open(target_path)?;
+        // Try decoding as Gzip first
+        let mut decoder = GzDecoder::new(file);
+        let mut decoded_data = Vec::new();
+        if decoder.read_to_end(&mut decoded_data).is_ok() {
+            let registry = serde_json::from_slice(&decoded_data)?;
+            Ok(registry)
+        } else {
+            // Fallback: Try reading as plain JSON (from the target_path)
+            // Re-open file to reset pointer
+            let data = std::fs::read_to_string(target_path)?;
+            let registry = serde_json::from_str(&data)?;
+            Ok(registry)
         }
-        let data = std::fs::read_to_string(path)?;
-        let registry = serde_json::from_str(&data)?;
-        Ok(registry)
     }
 
     pub fn add_fossil(&mut self, fossil: Fossil) {
@@ -223,7 +252,10 @@ impl PopulationStats {
                 .or_default()
                 .insert(e.metabolism.lineage_id);
         }
-        self.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
+        self.biodiversity_hotspots = sectors
+            .values()
+            .filter(|s: &&HashSet<Uuid>| s.len() >= 5)
+            .count();
 
         let mut complexity_freq = HashMap::new();
         for e in entities {

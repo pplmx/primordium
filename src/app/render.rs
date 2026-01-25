@@ -298,6 +298,7 @@ impl App {
         top_lineages.sort_by(|a, b| b.1.cmp(a.1));
 
         for (id, count) in top_lineages.iter().take(5) {
+            let id: &uuid::Uuid = id;
             lines.push(ratatui::text::Line::from(vec![
                 ratatui::text::Span::styled(
                     format!(" Dynasty #{} ", &id.to_string()[..4]),
@@ -311,7 +312,7 @@ impl App {
                 .world
                 .entities
                 .iter()
-                .filter(|e| e.metabolism.lineage_id == **id)
+                .filter(|e| e.metabolism.lineage_id == *id)
                 .take(3)
                 .collect();
 
@@ -367,6 +368,28 @@ impl App {
                     self.archeology_snapshots.len()
                 )),
             ]));
+
+            // Timeline Progress Bar
+            let progress =
+                (self.archeology_index + 1) as f64 / self.archeology_snapshots.len() as f64;
+
+            // We need to render the gauge separately, but for now I'll add a text-based one in the lines
+            let bar_width = 30;
+            let filled = (progress * bar_width as f64) as usize;
+            let mut bar = String::from("[");
+            for i in 0..bar_width {
+                if i < filled {
+                    bar.push('█');
+                } else {
+                    bar.push(' ');
+                }
+            }
+            bar.push(']');
+            lines.push(ratatui::text::Line::from(vec![
+                ratatui::text::Span::raw("  "),
+                ratatui::text::Span::styled(bar, Style::default().fg(Color::Rgb(205, 133, 63))),
+            ]));
+
             lines.push(ratatui::text::Line::from(format!(
                 "  Pop: {} | Species: {}",
                 stats.population, stats.species_count
@@ -472,6 +495,7 @@ impl App {
         let mut lineage_pop: Vec<_> = self.world.pop_stats.lineage_counts.iter().collect();
         lineage_pop.sort_by(|a, b| b.1.cmp(a.1));
         for (id, count) in lineage_pop.iter().take(3) {
+            let id: &uuid::Uuid = id;
             ho_lines.push(ratatui::text::Line::from(format!(
                 "   #{} : {} entities",
                 &id.to_string()[..8],
@@ -613,9 +637,9 @@ impl App {
                     ),
                 ]));
 
-                // Visualize Output Nodes (21..29)
+                // Visualize Output Nodes (22..31)
                 let mut out_spans = vec![ratatui::text::Span::raw(" Out: ")];
-                for i in 21..29 {
+                for i in 22..31 {
                     let val = *activations.get(&i).unwrap_or(&0.0);
                     let color = if val > 0.5 {
                         Color::Yellow
@@ -627,14 +651,15 @@ impl App {
                         Color::Red
                     };
                     let label = match i {
-                        21 => "Mx",
-                        22 => "My",
-                        23 => "Sp",
-                        24 => "Ag",
-                        25 => "Sh",
-                        26 => "Cl",
-                        27 => "EA",
-                        28 => "EB",
+                        22 => "Mx",
+                        23 => "My",
+                        24 => "Sp",
+                        25 => "Ag",
+                        26 => "Sh",
+                        27 => "Cl",
+                        28 => "EA",
+                        29 => "EB",
+                        30 => "Bn",
                         _ => "?",
                     };
                     out_spans.push(ratatui::text::Span::styled(
@@ -647,7 +672,7 @@ impl App {
                 lines.push(ratatui::text::Line::from(format!(
                     "  Nodes:       {} ({} hidden)",
                     entity.intel.genotype.brain.nodes.len(),
-                    entity.intel.genotype.brain.nodes.len().saturating_sub(29) // 21 in + 8 out = 29
+                    entity.intel.genotype.brain.nodes.len().saturating_sub(31) // 22 in + 9 out = 31
                 )));
                 lines.push(ratatui::text::Line::from(format!(
                     "  Connections: {}",
@@ -674,20 +699,21 @@ impl App {
                 for c in conns.iter().filter(|c| c.enabled).take(12) {
                     let pre_act = *activations.get(&c.from).unwrap_or(&0.0);
                     let from_label = match c.from {
-                        0..=20 => format!(
-                            // Inputs 0-20
+                        0..=21 => format!(
+                            // Inputs 0-21
                             "I-{}",
                             match c.from {
                                 0..=13 => "Sen",  // Sensors
                                 14..=19 => "Mem", // Memory
                                 20 => "Ear",      // Hearing
+                                21 => "Prt",      // Partner
                                 _ => "?",
                             }
                         ),
                         _ => format!("H-{}", c.from),
                     };
                     let to_label = match c.to {
-                        21..=28 => format!("O-{}", c.to - 21),
+                        22..=30 => format!("O-{}", c.to - 22),
                         _ => format!("H-{}", c.to),
                     };
 

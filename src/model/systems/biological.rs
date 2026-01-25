@@ -1,5 +1,6 @@
 //! Biological system - handles infection, pathogen emergence, and death processing.
 
+use crate::model::brain::NodeType;
 use crate::model::history::{LiveEvent, PopulationStats};
 use crate::model::quadtree::SpatialHash;
 use crate::model::state::entity::Entity;
@@ -8,8 +9,8 @@ use chrono::Utc;
 use rand::Rng;
 use std::collections::HashSet;
 
-/// Process entity infection and immunity.
-pub fn biological_system(entity: &mut Entity) {
+/// Process entity infection, immunity, and genetic drift.
+pub fn biological_system(entity: &mut Entity, population_count: usize) {
     process_infection(entity);
 
     // Phase 46: Reputation Recovery
@@ -17,6 +18,49 @@ pub fn biological_system(entity: &mut Entity) {
     if entity.intel.reputation < 1.0 {
         entity.intel.reputation = (entity.intel.reputation + 0.001).min(1.0);
     }
+
+    // Phase 39: Genetic Drift
+    // Stochastic trait randomization in bottlenecked populations
+    if population_count > 0 && population_count < 10 {
+        let mut rng = rand::thread_rng();
+        if rng.gen_bool(0.01) {
+            // 1% chance per tick to randomize a single phenotypic gene
+            match rng.gen_range(0..4) {
+                0 => {
+                    entity.intel.genotype.metabolic_niche = rng.gen_range(0.0..1.0);
+                }
+                1 => {
+                    entity.intel.genotype.max_speed = rng.gen_range(0.5..1.5);
+                }
+                2 => {
+                    entity.intel.genotype.sensing_range = rng.gen_range(5.0..15.0);
+                }
+                _ => {
+                    entity.intel.genotype.max_energy = rng.gen_range(50.0..150.0);
+                }
+            }
+        }
+    }
+
+    // Apply brain metabolic cost (Phase 50)
+    let hidden_nodes = entity
+        .intel
+        .genotype
+        .brain
+        .nodes
+        .iter()
+        .filter(|n| matches!(n.node_type, NodeType::Hidden))
+        .count();
+    let enabled_connections = entity
+        .intel
+        .genotype
+        .brain
+        .connections
+        .iter()
+        .filter(|c| c.enabled)
+        .count();
+    let brain_cost = (hidden_nodes as f64 * 0.02) + (enabled_connections as f64 * 0.005);
+    entity.metabolism.energy -= brain_cost;
 }
 
 /// Try to infect an entity with a pathogen.
@@ -115,10 +159,78 @@ mod tests {
     #[test]
     fn test_biological_system_processes_infection() {
         let mut entity = Entity::new(5.0, 5.0, 0);
-        // Entity without infection should not change
+        // Entity without infection should only have brain metabolic cost
         let initial_energy = entity.metabolism.energy;
-        biological_system(&mut entity);
-        assert_eq!(entity.metabolism.energy, initial_energy);
+        biological_system(&mut entity, 100);
+
+        // Calculate expected brain cost
+        let hidden_nodes = entity
+            .intel
+            .genotype
+            .brain
+            .nodes
+            .iter()
+            .filter(|n| matches!(n.node_type, NodeType::Hidden))
+            .count();
+        let enabled_connections = entity
+            .intel
+            .genotype
+            .brain
+            .connections
+            .iter()
+            .filter(|c| c.enabled)
+            .count();
+        let brain_cost = (hidden_nodes as f64 * 0.02) + (enabled_connections as f64 * 0.005);
+
+        assert_eq!(entity.metabolism.energy, initial_energy - brain_cost);
+    }
+
+    #[test]
+    fn test_biological_system_with_infected_entity() {
+        let mut entity = Entity::new(5.0, 5.0, 0);
+        entity.health.pathogen = Some(Pathogen::new_random());
+        entity.health.infection_timer = 5;
+
+        let initial_timer = entity.health.infection_timer;
+        let initial_energy = entity.metabolism.energy;
+        biological_system(&mut entity, 100);
+
+        // Timer should decrease or infection should progress
+        assert!(
+            entity.health.infection_timer != initial_timer || entity.health.pathogen.is_none(),
+            "Infection should progress"
+        );
+
+        // Energy should decrease due to infection and brain metabolic cost
+        assert!(
+            entity.metabolism.energy < initial_energy,
+            "Energy should decrease"
+        );
+    }
+
+    #[test]
+    fn test_biological_system_genetic_drift() {
+        let mut entity = Entity::new(5.0, 5.0, 0);
+        let initial_niche = entity.intel.genotype.metabolic_niche;
+        let initial_speed = entity.intel.genotype.max_speed;
+        let initial_range = entity.intel.genotype.sensing_range;
+        let initial_energy_max = entity.intel.genotype.max_energy;
+
+        // Run many times with low population to trigger drift
+        let mut drifted = false;
+        for _ in 0..10000 {
+            biological_system(&mut entity, 5);
+            if entity.intel.genotype.metabolic_niche != initial_niche
+                || entity.intel.genotype.max_speed != initial_speed
+                || entity.intel.genotype.sensing_range != initial_range
+                || entity.intel.genotype.max_energy != initial_energy_max
+            {
+                drifted = true;
+                break;
+            }
+        }
+
+        assert!(drifted, "Genotype should have drifted under low population");
     }
 
     #[test]
@@ -239,23 +351,6 @@ mod tests {
         assert!(
             entities[1].health.pathogen.is_none(),
             "Neighbor should not be infected"
-        );
-    }
-
-    #[test]
-    fn test_biological_system_with_infected_entity() {
-        let mut entity = Entity::new(5.0, 5.0, 0);
-        entity.health.pathogen = Some(Pathogen::new_random());
-        entity.health.infection_timer = 5;
-
-        let initial_timer = entity.health.infection_timer;
-        biological_system(&mut entity);
-
-        // Timer should decrease or infection should progress
-        // The exact behavior depends on process_infection implementation
-        assert!(
-            entity.health.infection_timer != initial_timer || entity.health.pathogen.is_none(),
-            "Infection should progress"
         );
     }
 }

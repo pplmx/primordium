@@ -10,14 +10,14 @@ In earlier phases, entities used a fixed MLP (Multilayer Perceptron) architectur
 
 The brain starts with a standard minimal configuration but grows dynamically:
 
-- **Initial Input Layer**: 21 Neurons (14 Environment + 6 Recurrent + 1 Hearing)
+- **Initial Input Layer**: 22 Neurons (14 Environment + 6 Recurrent + 1 Hearing + 1 Partner Energy)
 - **Initial Hidden Layer**: 6 Neurons
-- **Initial Output Layer**: 8 Neurons
+- **Initial Output Layer**: 9 Neurons
 - **Dynamic Growth**: Through mutations, new hidden nodes and connections can be added indefinitely.
 - **Node ID Mapping (Phase 50 Fixed)**: 
-  - Inputs: 0..21 (0-13 Env, 14-19 Memory, 20 Hear)
-  - Outputs: 21..29
-  - Initial Hidden: 29..35
+  - Inputs: 0..22 (0-13 Env, 14-19 Memory, 20 Hear, 21 Partner Energy)
+  - Outputs: 22..31
+  - Initial Hidden: 31..37
 
 ## Inputs (Sensors)
 
@@ -40,14 +40,11 @@ The brain starts with a standard minimal configuration but grows dynamically:
 | 12 | `NT` | Nutrient Type of nearest food (0.0=Green, 1.0=Blue) |
 | 13 | `TP` | Internal Trophic Potential (0.0=Herbivore, 1.0=Carnivore) |
 
-> **Note**: While **Reputation** (Phase 46) is currently a system-level metric used for social punishment, future iterations will expose it as Input ID 21 to allow for reputation-aware decision making.
-
-### Recurrent Inputs (14-19)
-
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
 | 14-19| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
 | 20   | `Hear`   | Hearing Input (Signal strength at location) |
+| 21   | `PartnerEnergy` | Energy level of potential mate |
 
 ## Trophic Spectrum Influence (Phase 33)
 
@@ -61,14 +58,15 @@ With the introduction of the **Trophic Potential (TP)** gene, the brain must now
 
 | ID | Action | Threshold |
 | ---- | --------- | ------------ |
-| 0 | `MoveX` | Continuous (-1.0 to 1.0) |
-| 1 | `MoveY` | Continuous (-1.0 to 1.0) |
-| 2 | `Speed` | Continuous (Max speed modulation) |
-| 3 | `Aggro` | > 0.5 invokes attack state |
-| 4 | `Share` | > 0.5 transfers energy to tribe |
-| 5 | `Color` | Real-time color modulation (-1.0 to 1.0) |
-| 6 | `EmitSA` | > 0.5 emits Signal A |
-| 7 | `EmitSB` | > 0.5 emits Signal B |
+| 22 | `MoveX` | Continuous (-1.0 to 1.0) |
+| 23 | `MoveY` | Continuous (-1.0 to 1.0) |
+| 24 | `Speed` | Continuous (Max speed modulation) |
+| 25 | `Aggro` | > 0.5 invokes attack state |
+| 26 | `Share` | > 0.5 transfers energy to tribe |
+| 27 | `Color` | Real-time color modulation (-1.0 to 1.0) |
+| 28 | `EmitSA` | > 0.5 emits Signal A |
+| 29 | `EmitSB` | > 0.5 emits Signal B |
+| 30 | `Bond` | > 0.5 initiates symbiosis/mating request |
 
 ## Topological Mutations
 

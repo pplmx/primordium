@@ -109,7 +109,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 - **Memory**: The 6 initial hidden layer values from $T-1$ are fed back as inputs for $T$ (Mapped to indices 14..20).
 - **Hearing**: Standard input at index 20.
 - **Partner Energy**: Input at index 21.
-- **Outputs**: Standard outputs at indices 22..31.
+- **Outputs**: Standard outputs at indices 22..30.
     - 22: Move X
     - 23: Move Y
     - 24: Speed
@@ -234,7 +234,11 @@ let x = X { field: val, ..X::default() };
 
 ### 神经网络 Fix
 
-- Output Nodes 应为 21..29 (共8个)。之前版本曾有 Off-by-one 错误及 ID 重叠 (Input 20 vs Output 20)，已在 Phase 50 修复。
+- Output Nodes 应为 22..30 (共9个)。之前版本曾有 Off-by-one 错误及 ID 重叠 (Input 20 vs Output 20)，已在 Phase 51 修复。
+- Inputs: 0..21 (22个)
+- Outputs: 22..30 (9个)
+- Hidden: 31..36 (6个)
+- Total Nodes: 37 (ID 0..36)
 
 ---
 
