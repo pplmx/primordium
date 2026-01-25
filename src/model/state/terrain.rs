@@ -15,6 +15,7 @@ pub enum TerrainType {
     Wall,
     Forest,
     Desert,
+    Nest,
 }
 
 impl TerrainType {
@@ -28,6 +29,7 @@ impl TerrainType {
             TerrainType::Wall => 0.0,
             TerrainType::Forest => 0.7,
             TerrainType::Desert => 1.2,
+            TerrainType::Nest => 0.8,
         }
     }
 
@@ -41,6 +43,7 @@ impl TerrainType {
             TerrainType::Wall => 0.0,
             TerrainType::Forest => 2.0,
             TerrainType::Desert => 0.3,
+            TerrainType::Nest => 0.5,
         }
     }
 
@@ -54,6 +57,7 @@ impl TerrainType {
             TerrainType::Wall => '█',
             TerrainType::Forest => '♠',
             TerrainType::Desert => '▒',
+            TerrainType::Nest => 'Ω',
         }
     }
 
@@ -67,6 +71,7 @@ impl TerrainType {
             TerrainType::Wall => Color::Rgb(60, 60, 60),
             TerrainType::Forest => Color::Rgb(34, 139, 34),
             TerrainType::Desert => Color::Rgb(210, 180, 140),
+            TerrainType::Nest => Color::Rgb(255, 215, 0),
         }
     }
 }
@@ -187,6 +192,28 @@ impl TerrainGrid {
             .map(|row| row.iter().map(|c| c.terrain_type).collect())
             .collect();
 
+        // Hydration map: true if cell is within radius 2 of a river
+        let mut hydration_map = vec![vec![false; self.width as usize]; self.height as usize];
+        for (y, row) in type_grid.iter().enumerate() {
+            for (x, &t) in row.iter().enumerate() {
+                if t == TerrainType::River {
+                    for dy in -2..=2 {
+                        for dx in -2..=2 {
+                            let nx = x as i32 + dx;
+                            let ny = y as i32 + dy;
+                            if nx >= 0
+                                && nx < self.width as i32
+                                && ny >= 0
+                                && ny < self.height as i32
+                            {
+                                hydration_map[ny as usize][nx as usize] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         type TransitionVec = Vec<Vec<(u16, u16, TerrainType)>>;
         let (total_biomass_vec, transitions): (Vec<f64>, TransitionVec) = self
             .cells
@@ -203,8 +230,13 @@ impl TerrainGrid {
                     row_biomass += cell.plant_biomass as f64;
 
                     // 1. Local Biological Feedback
-                    let fertility_gain =
+                    let mut fertility_gain =
                         (global_recovery_rate + (cell.plant_biomass * 0.0001)).max(-0.05);
+
+                    // Phase 52: Hydration Effect
+                    if hydration_map[y][x] {
+                        fertility_gain += 0.005;
+                    }
 
                     let r = match cell.terrain_type {
                         TerrainType::Forest => 0.05,
@@ -296,6 +328,29 @@ impl TerrainGrid {
 
     pub fn trigger_dust_bowl(&mut self, duration: u32) {
         self.dust_bowl_timer = duration;
+    }
+
+    pub fn has_neighbor_type(&self, x: u16, y: u16, t: TerrainType) -> bool {
+        let ix = x as i32;
+        let iy = y as i32;
+        for dy in -1..=1 {
+            for dx in -1..=1 {
+                if dx == 0 && dy == 0 {
+                    continue;
+                }
+                let nx = ix + dx;
+                let ny = iy + dy;
+                if nx >= 0
+                    && nx < self.width as i32
+                    && ny >= 0
+                    && ny < self.height as i32
+                    && self.cells[ny as usize][nx as usize].terrain_type == t
+                {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     pub fn deplete(&mut self, x: f64, y: f64, amount: f32) {

@@ -11,6 +11,15 @@ pub enum PheromoneType {
     SignalB, // Semantic channel B
 }
 
+/// A request to deposit pheromones at a location
+#[derive(Debug, Clone, Copy)]
+pub struct PheromoneDeposit {
+    pub x: f64,
+    pub y: f64,
+    pub ptype: PheromoneType,
+    pub amount: f32,
+}
+
 /// A single cell in the pheromone grid
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct PheromoneCell {

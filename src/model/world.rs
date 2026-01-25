@@ -8,6 +8,7 @@ use crate::model::state::environment::Environment;
 use crate::model::state::food::Food;
 use crate::model::state::lineage_registry::LineageRegistry;
 use crate::model::state::pheromone::PheromoneGrid;
+use crate::model::state::sound::SoundGrid;
 use crate::model::state::terrain::TerrainGrid;
 use crate::model::systems::{action, biological, ecological, environment, intel, social, stats};
 use chrono::Utc;
@@ -82,6 +83,17 @@ pub enum InteractionCommand {
     BondBreak {
         target_idx: usize,
     },
+    Dig {
+        x: f64,
+        y: f64,
+        attacker_idx: usize,
+    },
+    Build {
+        x: f64,
+        y: f64,
+        attacker_idx: usize,
+        is_nest: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -102,6 +114,7 @@ pub struct World {
     pub hall_of_fame: HallOfFame,
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
+    pub sound: SoundGrid,
     pub social_grid: Vec<Vec<u8>>,
     pub lineage_registry: LineageRegistry,
     pub fossil_registry: FossilRegistry,
@@ -120,7 +133,7 @@ pub struct World {
     #[serde(skip, default)]
     perception_buffer: Vec<[f32; 16]>,
     #[serde(skip, default)]
-    decision_buffer: Vec<([f32; 9], [f32; 6])>,
+    decision_buffer: Vec<([f32; 11], [f32; 6])>,
     #[serde(skip, default)]
     lineage_consumption: Vec<(uuid::Uuid, f64)>,
 }
@@ -157,6 +170,7 @@ impl World {
         }
         let terrain = TerrainGrid::generate(config.world.width, config.world.height, 42);
         let pheromones = PheromoneGrid::new(config.world.width, config.world.height);
+        let sound = SoundGrid::new(config.world.width, config.world.height);
         Ok(Self {
             width: config.world.width,
             height: config.world.height,
@@ -170,6 +184,7 @@ impl World {
             hall_of_fame: HallOfFame::new(),
             terrain,
             pheromones,
+            sound,
             social_grid: vec![vec![0; config.world.width as usize]; config.world.height as usize],
             lineage_registry,
             config,
@@ -257,6 +272,7 @@ impl World {
             }
         }
         self.pheromones.decay();
+        self.sound.update();
         environment::handle_disasters(
             env,
             self.entities.len(),
@@ -289,7 +305,7 @@ impl World {
             .collect();
         self.spatial_hash.build_parallel(&positions);
         let entity_snapshots: Vec<EntitySnapshot> = current_entities
-            .iter()
+            .par_iter()
             .map(|e| EntitySnapshot {
                 id: e.id,
                 lineage_id: e.metabolism.lineage_id,
@@ -350,11 +366,14 @@ impl World {
                 let nearby =
                     self.spatial_hash
                         .query(e.physics.x, e.physics.y, e.physics.sensing_range);
-                let (ph_f, _, ph_a, ph_b) = self.pheromones.sense_all(
+                let (ph_f, _, _, _) = self.pheromones.sense_all(
                     e.physics.x,
                     e.physics.y,
                     e.physics.sensing_range / 2.0,
                 );
+                let sound_sense =
+                    self.sound
+                        .sense(e.physics.x, e.physics.y, e.physics.sensing_range);
                 let mut partner_energy = 0.0;
                 if let Some(p_id) = e.intel.bonded_to {
                     if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
@@ -372,13 +391,13 @@ impl World {
                     0.0,
                     0.0,
                     0.0,
-                    ph_a,
-                    ph_b,
+                    0.0,
+                    0.0,
                     0.0,
                     0.0,
                     f_type,
                     e.metabolism.trophic_potential,
-                    e.intel.last_vocalization,
+                    sound_sense,
                     partner_energy,
                 ]
             })
@@ -483,6 +502,15 @@ impl World {
                         }
                     }
                 }
+                // Phase 49: Tribal Splitting
+                let nearby = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
+                let crowding = (nearby.len() as f32 / 10.0).min(1.0);
+                if let Some(new_color) = social::start_tribal_split(e, crowding) {
+                    cmds.push(InteractionCommand::TribalSplit {
+                        target_idx: i,
+                        new_color,
+                    });
+                }
                 if e.is_mature(self.tick, self.config.metabolism.maturity_age)
                     && e.metabolism.energy > self.config.metabolism.reproduction_threshold
                 {
@@ -525,6 +553,22 @@ impl World {
                         }
                     }
                 }
+                // Phase 52: Terraforming
+                if outputs[9] > 0.5 {
+                    cmds.push(InteractionCommand::Dig {
+                        x: e.physics.x,
+                        y: e.physics.y,
+                        attacker_idx: i,
+                    });
+                }
+                if outputs[10] > 0.5 {
+                    cmds.push(InteractionCommand::Build {
+                        x: e.physics.x,
+                        y: e.physics.y,
+                        attacker_idx: i,
+                        is_nest: outputs[10] > 0.9,
+                    });
+                }
                 if cmds.is_empty() {
                     None
                 } else {
@@ -535,24 +579,41 @@ impl World {
             .collect();
 
         let current_population = current_entities.len();
-        for (i, e) in current_entities.iter_mut().enumerate() {
-            let (outputs, next_hidden) = decision_buffer[i];
-            e.intel.last_hidden = next_hidden;
-            e.intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
-            action::action_system(
-                e,
-                outputs,
-                &mut action::ActionContext {
-                    env,
-                    config: &self.config,
-                    terrain: &self.terrain,
-                    pheromones: &mut self.pheromones,
-                    snapshots: &entity_snapshots,
-                    width: self.width,
-                    height: self.height,
-                },
-            );
-            biological::biological_system(e, current_population);
+        let (pheromone_proposals, sound_proposals): (
+            Vec<Vec<crate::model::state::pheromone::PheromoneDeposit>>,
+            Vec<Vec<crate::model::state::sound::SoundDeposit>>,
+        ) = current_entities
+            .par_iter_mut()
+            .enumerate()
+            .map(|(i, e)| {
+                let (outputs, next_hidden) = decision_buffer[i];
+                e.intel.last_hidden = next_hidden;
+                e.intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
+                let (p_deps, s_deps) = action::action_system(
+                    e,
+                    outputs,
+                    &mut action::ActionContext {
+                        env,
+                        config: &self.config,
+                        terrain: &self.terrain,
+                        snapshots: &entity_snapshots,
+                        width: self.width,
+                        height: self.height,
+                    },
+                );
+                biological::biological_system(e, current_population);
+                (p_deps, s_deps)
+            })
+            .unzip();
+
+        let pheromone_proposals: Vec<_> = pheromone_proposals.into_iter().flatten().collect();
+        let sound_proposals: Vec<_> = sound_proposals.into_iter().flatten().collect();
+
+        for p in pheromone_proposals {
+            self.pheromones.deposit(p.x, p.y, p.ptype, p.amount);
+        }
+        for s in sound_proposals {
+            self.sound.deposit(s.x, s.y, s.amount);
         }
 
         for cmd in interaction_commands {
@@ -565,8 +626,30 @@ impl World {
                 } => {
                     let tid = current_entities[target_idx].id;
                     if !killed_ids.contains(&tid) {
+                        let mut multiplier = 1.0;
+                        let attacker = &current_entities[attacker_idx];
+
+                        // Phase 49: Soldier damage bonus (1.5x)
+                        let attacker_status =
+                            attacker.status(0.0, self.tick, self.config.metabolism.maturity_age);
+                        if attacker_status == crate::model::state::entity::EntityStatus::Soldier
+                            || attacker.intel.specialization
+                                == Some(crate::model::state::entity::Specialization::Soldier)
+                        {
+                            multiplier *= 1.5;
+                        }
+
+                        // Phase 49: War Zone bonus (2.0x)
+                        let ix = (attacker.physics.x as usize).min(self.width as usize - 1);
+                        let iy = (attacker.physics.y as usize).min(self.height as usize - 1);
+                        if self.social_grid[iy][ix] == 2 {
+                            multiplier *= 2.0;
+                        }
+
+                        let energy_gain =
+                            current_entities[target_idx].metabolism.energy * 0.5 * multiplier;
+
                         killed_ids.insert(tid);
-                        let energy_gain = current_entities[target_idx].metabolism.energy * 0.5;
                         self.pop_stats.record_death(
                             self.tick - current_entities[target_idx].metabolism.birth_tick,
                         );
@@ -616,7 +699,21 @@ impl World {
                     };
                     let _ = self.logger.log_event(ev.clone());
                     events.push(ev);
-                    new_babies.push(*baby);
+                    let mut baby = *baby;
+                    // Phase 52: Nest Nursery Bonus
+                    let terrain_type = self
+                        .terrain
+                        .get(baby.physics.x, baby.physics.y)
+                        .terrain_type;
+                    if matches!(
+                        terrain_type,
+                        crate::model::state::terrain::TerrainType::Nest
+                    ) {
+                        baby.metabolism.energy *= 1.2; // 20% bonus
+                        baby.metabolism.peak_energy = baby.metabolism.energy;
+                    }
+
+                    new_babies.push(baby);
                     let inv = current_entities[parent_idx]
                         .intel
                         .genotype
@@ -656,8 +753,21 @@ impl World {
                     self.social_grid[iy][ix] = if is_war { 2 } else { 1 };
                 }
                 InteractionCommand::TransferEnergy { target_idx, amount } => {
+                    let mut actual_amount = amount;
+                    if amount < 0.0 {
+                        // This is the sender
+                        let sender = &current_entities[target_idx];
+                        if sender.intel.specialization
+                            == Some(crate::model::state::entity::Specialization::Provider)
+                        {
+                            actual_amount *= 0.5; // Providers share with 50% less cost to themselves?
+                                                  // Wait, if I reduce the cost to the sender, it means they lose less energy but the receiver gets the same.
+                                                  // That's exactly what "reduction in sharing metabolic cost" means.
+                        }
+                    }
+
                     current_entities[target_idx].metabolism.energy =
-                        (current_entities[target_idx].metabolism.energy + amount)
+                        (current_entities[target_idx].metabolism.energy + actual_amount)
                             .clamp(0.0, current_entities[target_idx].metabolism.max_energy);
                 }
                 InteractionCommand::Infect {
@@ -670,6 +780,136 @@ impl World {
                 InteractionCommand::UpdateReputation { target_idx, delta } => {
                     current_entities[target_idx].intel.reputation =
                         (current_entities[target_idx].intel.reputation + delta).clamp(0.0, 1.0);
+                }
+                InteractionCommand::Fertilize { x, y, amount } => {
+                    self.terrain.fertilize(x, y, amount);
+                    self.terrain.add_biomass(x, y, amount * 10.0);
+                }
+                InteractionCommand::Dig { x, y, attacker_idx } => {
+                    let cell = self.terrain.get(x, y);
+                    let attacker = &mut current_entities[attacker_idx];
+                    let mut energy_cost = 10.0;
+
+                    // Phase 53: Engineer Caste Energy Reduction
+                    if attacker.intel.specialization
+                        == Some(crate::model::state::entity::Specialization::Engineer)
+                    {
+                        energy_cost *= 0.5;
+                    }
+
+                    if matches!(
+                        cell.terrain_type,
+                        crate::model::state::terrain::TerrainType::Wall
+                            | crate::model::state::terrain::TerrainType::Mountain
+                    ) {
+                        if attacker.metabolism.energy > energy_cost {
+                            attacker.metabolism.energy -= energy_cost;
+                            self.terrain.set_cell_type(
+                                x as u16,
+                                y as u16,
+                                crate::model::state::terrain::TerrainType::Plains,
+                            );
+                            // Increment Engineer meter
+                            if attacker.intel.specialization.is_none() {
+                                let meter = attacker
+                                    .intel
+                                    .spec_meters
+                                    .entry(crate::model::state::entity::Specialization::Engineer)
+                                    .or_insert(0.0);
+                                *meter +=
+                                    1.0 * (1.0 + attacker.intel.genotype.specialization_bias[1]);
+                                if *meter >= 100.0 {
+                                    attacker.intel.specialization =
+                                        Some(crate::model::state::entity::Specialization::Engineer);
+                                }
+                            }
+                        }
+                    } else if matches!(
+                        cell.terrain_type,
+                        crate::model::state::terrain::TerrainType::Plains
+                    ) {
+                        // Phase 52: Hydrological Engineering (Canals)
+                        // If digging plains adjacent to a river, convert to river.
+                        let hydro_cost = 30.0;
+                        let mut eff_hydro_cost = hydro_cost;
+                        if attacker.intel.specialization
+                            == Some(crate::model::state::entity::Specialization::Engineer)
+                        {
+                            eff_hydro_cost *= 0.5;
+                        }
+
+                        if attacker.metabolism.energy > 50.0
+                            && self.terrain.has_neighbor_type(
+                                x as u16,
+                                y as u16,
+                                crate::model::state::terrain::TerrainType::River,
+                            )
+                        {
+                            attacker.metabolism.energy -= eff_hydro_cost;
+                            self.terrain.set_cell_type(
+                                x as u16,
+                                y as u16,
+                                crate::model::state::terrain::TerrainType::River,
+                            );
+                            // Increment Engineer meter
+                            if attacker.intel.specialization.is_none() {
+                                let meter = attacker
+                                    .intel
+                                    .spec_meters
+                                    .entry(crate::model::state::entity::Specialization::Engineer)
+                                    .or_insert(0.0);
+                                *meter +=
+                                    2.0 * (1.0 + attacker.intel.genotype.specialization_bias[1]);
+                                if *meter >= 100.0 {
+                                    attacker.intel.specialization =
+                                        Some(crate::model::state::entity::Specialization::Engineer);
+                                }
+                            }
+                        }
+                    }
+                }
+                InteractionCommand::Build {
+                    x,
+                    y,
+                    attacker_idx,
+                    is_nest,
+                } => {
+                    let cell = self.terrain.get(x, y);
+                    let attacker = &mut current_entities[attacker_idx];
+                    let mut energy_cost = 15.0;
+                    if attacker.intel.specialization
+                        == Some(crate::model::state::entity::Specialization::Engineer)
+                    {
+                        energy_cost *= 0.5;
+                    }
+
+                    if matches!(
+                        cell.terrain_type,
+                        crate::model::state::terrain::TerrainType::Plains
+                    ) && attacker.metabolism.energy > energy_cost
+                    {
+                        attacker.metabolism.energy -= energy_cost;
+                        let new_type = if is_nest && attacker.metabolism.energy > 150.0 {
+                            crate::model::state::terrain::TerrainType::Nest
+                        } else {
+                            crate::model::state::terrain::TerrainType::Wall
+                        };
+                        self.terrain.set_cell_type(x as u16, y as u16, new_type);
+
+                        // Increment Engineer meter
+                        if attacker.intel.specialization.is_none() {
+                            let meter = attacker
+                                .intel
+                                .spec_meters
+                                .entry(crate::model::state::entity::Specialization::Engineer)
+                                .or_insert(0.0);
+                            *meter += 1.0 * (1.0 + attacker.intel.genotype.specialization_bias[1]);
+                            if *meter >= 100.0 {
+                                attacker.intel.specialization =
+                                    Some(crate::model::state::entity::Specialization::Engineer);
+                            }
+                        }
+                    }
                 }
                 _ => {}
             }
@@ -685,6 +925,12 @@ impl World {
                 if let Some(legend) = social::archive_if_legend(&e, self.tick, &self.logger) {
                     self.update_best_legend(legend);
                 }
+                // Corpse Fertilization: transfer 10% of max energy to soil
+                let fertilize_amount = (e.metabolism.max_energy * 0.1) as f32 / 100.0;
+                self.terrain
+                    .fertilize(e.physics.x, e.physics.y, fertilize_amount);
+                self.terrain
+                    .add_biomass(e.physics.x, e.physics.y, fertilize_amount * 10.0);
             } else {
                 alive_entities.push(e);
             }

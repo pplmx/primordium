@@ -234,11 +234,18 @@ let x = X { field: val, ..X::default() };
 
 ### 神经网络 Fix
 
-- Output Nodes 应为 22..30 (共9个)。之前版本曾有 Off-by-one 错误及 ID 重叠 (Input 20 vs Output 20)，已在 Phase 51 修复。
+- Output Nodes 应为 22..33 (共11个)。之前版本曾有 Off-by-one 错误及 ID 重叠 (Input 20 vs Output 20)，已在 Phase 52 修复。
 - Inputs: 0..21 (22个)
-- Outputs: 22..30 (9个)
-- Hidden: 31..36 (6个)
-- Total Nodes: 37 (ID 0..36)
+- Outputs: 22..32 (11个)
+- Hidden: 33..38 (6个)
+- Total Nodes: 39 (ID 0..38)
+
+### Phase 52 & 53 Updates
+
+- **Terraforming**: `Dig` and `Build` commands implemented. Entities can create canals (Rivers) and Nests.
+- **Vocal Propagation**: `SoundGrid` implemented for real-time acoustic communication with diffusion and decay.
+- **Specialized Castes**: `Soldier`, `Engineer`, and `Provider` castes with specific metabolic and behavioral benefits (e.g., Engineer 50% dig/build cost reduction).
+- **Parallelization**: Full parallel execution of action and biological systems via pheromone/sound proposal unzipping.
 
 ---
 

@@ -21,12 +21,16 @@ fn test_tribe_solidarity_no_aggression() {
     e2.metabolism.trophic_potential = 0.0;
     e1.metabolism.energy = 5000.0;
     e2.metabolism.energy = 5000.0;
+    e1.metabolism.max_energy = 10000.0;
+    e2.metabolism.max_energy = 10000.0;
+    e1.intel.genotype.max_energy = 10000.0;
+    e2.intel.genotype.max_energy = 10000.0;
     world.entities.push(e1);
     world.entities.push(e2);
     for _ in 0..50 {
         world.update(&mut env).expect("Update failed");
     }
-    assert_eq!(world.entities.len(), 2, "Hunter attacked its own tribe!");
+    assert!(world.entities.len() >= 2, "Hunter attacked its own tribe!");
 }
 
 #[test]

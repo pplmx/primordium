@@ -12,12 +12,12 @@ The brain starts with a standard minimal configuration but grows dynamically:
 
 - **Initial Input Layer**: 22 Neurons (14 Environment + 6 Recurrent + 1 Hearing + 1 Partner Energy)
 - **Initial Hidden Layer**: 6 Neurons
-- **Initial Output Layer**: 9 Neurons
+- **Initial Output Layer**: 11 Neurons
 - **Dynamic Growth**: Through mutations, new hidden nodes and connections can be added indefinitely.
-- **Node ID Mapping (Phase 50 Fixed)**: 
+- **Node ID Mapping (Phase 52 Fixed)**: 
   - Inputs: 0..22 (0-13 Env, 14-19 Memory, 20 Hear, 21 Partner Energy)
-  - Outputs: 22..31
-  - Initial Hidden: 31..37
+  - Outputs: 22..33
+  - Initial Hidden: 33..39
 
 ## Inputs (Sensors)
 
@@ -43,7 +43,7 @@ The brain starts with a standard minimal configuration but grows dynamically:
 | ID | Sensor | Description |
 | ---- | --------- | -------------- |
 | 14-19| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
-| 20   | `Hear`   | Hearing Input (Signal strength at location) |
+| 20   | `Hear`   | Hearing Input (Sound intensity at location) |
 | 21   | `PartnerEnergy` | Energy level of potential mate |
 
 ## Trophic Spectrum Influence (Phase 33)
@@ -67,6 +67,8 @@ With the introduction of the **Trophic Potential (TP)** gene, the brain must now
 | 28 | `EmitSA` | > 0.5 emits Signal A |
 | 29 | `EmitSB` | > 0.5 emits Signal B |
 | 30 | `Bond` | > 0.5 initiates symbiosis/mating request |
+| 31 | `Dig` | > 0.5 convert Wall/Mountain -> Plains |
+| 32 | `Build` | > 0.5 convert Plains -> Wall/Nest |
 
 ## Topological Mutations
 

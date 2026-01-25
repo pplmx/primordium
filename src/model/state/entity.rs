@@ -18,6 +18,13 @@ pub enum EntityStatus {
     Bonded,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Specialization {
+    Soldier,
+    Engineer,
+    Provider,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
     pub x: f64,
@@ -70,6 +77,8 @@ pub struct Intel {
     pub bonded_to: Option<Uuid>,
     #[serde(skip)]
     pub last_inputs: [f32; 16],
+    pub specialization: Option<Specialization>,
+    pub spec_meters: std::collections::HashMap<Specialization, f32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -85,6 +94,7 @@ pub struct Genotype {
     pub maturity_gene: f32,
     pub mate_preference: f32,
     pub pairing_bias: f32,
+    pub specialization_bias: [f32; 3], // Soldier, Engineer, Provider
 }
 
 impl Genotype {
@@ -102,6 +112,11 @@ impl Genotype {
             maturity_gene: 1.0,
             mate_preference: rng.gen_range(0.0..1.0),
             pairing_bias: rng.gen_range(0.0..1.0),
+            specialization_bias: [
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..1.0),
+            ],
         }
     }
 
@@ -123,7 +138,10 @@ impl Genotype {
             + (self.max_energy - other.max_energy).abs() as f32 / 100.0
             + (self.metabolic_niche - other.metabolic_niche).abs()
             + (self.trophic_potential - other.trophic_potential).abs()
-            + (self.pairing_bias - other.pairing_bias).abs();
+            + (self.pairing_bias - other.pairing_bias).abs()
+            + (self.specialization_bias[0] - other.specialization_bias[0]).abs()
+            + (self.specialization_bias[1] - other.specialization_bias[1]).abs()
+            + (self.specialization_bias[2] - other.specialization_bias[2]).abs();
         brain_dist + trait_dist
     }
 
@@ -197,6 +215,8 @@ impl Entity {
                 rank: 0.5,
                 bonded_to: None,
                 last_inputs: [0.0; 16],
+                specialization: None,
+                spec_meters: std::collections::HashMap::new(),
             },
         }
     }

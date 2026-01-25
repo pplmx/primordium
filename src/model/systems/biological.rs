@@ -1,6 +1,5 @@
 //! Biological system - handles infection, pathogen emergence, and death processing.
 
-use crate::model::brain::NodeType;
 use crate::model::history::{LiveEvent, PopulationStats};
 use crate::model::quadtree::SpatialHash;
 use crate::model::state::entity::Entity;
@@ -42,25 +41,49 @@ pub fn biological_system(entity: &mut Entity, population_count: usize) {
         }
     }
 
+    // Phase 53: Specialized Castes
+    if entity.intel.specialization.is_none() {
+        let progress = 0.01;
+        // Soldier meter
+        if entity.intel.last_aggression > 0.8 {
+            let meter = entity
+                .intel
+                .spec_meters
+                .entry(crate::model::state::entity::Specialization::Soldier)
+                .or_insert(0.0);
+            *meter += progress * (1.0 + entity.intel.genotype.specialization_bias[0]);
+            if *meter >= 100.0 {
+                entity.intel.specialization =
+                    Some(crate::model::state::entity::Specialization::Soldier);
+            }
+        }
+        // Provider meter
+        if entity.intel.last_share_intent > 0.8 {
+            let meter = entity
+                .intel
+                .spec_meters
+                .entry(crate::model::state::entity::Specialization::Provider)
+                .or_insert(0.0);
+            *meter += progress * (1.0 + entity.intel.genotype.specialization_bias[2]);
+            if *meter >= 100.0 {
+                entity.intel.specialization =
+                    Some(crate::model::state::entity::Specialization::Provider);
+            }
+        }
+        // Engineer meter is handled in World::update during Dig/Build commands
+    }
+
     // Apply brain metabolic cost (Phase 50)
-    let hidden_nodes = entity
-        .intel
-        .genotype
-        .brain
-        .nodes
-        .iter()
-        .filter(|n| matches!(n.node_type, NodeType::Hidden))
-        .count();
-    let enabled_connections = entity
-        .intel
-        .genotype
-        .brain
-        .connections
-        .iter()
-        .filter(|c| c.enabled)
-        .count();
-    let brain_cost = (hidden_nodes as f64 * 0.02) + (enabled_connections as f64 * 0.005);
-    entity.metabolism.energy -= brain_cost;
+    let mut brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64 * 0.02)
+        + (entity.intel.genotype.brain.connections.len() as f64 * 0.005);
+
+    // Caste adjustments
+    if let Some(crate::model::state::entity::Specialization::Soldier) = entity.intel.specialization
+    {
+        brain_maintenance *= 1.2; // 1.2x idle metabolic cost
+    }
+
+    entity.metabolism.energy -= brain_maintenance;
 }
 
 /// Try to infect an entity with a pathogen.
@@ -163,26 +186,12 @@ mod tests {
         let initial_energy = entity.metabolism.energy;
         biological_system(&mut entity, 100);
 
-        // Calculate expected brain cost
-        let hidden_nodes = entity
-            .intel
-            .genotype
-            .brain
-            .nodes
-            .iter()
-            .filter(|n| matches!(n.node_type, NodeType::Hidden))
-            .count();
-        let enabled_connections = entity
-            .intel
-            .genotype
-            .brain
-            .connections
-            .iter()
-            .filter(|c| c.enabled)
-            .count();
-        let brain_cost = (hidden_nodes as f64 * 0.02) + (enabled_connections as f64 * 0.005);
+        // Calculate expected brain maintenance
+        let nodes_count = entity.intel.genotype.brain.nodes.len();
+        let connections_count = entity.intel.genotype.brain.connections.len();
+        let brain_maintenance = (nodes_count as f64 * 0.02) + (connections_count as f64 * 0.005);
 
-        assert_eq!(entity.metabolism.energy, initial_energy - brain_cost);
+        assert!((entity.metabolism.energy - (initial_energy - brain_maintenance)).abs() < 1e-6);
     }
 
     #[test]

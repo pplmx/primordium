@@ -74,7 +74,7 @@ pub fn can_share(entity: &Entity) -> bool {
 pub fn handle_symbiosis(
     idx: usize,
     entities: &[Entity],
-    outputs: [f32; 9],
+    outputs: [f32; 11],
     spatial_hash: &SpatialHash,
 ) -> Option<Uuid> {
     if outputs[8] < 0.5 {
@@ -110,6 +110,10 @@ pub fn reproduce_asexual_parallel(
     let mut rng = rand::thread_rng();
     let investment = parent.intel.genotype.reproductive_investment as f64;
     let child_energy = parent.metabolism.energy * investment;
+
+    // Phase 52: Nest Nursery Bonus (Requires checking terrain - but we don't have it here)
+    // We'll apply this bonus in the World command handling instead for cleaner separation.
+
     let mut child_genotype = parent.intel.genotype.clone();
     intel::mutate_genotype(&mut child_genotype, config, population);
     let dist = parent.intel.genotype.distance(&child_genotype);
@@ -166,6 +170,8 @@ pub fn reproduce_asexual_parallel(
                 rank: 0.5,
                 bonded_to: None,
                 last_inputs: [0.0; 16],
+                specialization: None,
+                spec_meters: std::collections::HashMap::new(),
             },
         },
         dist,
@@ -237,6 +243,8 @@ pub fn reproduce_with_mate_parallel(
             rank: 0.5,
             bonded_to: None,
             last_inputs: [0.0; 16],
+            specialization: None,
+            spec_meters: std::collections::HashMap::new(),
         },
     }
 }

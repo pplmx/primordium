@@ -60,18 +60,16 @@ fn test_high_speed_metabolic_exhaustion() {
     use primordium_lib::model::systems::action::{action_system, ActionContext};
 
     let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
-    let mut pheromones = primordium_lib::model::state::pheromone::PheromoneGrid::new(100, 100);
     let mut ctx = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
-        pheromones: &mut pheromones,
         snapshots: &[],
         width: 100,
         height: 100,
     };
 
-    let outputs = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let outputs = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
     action_system(&mut e_slow, outputs, &mut ctx);
     action_system(&mut e_fast, outputs, &mut ctx);
@@ -84,7 +82,6 @@ fn test_inertia_responsiveness_penalty() {
     let config = AppConfig::default();
     let env = Environment::default();
     let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
-    let mut pheromones = primordium_lib::model::state::pheromone::PheromoneGrid::new(100, 100);
 
     let mut e_light = Entity::new(10.0, 10.0, 0);
     e_light.metabolism.max_energy = 100.0;
@@ -101,13 +98,12 @@ fn test_inertia_responsiveness_penalty() {
         env: &env,
         config: &config,
         terrain: &terrain,
-        pheromones: &mut pheromones,
         snapshots: &[],
         width: 100,
         height: 100,
     };
 
-    let outputs = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let outputs = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
     action_system(&mut e_light, outputs, &mut ctx);
     action_system(&mut e_heavy, outputs, &mut ctx);
 

@@ -29,10 +29,10 @@ pub struct Connection {
 
 /// Dynamic neural network brain (NEAT-lite).
 ///
-/// Topology (Phase 51 Symbiosis):
-/// Inputs (0..22): 14 environmental + 6 recurrent + 1 hearing + 1 partner
-/// Outputs (22..30): MoveX, MoveY, Speed, Aggro, Share, Color, EmitA, EmitB, Bond (9 nodes)
-/// Hidden (31..37): Initial hidden nodes
+/// Topology (Phase 52 Terraforming):
+/// Inputs (0..22): 1 sensor inputs (14 environmental + 6 recurrent + 1 hearing + 1 partner)
+/// Outputs (22..33): MoveX, MoveY, Speed, Aggro, Share, Color, EmitA, EmitB, Bond, Dig, Build (11 nodes)
+/// Hidden (33..39): Initial hidden nodes
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
     pub nodes: Vec<Node>,
@@ -55,15 +55,15 @@ impl Brain {
             });
             // Input nodes: 0..21 (22 total)
         }
-        // 2. Create Outputs (22..31)
-        for i in 22..31 {
+        // 2. Create Outputs (22..33)
+        for i in 22..33 {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Output,
             });
         }
-        // 3. Create initial Hidden layer (31..37)
-        for i in 31..37 {
+        // 3. Create initial Hidden layer (33..39)
+        for i in 33..39 {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Hidden,
@@ -73,7 +73,7 @@ impl Brain {
         let mut innov = 0;
         // 4. Initial connections: Input -> Hidden
         for i in 0..22 {
-            for h in 31..37 {
+            for h in 33..39 {
                 connections.push(Connection {
                     from: i,
                     to: h,
@@ -85,8 +85,8 @@ impl Brain {
             }
         }
         // 5. Initial connections: Hidden -> Output
-        for h in 31..37 {
-            for o in 22..31 {
+        for h in 33..39 {
+            for o in 22..33 {
                 connections.push(Connection {
                     from: h,
                     to: o,
@@ -101,13 +101,13 @@ impl Brain {
         Self {
             nodes,
             connections,
-            next_node_id: 37,
+            next_node_id: 39,
             learning_rate: 0.0, // Default to 0, evolves later
         }
     }
 
     /// Forward pass through the graph.
-    pub fn forward(&self, inputs: [f32; 16], last_hidden: [f32; 6]) -> ([f32; 9], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 16], last_hidden: [f32; 6]) -> ([f32; 11], [f32; 6]) {
         let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
         (outputs, next_hidden)
     }
@@ -117,7 +117,7 @@ impl Brain {
         &self,
         inputs: [f32; 16],
         last_hidden: [f32; 6],
-    ) -> ([f32; 9], [f32; 6], HashMap<usize, f32>) {
+    ) -> ([f32; 11], [f32; 6], HashMap<usize, f32>) {
         let mut node_values: HashMap<usize, f32> = HashMap::new();
 
         // 1. Load inputs (14 sensors)
@@ -143,22 +143,22 @@ impl Brain {
             *entry += val * conn.weight;
         }
 
-        let mut outputs = [0.0; 9];
+        let mut outputs = [0.0; 11];
         for node in &self.nodes {
             if let Some(val) = new_values.get_mut(&node.id) {
                 *val = val.tanh();
             }
         }
 
-        // Outputs range: 22..30
+        // Outputs range: 22..33
         for (i, output) in outputs.iter_mut().enumerate() {
             *output = *new_values.get(&(i + 22)).unwrap_or(&0.0);
         }
 
-        // Hidden range: 31..37
+        // Hidden range: 33..39
         let mut next_hidden = [0.0; 6];
         for (i, val) in next_hidden.iter_mut().enumerate() {
-            *val = *new_values.get(&(i + 31)).unwrap_or(&0.0);
+            *val = *new_values.get(&(i + 33)).unwrap_or(&0.0);
         }
 
         (outputs, next_hidden, new_values)
@@ -290,12 +290,12 @@ mod tests {
     #[test]
     fn test_brain_new_random_has_correct_dimensions() {
         let brain = Brain::new_random();
-        assert_eq!(brain.nodes.len(), 37);
-        // 22 inputs, 9 outputs, 6 hidden
+        assert_eq!(brain.nodes.len(), 39);
+        // 22 inputs, 11 outputs, 6 hidden
         // 22*6 = 132
-        // 6*9 = 54
-        // Total = 186
-        assert_eq!(brain.connections.len(), 186);
+        // 6*11 = 66
+        // Total = 198
+        assert_eq!(brain.connections.len(), 198);
     }
 
     #[test]

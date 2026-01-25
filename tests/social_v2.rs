@@ -66,33 +66,30 @@ fn test_metabolic_cost_of_signaling() {
     // Run action system directly with specific outputs
     use primordium_lib::model::systems::action::{action_system, ActionContext};
     let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
-    let mut pheromones = primordium_lib::model::state::pheromone::PheromoneGrid::new(100, 100);
 
     // quiet: [x, y, speed, aggro, share, signal, emitA, emitB]
     let mut ctx_q = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
-        pheromones: &mut pheromones,
         snapshots: &[],
         width: 100,
         height: 100,
     };
-    action_system(&mut e_quiet, [0.0; 9], &mut ctx_q);
+    action_system(&mut e_quiet, [0.0; 11], &mut ctx_q);
 
     // loud: [..., signal=1.0]
     let mut ctx_l = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
-        pheromones: &mut pheromones,
         snapshots: &[],
         width: 100,
         height: 100,
     };
     action_system(
         &mut e_loud,
-        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         &mut ctx_l,
     );
 

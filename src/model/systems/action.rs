@@ -10,14 +10,20 @@ pub struct ActionContext<'a> {
     pub env: &'a Environment,
     pub config: &'a AppConfig,
     pub terrain: &'a TerrainGrid,
-    pub pheromones: &'a mut crate::model::state::pheromone::PheromoneGrid,
     pub snapshots: &'a [crate::model::world::EntitySnapshot],
     pub width: u16,
     pub height: u16,
 }
 
 /// Process brain outputs and apply movement and metabolic costs.
-pub fn action_system(entity: &mut Entity, outputs: [f32; 9], ctx: &mut ActionContext) {
+pub fn action_system(
+    entity: &mut Entity,
+    outputs: [f32; 11],
+    ctx: &mut ActionContext,
+) -> (
+    Vec<crate::model::state::pheromone::PheromoneDeposit>,
+    Vec<crate::model::state::sound::SoundDeposit>,
+) {
     let speed_cap = entity.physics.max_speed;
     let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * speed_cap;
     let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
@@ -41,7 +47,21 @@ pub fn action_system(entity: &mut Entity, outputs: [f32; 9], ctx: &mut ActionCon
     let signal_cost = outputs[5].abs() as f64 * 0.1;
     let brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64 * 0.02)
         + (entity.intel.genotype.brain.connections.len() as f64 * 0.005);
-    let idle_cost = (ctx.config.metabolism.base_idle_cost + brain_maintenance) * metabolism_mult;
+
+    // Phase 52: Nest Metabolic Benefit
+    let mut base_idle = ctx.config.metabolism.base_idle_cost;
+    let terrain_type = ctx
+        .terrain
+        .get(entity.physics.x, entity.physics.y)
+        .terrain_type;
+    if matches!(
+        terrain_type,
+        crate::model::state::terrain::TerrainType::Nest
+    ) {
+        base_idle *= 0.8; // 20% reduction
+    }
+
+    let idle_cost = (base_idle + brain_maintenance) * metabolism_mult;
 
     // Phase 51: Kinematic Coupling (Spring Force)
     if let Some(partner_id) = entity.intel.bonded_to {
@@ -67,26 +87,64 @@ pub fn action_system(entity: &mut Entity, outputs: [f32; 9], ctx: &mut ActionCon
         }
     }
 
+    // Phase 49: Leadership Vector (Follow Alphas)
+    if entity.intel.bonded_to.is_none() {
+        let mut best_alpha_pos = None;
+        let mut max_rank = entity.intel.rank;
+
+        for s in ctx.snapshots {
+            if s.id != entity.id && s.lineage_id == entity.metabolism.lineage_id {
+                let dx = s.x - entity.physics.x;
+                let dy = s.y - entity.physics.y;
+                let dist_sq = dx * dx + dy * dy;
+
+                if dist_sq < entity.physics.sensing_range.powi(2) && s.rank > max_rank + 0.1 {
+                    max_rank = s.rank;
+                    best_alpha_pos = Some((s.x, s.y));
+                }
+            }
+        }
+
+        if let Some((ax, ay)) = best_alpha_pos {
+            let dx = ax - entity.physics.x;
+            let dy = ay - entity.physics.y;
+            let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+            entity.physics.vx += (dx / dist) * 0.02;
+            entity.physics.vy += (dy / dist) * 0.02;
+        }
+    }
+
     entity.metabolism.energy -= move_cost + idle_cost + signal_cost;
 
+    let mut pheromones = Vec::new();
     if outputs[6] > 0.5 {
-        ctx.pheromones.deposit(
-            entity.physics.x,
-            entity.physics.y,
-            crate::model::state::pheromone::PheromoneType::SignalA,
-            0.5,
-        );
+        pheromones.push(crate::model::state::pheromone::PheromoneDeposit {
+            x: entity.physics.x,
+            y: entity.physics.y,
+            ptype: crate::model::state::pheromone::PheromoneType::SignalA,
+            amount: 0.5,
+        });
     }
     if outputs[7] > 0.5 {
-        ctx.pheromones.deposit(
-            entity.physics.x,
-            entity.physics.y,
-            crate::model::state::pheromone::PheromoneType::SignalB,
-            0.5,
-        );
+        pheromones.push(crate::model::state::pheromone::PheromoneDeposit {
+            x: entity.physics.x,
+            y: entity.physics.y,
+            ptype: crate::model::state::pheromone::PheromoneType::SignalB,
+            amount: 0.5,
+        });
+    }
+
+    let mut sounds = Vec::new();
+    if entity.intel.last_vocalization > 0.1 {
+        sounds.push(crate::model::state::sound::SoundDeposit {
+            x: entity.physics.x,
+            y: entity.physics.y,
+            amount: entity.intel.last_vocalization,
+        });
     }
 
     handle_movement(entity, speed_mult, ctx.terrain, ctx.width, ctx.height);
+    (pheromones, sounds)
 }
 
 pub fn handle_movement(
@@ -161,16 +219,14 @@ mod tests {
         let mut entity = Entity::new(5.0, 5.0, 0);
         entity.metabolism.energy = 100.0;
         let initial_energy = entity.metabolism.energy;
-        let outputs = [0.0; 9];
+        let outputs = [0.0; 11];
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
-        let mut pheromones = crate::model::state::pheromone::PheromoneGrid::new(20, 20);
         let mut ctx = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
-            pheromones: &mut pheromones,
             snapshots: &[],
             width: 20,
             height: 20,
@@ -184,17 +240,15 @@ mod tests {
         let mut entity_predator = Entity::new(5.0, 5.0, 0);
         entity_normal.metabolism.energy = 100.0;
         entity_predator.metabolism.energy = 100.0;
-        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
-        let mut pheromones = crate::model::state::pheromone::PheromoneGrid::new(20, 20);
         let mut ctx_n = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
-            pheromones: &mut pheromones,
             snapshots: &[],
             width: 20,
             height: 20,
@@ -204,7 +258,6 @@ mod tests {
             env: &env,
             config: &config,
             terrain: &terrain,
-            pheromones: &mut pheromones,
             snapshots: &[],
             width: 20,
             height: 20,
@@ -217,17 +270,15 @@ mod tests {
         let mut entity = Entity::new(5.0, 5.0, 0);
         entity.physics.vx = 0.0;
         entity.physics.vy = 0.0;
-        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let env = Environment::default();
         let config = AppConfig::default();
         let mut terrain = TerrainGrid::generate(20, 20, 42);
-        let mut pheromones = crate::model::state::pheromone::PheromoneGrid::new(20, 20);
         terrain.set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Plains);
         let mut ctx = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
-            pheromones: &mut pheromones,
             snapshots: &[],
             width: 20,
             height: 20,

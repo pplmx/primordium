@@ -6,7 +6,7 @@ pub fn brain_forward(
     brain: &Brain,
     inputs: [f32; 16],
     last_hidden: [f32; 6],
-) -> ([f32; 9], [f32; 6]) {
+) -> ([f32; 11], [f32; 6]) {
     brain.forward(inputs, last_hidden)
 }
 
@@ -92,6 +92,13 @@ pub fn mutate_genotype(
     }
     genotype.pairing_bias = genotype.pairing_bias.clamp(0.0, 1.0);
 
+    for bias in &mut genotype.specialization_bias {
+        if rng.gen::<f32>() < effective_mutation_rate {
+            *bias = (*bias + rng.gen_range(-effective_mutation_amount..effective_mutation_amount))
+                .clamp(0.0, 1.0);
+        }
+    }
+
     if population < 10 && population > 0 && rng.gen_bool(0.05) {
         match rng.gen_range(0..5) {
             0 => genotype.trophic_potential = rng.gen_range(0.0..1.0),
@@ -157,6 +164,11 @@ pub fn crossover_genotypes(
             p1.pairing_bias
         } else {
             p2.pairing_bias
+        },
+        specialization_bias: if rng.gen_bool(0.5) {
+            p1.specialization_bias
+        } else {
+            p2.specialization_bias
         },
     }
 }

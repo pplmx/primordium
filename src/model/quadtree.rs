@@ -2,7 +2,6 @@ use crate::model::state::entity::Entity;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 #[derive(Serialize, Deserialize)]
 pub struct SpatialHash {
@@ -36,18 +35,26 @@ impl SpatialHash {
     pub fn build_parallel(&mut self, positions: &[(f64, f64)]) {
         self.clear();
 
-        // Use a Mutex-protected temporary map to collect entries in parallel.
-        // For even higher performance with 10k+ entities, consider DashMap or a fixed-grid array.
-        let temp_cells: Mutex<HashMap<(i32, i32), Vec<usize>>> = Mutex::new(HashMap::new());
-
-        positions.par_iter().enumerate().for_each(|(idx, &(x, y))| {
-            let cx = (x / self.cell_size).floor() as i32;
-            let cy = (y / self.cell_size).floor() as i32;
-            let mut map = temp_cells.lock().unwrap();
-            map.entry((cx, cy)).or_default().push(idx);
-        });
-
-        self.cells = temp_cells.into_inner().unwrap();
+        // Use Rayon's fold and reduce to avoid lock contention.
+        // Each thread builds its own local hashmap, then they are merged.
+        self.cells = positions
+            .par_iter()
+            .enumerate()
+            .fold(
+                HashMap::new,
+                |mut acc: HashMap<(i32, i32), Vec<usize>>, (idx, &(x, y))| {
+                    let cx = (x / self.cell_size).floor() as i32;
+                    let cy = (y / self.cell_size).floor() as i32;
+                    acc.entry((cx, cy)).or_default().push(idx);
+                    acc
+                },
+            )
+            .reduce(HashMap::new, |mut a, b| {
+                for (key, value) in b {
+                    a.entry(key).or_default().extend(value);
+                }
+                a
+            });
     }
 
     pub fn query(&self, x: f64, y: f64, radius: f64) -> Vec<usize> {

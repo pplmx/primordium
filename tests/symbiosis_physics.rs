@@ -1,7 +1,6 @@
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::state::pheromone::PheromoneGrid;
 use primordium_lib::model::state::terrain::TerrainGrid;
 use primordium_lib::model::systems::action::{action_system, ActionContext};
 use primordium_lib::model::world::EntitySnapshot;
@@ -30,14 +29,22 @@ fn test_symbiosis_spring_force() {
 
     let env = Environment::default();
     let config = AppConfig::default();
-    let terrain = TerrainGrid::generate(20, 20, 42);
-    let mut pheromones = PheromoneGrid::new(20, 20);
+    let mut terrain = TerrainGrid::generate(20, 20, 42);
+    terrain.set_cell_type(
+        10,
+        10,
+        primordium_lib::model::state::terrain::TerrainType::Plains,
+    );
+    terrain.set_cell_type(
+        11,
+        10,
+        primordium_lib::model::state::terrain::TerrainType::Plains,
+    );
 
     let mut ctx = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
-        pheromones: &mut pheromones,
         snapshots: &[snapshot],
         width: 20,
         height: 20,
@@ -45,7 +52,7 @@ fn test_symbiosis_spring_force() {
 
     // Outputs: Neutral movement (should stay still if no spring)
     // outputs[0] (dx) = 0.0 -> target vx 0.0
-    let outputs = [0.0; 9];
+    let outputs = [0.0; 11];
 
     e1.physics.vx = 0.0;
     e1.physics.vy = 0.0;
