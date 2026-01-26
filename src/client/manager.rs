@@ -49,6 +49,23 @@ impl NetworkManager {
                                         online_count
                                     )));
                                 }
+                                NetMessage::TradeOffer(proposal) => {
+                                    state_clone.borrow_mut().trade_offers.push(proposal);
+                                }
+                                NetMessage::TradeAccept {
+                                    proposal_id,
+                                    acceptor_id,
+                                } => {
+                                    // Remove the offer if it was accepted by someone
+                                    state_clone
+                                        .borrow_mut()
+                                        .trade_offers
+                                        .retain(|o| o.id != proposal_id);
+                                    web_sys::console::log_1(&JsValue::from_str(&format!(
+                                        "Trade {} accepted by {}",
+                                        proposal_id, acceptor_id
+                                    )));
+                                }
                                 _ => {}
                             }
                         }

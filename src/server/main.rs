@@ -161,6 +161,14 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         tracing::info!("Relaying migration from {}", id_clone);
                         let _ = tx.send(text);
                     }
+                    NetMessage::TradeOffer(_) => {
+                        tracing::info!("Relaying trade offer from {}", id_clone);
+                        let _ = tx.send(text);
+                    }
+                    NetMessage::TradeAccept { .. } => {
+                        tracing::info!("Relaying trade acceptance from {}", id_clone);
+                        let _ = tx.send(text);
+                    }
                     NetMessage::PeerAnnounce {
                         entity_count,
                         migrations_sent,
