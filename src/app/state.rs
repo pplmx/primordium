@@ -11,6 +11,16 @@ use crate::model::state::environment::{ClimateState, Environment};
 use crate::model::state::terrain::TerrainType;
 use crate::model::world::World;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeneType {
+    Trophic,
+    Sensing,
+    Speed,
+    ReproInvest,
+    Maturity,
+    MaxEnergy,
+}
+
 pub struct App {
     pub running: bool,
     pub paused: bool,
@@ -33,6 +43,7 @@ pub struct App {
     // Neural Visualization
     pub show_brain: bool,
     pub selected_entity: Option<Uuid>,
+    pub focused_gene: Option<GeneType>, // NEW: Phase 59
     // Divine Interface v2
     pub brush_type: TerrainType,
     pub social_brush: u8,      // NEW: 0: Normal, 1: Peace, 2: War
@@ -55,11 +66,14 @@ pub struct App {
     pub archeology_index: usize,
     pub selected_fossil_index: usize, // NEW
     pub onboarding_step: Option<u8>,  // None=done, Some(0-2)=onboarding screens
-    pub view_mode: u8,                // NEW: 0: Normal, 1: Fertility, 2: Social
+    pub view_mode: u8, // 0: Normal, 1: Fertility, 2: Social, 3: Rank, 4: Vocal, 5: Market, 6: Research
     // Layout tracking
     pub last_world_rect: Rect,
+    pub last_sidebar_rect: Rect,
+    pub gene_editor_offset: u16, // NEW: Phase 59
     // Live Data
     pub event_log: VecDeque<(String, Color)>,
+
     pub network_state: crate::model::infra::network::NetworkState, // NEW
 }
 
@@ -101,6 +115,7 @@ impl App {
             o2_history: VecDeque::from(vec![0; 60]),
             show_brain: false,
             selected_entity: None,
+            focused_gene: None,
             brush_type: TerrainType::Plains,
             social_brush: 0,
             is_social_brush: false,
@@ -123,6 +138,8 @@ impl App {
             },
             view_mode: 0,
             last_world_rect: Rect::default(),
+            last_sidebar_rect: Rect::default(),
+            gene_editor_offset: 20,
             event_log: VecDeque::with_capacity(15),
             network_state: crate::model::infra::network::NetworkState::default(),
         })

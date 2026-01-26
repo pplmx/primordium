@@ -14,6 +14,24 @@ pub struct PeerInfo {
     pub migrations_received: usize,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum TradeResource {
+    Energy,
+    Oxygen,
+    SoilFertility,
+    Biomass,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TradeProposal {
+    pub id: Uuid,
+    pub sender_id: Uuid,
+    pub offer_resource: TradeResource,
+    pub offer_amount: f32,
+    pub request_resource: TradeResource,
+    pub request_amount: f32,
+}
+
 /// Messages exchanged between Client and Server
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", content = "payload")]
@@ -48,6 +66,13 @@ pub enum NetMessage {
     },
     /// Server -> All Clients: Broadcast list of connected peers
     PeerList { peers: Vec<PeerInfo> },
+    /// Bidirectional: Propose a trade (broadcasted by server)
+    TradeOffer(TradeProposal),
+    /// Bidirectional: Accept a trade
+    TradeAccept {
+        proposal_id: Uuid,
+        acceptor_id: Uuid,
+    },
 }
 
 /// Network state visible to the simulation
@@ -61,6 +86,8 @@ pub struct NetworkState {
     pub migrations_sent: usize,
     /// Total migrations received
     pub migrations_received: usize,
+    /// NEW: Active trade offers in the multiverse
+    pub trade_offers: Vec<TradeProposal>,
 }
 
 #[cfg(test)]
@@ -210,6 +237,31 @@ mod tests {
             assert!(peers.is_empty());
         } else {
             panic!("Expected PeerList message");
+        }
+    }
+
+    #[test]
+    fn test_trade_offer_serialization() {
+        let proposal = TradeProposal {
+            id: Uuid::new_v4(),
+            sender_id: Uuid::new_v4(),
+            offer_resource: TradeResource::Energy,
+            offer_amount: 500.0,
+            request_resource: TradeResource::Oxygen,
+            request_amount: 10.0,
+        };
+        let msg = NetMessage::TradeOffer(proposal.clone());
+
+        let json = serde_json::to_string(&msg).expect("Failed to serialize");
+        assert!(json.contains("\"type\":\"TradeOffer\""));
+        assert!(json.contains("Energy"));
+
+        let parsed: NetMessage = serde_json::from_str(&json).expect("Failed to deserialize");
+        if let NetMessage::TradeOffer(parsed_p) = parsed {
+            assert_eq!(parsed_p.id, proposal.id);
+            assert_eq!(parsed_p.offer_resource, TradeResource::Energy);
+        } else {
+            panic!("Expected TradeOffer message");
         }
     }
 }

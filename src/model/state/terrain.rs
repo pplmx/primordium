@@ -476,6 +476,15 @@ impl TerrainGrid {
             0.0
         }
     }
+
+    pub fn add_global_fertility(&mut self, amount: f32) {
+        let per_cell = amount / (self.width as f32 * self.height as f32);
+        for row in &mut self.cells {
+            for cell in row {
+                cell.fertility = (cell.fertility + per_cell).clamp(0.0, 1.0);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

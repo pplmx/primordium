@@ -40,6 +40,8 @@ pub struct Brain {
     pub connections: Vec<Connection>,
     pub next_node_id: usize,
     pub learning_rate: f32,
+    #[serde(skip, default = "HashMap::new")]
+    pub weight_deltas: HashMap<usize, f32>, // innovation -> cumulative delta
 }
 
 impl Brain {
@@ -135,6 +137,7 @@ impl Brain {
             connections,
             next_node_id: 39,
             learning_rate: 0.0, // Default to 0, evolves later
+            weight_deltas: HashMap::new(),
         }
     }
 
@@ -215,6 +218,10 @@ impl Brain {
             let delta = self.learning_rate * reinforcement * pre * post;
             conn.weight += delta;
             conn.weight = conn.weight.clamp(-5.0, 5.0);
+
+            // Track plasticity
+            let entry = self.weight_deltas.entry(conn.innovation).or_insert(0.0);
+            *entry = (*entry * 0.9) + delta.abs(); // Exponential moving average of delta
         }
     }
 

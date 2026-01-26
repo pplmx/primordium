@@ -1,6 +1,7 @@
 use crate::model::brain::Brain;
 use crate::model::config::EvolutionConfig;
 use rand::Rng;
+use std::collections::HashMap;
 
 pub fn brain_forward(
     brain: &Brain,
@@ -216,5 +217,6 @@ pub fn crossover_brains(p1: &Brain, p2: &Brain) -> Brain {
         } else {
             p2.learning_rate
         },
+        weight_deltas: HashMap::new(),
     }
 }

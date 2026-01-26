@@ -254,6 +254,92 @@ impl World {
         }
     }
 
+    pub fn apply_genetic_edit(
+        &mut self,
+        entity_id: uuid::Uuid,
+        gene: crate::app::state::GeneType,
+        delta: f32,
+    ) {
+        if let Some(e) = self.entities.iter_mut().find(|e| e.id == entity_id) {
+            use crate::app::state::GeneType;
+            match gene {
+                GeneType::Trophic => {
+                    e.intel.genotype.trophic_potential =
+                        (e.intel.genotype.trophic_potential + delta).clamp(0.0, 1.0);
+                    e.metabolism.trophic_potential = e.intel.genotype.trophic_potential;
+                }
+                GeneType::Sensing => {
+                    e.intel.genotype.sensing_range =
+                        (e.intel.genotype.sensing_range + delta as f64).clamp(3.0, 30.0);
+                    e.physics.sensing_range = e.intel.genotype.sensing_range;
+                }
+                GeneType::Speed => {
+                    e.intel.genotype.max_speed =
+                        (e.intel.genotype.max_speed + delta as f64).clamp(0.1, 5.0);
+                    e.physics.max_speed = e.intel.genotype.max_speed;
+                }
+                GeneType::ReproInvest => {
+                    e.intel.genotype.reproductive_investment =
+                        (e.intel.genotype.reproductive_investment + delta).clamp(0.1, 0.9);
+                }
+                GeneType::Maturity => {
+                    e.intel.genotype.maturity_gene =
+                        (e.intel.genotype.maturity_gene + delta).clamp(0.1, 5.0);
+                }
+                GeneType::MaxEnergy => {
+                    e.intel.genotype.max_energy =
+                        (e.intel.genotype.max_energy + delta as f64).clamp(50.0, 2000.0);
+                    e.metabolism.max_energy = e.intel.genotype.max_energy;
+                }
+            }
+        }
+    }
+
+    pub fn apply_trade(
+        &mut self,
+        resource: crate::model::infra::network::TradeResource,
+        amount: f32,
+        incoming: bool,
+    ) {
+        use crate::model::infra::network::TradeResource;
+        let sign = if incoming { 1.0 } else { -1.0 };
+        match resource {
+            TradeResource::Energy => {
+                // Distribute energy to all entities or specific pool
+                // For now, let's distribute to the top 10% fittest living entities
+                let count = (self.entities.len() / 10).max(1);
+                let amount_per = (amount * sign) / count as f32;
+                for e in self.entities.iter_mut().take(count) {
+                    e.metabolism.energy = (e.metabolism.energy + amount_per as f64)
+                        .clamp(0.0, e.metabolism.max_energy);
+                }
+            }
+            TradeResource::Oxygen => {
+                // This would need a way to modify the Environment, which World doesn't own
+                // But World::update takes &mut Environment.
+                // We'll store a "pending_env_changes" or similar if we really need it.
+                // For now, let's skip Oxygen trade in World and handle it in App.
+            }
+            TradeResource::SoilFertility => {
+                self.terrain.add_global_fertility(amount * sign);
+            }
+            TradeResource::Biomass => {
+                // Add/Remove food
+                if incoming {
+                    let mut rng = rand::thread_rng();
+                    for _ in 0..(amount as usize) {
+                        let fx = rng.gen_range(1..self.width - 1);
+                        let fy = rng.gen_range(1..self.height - 1);
+                        self.food.push(Food::new(fx, fy, 0.0));
+                    }
+                } else {
+                    self.food
+                        .truncate(self.food.len().saturating_sub(amount as usize));
+                }
+            }
+        }
+    }
+
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
         let mut events = Vec::new();
         self.tick += 1;

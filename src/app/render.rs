@@ -20,6 +20,8 @@ impl App {
             ])
             .split(f.size());
 
+        self.last_sidebar_rect = main_layout[1];
+
         let left_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -294,6 +296,10 @@ impl App {
                 self.render_ancestry_tree(f, main_layout[1]);
             } else if self.show_archeology {
                 self.render_archeology(f, main_layout[1]);
+            } else if self.view_mode == 5 {
+                self.render_market(f, main_layout[1]);
+            } else if self.view_mode == 6 {
+                self.render_research(f, main_layout[1]);
             }
 
             self.render_help(f);
@@ -473,7 +479,7 @@ impl App {
         f.render_widget(Paragraph::new(lines).block(arch_block), area);
     }
 
-    fn render_hall_of_fame_and_brain(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+    fn render_hall_of_fame_and_brain(&mut self, f: &mut Frame, area: ratatui::layout::Rect) {
         let mut ho_lines = Vec::new();
         ho_lines.push(ratatui::text::Line::from(" 🏆 Hall of Fame (Living)"));
         ho_lines.push(ratatui::text::Line::from(ratatui::text::Span::styled(
@@ -554,6 +560,59 @@ impl App {
                     )),
                 ]));
 
+                self.gene_editor_offset = lines.len() as u16;
+
+                use crate::app::state::GeneType;
+                let get_style = |g: GeneType| {
+                    if self.focused_gene == Some(g) {
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
+                            .add_modifier(Modifier::REVERSED)
+                    } else {
+                        Style::default().add_modifier(Modifier::BOLD)
+                    }
+                };
+
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(" Trophic: ", get_style(GeneType::Trophic)),
+                    ratatui::text::Span::raw(format!(
+                        "{:.1} (Herb:{:.0}%)",
+                        entity.metabolism.trophic_potential,
+                        (1.0 - entity.metabolism.trophic_potential) * 100.0
+                    )),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(" Sensing: ", get_style(GeneType::Sensing)),
+                    ratatui::text::Span::raw(format!("{:.1}", entity.physics.sensing_range)),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(" Speed:   ", get_style(GeneType::Speed)),
+                    ratatui::text::Span::raw(format!("{:.1}", entity.physics.max_speed)),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(" Max Energy: ", get_style(GeneType::MaxEnergy)),
+                    ratatui::text::Span::raw(format!("{:.0}", entity.metabolism.max_energy)),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Repro Invest: ",
+                        get_style(GeneType::ReproInvest),
+                    ),
+                    ratatui::text::Span::raw(format!(
+                        "{:.0}%",
+                        entity.intel.genotype.reproductive_investment * 100.0
+                    )),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(" Maturity Gene: ", get_style(GeneType::Maturity)),
+                    ratatui::text::Span::raw(format!(
+                        "{:.1}x",
+                        entity.intel.genotype.maturity_gene
+                    )),
+                ]));
+
+                lines.push(ratatui::text::Line::from(""));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
                         " Age:    ",
@@ -566,66 +625,10 @@ impl App {
                 ]));
                 lines.push(ratatui::text::Line::from(vec![
                     ratatui::text::Span::styled(
-                        " Trophic: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "{:.1} (Herb:{:.0}%)",
-                        entity.metabolism.trophic_potential,
-                        (1.0 - entity.metabolism.trophic_potential) * 100.0
-                    )),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
                         " Offspring: ",
                         Style::default().add_modifier(Modifier::BOLD),
                     ),
                     ratatui::text::Span::raw(format!("{}", entity.metabolism.offspring_count)),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Lineage:   ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "#{}",
-                        &entity.metabolism.lineage_id.to_string()[..8]
-                    )),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Sensing: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!("{:.1}", entity.physics.sensing_range)),
-                ]));
-
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Speed:   ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!("{:.1}", entity.physics.max_speed)),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Repro Invest: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "{:.0}%",
-                        entity.intel.genotype.reproductive_investment * 100.0
-                    )),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Maturity Gene: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "{:.1}x",
-                        entity.intel.genotype.maturity_gene
-                    )),
                 ]));
 
                 lines.push(ratatui::text::Line::from(vec![
@@ -813,5 +816,125 @@ impl App {
                 f.render_widget(Paragraph::new(lines).block(brain_block), area);
             }
         }
+    }
+
+    fn render_market(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+        let market_block = Block::default()
+            .title(" 💹 Multiverse Market ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan));
+
+        let mut lines = Vec::new();
+        if self.network_state.trade_offers.is_empty() {
+            lines.push(ratatui::text::Line::from(" No active trade offers. "));
+            lines.push(ratatui::text::Line::from(
+                " Open a trade to exchange resources. ",
+            ));
+        } else {
+            for (i, offer) in self.network_state.trade_offers.iter().enumerate() {
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        format!(" #{} Offer: ", i),
+                        Style::default().fg(Color::Green),
+                    ),
+                    ratatui::text::Span::raw(format!(
+                        "{:.0} {:?} ",
+                        offer.offer_amount, offer.offer_resource
+                    )),
+                ]));
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled("      Request: ", Style::default().fg(Color::Red)),
+                    ratatui::text::Span::raw(format!(
+                        "{:.0} {:?} ",
+                        offer.request_amount, offer.request_resource
+                    )),
+                ]));
+                lines.push(ratatui::text::Line::from(format!(
+                    "      From: {}",
+                    &offer.sender_id.to_string()[..8]
+                )));
+                lines.push(ratatui::text::Line::from(""));
+            }
+            lines.push(ratatui::text::Line::from(
+                " Press [T] to propose trade, [1-9] to accept.",
+            ));
+        }
+
+        f.render_widget(Paragraph::new(lines).block(market_block), area);
+    }
+
+    fn render_research(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+        let research_block = Block::default()
+            .title(" 🔬 Neural Research (Plasticity) ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Magenta));
+
+        if let Some(id) = self.selected_entity {
+            if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
+                let mut lines = Vec::new();
+                lines.push(ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled(
+                        " Subject: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    ratatui::text::Span::raw(entity.name()),
+                ]));
+                lines.push(ratatui::text::Line::from(""));
+                lines.push(ratatui::text::Line::from(
+                    " Synaptic Plasticity Heatmap (Δw magnitude):",
+                ));
+
+                let mut conns = entity.intel.genotype.brain.connections.clone();
+                let deltas = &entity.intel.genotype.brain.weight_deltas;
+
+                // Sort by delta magnitude
+                conns.sort_by(|a, b| {
+                    let d_a = deltas.get(&a.innovation).unwrap_or(&0.0);
+                    let d_b = deltas.get(&b.innovation).unwrap_or(&0.0);
+                    d_b.partial_cmp(d_a).unwrap()
+                });
+
+                for c in conns.iter().filter(|c| c.enabled).take(20) {
+                    let delta = *deltas.get(&c.innovation).unwrap_or(&0.0);
+                    if delta < 1e-4 {
+                        continue;
+                    }
+
+                    let color = if delta > 0.1 {
+                        Color::Yellow
+                    } else if delta > 0.01 {
+                        Color::Cyan
+                    } else {
+                        Color::Blue
+                    };
+
+                    lines.push(ratatui::text::Line::from(vec![
+                        ratatui::text::Span::styled(
+                            format!("  {}→{} ", c.from, c.to),
+                            Style::default().fg(color),
+                        ),
+                        ratatui::text::Span::raw(format!("Δw: {:.4} ", delta)),
+                        ratatui::text::Span::styled(
+                            "█".repeat((delta * 50.0).min(10.0) as usize),
+                            Style::default().fg(color),
+                        ),
+                    ]));
+                }
+
+                if lines.len() <= 3 {
+                    lines.push(ratatui::text::Line::from(
+                        " No significant neural changes detected. ",
+                    ));
+                }
+
+                f.render_widget(Paragraph::new(lines).block(research_block), area);
+                return;
+            }
+        }
+
+        f.render_widget(
+            Paragraph::new(" Select an entity to analyze plasticity. ").block(research_block),
+            area,
+        );
     }
 }

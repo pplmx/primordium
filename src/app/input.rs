@@ -112,15 +112,15 @@ impl App {
                 self.event_log
                     .push_back(("View: VOCAL PROPAGATION".to_string(), Color::Yellow));
             }
-            KeyCode::Char('4') if !self.show_help && self.onboarding_step.is_none() => {
-                self.view_mode = 3;
+            KeyCode::Char('6') if !self.show_help && self.onboarding_step.is_none() => {
+                self.view_mode = 5;
                 self.event_log
-                    .push_back(("View: RANK HEATMAP".to_string(), Color::Magenta));
+                    .push_back(("View: MULTIVERSE MARKET".to_string(), Color::Cyan));
             }
-            KeyCode::Char('5') if !self.show_help && self.onboarding_step.is_none() => {
-                self.view_mode = 4;
+            KeyCode::Char('7') if !self.show_help && self.onboarding_step.is_none() => {
+                self.view_mode = 6;
                 self.event_log
-                    .push_back(("View: VOCAL PROPAGATION".to_string(), Color::Yellow));
+                    .push_back(("View: NEURAL RESEARCH".to_string(), Color::Magenta));
             }
 
             // Help tab navigation (only when help is open)
@@ -129,6 +129,66 @@ impl App {
             KeyCode::Char('3') if self.show_help => self.help_tab = 2,
             KeyCode::Char('4') if self.show_help => self.help_tab = 3,
             KeyCode::Char('5') if self.show_help => self.help_tab = 4,
+            KeyCode::Char('6') if self.show_help => self.help_tab = 5,
+
+            // Market Actions (only in Market View)
+            KeyCode::Char(c) if self.view_mode == 5 && c.is_ascii_digit() => {
+                let idx = c.to_digit(10).unwrap() as usize;
+                if let Some(offer) = self.network_state.trade_offers.get(idx).cloned() {
+                    // Logic to accept trade:
+                    // 1. Deduct our resources (request from offer)
+                    // 2. Add offered resources
+                    // 3. (In real network) Send TradeAccept message
+                    self.world.apply_trade(
+                        offer.request_resource.clone(),
+                        offer.request_amount,
+                        false,
+                    );
+                    self.world
+                        .apply_trade(offer.offer_resource.clone(), offer.offer_amount, true);
+
+                    self.event_log.push_back((
+                        format!(
+                            "TRADE ACCEPTED: Exchanged {:?} for {:?}",
+                            offer.request_resource, offer.offer_resource
+                        ),
+                        Color::Green,
+                    ));
+                    // Remove the offer locally
+                    self.network_state.trade_offers.remove(idx);
+                }
+            }
+            KeyCode::Char('t') | KeyCode::Char('T') if self.view_mode == 5 => {
+                // Propose a random trade for testing
+                let mut rng = rand::thread_rng();
+                use crate::model::infra::network::{TradeProposal, TradeResource};
+                let offer_res = match rng.gen_range(0..4) {
+                    0 => TradeResource::Energy,
+                    1 => TradeResource::Oxygen,
+                    2 => TradeResource::SoilFertility,
+                    _ => TradeResource::Biomass,
+                };
+                let req_res = match rng.gen_range(0..4) {
+                    0 => TradeResource::Energy,
+                    1 => TradeResource::Oxygen,
+                    2 => TradeResource::SoilFertility,
+                    _ => TradeResource::Biomass,
+                };
+                let proposal = TradeProposal {
+                    id: uuid::Uuid::new_v4(),
+                    sender_id: self
+                        .network_state
+                        .client_id
+                        .unwrap_or_else(uuid::Uuid::new_v4),
+                    offer_resource: offer_res,
+                    offer_amount: 100.0,
+                    request_resource: req_res,
+                    request_amount: 100.0,
+                };
+                self.network_state.trade_offers.push(proposal);
+                self.event_log
+                    .push_back(("Trade offer proposed".to_string(), Color::Yellow));
+            }
             // Onboarding navigation (Enter key)
             KeyCode::Enter if self.onboarding_step.is_some() => {
                 self.advance_onboarding();
@@ -139,10 +199,38 @@ impl App {
                 self.onboarding_step = None;
             }
             KeyCode::Char('+') | KeyCode::Char('=') => {
-                self.time_scale = (self.time_scale + 0.5).min(4.0)
+                if self.show_brain && self.focused_gene.is_some() {
+                    if let (Some(id), Some(gene)) = (self.selected_entity, self.focused_gene) {
+                        let delta = match gene {
+                            crate::app::state::GeneType::Trophic => 0.05,
+                            crate::app::state::GeneType::Sensing => 0.5,
+                            crate::app::state::GeneType::Speed => 0.1,
+                            crate::app::state::GeneType::MaxEnergy => 10.0,
+                            crate::app::state::GeneType::ReproInvest => 0.05,
+                            crate::app::state::GeneType::Maturity => 0.1,
+                        };
+                        self.world.apply_genetic_edit(id, gene, delta);
+                    }
+                } else {
+                    self.time_scale = (self.time_scale + 0.5).min(4.0);
+                }
             }
             KeyCode::Char('-') | KeyCode::Char('_') => {
-                self.time_scale = (self.time_scale - 0.5).max(0.5)
+                if self.show_brain && self.focused_gene.is_some() {
+                    if let (Some(id), Some(gene)) = (self.selected_entity, self.focused_gene) {
+                        let delta = match gene {
+                            crate::app::state::GeneType::Trophic => -0.05,
+                            crate::app::state::GeneType::Sensing => -0.5,
+                            crate::app::state::GeneType::Speed => -0.1,
+                            crate::app::state::GeneType::MaxEnergy => -10.0,
+                            crate::app::state::GeneType::ReproInvest => -0.05,
+                            crate::app::state::GeneType::Maturity => -0.1,
+                        };
+                        self.world.apply_genetic_edit(id, gene, delta);
+                    }
+                } else {
+                    self.time_scale = (self.time_scale - 0.5).max(0.5);
+                }
             }
             KeyCode::Char('x') | KeyCode::Char('X') => {
                 let pop = self.world.entities.len();
@@ -355,6 +443,31 @@ impl App {
     }
 
     pub fn handle_mouse(&mut self, mouse: MouseEvent) {
+        if self.show_brain && mouse.column >= self.last_sidebar_rect.x {
+            // Clicked in sidebar
+            if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
+                let relative_y = mouse.row.saturating_sub(self.last_sidebar_rect.y + 1);
+                let offset = self.gene_editor_offset;
+                use crate::app::state::GeneType;
+                self.focused_gene = if relative_y == offset {
+                    Some(GeneType::Trophic)
+                } else if relative_y == offset + 1 {
+                    Some(GeneType::Sensing)
+                } else if relative_y == offset + 2 {
+                    Some(GeneType::Speed)
+                } else if relative_y == offset + 3 {
+                    Some(GeneType::MaxEnergy)
+                } else if relative_y == offset + 4 {
+                    Some(GeneType::ReproInvest)
+                } else if relative_y == offset + 5 {
+                    Some(GeneType::Maturity)
+                } else {
+                    None
+                };
+            }
+            return;
+        }
+
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) | MouseEventKind::Drag(MouseButton::Left) => {
                 if let Some((wx, wy)) = WorldWidget::screen_to_world(
