@@ -122,6 +122,13 @@ impl App {
                 self.event_log
                     .push_back(("View: NEURAL RESEARCH".to_string(), Color::Magenta));
             }
+            KeyCode::Char('0') if self.view_mode == 6 => {
+                if let Some(id) = self.selected_entity {
+                    self.world.clear_research_deltas(id);
+                    self.event_log
+                        .push_back(("Research deltas cleared".to_string(), Color::Cyan));
+                }
+            }
 
             // Help tab navigation (only when help is open)
             KeyCode::Char('1') if self.show_help => self.help_tab = 0,

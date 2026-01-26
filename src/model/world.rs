@@ -340,6 +340,12 @@ impl World {
         }
     }
 
+    pub fn clear_research_deltas(&mut self, entity_id: uuid::Uuid) {
+        if let Some(e) = self.entities.iter_mut().find(|e| e.id == entity_id) {
+            e.intel.genotype.brain.weight_deltas.clear();
+        }
+    }
+
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
         let mut events = Vec::new();
         self.tick += 1;
