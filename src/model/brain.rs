@@ -303,6 +303,43 @@ impl Brain {
         (weight_diff / matching.max(1) as f32) + (disjoint as f32 * 0.5) + lr_diff
     }
 
+    /// Structured remodeling during metamorphosis: ensure adult-stage outputs are connected.
+    pub fn remodel_for_adult(&mut self) {
+        let mut rng = rand::thread_rng();
+        // Adult outputs: Bond (30), Dig (31), Build (32)
+        let adult_outputs = [30, 31, 32];
+        let hidden_nodes: Vec<usize> = self
+            .nodes
+            .iter()
+            .filter(|n| matches!(n.node_type, NodeType::Hidden))
+            .map(|n| n.id)
+            .collect();
+
+        if hidden_nodes.is_empty() {
+            return;
+        }
+
+        for &out_id in &adult_outputs {
+            // Check if this output has any incoming connections
+            let has_conn = self.connections.iter().any(|c| c.to == out_id && c.enabled);
+
+            if !has_conn {
+                // Connect a random hidden node to this output
+                let from = hidden_nodes[rng.gen_range(0..hidden_nodes.len())];
+                self.connections.push(Connection {
+                    from,
+                    to: out_id,
+                    weight: rng.gen_range(-1.0..1.0),
+                    enabled: true,
+                    innovation: self.connections.len() + 1000, // Offset to avoid collisions
+                });
+            }
+        }
+
+        // Boost learning rate slightly for adult phase adaptation
+        self.learning_rate = (self.learning_rate + 0.05).clamp(0.0, 0.5);
+    }
+
     pub fn to_hex(&self) -> String {
         let bytes = serde_json::to_vec(self).unwrap_or_default();
         hex::encode(bytes)

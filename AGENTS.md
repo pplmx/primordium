@@ -247,6 +247,12 @@ let x = X { field: val, ..X::default() };
 - **Specialized Castes**: `Soldier`, `Engineer`, and `Provider` castes with specific metabolic and behavioral benefits (e.g., Engineer 50% dig/build cost reduction).
 - **Parallelization**: Full parallel execution of action and biological systems via pheromone/sound proposal unzipping.
 
+### Phase 58 Update
+
+- **Metamorphosis**: Completed structured life stage transition.
+- **Larval stage**: Restricted to foraging and survival (cannot Bond, Dig, or Build).
+- **Adult stage**: Unlocked via `remodel_for_adult()` which ensures neural connectivity for advanced behaviors and applies physical buffs (1.5x Energy, 1.2x Speed/Sensing).
+
 ---
 
 ## 📦 Binary Targets

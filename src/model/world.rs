@@ -437,7 +437,7 @@ impl World {
                 let mut cmds = Vec::new();
                 let mut rng = rand::thread_rng();
                 let (outputs, _) = decision_buffer[i];
-                if e.intel.bonded_to.is_none() {
+                if e.intel.bonded_to.is_none() && e.metabolism.has_metamorphosed {
                     if let Some(p_id) =
                         social::handle_symbiosis(i, &current_entities, outputs, &self.spatial_hash)
                     {
@@ -615,14 +615,14 @@ impl World {
                     }
                 }
                 // Phase 52: Terraforming
-                if outputs[9] > 0.5 {
+                if e.metabolism.has_metamorphosed && outputs[9] > 0.5 {
                     cmds.push(InteractionCommand::Dig {
                         x: e.physics.x,
                         y: e.physics.y,
                         attacker_idx: i,
                     });
                 }
-                if outputs[10] > 0.5 {
+                if e.metabolism.has_metamorphosed && outputs[10] > 0.5 {
                     cmds.push(InteractionCommand::Build {
                         x: e.physics.x,
                         y: e.physics.y,
@@ -992,12 +992,14 @@ impl World {
                     e.metabolism.max_energy *= 1.5;
                     e.metabolism.peak_energy = e.metabolism.max_energy;
 
-                    for _ in 0..5 {
-                        e.intel
-                            .genotype
-                            .brain
-                            .mutate_with_config(&self.config.evolution);
-                    }
+                    // Phase 58: Structured Neural Remodeling & Physical Leap
+                    e.intel.genotype.brain.remodel_for_adult();
+                    e.intel.genotype.max_speed *= 1.2;
+                    e.intel.genotype.sensing_range *= 1.2;
+
+                    // Sync phenotype to components
+                    e.physics.max_speed = e.intel.genotype.max_speed;
+                    e.physics.sensing_range = e.intel.genotype.sensing_range;
 
                     let ev = LiveEvent::Metamorphosis {
                         id: e.id,

@@ -40,7 +40,7 @@ impl SoundGrid {
         let old_cells = self.cells.clone();
 
         self.cells.par_iter_mut().enumerate().for_each(|(y, row)| {
-            for x in 0..row.len() {
+            for (x, cell) in row.iter_mut().enumerate() {
                 let mut neighbors_sum = 0.0;
                 let mut count = 0;
 
@@ -64,10 +64,10 @@ impl SoundGrid {
                 } else {
                     0.0
                 };
-                row[x] = (old_cells[y][x] * 0.4 + diffused * 0.6) * 0.7;
+                *cell = (old_cells[y][x] * 0.4 + diffused * 0.6) * 0.7;
 
-                if row[x] < 0.01 {
-                    row[x] = 0.0;
+                if *cell < 0.01 {
+                    *cell = 0.0;
                 }
             }
         });

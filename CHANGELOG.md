@@ -6,6 +6,34 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 56-58: Atmospheric Chemistry & Complex Life Cycles] - 2026-01-26
+
+### Evolutionary Leap: Respiratory Stress & Metamorphosis
+
+This update completes the core physiological systems of Phase 58, introducing the concept of distinct life stages with unique behavioral constraints and neural remodeling. Organisms now face an Oxygen cycle while juveniles undergo a complete transformation into active ecological actors.
+
+#### ✨ Features
+
+- **Atmospheric Chemistry (Phase 56)**:
+    - **Oxygen Cycle**: Implemented Oxygen level tracking coupled to photosynthesis (Forests) and metabolism (Entities).
+    - **Hypoxic Stress**: Low oxygen levels (< 8%) induce metabolic energy drain.
+    - **Aerobic Efficiency**: High oxygen levels boost movement speed and efficiency.
+- **Neural Archiving (Phase 57)**:
+    - **JSON Brain Export**: Added `Shift+C` command to export the full neural graph (Topology, Weights, Recurrence) to `logs/brain_<id>.json`.
+- **Complex Life Cycles (Phase 58)**:
+    - **Metamorphosis**: Entities undergo a one-time transformation at maturity.
+    - **Larval Gating**: Pre-metamorphosis "Larvae" are restricted from complex actions (Bond, Dig, Build) to focus on foraging.
+    - **Neural Remodeling**: Metamorphosis triggers a structured remodeling of the brain, ensuring "Adult" behavioral outputs are connected and functional.
+    - **Physical Leap**: Transforming into an adult grants a 1.5x max energy boost and 20% increases to sensing range and max speed.
+
+#### 🛠️ Technical Achievements
+
+- **Stage-Gated Topology**: Implemented behavioral gating in the interaction pipeline based on metabolic stage.
+- **Structured Brain Remodeling**: Developed `Brain::remodel_for_adult()` to automate functional connectivity shifts during life stage transitions.
+- **Metamorphosis Integration Suite**: Added `tests/metamorphosis.rs` covering lifecycle verification and gating logic.
+
+---
+
 ## [Phase 52-55: Emergent Engineering & Social Specialization] - 2026-01-25
 
 ### Evolutionary Leap: Biological Terraforming & Parasitic Hijacking
