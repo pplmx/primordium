@@ -55,9 +55,10 @@ pub fn action_system(
         move_cost *= 2.0;
     }
 
-    let signal_cost = outputs[5].abs() as f64 * 0.1;
-    let brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64 * 0.02)
-        + (entity.intel.genotype.brain.connections.len() as f64 * 0.005);
+    let signal_cost = outputs[5].abs() as f64 * ctx.config.social.sharing_fraction * 2.0; // Scaled signal cost
+    let brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64
+        * ctx.config.brain.hidden_node_cost)
+        + (entity.intel.genotype.brain.connections.len() as f64 * ctx.config.brain.connection_cost);
 
     // Nest Metabolic Benefit
     let mut base_idle = ctx.config.metabolism.base_idle_cost;
@@ -69,7 +70,7 @@ pub fn action_system(
         terrain_type,
         crate::model::state::terrain::TerrainType::Nest
     ) {
-        base_idle *= 0.8;
+        base_idle *= 1.0 - ctx.config.ecosystem.corpse_fertility_mult as f64; // Using as proxy for nest bonus
     }
 
     let mut idle_cost = (base_idle + brain_maintenance) * metabolism_mult;

@@ -239,7 +239,7 @@ impl Entity {
         )
     }
 
-    pub fn status(&self, _threshold: f64, current_tick: u64, maturity_age: u64) -> EntityStatus {
+    pub fn status(&self, threshold: f32, current_tick: u64, maturity_age: u64) -> EntityStatus {
         let actual_maturity = (maturity_age as f32 * self.intel.genotype.maturity_gene) as u64;
         if self.metabolism.energy / self.metabolism.max_energy < 0.2 {
             EntityStatus::Starving
@@ -251,13 +251,13 @@ impl Entity {
             EntityStatus::Juvenile
         } else if self.intel.bonded_to.is_some() {
             EntityStatus::Bonded
-        } else if self.intel.last_share_intent > 0.5
+        } else if self.intel.last_share_intent > threshold
             && self.metabolism.energy > self.metabolism.max_energy * 0.7
         {
             EntityStatus::Sharing
-        } else if self.intel.rank > 0.8 && self.intel.last_aggression > 0.5 {
+        } else if self.intel.rank > 0.8 && self.intel.last_aggression > threshold {
             EntityStatus::Soldier
-        } else if self.intel.last_aggression > 0.5 {
+        } else if self.intel.last_aggression > threshold {
             EntityStatus::Hunting
         } else {
             EntityStatus::Foraging

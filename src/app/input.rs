@@ -142,32 +142,23 @@ impl App {
             KeyCode::Char(c) if self.view_mode == 5 && c.is_ascii_digit() => {
                 let idx = c.to_digit(10).unwrap() as usize;
                 if let Some(offer) = self.network_state.trade_offers.get(idx).cloned() {
-                    use crate::model::infra::network::TradeResource;
                     // Logic to accept trade:
                     // 1. Deduct our resources (request from offer)
                     // 2. Add offered resources
 
-                    // Handle local environment resources (Oxygen)
-                    if offer.request_resource == TradeResource::Oxygen {
-                        self.env.consume_oxygen(offer.request_amount as f64);
-                    } else {
-                        self.world.apply_trade(
-                            offer.request_resource.clone(),
-                            offer.request_amount,
-                            false,
-                        );
-                    }
+                    self.world.apply_trade(
+                        &mut self.env,
+                        offer.request_resource.clone(),
+                        offer.request_amount,
+                        false,
+                    );
 
-                    if offer.offer_resource == TradeResource::Oxygen {
-                        self.env.oxygen_level =
-                            (self.env.oxygen_level + offer.offer_amount as f64).min(50.0);
-                    } else {
-                        self.world.apply_trade(
-                            offer.offer_resource.clone(),
-                            offer.offer_amount,
-                            true,
-                        );
-                    }
+                    self.world.apply_trade(
+                        &mut self.env,
+                        offer.offer_resource.clone(),
+                        offer.offer_amount,
+                        true,
+                    );
 
                     self.event_log.push_back((
                         format!(
@@ -257,7 +248,7 @@ impl App {
             KeyCode::Char('x') | KeyCode::Char('X') => {
                 let pop = self.world.entities.len();
                 for entity in &mut self.world.entities {
-                    intel::mutate_genotype(&mut entity.intel.genotype, &self.config.evolution, pop);
+                    intel::mutate_genotype(&mut entity.intel.genotype, &self.config, pop);
                     // Sync phenotype
                     entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                     entity.physics.max_speed = entity.intel.genotype.max_speed;
@@ -361,11 +352,7 @@ impl App {
                 if let Some(id) = self.selected_entity {
                     let pop = self.world.entities.len();
                     if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
-                        intel::mutate_genotype(
-                            &mut entity.intel.genotype,
-                            &self.config.evolution,
-                            pop,
-                        );
+                        intel::mutate_genotype(&mut entity.intel.genotype, &self.config, pop);
                         // Sync phenotype
                         entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                         entity.physics.max_speed = entity.intel.genotype.max_speed;

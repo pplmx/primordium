@@ -8,13 +8,14 @@ fn test_era_transition_sequence() {
     let mut stats = PopulationStats::new();
 
     // 1. Initial State
+    let config = primordium_lib::model::config::AppConfig::default();
     assert_eq!(env.current_era, Era::Primordial);
     let primordial_mult = env.metabolism_multiplier();
 
     // 2. Trigger DawnOfLife (Requires long lifespan)
     // Era transition logic: current_era == Primordial && tick > 5000 && lifespan > 200.0
     stats.avg_lifespan = 500.0; // Comfortably above 200.0
-    environment_system::update_era(&mut env, 10000, &stats); // Comfortably above 5000
+    environment_system::update_era(&mut env, 10000, &stats, &config); // Comfortably above 5000
 
     assert_eq!(
         env.current_era,
@@ -26,7 +27,7 @@ fn test_era_transition_sequence() {
     stats.population = 300;
     stats.species_count = 5;
     stats.biodiversity_hotspots = 2; // Required for new Flourishing trigger
-    environment_system::update_era(&mut env, 15000, &stats);
+    environment_system::update_era(&mut env, 15000, &stats, &config);
 
     assert_eq!(
         env.current_era,

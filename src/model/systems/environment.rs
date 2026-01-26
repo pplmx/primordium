@@ -1,3 +1,4 @@
+use crate::model::config::AppConfig;
 use crate::model::history::PopulationStats;
 use crate::model::state::environment::Environment;
 use crate::model::state::terrain::TerrainGrid;
@@ -9,7 +10,7 @@ pub fn handle_disasters(
     entity_count: usize,
     terrain: &mut TerrainGrid,
     rng: &mut impl Rng,
-    config: &crate::model::config::AppConfig,
+    config: &AppConfig,
 ) {
     // Trigger Dust Bowl disaster
     if env.is_heat_wave() && entity_count > 300 && rng.gen_bool(config.world.disaster_chance as f64)
@@ -19,20 +20,20 @@ pub fn handle_disasters(
 }
 
 /// Update environmental event timers based on system metrics.
-pub fn update_events(env: &mut Environment) {
-    if env.cpu_usage > 80.0 {
+pub fn update_events(env: &mut Environment, config: &AppConfig) {
+    if env.cpu_usage > config.world.heat_wave_cpu {
         env.heat_wave_timer += 1;
     } else {
         env.heat_wave_timer = env.heat_wave_timer.saturating_sub(1);
     }
 
-    if env.cpu_usage < 10.0 {
+    if env.cpu_usage < config.world.ice_age_cpu {
         env.ice_age_timer += 1;
     } else {
         env.ice_age_timer = env.ice_age_timer.saturating_sub(1);
     }
 
-    if env.ram_usage_percent < 40.0 {
+    if env.ram_usage_percent < config.world.abundance_ram {
         env.abundance_timer = 30;
     } else {
         env.abundance_timer = env.abundance_timer.saturating_sub(1);
@@ -40,7 +41,12 @@ pub fn update_events(env: &mut Environment) {
 }
 
 /// Update simulation era and season cycle.
-pub fn update_era(env: &mut Environment, tick: u64, pop_stats: &PopulationStats) {
+pub fn update_era(
+    env: &mut Environment,
+    tick: u64,
+    pop_stats: &PopulationStats,
+    config: &AppConfig,
+) {
     // Season cycling
     env.season_tick += 1;
     if env.season_tick >= env.season_duration {
@@ -68,7 +74,7 @@ pub fn update_era(env: &mut Environment, tick: u64, pop_stats: &PopulationStats)
     }
 
     // Apex Era: Peak fitness reached
-    if pop_stats.top_fitness > 8000.0 {
+    if pop_stats.top_fitness > config.world.apex_fitness_req {
         env.current_era = Era::ApexEra;
     }
 }

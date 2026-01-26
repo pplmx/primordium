@@ -153,7 +153,7 @@ fn test_light_dependent_food_growth() {
     // 1. Day time growth (Midday)
     env.world_time = env.day_cycle_ticks / 4;
     let mut day_food_count = 0;
-    for _ in 0..200 {
+    for _ in 0..1000 {
         world.update(&mut env).expect("Update failed");
         day_food_count += world.food.len();
         world.food.clear();
@@ -162,7 +162,7 @@ fn test_light_dependent_food_growth() {
     // 2. Night time growth
     env.world_time = env.day_cycle_ticks / 2 + 100; // Night
     let mut night_food_count = 0;
-    for _ in 0..200 {
+    for _ in 0..1000 {
         world.update(&mut env).expect("Update failed");
         night_food_count += world.food.len();
         world.food.clear();

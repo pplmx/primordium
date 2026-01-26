@@ -188,7 +188,7 @@ impl<'a> Widget for WorldWidget<'a> {
                 Self::world_to_screen(entity.physics.x, entity.physics.y, area, self.screensaver)
             {
                 let status = entity.status(
-                    self.world.config.metabolism.reproduction_threshold,
+                    self.world.config.brain.activation_threshold,
                     self.world.tick,
                     self.world.config.metabolism.maturity_age,
                 );

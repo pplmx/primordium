@@ -1,29 +1,28 @@
 //! Biological system - handles infection, pathogen emergence, and death processing.
 
+use crate::model::config::AppConfig;
 use crate::model::history::{LiveEvent, PopulationStats};
 use crate::model::quadtree::SpatialHash;
-use crate::model::state::entity::Entity;
+use crate::model::state::entity::{Entity, Specialization};
 use crate::model::state::pathogen::Pathogen;
+use crate::model::systems::social;
 use chrono::Utc;
 use rand::Rng;
 use std::collections::HashSet;
 
 /// Process entity infection, immunity, and genetic drift.
-pub fn biological_system(entity: &mut Entity, population_count: usize) {
+pub fn biological_system(entity: &mut Entity, population_count: usize, config: &AppConfig) {
     process_infection(entity);
 
     // Phase 46: Reputation Recovery
-    // Slow natural recovery towards baseline (1.0)
     if entity.intel.reputation < 1.0 {
         entity.intel.reputation = (entity.intel.reputation + 0.001).min(1.0);
     }
 
     // Phase 39: Genetic Drift
-    // Stochastic trait randomization in bottlenecked populations
     if population_count > 0 && population_count < 10 {
         let mut rng = rand::thread_rng();
-        if rng.gen_bool(0.01) {
-            // 1% chance per tick to randomize a single phenotypic gene
+        if rng.gen_bool(config.evolution.drift_rate as f64) {
             match rng.gen_range(0..4) {
                 0 => {
                     entity.intel.genotype.metabolic_niche = rng.gen_range(0.0..1.0);
@@ -44,43 +43,22 @@ pub fn biological_system(entity: &mut Entity, population_count: usize) {
     // Phase 53: Specialized Castes
     if entity.intel.specialization.is_none() {
         let progress = 0.01;
-        // Soldier meter
         if entity.intel.last_aggression > 0.8 {
-            let meter = entity
-                .intel
-                .spec_meters
-                .entry(crate::model::state::entity::Specialization::Soldier)
-                .or_insert(0.0);
-            *meter += progress * (1.0 + entity.intel.genotype.specialization_bias[0]);
-            if *meter >= 100.0 {
-                entity.intel.specialization =
-                    Some(crate::model::state::entity::Specialization::Soldier);
-            }
+            social::increment_spec_meter(entity, Specialization::Soldier, progress);
         }
-        // Provider meter
         if entity.intel.last_share_intent > 0.8 {
-            let meter = entity
-                .intel
-                .spec_meters
-                .entry(crate::model::state::entity::Specialization::Provider)
-                .or_insert(0.0);
-            *meter += progress * (1.0 + entity.intel.genotype.specialization_bias[2]);
-            if *meter >= 100.0 {
-                entity.intel.specialization =
-                    Some(crate::model::state::entity::Specialization::Provider);
-            }
+            social::increment_spec_meter(entity, Specialization::Provider, progress);
         }
-        // Engineer meter is handled in World::update during Dig/Build commands
     }
 
-    // Apply brain metabolic cost (Phase 50)
-    let mut brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64 * 0.02)
-        + (entity.intel.genotype.brain.connections.len() as f64 * 0.005);
+    // Apply brain metabolic cost
+    let mut brain_maintenance = (entity.intel.genotype.brain.nodes.len() as f64
+        * config.brain.hidden_node_cost)
+        + (entity.intel.genotype.brain.connections.len() as f64 * config.brain.connection_cost);
 
     // Caste adjustments
-    if let Some(crate::model::state::entity::Specialization::Soldier) = entity.intel.specialization
-    {
-        brain_maintenance *= 1.2; // 1.2x idle metabolic cost
+    if let Some(Specialization::Soldier) = entity.intel.specialization {
+        brain_maintenance *= config.social.war_zone_mult * 0.6; // Using war zone mult as proxy
     }
 
     entity.metabolism.energy -= brain_maintenance;
@@ -182,14 +160,16 @@ mod tests {
     #[test]
     fn test_biological_system_processes_infection() {
         let mut entity = Entity::new(5.0, 5.0, 0);
+        let config = AppConfig::default();
         // Entity without infection should only have brain metabolic cost
         let initial_energy = entity.metabolism.energy;
-        biological_system(&mut entity, 100);
+        biological_system(&mut entity, 100, &config);
 
         // Calculate expected brain maintenance
         let nodes_count = entity.intel.genotype.brain.nodes.len();
         let connections_count = entity.intel.genotype.brain.connections.len();
-        let brain_maintenance = (nodes_count as f64 * 0.02) + (connections_count as f64 * 0.005);
+        let brain_maintenance = (nodes_count as f64 * config.brain.hidden_node_cost)
+            + (connections_count as f64 * config.brain.connection_cost);
 
         assert!((entity.metabolism.energy - (initial_energy - brain_maintenance)).abs() < 1e-6);
     }
@@ -197,12 +177,13 @@ mod tests {
     #[test]
     fn test_biological_system_with_infected_entity() {
         let mut entity = Entity::new(5.0, 5.0, 0);
+        let config = AppConfig::default();
         entity.health.pathogen = Some(Pathogen::new_random());
         entity.health.infection_timer = 5;
 
         let initial_timer = entity.health.infection_timer;
         let initial_energy = entity.metabolism.energy;
-        biological_system(&mut entity, 100);
+        biological_system(&mut entity, 100, &config);
 
         // Timer should decrease or infection should progress
         assert!(
@@ -220,6 +201,7 @@ mod tests {
     #[test]
     fn test_biological_system_genetic_drift() {
         let mut entity = Entity::new(5.0, 5.0, 0);
+        let config = AppConfig::default();
         let initial_niche = entity.intel.genotype.metabolic_niche;
         let initial_speed = entity.intel.genotype.max_speed;
         let initial_range = entity.intel.genotype.sensing_range;
@@ -228,7 +210,7 @@ mod tests {
         // Run many times with low population to trigger drift
         let mut drifted = false;
         for _ in 0..10000 {
-            biological_system(&mut entity, 5);
+            biological_system(&mut entity, 5, &config);
             if entity.intel.genotype.metabolic_niche != initial_niche
                 || entity.intel.genotype.max_speed != initial_speed
                 || entity.intel.genotype.sensing_range != initial_range

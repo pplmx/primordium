@@ -16,5 +16,6 @@ pub mod biological;
 pub mod ecological;
 pub mod environment;
 pub mod intel;
+pub mod interaction;
 pub mod social;
 pub mod stats;

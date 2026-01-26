@@ -1,5 +1,4 @@
 use crate::model::brain::Brain;
-use crate::model::config::EvolutionConfig;
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -11,36 +10,33 @@ pub fn brain_forward(
     brain.forward(inputs, last_hidden)
 }
 
-pub fn mutate_brain(brain: &mut Brain, config: &EvolutionConfig) {
+pub fn mutate_brain(brain: &mut Brain, config: &crate::model::config::AppConfig) {
     brain.mutate_with_config(config);
-}
-
-pub fn genotype_distance(b1: &Brain, b2: &Brain) -> f32 {
-    b1.genotype_distance(b2)
 }
 
 pub fn mutate_genotype(
     genotype: &mut crate::model::state::entity::Genotype,
-    config: &crate::model::config::EvolutionConfig,
+    config: &crate::model::config::AppConfig,
     population: usize,
 ) {
     let mut rng = rand::thread_rng();
-    let mut effective_mutation_rate = config.mutation_rate;
-    let mut effective_mutation_amount = config.mutation_amount;
+    let mut effective_mutation_rate = config.evolution.mutation_rate;
+    let mut effective_mutation_amount = config.evolution.mutation_amount;
 
-    if config.population_aware && population > 0 {
-        if population < config.bottleneck_threshold {
-            let scaling = (config.bottleneck_threshold as f32 / population as f32).min(3.0);
+    if config.evolution.population_aware && population > 0 {
+        if population < config.evolution.bottleneck_threshold {
+            let scaling =
+                (config.evolution.bottleneck_threshold as f32 / population as f32).min(3.0);
             effective_mutation_rate *= scaling;
             effective_mutation_amount *= scaling;
-        } else if population > config.stasis_threshold {
+        } else if population > config.evolution.stasis_threshold {
             effective_mutation_rate *= 0.5;
         }
     }
 
     let mut brain_config = config.clone();
-    brain_config.mutation_rate = effective_mutation_rate;
-    brain_config.mutation_amount = effective_mutation_amount;
+    brain_config.evolution.mutation_rate = effective_mutation_rate;
+    brain_config.evolution.mutation_amount = effective_mutation_amount;
     mutate_brain(&mut genotype.brain, &brain_config);
 
     if rng.gen::<f32>() < effective_mutation_rate {

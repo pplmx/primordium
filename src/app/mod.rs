@@ -70,7 +70,12 @@ impl App {
         self.env.ram_usage_percent =
             (self.sys.used_memory() as f32 / self.sys.total_memory() as f32) * 100.0;
 
-        environment_system::update_era(&mut self.env, self.world.tick, &self.world.pop_stats);
+        environment_system::update_era(
+            &mut self.env,
+            self.world.tick,
+            &self.world.pop_stats,
+            &self.config,
+        );
 
         let current_climate = self.env.climate();
         if let Some(last) = self.last_climate {
@@ -87,7 +92,7 @@ impl App {
             }
         }
         self.last_climate = Some(current_climate);
-        environment_system::update_events(&mut self.env);
+        environment_system::update_events(&mut self.env, &self.config);
 
         self.cpu_history.pop_front();
         self.cpu_history.push_back(cpu_usage as u64);

@@ -26,29 +26,35 @@ pub struct PredationContext<'a> {
     pub lineage_consumption: &'a mut Vec<(Uuid, f64)>,
 }
 
-pub fn get_territorial_aggression(entity: &Entity) -> f64 {
+pub fn get_territorial_aggression(entity: &Entity, config: &AppConfig) -> f64 {
     let dist = ((entity.physics.x - entity.physics.home_x).powi(2)
         + (entity.physics.y - entity.physics.home_y).powi(2))
     .sqrt();
-    if dist < 8.0 {
-        1.5
+    if dist < config.social.territorial_range {
+        config.social.soldier_damage_mult
     } else {
         1.0
     }
 }
 
-pub fn calculate_social_rank(entity: &Entity, tick: u64) -> f32 {
+pub fn calculate_social_rank(entity: &Entity, tick: u64, config: &AppConfig) -> f32 {
     let energy_score =
         (entity.metabolism.energy / entity.metabolism.max_energy).clamp(0.0, 1.0) as f32;
     let age = tick - entity.metabolism.birth_tick;
     let age_score = (age as f32 / 2000.0).min(1.0);
     let offspring_score = (entity.metabolism.offspring_count as f32 / 20.0).min(1.0);
     let rep_score = entity.intel.reputation.clamp(0.0, 1.0);
-    0.3 * energy_score + 0.3 * age_score + 0.1 * offspring_score + 0.3 * rep_score
+
+    let w = config.social.rank_weights;
+    w[0] * energy_score + w[1] * age_score + w[2] * offspring_score + w[3] * rep_score
 }
 
-pub fn start_tribal_split(entity: &Entity, crowding: f32) -> Option<(u8, u8, u8)> {
-    if crowding > 0.8 && entity.intel.rank < 0.2 {
+pub fn start_tribal_split(
+    entity: &Entity,
+    crowding: f32,
+    config: &AppConfig,
+) -> Option<(u8, u8, u8)> {
+    if crowding > 0.8 && entity.intel.rank < config.social.sharing_threshold * 0.4 {
         let mut rng = rand::thread_rng();
         Some((
             rng.gen_range(0..255),
@@ -60,15 +66,15 @@ pub fn start_tribal_split(entity: &Entity, crowding: f32) -> Option<(u8, u8, u8)
     }
 }
 
-pub fn are_same_tribe(e1: &Entity, e2: &Entity) -> bool {
+pub fn are_same_tribe(e1: &Entity, e2: &Entity, config: &AppConfig) -> bool {
     let dist = (e1.physics.r as i32 - e2.physics.r as i32).abs()
         + (e1.physics.g as i32 - e2.physics.g as i32).abs()
         + (e1.physics.b as i32 - e2.physics.b as i32).abs();
-    dist < 60
+    dist < config.social.tribe_color_threshold
 }
 
-pub fn can_share(entity: &Entity) -> bool {
-    entity.metabolism.energy > entity.metabolism.max_energy * 0.7
+pub fn can_share(entity: &Entity, config: &AppConfig) -> bool {
+    entity.metabolism.energy > entity.metabolism.max_energy * config.social.sharing_threshold as f64
 }
 
 pub fn handle_symbiosis(
@@ -76,8 +82,9 @@ pub fn handle_symbiosis(
     entities: &[Entity],
     outputs: [f32; 11],
     spatial_hash: &SpatialHash,
+    config: &AppConfig,
 ) -> Option<Uuid> {
-    if outputs[8] < 0.5 {
+    if outputs[8] < config.brain.activation_threshold {
         return None;
     }
     let nearby = spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 2.0);
@@ -93,7 +100,7 @@ pub fn handle_symbiosis(
             let bias = (entities[idx].intel.genotype.pairing_bias
                 + entities[n_idx].intel.genotype.pairing_bias)
                 / 2.0;
-            if dist < 5.0 || bias > 0.8 {
+            if dist < config.evolution.speciation_threshold || bias > 0.8 {
                 return Some(entities[n_idx].id);
             }
         }
@@ -104,20 +111,17 @@ pub fn handle_symbiosis(
 pub fn reproduce_asexual_parallel(
     parent: &Entity,
     tick: u64,
-    config: &crate::model::config::EvolutionConfig,
+    config: &crate::model::config::AppConfig,
     population: usize,
 ) -> (Entity, f32) {
     let mut rng = rand::thread_rng();
     let investment = parent.intel.genotype.reproductive_investment as f64;
     let child_energy = parent.metabolism.energy * investment;
 
-    // Phase 52: Nest Nursery Bonus (Requires checking terrain - but we don't have it here)
-    // We'll apply this bonus in the World command handling instead for cleaner separation.
-
     let mut child_genotype = parent.intel.genotype.clone();
     intel::mutate_genotype(&mut child_genotype, config, population);
     let dist = parent.intel.genotype.distance(&child_genotype);
-    if dist > config.speciation_threshold {
+    if dist > config.evolution.speciation_threshold {
         child_genotype.lineage_id = Uuid::new_v4();
     }
 
@@ -182,7 +186,7 @@ pub fn reproduce_asexual_parallel(
 pub fn reproduce_asexual(
     parent: &mut Entity,
     tick: u64,
-    config: &crate::model::config::EvolutionConfig,
+    config: &crate::model::config::AppConfig,
     population: usize,
 ) -> Entity {
     let investment = parent.intel.genotype.reproductive_investment as f64;
@@ -251,6 +255,25 @@ pub fn reproduce_with_mate_parallel(
     }
 }
 
+pub fn increment_spec_meter(
+    entity: &mut Entity,
+    spec: crate::model::state::entity::Specialization,
+    amount: f32,
+) {
+    if entity.intel.specialization.is_none() {
+        let bias_idx = match spec {
+            crate::model::state::entity::Specialization::Soldier => 0,
+            crate::model::state::entity::Specialization::Engineer => 1,
+            crate::model::state::entity::Specialization::Provider => 2,
+        };
+        let meter = entity.intel.spec_meters.entry(spec).or_insert(0.0);
+        *meter += amount * (1.0 + entity.intel.genotype.specialization_bias[bias_idx]);
+        if *meter >= 100.0 {
+            entity.intel.specialization = Some(spec);
+        }
+    }
+}
+
 pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) -> Option<Legend> {
     let lifespan = tick - entity.metabolism.birth_tick;
     if lifespan > 1000
@@ -312,7 +335,7 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
         let v_snap = &ctx.snapshots[t_idx];
         if v_snap.id != entities[idx].id
             && !ctx.killed_ids.contains(&v_snap.id)
-            && !are_same_tribe(&entities[idx], &entities[t_idx])
+            && !are_same_tribe(&entities[idx], &entities[t_idx], ctx.config)
         {
             let gain = v_snap.energy
                 * entities[idx].metabolism.trophic_potential as f64
@@ -364,6 +387,7 @@ mod tests {
         entity2.physics.r = 110;
         entity2.physics.g = 105;
         entity2.physics.b = 120;
-        assert!(are_same_tribe(&entity1, &entity2));
+        let config = AppConfig::default();
+        assert!(are_same_tribe(&entity1, &entity2, &config));
     }
 }

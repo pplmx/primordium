@@ -225,23 +225,27 @@ impl Brain {
         }
     }
 
-    pub fn mutate_with_config(&mut self, config: &crate::model::config::EvolutionConfig) {
+    pub fn mutate_with_config(&mut self, config: &crate::model::config::AppConfig) {
         let mut rng = rand::thread_rng();
 
-        if rng.gen::<f32>() < config.mutation_rate {
-            self.learning_rate +=
-                rng.gen_range(-config.mutation_amount..config.mutation_amount) * 0.1;
-            self.learning_rate = self.learning_rate.clamp(0.0, 0.5);
+        if rng.gen::<f32>() < config.evolution.mutation_rate {
+            self.learning_rate += rng
+                .gen_range(-config.evolution.mutation_amount..config.evolution.mutation_amount)
+                * 0.1;
+            self.learning_rate = self
+                .learning_rate
+                .clamp(0.0, config.brain.learning_rate_max);
         }
 
         for conn in &mut self.connections {
-            if rng.gen::<f32>() < config.mutation_rate {
-                conn.weight += rng.gen_range(-config.mutation_amount..config.mutation_amount);
+            if rng.gen::<f32>() < config.evolution.mutation_rate {
+                conn.weight += rng
+                    .gen_range(-config.evolution.mutation_amount..config.evolution.mutation_amount);
                 conn.weight = conn.weight.clamp(-2.0, 2.0);
             }
         }
 
-        let topo_rate = config.mutation_rate * 0.1;
+        let topo_rate = config.evolution.mutation_rate * 0.1;
 
         if rng.gen::<f32>() < topo_rate {
             let from = self.nodes[rng.gen_range(0..self.nodes.len())].id;
@@ -338,7 +342,7 @@ impl Brain {
                     to: out_id,
                     weight: rng.gen_range(-1.0..1.0),
                     enabled: true,
-                    innovation: self.connections.len() + 1000, // Offset to avoid collisions
+                    innovation: self.connections.len() + 1_000_000, // Offset to avoid collisions
                 });
             }
         }

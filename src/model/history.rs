@@ -105,6 +105,12 @@ pub enum LiveEvent {
         tick: u64,
         timestamp: String,
     },
+    TribalSplit {
+        id: Uuid,
+        lineage_id: Uuid,
+        tick: u64,
+        timestamp: String,
+    },
     ClimateShift {
         from: String,
         to: String,
@@ -487,6 +493,10 @@ impl LiveEvent {
             LiveEvent::Metamorphosis { name, .. } => {
                 (format!("✨ {} has metamorphosed!", name), Color::Yellow)
             }
+            LiveEvent::TribalSplit { id, .. } => (
+                format!("⚔️ #{} split into a new tribe!", &id.to_string()[..4]),
+                Color::Magenta,
+            ),
             LiveEvent::Snapshot { tick, .. } => (
                 format!("🏛️ Snapshot saved at tick {}", tick),
                 Color::DarkGray,

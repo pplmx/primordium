@@ -52,14 +52,14 @@ fn test_dust_bowl_trigger() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.disaster_chance = 1.0; // P47: Forced deterministic trigger
-    let mut world = World::new(0, config).unwrap();
+    let mut world = World::new(0, config.clone()).unwrap();
 
     let mut env = Environment {
         cpu_usage: 95.0,
         ..Environment::default()
     };
     for _ in 0..11 {
-        environment_system::update_events(&mut env);
+        environment_system::update_events(&mut env, &config);
     }
 
     // Need > 300 entities for trigger

@@ -1,6 +1,7 @@
 pub mod entity;
 pub mod environment;
 pub mod food;
+pub mod interaction;
 pub mod lineage_registry;
 pub mod pathogen;
 pub mod pheromone;

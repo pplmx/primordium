@@ -6,11 +6,14 @@ use crate::model::quadtree::SpatialHash;
 use crate::model::state::entity::Entity;
 use crate::model::state::environment::Environment;
 use crate::model::state::food::Food;
+use crate::model::state::interaction::InteractionCommand;
 use crate::model::state::lineage_registry::LineageRegistry;
 use crate::model::state::pheromone::PheromoneGrid;
 use crate::model::state::sound::SoundGrid;
 use crate::model::state::terrain::TerrainGrid;
-use crate::model::systems::{action, biological, ecological, environment, intel, social, stats};
+use crate::model::systems::{
+    action, biological, ecological, environment, intel, interaction, social, stats,
+};
 use chrono::Utc;
 use rand::Rng;
 use rayon::prelude::*;
@@ -31,72 +34,6 @@ pub struct EntitySnapshot {
     pub b: u8,
     pub rank: f32,
     pub status: crate::model::state::entity::EntityStatus,
-}
-
-#[derive(Debug)]
-pub enum InteractionCommand {
-    Kill {
-        target_idx: usize,
-        attacker_idx: usize,
-        attacker_lineage: uuid::Uuid,
-        cause: String,
-    },
-    TransferEnergy {
-        target_idx: usize,
-        amount: f64,
-    },
-    Birth {
-        parent_idx: usize,
-        baby: Box<Entity>,
-        genetic_distance: f32,
-    },
-    EatFood {
-        food_index: usize,
-        attacker_idx: usize,
-    },
-    Infect {
-        target_idx: usize,
-        pathogen: crate::model::state::pathogen::Pathogen,
-    },
-    Fertilize {
-        x: f64,
-        y: f64,
-        amount: f32,
-    },
-    UpdateReputation {
-        target_idx: usize,
-        delta: f32,
-    },
-    TribalSplit {
-        target_idx: usize,
-        new_color: (u8, u8, u8),
-    },
-    TribalTerritory {
-        x: f64,
-        y: f64,
-        is_war: bool,
-    },
-    Bond {
-        target_idx: usize,
-        partner_id: uuid::Uuid,
-    },
-    BondBreak {
-        target_idx: usize,
-    },
-    Dig {
-        x: f64,
-        y: f64,
-        attacker_idx: usize,
-    },
-    Build {
-        x: f64,
-        y: f64,
-        attacker_idx: usize,
-        is_nest: bool,
-    },
-    Metamorphosis {
-        target_idx: usize,
-    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -297,6 +234,7 @@ impl World {
 
     pub fn apply_trade(
         &mut self,
+        env: &mut Environment,
         resource: crate::model::infra::network::TradeResource,
         amount: f32,
         incoming: bool,
@@ -315,10 +253,7 @@ impl World {
                 }
             }
             TradeResource::Oxygen => {
-                // This would need a way to modify the Environment, which World doesn't own
-                // But World::update takes &mut Environment.
-                // We'll store a "pending_env_changes" or similar if we really need it.
-                // For now, let's skip Oxygen trade in World and handle it in App.
+                env.oxygen_level = (env.oxygen_level + (amount * sign) as f64).clamp(0.0, 50.0);
             }
             TradeResource::SoilFertility => {
                 self.terrain.add_global_fertility(amount * sign);
@@ -416,7 +351,11 @@ impl World {
                 g: e.physics.g,
                 b: e.physics.b,
                 rank: e.intel.rank,
-                status: e.status(0.0, self.tick, self.config.metabolism.maturity_age),
+                status: e.status(
+                    self.config.brain.activation_threshold,
+                    self.tick,
+                    self.config.metabolism.maturity_age,
+                ),
             })
             .collect();
 
@@ -437,16 +376,16 @@ impl World {
                 e.intel.last_hidden,
                 ((e.metabolism.energy - e.metabolism.prev_energy)
                     / e.metabolism.max_energy.max(1.0)) as f32
-                    * 10.0,
+                    * self.config.brain.learning_reinforcement,
             );
             e.metabolism.prev_energy = e.metabolism.energy;
-            e.intel.rank = social::calculate_social_rank(e, self.tick);
+            e.intel.rank = social::calculate_social_rank(e, self.tick, &self.config);
             if let Some(p_id) = e.intel.bonded_to {
                 if let Some(partner) = entity_snapshots.iter().find(|s| s.id == p_id) {
                     let dx = partner.x - e.physics.x;
                     let dy = partner.y - e.physics.y;
-                    if (dx * dx + dy * dy) > 400.0 {
-                        // Break bond if distance > 20.0
+                    if (dx * dx + dy * dy) > self.config.social.bond_break_dist.powi(2) {
+                        // Break bond if distance > dist
                         e.intel.bonded_to = None;
                     }
                 } else {
@@ -530,9 +469,13 @@ impl World {
                 let mut rng = rand::thread_rng();
                 let (outputs, _) = decision_buffer[i];
                 if e.intel.bonded_to.is_none() && e.metabolism.has_metamorphosed {
-                    if let Some(p_id) =
-                        social::handle_symbiosis(i, &current_entities, outputs, &self.spatial_hash)
-                    {
+                    if let Some(p_id) = social::handle_symbiosis(
+                        i,
+                        &current_entities,
+                        outputs,
+                        &self.spatial_hash,
+                        &self.config,
+                    ) {
                         cmds.push(InteractionCommand::Bond {
                             target_idx: i,
                             partner_id: p_id,
@@ -559,7 +502,7 @@ impl World {
                             );
                             intel::mutate_genotype(
                                 &mut child_genotype,
-                                &self.config.evolution,
+                                &self.config,
                                 current_entities.len(),
                             );
                             let dist = e.intel.genotype.distance(&child_genotype);
@@ -603,12 +546,15 @@ impl World {
                             }
                         }
                     }
-                } else if social::can_share(e)
-                    && (outputs[4] > 0.5 || e.intel.last_share_intent >= 0.5)
+                } else if social::can_share(e, &self.config)
+                    && (outputs[4] > self.config.brain.activation_threshold
+                        || e.intel.last_share_intent >= self.config.brain.activation_threshold)
                 {
                     let nearby = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
                     for &t_idx in &nearby {
-                        if t_idx != i && social::are_same_tribe(e, &current_entities[t_idx]) {
+                        if t_idx != i
+                            && social::are_same_tribe(e, &current_entities[t_idx], &self.config)
+                        {
                             let t_snap = &entity_snapshots[t_idx];
                             if t_snap.energy < e.metabolism.energy {
                                 let r = e
@@ -642,7 +588,7 @@ impl World {
                     for t_idx in targets {
                         let is_partner = e.intel.bonded_to == Some(entity_snapshots[t_idx].id);
                         if t_idx != i
-                            && !social::are_same_tribe(e, &current_entities[t_idx])
+                            && !social::are_same_tribe(e, &current_entities[t_idx], &self.config)
                             && !is_partner
                         {
                             cmds.push(InteractionCommand::Kill {
@@ -658,7 +604,7 @@ impl World {
                 // Phase 49: Tribal Splitting
                 let nearby = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
                 let crowding = (nearby.len() as f32 / 10.0).min(1.0);
-                if let Some(new_color) = social::start_tribal_split(e, crowding) {
+                if let Some(new_color) = social::start_tribal_split(e, crowding, &self.config) {
                     cmds.push(InteractionCommand::TribalSplit {
                         target_idx: i,
                         new_color,
@@ -670,7 +616,7 @@ impl World {
                     let (baby, dist) = social::reproduce_asexual_parallel(
                         e,
                         self.tick,
-                        &self.config.evolution,
+                        &self.config,
                         current_entities.len(),
                     );
                     cmds.push(InteractionCommand::Birth {
@@ -722,10 +668,11 @@ impl World {
                         is_nest: outputs[10] > 0.9,
                     });
                 }
-                // Phase 58: Metamorphosis trigger
-                if !e.metabolism.has_metamorphosed
-                    && e.is_mature(self.tick, self.config.metabolism.maturity_age)
-                {
+                // Phase 58: Metamorphosis trigger (80% maturity to allow Juvenile stage)
+                let actual_maturity = (self.config.metabolism.maturity_age as f32
+                    * e.intel.genotype.maturity_gene) as u64;
+                let age = self.tick - e.metabolism.birth_tick;
+                if !e.metabolism.has_metamorphosed && age >= (actual_maturity as f32 * 0.8) as u64 {
                     cmds.push(InteractionCommand::Metamorphosis { target_idx: i });
                 }
 
@@ -758,7 +705,7 @@ impl World {
                         height: self.height,
                     },
                 );
-                biological::biological_system(e, current_population);
+                biological::biological_system(e, current_population, &self.config);
                 res
             })
             .collect();
@@ -773,351 +720,49 @@ impl World {
             env.consume_oxygen(res.oxygen_drain);
         }
 
-        for cmd in interaction_commands {
-            match cmd {
-                InteractionCommand::Kill {
-                    target_idx,
-                    attacker_idx,
-                    attacker_lineage,
-                    cause,
-                } => {
-                    let tid = current_entities[target_idx].id;
-                    if !killed_ids.contains(&tid) {
-                        let mut multiplier = 1.0;
-                        let attacker = &current_entities[attacker_idx];
+        let mut interaction_ctx = interaction::InteractionContext {
+            terrain: &mut self.terrain,
+            env,
+            pop_stats: &mut self.pop_stats,
+            lineage_registry: &mut self.lineage_registry,
+            fossil_registry: &mut self.fossil_registry,
+            logger: &mut self.logger,
+            config: &self.config,
+            tick: self.tick,
+            width: self.width,
+            height: self.height,
+            social_grid: &mut self.social_grid,
+            lineage_consumption: &mut self.lineage_consumption,
+            food: &mut self.food,
+        };
 
-                        // Phase 56: High-intensity activity oxygen cost
-                        env.consume_oxygen(0.05);
+        let interaction_result = interaction::process_interaction_commands(
+            &mut current_entities,
+            interaction_commands,
+            &mut interaction_ctx,
+        );
 
-                        // Phase 49: Soldier damage bonus (1.5x)
-                        let attacker_status =
-                            attacker.status(0.0, self.tick, self.config.metabolism.maturity_age);
-                        if attacker_status == crate::model::state::entity::EntityStatus::Soldier
-                            || attacker.intel.specialization
-                                == Some(crate::model::state::entity::Specialization::Soldier)
-                        {
-                            multiplier *= 1.5;
-                        }
-
-                        // Phase 49: War Zone bonus (2.0x)
-                        let ix = (attacker.physics.x as usize).min(self.width as usize - 1);
-                        let iy = (attacker.physics.y as usize).min(self.height as usize - 1);
-                        if self.social_grid[iy][ix] == 2 {
-                            multiplier *= 2.0;
-                        }
-
-                        let energy_gain =
-                            current_entities[target_idx].metabolism.energy * 0.5 * multiplier;
-
-                        killed_ids.insert(tid);
-                        self.pop_stats.record_death(
-                            self.tick - current_entities[target_idx].metabolism.birth_tick,
-                        );
-                        let ev = LiveEvent::Death {
-                            id: tid,
-                            age: self.tick - current_entities[target_idx].metabolism.birth_tick,
-                            offspring: current_entities[target_idx].metabolism.offspring_count,
-                            tick: self.tick,
-                            timestamp: Utc::now().to_rfc3339(),
-                            cause,
-                        };
-                        let _ = self.logger.log_event(ev.clone());
-                        events.push(ev);
-                        self.lineage_consumption
-                            .push((attacker_lineage, energy_gain));
-                        current_entities[attacker_idx].metabolism.energy =
-                            (current_entities[attacker_idx].metabolism.energy + energy_gain)
-                                .min(current_entities[attacker_idx].metabolism.max_energy);
-                    }
-                }
-                InteractionCommand::Bond {
-                    target_idx,
-                    partner_id,
-                } => {
-                    current_entities[target_idx].intel.bonded_to = Some(partner_id);
-                }
-                InteractionCommand::BondBreak { target_idx } => {
-                    current_entities[target_idx].intel.bonded_to = None;
-                }
-                InteractionCommand::Birth {
-                    parent_idx,
-                    baby,
-                    genetic_distance,
-                } => {
-                    self.pop_stats.record_birth_distance(genetic_distance);
-                    self.lineage_registry.record_birth(
-                        baby.metabolism.lineage_id,
-                        baby.metabolism.generation,
-                        self.tick,
-                    );
-                    let ev = LiveEvent::Birth {
-                        id: baby.id,
-                        parent_id: baby.parent_id,
-                        gen: baby.metabolism.generation,
-                        tick: self.tick,
-                        timestamp: Utc::now().to_rfc3339(),
-                    };
-                    let _ = self.logger.log_event(ev.clone());
-                    events.push(ev);
-                    let mut baby = *baby;
-                    // Phase 52: Nest Nursery Bonus
-                    let terrain_type = self
-                        .terrain
-                        .get(baby.physics.x, baby.physics.y)
-                        .terrain_type;
-                    if matches!(
-                        terrain_type,
-                        crate::model::state::terrain::TerrainType::Nest
-                    ) {
-                        baby.metabolism.energy *= 1.2; // 20% bonus
-                        baby.metabolism.peak_energy = baby.metabolism.energy;
-                    }
-
-                    new_babies.push(baby);
-                    let inv = current_entities[parent_idx]
-                        .intel
-                        .genotype
-                        .reproductive_investment as f64;
-                    let c_e = current_entities[parent_idx].metabolism.energy * inv;
-                    current_entities[parent_idx].metabolism.energy -= c_e;
-                    current_entities[parent_idx].metabolism.offspring_count += 1;
-                }
-                InteractionCommand::EatFood {
-                    food_index,
-                    attacker_idx,
-                } => {
-                    if !eaten_food_indices.contains(&food_index) {
-                        eaten_food_indices.insert(food_index);
-                        let e = &current_entities[attacker_idx];
-                        let niche_eff = 1.0
-                            - (e.intel.genotype.metabolic_niche
-                                - self.food[food_index].nutrient_type)
-                                .abs();
-                        let energy_gain = self.config.metabolism.food_value
-                            * niche_eff as f64
-                            * (1.0 - e.metabolism.trophic_potential) as f64;
-
-                        current_entities[attacker_idx].metabolism.energy =
-                            (current_entities[attacker_idx].metabolism.energy + energy_gain)
-                                .min(current_entities[attacker_idx].metabolism.max_energy);
-                        self.terrain.deplete(
-                            current_entities[attacker_idx].physics.x,
-                            current_entities[attacker_idx].physics.y,
-                            0.01,
-                        );
-                    }
-                }
-                InteractionCommand::TribalTerritory { x, y, is_war } => {
-                    let ix = (x as usize).min(self.width as usize - 1);
-                    let iy = (y as usize).min(self.height as usize - 1);
-                    self.social_grid[iy][ix] = if is_war { 2 } else { 1 };
-                }
-                InteractionCommand::TransferEnergy { target_idx, amount } => {
-                    let mut actual_amount = amount;
-                    if amount < 0.0 {
-                        // This is the sender
-                        let sender = &current_entities[target_idx];
-                        if sender.intel.specialization
-                            == Some(crate::model::state::entity::Specialization::Provider)
-                        {
-                            actual_amount *= 0.5; // Providers share with 50% less cost to themselves?
-                                                  // Wait, if I reduce the cost to the sender, it means they lose less energy but the receiver gets the same.
-                                                  // That's exactly what "reduction in sharing metabolic cost" means.
-                        }
-                    }
-
-                    current_entities[target_idx].metabolism.energy =
-                        (current_entities[target_idx].metabolism.energy + actual_amount)
-                            .clamp(0.0, current_entities[target_idx].metabolism.max_energy);
-                }
-                InteractionCommand::Infect {
-                    target_idx,
-                    pathogen,
-                } => {
-                    current_entities[target_idx].health.pathogen = Some(pathogen.clone());
-                    current_entities[target_idx].health.infection_timer = pathogen.duration;
-                }
-                InteractionCommand::UpdateReputation { target_idx, delta } => {
-                    current_entities[target_idx].intel.reputation =
-                        (current_entities[target_idx].intel.reputation + delta).clamp(0.0, 1.0);
-                }
-                InteractionCommand::Fertilize { x, y, amount } => {
-                    self.terrain.fertilize(x, y, amount);
-                    self.terrain.add_biomass(x, y, amount * 10.0);
-                }
-                InteractionCommand::Dig { x, y, attacker_idx } => {
-                    let cell = self.terrain.get(x, y);
-                    let attacker = &mut current_entities[attacker_idx];
-                    let mut energy_cost = 10.0;
-
-                    // Phase 56: Physical labor oxygen cost
-                    env.consume_oxygen(0.02);
-
-                    // Phase 53: Engineer Caste Energy Reduction
-                    if attacker.intel.specialization
-                        == Some(crate::model::state::entity::Specialization::Engineer)
-                    {
-                        energy_cost *= 0.5;
-                    }
-
-                    if matches!(
-                        cell.terrain_type,
-                        crate::model::state::terrain::TerrainType::Wall
-                            | crate::model::state::terrain::TerrainType::Mountain
-                    ) {
-                        if attacker.metabolism.energy > energy_cost {
-                            attacker.metabolism.energy -= energy_cost;
-                            self.terrain.set_cell_type(
-                                x as u16,
-                                y as u16,
-                                crate::model::state::terrain::TerrainType::Plains,
-                            );
-                            // Increment Engineer meter
-                            if attacker.intel.specialization.is_none() {
-                                let meter = attacker
-                                    .intel
-                                    .spec_meters
-                                    .entry(crate::model::state::entity::Specialization::Engineer)
-                                    .or_insert(0.0);
-                                *meter +=
-                                    1.0 * (1.0 + attacker.intel.genotype.specialization_bias[1]);
-                                if *meter >= 100.0 {
-                                    attacker.intel.specialization =
-                                        Some(crate::model::state::entity::Specialization::Engineer);
-                                }
-                            }
-                        }
-                    } else if matches!(
-                        cell.terrain_type,
-                        crate::model::state::terrain::TerrainType::Plains
-                    ) {
-                        // Phase 52: Hydrological Engineering (Canals)
-                        // If digging plains adjacent to a river, convert to river.
-                        let hydro_cost = 30.0;
-                        let mut eff_hydro_cost = hydro_cost;
-                        if attacker.intel.specialization
-                            == Some(crate::model::state::entity::Specialization::Engineer)
-                        {
-                            eff_hydro_cost *= 0.5;
-                        }
-
-                        if attacker.metabolism.energy > 50.0
-                            && self.terrain.has_neighbor_type(
-                                x as u16,
-                                y as u16,
-                                crate::model::state::terrain::TerrainType::River,
-                            )
-                        {
-                            attacker.metabolism.energy -= eff_hydro_cost;
-                            self.terrain.set_cell_type(
-                                x as u16,
-                                y as u16,
-                                crate::model::state::terrain::TerrainType::River,
-                            );
-                            // Increment Engineer meter
-                            if attacker.intel.specialization.is_none() {
-                                let meter = attacker
-                                    .intel
-                                    .spec_meters
-                                    .entry(crate::model::state::entity::Specialization::Engineer)
-                                    .or_insert(0.0);
-                                *meter +=
-                                    2.0 * (1.0 + attacker.intel.genotype.specialization_bias[1]);
-                                if *meter >= 100.0 {
-                                    attacker.intel.specialization =
-                                        Some(crate::model::state::entity::Specialization::Engineer);
-                                }
-                            }
-                        }
-                    }
-                }
-                InteractionCommand::Build {
-                    x,
-                    y,
-                    attacker_idx,
-                    is_nest,
-                } => {
-                    let cell = self.terrain.get(x, y);
-                    let attacker = &mut current_entities[attacker_idx];
-                    let mut energy_cost = 15.0;
-
-                    // Phase 56: Physical labor oxygen cost
-                    env.consume_oxygen(0.03);
-
-                    if attacker.intel.specialization
-                        == Some(crate::model::state::entity::Specialization::Engineer)
-                    {
-                        energy_cost *= 0.5;
-                    }
-
-                    if matches!(
-                        cell.terrain_type,
-                        crate::model::state::terrain::TerrainType::Plains
-                    ) && attacker.metabolism.energy > energy_cost
-                    {
-                        attacker.metabolism.energy -= energy_cost;
-                        let new_type = if is_nest && attacker.metabolism.energy > 150.0 {
-                            crate::model::state::terrain::TerrainType::Nest
-                        } else {
-                            crate::model::state::terrain::TerrainType::Wall
-                        };
-                        self.terrain.set_cell_type(x as u16, y as u16, new_type);
-
-                        // Increment Engineer meter
-                        if attacker.intel.specialization.is_none() {
-                            let meter = attacker
-                                .intel
-                                .spec_meters
-                                .entry(crate::model::state::entity::Specialization::Engineer)
-                                .or_insert(0.0);
-                            *meter += 1.0 * (1.0 + attacker.intel.genotype.specialization_bias[1]);
-                            if *meter >= 100.0 {
-                                attacker.intel.specialization =
-                                    Some(crate::model::state::entity::Specialization::Engineer);
-                            }
-                        }
-                    }
-                }
-                InteractionCommand::Metamorphosis { target_idx } => {
-                    let e = &mut current_entities[target_idx];
-                    e.metabolism.has_metamorphosed = true;
-                    e.metabolism.max_energy *= 1.5;
-                    e.metabolism.peak_energy = e.metabolism.max_energy;
-
-                    // Phase 58: Structured Neural Remodeling & Physical Leap
-                    e.intel.genotype.brain.remodel_for_adult();
-                    e.intel.genotype.max_speed *= 1.2;
-                    e.intel.genotype.sensing_range *= 1.2;
-
-                    // Sync phenotype to components
-                    e.physics.max_speed = e.intel.genotype.max_speed;
-                    e.physics.sensing_range = e.intel.genotype.sensing_range;
-
-                    let ev = LiveEvent::Metamorphosis {
-                        id: e.id,
-                        name: e.name(),
-                        tick: self.tick,
-                        timestamp: Utc::now().to_rfc3339(),
-                    };
-                    let _ = self.logger.log_event(ev.clone());
-                    events.push(ev);
-                }
-                _ => {}
-            }
-        }
+        events.extend(interaction_result.events);
+        let killed_ids = interaction_result.killed_ids;
+        let eaten_food_indices = interaction_result.eaten_food_indices;
+        let mut new_babies = interaction_result.new_babies;
 
         for (l_id, amount) in &self.lineage_consumption {
             self.lineage_registry.record_consumption(*l_id, *amount);
         }
         self.lineage_consumption.clear();
+
         for e in current_entities {
             if killed_ids.contains(&e.id) || e.metabolism.energy <= 0.0 {
                 self.lineage_registry.record_death(e.metabolism.lineage_id);
                 if let Some(legend) = social::archive_if_legend(&e, self.tick, &self.logger) {
                     self.update_best_legend(legend);
                 }
-                // Corpse Fertilization: transfer 10% of max energy to soil
-                let fertilize_amount = (e.metabolism.max_energy * 0.1) as f32 / 100.0;
+                // Corpse Fertilization: transfer fraction of max energy to soil
+                let fertilize_amount = (e.metabolism.max_energy
+                    * self.config.ecosystem.corpse_fertility_mult as f64)
+                    as f32
+                    / 100.0;
                 self.terrain
                     .fertilize(e.physics.x, e.physics.y, fertilize_amount);
                 self.terrain

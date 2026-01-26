@@ -21,18 +21,14 @@ fn test_genetic_bottleneck_increases_mutation() {
     // We can't easily measure effective_mutation_rate directly as it's internal to mutate_genotype,
     // but we can check if it results in higher genetic variance over multiple trials.
     // However, for a unit test, we just verify it doesn't crash and follows the logic.
-    let child_small = primordium_lib::model::systems::social::reproduce_asexual(
-        &mut parent,
-        1,
-        &world.config.evolution,
-        1,
-    );
+    let child_small =
+        primordium_lib::model::systems::social::reproduce_asexual(&mut parent, 1, &world.config, 1);
 
     // 3. Large population (100) -> Should have base mutation
     let child_large = primordium_lib::model::systems::social::reproduce_asexual(
         &mut parent,
         2,
-        &world.config.evolution,
+        &world.config,
         100,
     );
 
@@ -57,7 +53,7 @@ fn test_genetic_drift_in_small_pop() {
         let mut test_genotype = parent_genotype.clone();
         primordium_lib::model::systems::intel::mutate_genotype(
             &mut test_genotype,
-            &config.evolution,
+            &config,
             population,
         );
         if (test_genotype.trophic_potential - original_tp).abs() > 0.001 {

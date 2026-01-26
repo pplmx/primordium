@@ -481,12 +481,21 @@ toml = "0.8"
 - **JSON Brain Export**: Added `Shift+C` command to export the full neural graph of the selected entity to `logs/brain_<id>.json`.
 - **Archival Compatibility**: Brain exports include all node topologies, connection weights, and recurrence states for external analysis.
 
-### Phase 58+: Future Horizons 🚧
+### Phase 58: Complex Life Cycles (Metamorphosis) ✅
 
-- **Complex Life Cycles**: Metamorphosis (Larval -> Adult) with distinct neural topologies per stage.
-- **Multiverse Trade**: P2P resource exchange between connected simulation instances.
-- **Genetic Engineering UI**: Mouse-driven gene editing for selected entities.
-- **Neural Research Tools**: Advanced brain activity visualizers and synaptic plasticity graphs.
+- **Larval Stage**: Juvenile organisms with restricted behavioral outputs.
+- **Metamorphosis Trigger**: Physical transformation at 80% maturity.
+- **Neural Remodeling**: Automated connection of adult behavioral nodes.
+- **Physical Leap**: One-time somatic buffs to energy, speed, and sensing.
+
+### Phase 59: Divine Research & Multiverse Trade ✅
+
+- **Genetic Engineering UI**: Real-time genotype editing for selected entities.
+- **Multiverse Market**: P2P resource exchange (Energy, Oxygen, Biomass, Soil).
+- **Synaptic Plasticity Tools**: Visualizing Hebbian learning deltas in real-time.
+- **Unified Trade Engine**: Centralized resource management across all simulation tiers.
+
+### Phase 60+: Future Horizons 🚧
 
 ---
 
