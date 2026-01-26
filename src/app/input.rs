@@ -135,17 +135,32 @@ impl App {
             KeyCode::Char(c) if self.view_mode == 5 && c.is_ascii_digit() => {
                 let idx = c.to_digit(10).unwrap() as usize;
                 if let Some(offer) = self.network_state.trade_offers.get(idx).cloned() {
+                    use crate::model::infra::network::TradeResource;
                     // Logic to accept trade:
                     // 1. Deduct our resources (request from offer)
                     // 2. Add offered resources
-                    // 3. (In real network) Send TradeAccept message
-                    self.world.apply_trade(
-                        offer.request_resource.clone(),
-                        offer.request_amount,
-                        false,
-                    );
-                    self.world
-                        .apply_trade(offer.offer_resource.clone(), offer.offer_amount, true);
+
+                    // Handle local environment resources (Oxygen)
+                    if offer.request_resource == TradeResource::Oxygen {
+                        self.env.consume_oxygen(offer.request_amount as f64);
+                    } else {
+                        self.world.apply_trade(
+                            offer.request_resource.clone(),
+                            offer.request_amount,
+                            false,
+                        );
+                    }
+
+                    if offer.offer_resource == TradeResource::Oxygen {
+                        self.env.oxygen_level =
+                            (self.env.oxygen_level + offer.offer_amount as f64).min(50.0);
+                    } else {
+                        self.world.apply_trade(
+                            offer.offer_resource.clone(),
+                            offer.offer_amount,
+                            true,
+                        );
+                    }
 
                     self.event_log.push_back((
                         format!(
