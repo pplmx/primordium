@@ -75,6 +75,7 @@ pub struct App {
     pub event_log: VecDeque<(String, Color)>,
 
     pub network_state: crate::model::infra::network::NetworkState, // NEW
+    pub latest_snapshot: Option<crate::model::state::snapshot::WorldSnapshot>,
 }
 
 impl App {
@@ -83,10 +84,9 @@ impl App {
         sys.refresh_all();
         let config = AppConfig::load();
 
-        // Try to auto-load save.json if it exists
         let world = if std::path::Path::new("save.json").exists() {
             if let Ok(data) = std::fs::read_to_string("save.json") {
-                if let Ok(w) = serde_json::from_str(&data) {
+                if let Ok(w) = serde_json::from_str::<World>(&data) {
                     w
                 } else {
                     World::new(config.world.initial_population, config.clone())?
@@ -97,6 +97,8 @@ impl App {
         } else {
             World::new(config.world.initial_population, config.clone())?
         };
+
+        let latest_snapshot = Some(world.create_snapshot());
 
         Ok(Self {
             running: true,
@@ -142,6 +144,7 @@ impl App {
             gene_editor_offset: 20,
             event_log: VecDeque::with_capacity(15),
             network_state: crate::model::infra::network::NetworkState::default(),
+            latest_snapshot,
         })
     }
 

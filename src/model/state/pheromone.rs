@@ -71,12 +71,12 @@ impl PheromoneCell {
 }
 
 /// Grid-based pheromone map for the world
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PheromoneGrid {
-    cells: Vec<Vec<PheromoneCell>>,
+    pub cells: Vec<Vec<PheromoneCell>>,
     pub width: u16,
     pub height: u16,
-    decay_rate: f32, // Per-tick decay multiplier
+    pub decay_rate: f32, // Per-tick decay multiplier
 }
 
 impl PheromoneGrid {

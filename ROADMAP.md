@@ -495,7 +495,20 @@ toml = "0.8"
 - **Synaptic Plasticity Tools**: Visualizing Hebbian learning deltas in real-time.
 - **Unified Trade Engine**: Centralized resource management across all simulation tiers.
 
-### Phase 60+: Future Horizons 🚧
+### Phase 60: Macro-Evolutionary Intelligence & Global Cooperation 🚧
+
+- **Lineage-Wide Coordination**:
+    - Functional: Implement `LineageGoal` registry to synchronize behavioral biases (e.g., "Expand West") across distributed clusters.
+    - Technical: Neural input for `ClusterCentroid` and `GoalVector`.
+- **Global Altruism Networks**:
+    - Functional: P2P lineage-based energy relief protocols.
+    - Technical: `TradeMessage::Relief` for non-reciprocal energy transfer to struggling kin in other universes.
+- **Biological Irrigation**:
+    - Functional: Emergent canal networks for global fertility stabilization.
+    - Technical: Entities with Engineer caste prioritize connecting isolated `River` cells to `Desert` biomes.
+- **Civilization Seeds**:
+    - Functional: Transition from individual survival to collective engineering.
+    - Technical: Implement `Structure::Outpost` which acts as a permanent pheromone relay and energy capacitor.
 
 ---
 

@@ -137,7 +137,7 @@ pub fn process_interaction_commands(
                 // Phase 52: Nest Nursery Bonus
                 let terrain_type = ctx.terrain.get(baby.physics.x, baby.physics.y).terrain_type;
                 if matches!(terrain_type, TerrainType::Nest) {
-                    baby.metabolism.energy *= 1.2; // TODO: Move to config
+                    baby.metabolism.energy *= ctx.config.metabolism.birth_energy_multiplier;
                     baby.metabolism.peak_energy = baby.metabolism.energy;
                 }
 

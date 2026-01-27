@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Deserialize)]
-pub struct EntitySnapshot {
+pub struct InternalEntitySnapshot {
     pub id: uuid::Uuid,
     pub lineage_id: uuid::Uuid,
     pub x: f64,
@@ -36,6 +36,13 @@ pub struct EntitySnapshot {
     pub status: crate::model::state::entity::EntityStatus,
 }
 
+#[derive(Default)]
+pub struct EntityDecision {
+    pub outputs: [f32; 11],
+    pub next_hidden: [f32; 6],
+    pub activations: std::collections::HashMap<usize, f32>,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct World {
     pub width: u16,
@@ -45,7 +52,6 @@ pub struct World {
     pub tick: u64,
     #[serde(skip, default = "HistoryLogger::new_dummy")]
     pub logger: HistoryLogger,
-    pub config: AppConfig,
     #[serde(skip, default = "SpatialHash::new_empty")]
     pub spatial_hash: SpatialHash,
     #[serde(skip, default = "SpatialHash::new_empty")]
@@ -58,6 +64,7 @@ pub struct World {
     pub social_grid: Vec<Vec<u8>>,
     pub lineage_registry: LineageRegistry,
     pub fossil_registry: FossilRegistry,
+    pub config: AppConfig,
     pub log_dir: String,
     pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
     #[serde(skip, default)]
@@ -73,7 +80,7 @@ pub struct World {
     #[serde(skip, default)]
     perception_buffer: Vec<[f32; 16]>,
     #[serde(skip, default)]
-    decision_buffer: Vec<([f32; 11], [f32; 6])>,
+    decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
     lineage_consumption: Vec<(uuid::Uuid, f64)>,
 }
@@ -281,6 +288,57 @@ impl World {
         }
     }
 
+    pub fn create_snapshot(&self) -> crate::model::state::snapshot::WorldSnapshot {
+        use crate::model::state::snapshot::{EntitySnapshot, WorldSnapshot};
+        let entities = self
+            .entities
+            .iter()
+            .map(|e| EntitySnapshot {
+                id: e.id,
+                name: e.name(),
+                x: e.physics.x,
+                y: e.physics.y,
+                r: e.physics.r,
+                g: e.physics.g,
+                b: e.physics.b,
+                energy: e.metabolism.energy,
+                max_energy: e.metabolism.max_energy,
+                generation: e.metabolism.generation,
+                age: self.tick - e.metabolism.birth_tick,
+                offspring: e.metabolism.offspring_count,
+                lineage_id: e.metabolism.lineage_id,
+                rank: e.intel.rank,
+                status: e.status(
+                    self.config.brain.activation_threshold,
+                    self.tick,
+                    self.config.metabolism.maturity_age,
+                ),
+                specialization: e.intel.specialization,
+                last_vocalization: e.intel.last_vocalization,
+                bonded_to: e.intel.bonded_to,
+                trophic_potential: e.metabolism.trophic_potential,
+                last_activations: e.intel.last_activations.clone(),
+                last_inputs: e.intel.last_inputs,
+                last_hidden: e.intel.last_hidden,
+                genotype_hex: e.intel.genotype.to_hex(),
+            })
+            .collect();
+
+        WorldSnapshot {
+            tick: self.tick,
+            entities,
+            food: self.food.clone(),
+            stats: self.pop_stats.clone(),
+            hall_of_fame: self.hall_of_fame.clone(),
+            terrain: self.terrain.clone(),
+            pheromones: self.pheromones.clone(),
+            sound: self.sound.clone(),
+            social_grid: self.social_grid.clone(),
+            width: self.width,
+            height: self.height,
+        }
+    }
+
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
         let mut events = Vec::new();
         self.tick += 1;
@@ -337,9 +395,9 @@ impl World {
             .map(|e| (e.physics.x, e.physics.y))
             .collect();
         self.spatial_hash.build_parallel(&positions);
-        let entity_snapshots: Vec<EntitySnapshot> = current_entities
+        let entity_snapshots: Vec<InternalEntitySnapshot> = current_entities
             .par_iter()
-            .map(|e| EntitySnapshot {
+            .map(|e| InternalEntitySnapshot {
                 id: e.id,
                 lineage_id: e.metabolism.lineage_id,
                 x: e.physics.x,
@@ -444,8 +502,11 @@ impl World {
             .par_iter()
             .zip(perception_buffer.par_iter())
             .map(|(e, inputs)| {
-                let (mut outputs, next_hidden) =
-                    intel::brain_forward(&e.intel.genotype.brain, *inputs, e.intel.last_hidden);
+                let (mut outputs, next_hidden, activations) = e
+                    .intel
+                    .genotype
+                    .brain
+                    .forward_internal(*inputs, e.intel.last_hidden);
 
                 // Phase 55: Parasitic Manipulation
                 if let Some(ref path) = e.health.pathogen {
@@ -457,7 +518,11 @@ impl World {
                     }
                 }
 
-                (outputs, next_hidden)
+                EntityDecision {
+                    outputs,
+                    next_hidden,
+                    activations,
+                }
             })
             .collect_into_vec(&mut decision_buffer);
 
@@ -467,7 +532,8 @@ impl World {
             .filter_map(|(i, e)| {
                 let mut cmds = Vec::new();
                 let mut rng = rand::thread_rng();
-                let (outputs, _) = decision_buffer[i];
+                let decision = &decision_buffer[i];
+                let outputs = decision.outputs;
                 if e.intel.bonded_to.is_none() && e.metabolism.has_metamorphosed {
                     if let Some(p_id) = social::handle_symbiosis(
                         i,
@@ -688,10 +754,18 @@ impl World {
         let current_population = current_entities.len();
         let action_results: Vec<action::ActionResult> = current_entities
             .par_iter_mut()
-            .enumerate()
-            .map(|(i, e)| {
-                let (outputs, next_hidden) = decision_buffer[i];
+            .zip(decision_buffer.par_iter_mut())
+            .map(|(e, decision)| {
+                let EntityDecision {
+                    outputs,
+                    next_hidden,
+                    activations,
+                } = std::mem::take(decision);
                 e.intel.last_hidden = next_hidden;
+                e.intel.last_activations = activations
+                    .into_iter()
+                    .map(|(k, v)| (k as i32, v))
+                    .collect();
                 e.intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
                 let res = action::action_system(
                     e,

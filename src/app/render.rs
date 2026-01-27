@@ -8,6 +8,11 @@ use ratatui::Frame;
 
 impl App {
     pub fn draw(&mut self, f: &mut Frame) {
+        let snapshot = match &self.latest_snapshot {
+            Some(s) => s,
+            None => return,
+        };
+
         let main_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -25,7 +30,7 @@ impl App {
         let left_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(6), // Status (4 lines: CPU, RAM, Stats, Legend)
+                Constraint::Length(6), // Status
                 Constraint::Length(4), // Sparklines
                 Constraint::Min(0),    // World
                 Constraint::Length(7), // Chronicle
@@ -35,7 +40,7 @@ impl App {
         self.last_world_rect = left_layout[2];
 
         if self.screensaver {
-            let world_widget = WorldWidget::new(&self.world, true, self.view_mode);
+            let world_widget = WorldWidget::new(snapshot, true, self.view_mode);
             f.render_widget(world_widget, f.size());
         } else {
             // STATUS BAR
@@ -45,7 +50,7 @@ impl App {
                     Constraint::Length(1), // CPU + Era
                     Constraint::Length(1), // RAM + Resources
                     Constraint::Length(1), // World Stats
-                    Constraint::Length(1), // Hive Dashboard (NEW)
+                    Constraint::Length(1), // Hive Dashboard
                     Constraint::Length(1), // Legend
                 ])
                 .split(left_layout[0]);
@@ -54,27 +59,25 @@ impl App {
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
                 .split(status_lines[0]);
-            let era_icon = match self.env.current_era {
-                Era::Primordial => "🌀",
-                Era::DawnOfLife => "🌱",
-                Era::Flourishing => "🌸",
-                Era::DominanceWar => "⚔️",
-                Era::ApexEra => "👑",
-            };
+
             let cpu_gauge = Gauge::default()
                 .gauge_style(Style::default().fg(Color::Yellow))
                 .percent(self.env.cpu_usage as u16)
-                .label(format!(
-                    "CPU: {:.1}% | {} {:?}",
-                    self.env.cpu_usage, era_icon, self.env.current_era
-                ));
+                .label(format!("CPU: {:.1}%", self.env.cpu_usage));
             f.render_widget(cpu_gauge, line1[0]);
+
+            let era = self.env.current_era;
+            let era_info = match era {
+                Era::Primordial => ("Primordial", Color::Green),
+                Era::DawnOfLife => ("Dawn of Life", Color::Cyan),
+                Era::Flourishing => ("Flourishing", Color::Yellow),
+                Era::DominanceWar => ("Dominance War", Color::Red),
+                Era::ApexEra => ("Apex Era", Color::Magenta),
+            };
+
             f.render_widget(
-                Paragraph::new(format!(
-                    " | Climate: {} | Time: {}",
-                    self.env.climate().icon(),
-                    self.env.time_of_day().icon()
-                )),
+                Paragraph::new(format!(" | Era: {} | Tick: {}", era_info.0, snapshot.tick))
+                    .style(Style::default().fg(era_info.1)),
                 line1[1],
             );
 
@@ -95,16 +98,9 @@ impl App {
                 line2[1],
             );
 
-            let max_gen = self
-                .world
-                .entities
-                .iter()
-                .map(|e| e.metabolism.generation)
-                .max()
-                .unwrap_or(0);
-            let total_biomass = self.world.pop_stats.biomass_h + self.world.pop_stats.biomass_c;
+            let total_biomass = snapshot.stats.biomass_h + snapshot.stats.biomass_c;
             let h_percent = if total_biomass > 0.0 {
-                (self.world.pop_stats.biomass_h / total_biomass * 10.0) as usize
+                (snapshot.stats.biomass_h / total_biomass * 10.0) as usize
             } else {
                 5
             };
@@ -118,15 +114,16 @@ impl App {
             }
             biomass_bar.push(']');
 
-            let pressure = (self.env.metabolism_multiplier() - 1.0) * 100.0;
             let view_str = match self.view_mode {
                 1 => " [Fertility] ",
                 2 => " [Social] ",
+                3 => " [Rank] ",
+                4 => " [Vocal] ",
                 _ => " [Normal] ",
             };
 
             let world_stats = vec![
-                ratatui::text::Span::raw(format!("Pop: {} | ", self.world.entities.len())),
+                ratatui::text::Span::raw(format!("Pop: {} | ", snapshot.entities.len())),
                 ratatui::text::Span::styled(view_str, Style::default().fg(Color::Cyan)),
                 ratatui::text::Span::styled(
                     "Biomass: ",
@@ -135,29 +132,13 @@ impl App {
                 ratatui::text::Span::styled(biomass_bar, Style::default().fg(Color::Yellow)),
                 ratatui::text::Span::raw(format!(
                     " | Species: {} | Gen: {} | AvgLife: {:.0} | CO2: {:.0} | O2: {:.1}% | Soil: {:.2}",
-                    self.world.pop_stats.species_count,
-                    max_gen,
-                    self.world.pop_stats.avg_lifespan,
-                    self.world.pop_stats.carbon_level,
+                    snapshot.stats.species_count,
+                    snapshot.stats.max_generation,
+                    snapshot.stats.avg_lifespan,
+                    snapshot.stats.carbon_level,
                     self.env.oxygen_level,
-                    self.world.pop_stats.global_fertility,
+                    snapshot.stats.global_fertility,
                 )),
-                ratatui::text::Span::styled(
-                    format!(" | Mut: {:.2}x", self.world.pop_stats.mutation_scale),
-                    Style::default().fg(Color::DarkGray),
-                ),
-                ratatui::text::Span::styled(
-                    format!(" | Vel: {:.2}", self.world.pop_stats.evolutionary_velocity),
-                    Style::default().fg(Color::Magenta),
-                ),
-                ratatui::text::Span::styled(
-                    format!(" | Pressure: {:.0}%", pressure),
-                    Style::default().fg(if pressure > 50.0 {
-                        Color::Red
-                    } else {
-                        Color::Green
-                    }),
-                ),
             ];
 
             f.render_widget(
@@ -179,105 +160,52 @@ impl App {
                 if ns.client_id.is_some() {
                     ratatui::text::Span::styled("Online", Style::default().fg(Color::Green))
                 } else {
-                    ratatui::text::Span::styled("Offline (Native)", Style::default().fg(Color::Red))
+                    ratatui::text::Span::styled("Offline", Style::default().fg(Color::Red))
                 },
             ];
+
             f.render_widget(
                 Paragraph::new(ratatui::text::Line::from(hive_stats)),
                 status_lines[3],
             );
 
-            // LEGEND BAR
-            let legend_spans = vec![
-                ratatui::text::Span::styled("● ", Style::default().fg(Color::White)),
-                ratatui::text::Span::raw("Forage "),
-                ratatui::text::Span::styled("♦ ", Style::default().fg(Color::Rgb(255, 69, 0))),
-                ratatui::text::Span::raw("Hunt "),
-                ratatui::text::Span::styled("♥ ", Style::default().fg(Color::Rgb(255, 105, 180))),
-                ratatui::text::Span::raw("Mate "),
-                ratatui::text::Span::styled("† ", Style::default().fg(Color::Rgb(150, 50, 50))),
-                ratatui::text::Span::raw("Starve "),
-                ratatui::text::Span::styled("☣ ", Style::default().fg(Color::Rgb(154, 205, 50))),
-                ratatui::text::Span::raw("Infect "),
-                ratatui::text::Span::styled("◦ ", Style::default().fg(Color::Rgb(200, 200, 255))),
-                ratatui::text::Span::raw("Juv "),
-                ratatui::text::Span::styled("♣ ", Style::default().fg(Color::Rgb(100, 200, 100))),
-                ratatui::text::Span::raw("Share"),
-                ratatui::text::Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
-                ratatui::text::Span::styled("▲", Style::default().fg(Color::Rgb(100, 100, 100))),
-                ratatui::text::Span::raw("Mt "),
-                ratatui::text::Span::styled("≈", Style::default().fg(Color::Rgb(70, 130, 180))),
-                ratatui::text::Span::raw("River "),
-                ratatui::text::Span::styled("◊", Style::default().fg(Color::Rgb(50, 205, 50))),
-                ratatui::text::Span::raw("Oasis "),
-                ratatui::text::Span::styled("*", Style::default().fg(Color::Green)),
-                ratatui::text::Span::raw("Food"),
-                ratatui::text::Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
-                ratatui::text::Span::styled("[H]", Style::default().fg(Color::Cyan)),
-                ratatui::text::Span::raw(" Help"),
-                ratatui::text::Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
-                ratatui::text::Span::styled(
-                    format!("Brush: {:?}", self.brush_type),
-                    Style::default().fg(Color::Yellow),
-                ),
-            ];
+            // LEGEND
+            let legend = " [Space] Pause | [M] Mutate | [K] Smite | [P] Reincarnate | [A] Ancestry | [Y] Archeology | [H] Help ";
             f.render_widget(
-                Paragraph::new(ratatui::text::Line::from(legend_spans)),
+                Paragraph::new(legend).style(Style::default().fg(Color::DarkGray)),
                 status_lines[4],
             );
 
-            // SPARKLINE PANES
+            // SPARKLINE
             let spark_layout = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Percentage(33),
-                    Constraint::Percentage(33),
-                    Constraint::Percentage(34),
-                ])
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .split(left_layout[1]);
 
-            let cpu_history: Vec<u64> = self.cpu_history.iter().cloned().collect();
-            let cpu_spark = Sparkline::default()
-                .block(
-                    Block::default()
-                        .title("CPU Load (60s)")
-                        .borders(Borders::LEFT),
-                )
-                .data(&cpu_history)
-                .style(Style::default().fg(Color::Yellow));
-            f.render_widget(cpu_spark, spark_layout[0]);
-
-            let pop_history: Vec<u64> = self.pop_history.iter().cloned().collect();
+            let pop_data: Vec<u64> = self.pop_history.iter().cloned().collect();
             let pop_spark = Sparkline::default()
-                .block(
-                    Block::default()
-                        .title("Population Health (60s)")
-                        .borders(Borders::LEFT),
-                )
-                .data(&pop_history)
-                .style(Style::default().fg(Color::Magenta));
-            f.render_widget(pop_spark, spark_layout[1]);
-
-            let o2_history: Vec<u64> = self.o2_history.iter().cloned().collect();
-            let o2_spark = Sparkline::default()
-                .block(
-                    Block::default()
-                        .title("Atmospheric O2 (60s)")
-                        .borders(Borders::LEFT),
-                )
-                .data(&o2_history)
+                .block(Block::default().title(" Population "))
+                .data(&pop_data)
                 .style(Style::default().fg(Color::Cyan));
-            f.render_widget(o2_spark, spark_layout[2]);
+            f.render_widget(pop_spark, spark_layout[0]);
 
-            let world_widget = WorldWidget::new(&self.world, false, self.view_mode);
+            let cpu_data: Vec<u64> = self.cpu_history.iter().cloned().collect();
+            let cpu_spark = Sparkline::default()
+                .block(Block::default().title(" CPU Stress "))
+                .data(&cpu_data)
+                .style(Style::default().fg(Color::Yellow));
+            f.render_widget(cpu_spark, spark_layout[1]);
+
+            // WORLD
+            let world_widget = WorldWidget::new(snapshot, false, self.view_mode);
             f.render_widget(world_widget, left_layout[2]);
 
-            let chronicle_block = Block::default()
-                .title(" 📜 Live Chronicle ")
-                .borders(Borders::ALL);
-            let chronicle_lines: Vec<_> = self
+            // CHRONICLE
+            let events: Vec<ratatui::text::Line> = self
                 .event_log
                 .iter()
+                .rev()
+                .take(6)
                 .map(|(msg, color)| {
                     ratatui::text::Line::from(ratatui::text::Span::styled(
                         msg,
@@ -285,42 +213,50 @@ impl App {
                     ))
                 })
                 .collect();
-            f.render_widget(
-                Paragraph::new(chronicle_lines).block(chronicle_block),
-                left_layout[3],
-            );
+            let chronicle = Paragraph::new(events)
+                .block(Block::default().borders(Borders::ALL).title(" Chronicles "));
+            f.render_widget(chronicle, left_layout[3]);
+        }
 
-            if self.show_brain {
-                self.render_hall_of_fame_and_brain(f, main_layout[1]);
-            } else if self.show_ancestry {
-                self.render_ancestry_tree(f, main_layout[1]);
-            } else if self.show_archeology {
-                self.render_archeology(f, main_layout[1]);
-            } else if self.view_mode == 5 {
-                self.render_market(f, main_layout[1]);
-            } else if self.view_mode == 6 {
-                self.render_research(f, main_layout[1]);
-            }
+        // SIDEBAR
+        if self.show_ancestry {
+            self.render_ancestry_tree(f, main_layout[1], snapshot);
+        } else if self.show_archeology {
+            self.render_archeology(f, main_layout[1], snapshot);
+        } else if self.show_brain {
+            self.gene_editor_offset =
+                self.render_hall_of_fame_and_brain(f, main_layout[1], snapshot);
+        } else if self.view_mode == 5 {
+            self.render_market(f, main_layout[1]);
+        } else if self.view_mode == 6 {
+            self.render_research(f, main_layout[1], snapshot);
+        }
 
+        if self.show_help {
             self.render_help(f);
+        }
+
+        if let Some(_step) = self.onboarding_step {
             self.render_onboarding(f);
         }
     }
 
-    fn render_ancestry_tree(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+    fn render_ancestry_tree(
+        &self,
+        f: &mut Frame,
+        area: ratatui::layout::Rect,
+        snapshot: &crate::model::state::snapshot::WorldSnapshot,
+    ) {
         let tree_block = Block::default()
             .title(" 🌳 Tree of Life (Top Lineages) ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Green));
 
         let mut lines = Vec::new();
-
-        // Use registry to find top living lineages
-        let mut top_lineages: Vec<_> = self.world.pop_stats.lineage_counts.iter().collect();
+        let mut top_lineages: Vec<_> = snapshot.stats.lineage_counts.iter().collect();
         top_lineages.sort_by(|a, b| b.1.cmp(a.1));
 
         for (id, count) in top_lineages.iter().take(5) {
-            let id: &uuid::Uuid = id;
             lines.push(ratatui::text::Line::from(vec![
                 ratatui::text::Span::styled(
                     format!(" Dynasty #{} ", &id.to_string()[..4]),
@@ -329,17 +265,15 @@ impl App {
                 ratatui::text::Span::raw(format!(" ({} alive)", count)),
             ]));
 
-            // Show a few representatives of this lineage
-            let members: Vec<_> = self
-                .world
+            let members: Vec<_> = snapshot
                 .entities
                 .iter()
-                .filter(|e| e.metabolism.lineage_id == *id)
+                .filter(|e| e.lineage_id == **id)
                 .take(3)
                 .collect();
 
             for m in members {
-                let tp = m.metabolism.trophic_potential;
+                let tp = m.trophic_potential;
                 let role_icon = if tp < 0.3 {
                     "🌿"
                 } else if tp > 0.7 {
@@ -349,90 +283,43 @@ impl App {
                 };
                 lines.push(ratatui::text::Line::from(format!(
                     "   └── {} {} (Gen {})",
-                    role_icon,
-                    m.name(),
-                    m.metabolism.generation
+                    role_icon, m.name, m.generation
                 )));
             }
             lines.push(ratatui::text::Line::from(""));
         }
-
         lines.push(ratatui::text::Line::from(" [Shift+A] Export full DOT tree"));
-
         f.render_widget(Paragraph::new(lines).block(tree_block), area);
     }
 
-    fn render_archeology(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+    fn render_archeology(
+        &self,
+        f: &mut Frame,
+        area: ratatui::layout::Rect,
+        _snapshot: &crate::model::state::snapshot::WorldSnapshot,
+    ) {
         let arch_block = Block::default()
-            .title(" 🏛️ Archeology Tool (Deep History) ")
+            .title(" 🏛️ Archeology ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(205, 133, 63)));
-
         let mut lines = Vec::new();
-
         if self.archeology_snapshots.is_empty() {
             lines.push(ratatui::text::Line::from(" No history snapshots found. "));
-            lines.push(ratatui::text::Line::from(
-                " Run simulation longer to collect data. ",
-            ));
         } else {
             let (tick, stats) = &self.archeology_snapshots[self.archeology_index];
-            lines.push(ratatui::text::Line::from(vec![
-                ratatui::text::Span::styled(
-                    format!(" Timeline: Tick {} ", tick),
-                    Style::default()
-                        .bg(Color::Rgb(139, 69, 19))
-                        .fg(Color::White),
-                ),
-                ratatui::text::Span::raw(format!(
-                    " ({}/{}) ",
-                    self.archeology_index + 1,
-                    self.archeology_snapshots.len()
-                )),
-            ]));
-
-            // Timeline Progress Bar
-            let progress =
-                (self.archeology_index + 1) as f64 / self.archeology_snapshots.len() as f64;
-
-            // We need to render the gauge separately, but for now I'll add a text-based one in the lines
-            let bar_width = 30;
-            let filled = (progress * bar_width as f64) as usize;
-            let mut bar = String::from("[");
-            for i in 0..bar_width {
-                if i < filled {
-                    bar.push('█');
-                } else {
-                    bar.push(' ');
-                }
-            }
-            bar.push(']');
-            lines.push(ratatui::text::Line::from(vec![
-                ratatui::text::Span::raw("  "),
-                ratatui::text::Span::styled(bar, Style::default().fg(Color::Rgb(205, 133, 63))),
-            ]));
-
+            lines.push(ratatui::text::Line::from(format!(
+                " Timeline: Tick {} ({}/{})",
+                tick,
+                self.archeology_index + 1,
+                self.archeology_snapshots.len()
+            )));
             lines.push(ratatui::text::Line::from(format!(
                 "  Pop: {} | Species: {}",
                 stats.population, stats.species_count
             )));
-            lines.push(ratatui::text::Line::from(format!(
-                "  CO2: {:.0} ppm | Hotspots: {}",
-                stats.carbon_level, stats.biodiversity_hotspots
-            )));
-            lines.push(ratatui::text::Line::from(
-                "  Navigation: [ and ] to travel through time",
-            ));
         }
-
         lines.push(ratatui::text::Line::from(""));
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(
-                " 🦴 Fossil Record (Extinct Icons) ",
-                Style::default().add_modifier(Modifier::BOLD),
-            ),
-        ]));
-
+        lines.push(ratatui::text::Line::from(" 🦴 Fossil Record "));
         if self.world.fossil_registry.fossils.is_empty() {
             lines.push(ratatui::text::Line::from("  No fossils excavated yet."));
         } else {
@@ -453,369 +340,99 @@ impl App {
                         fossil.color_rgb.2,
                     ))
                 };
-
                 lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        if i == self.selected_fossil_index {
-                            " > "
-                        } else {
-                            "   "
-                        },
-                        Style::default().fg(Color::Yellow),
-                    ),
+                    ratatui::text::Span::raw(if i == self.selected_fossil_index {
+                        " > "
+                    } else {
+                        "   "
+                    }),
                     ratatui::text::Span::styled(&fossil.name, style),
-                    ratatui::text::Span::raw(format!(
-                        " (Gen: {}, Kids: {})",
-                        fossil.max_generation, fossil.total_offspring
-                    )),
+                    ratatui::text::Span::raw(format!(" (Gen: {})", fossil.max_generation)),
                 ]));
             }
-            lines.push(ratatui::text::Line::from(""));
-            lines.push(ratatui::text::Line::from(
-                "  [↑/↓] Select Fossil  [G] Resurrect ",
-            ));
         }
-
         f.render_widget(Paragraph::new(lines).block(arch_block), area);
     }
 
-    fn render_hall_of_fame_and_brain(&mut self, f: &mut Frame, area: ratatui::layout::Rect) {
-        let mut ho_lines = Vec::new();
-        ho_lines.push(ratatui::text::Line::from(" 🏆 Hall of Fame (Living)"));
-        ho_lines.push(ratatui::text::Line::from(ratatui::text::Span::styled(
-            " Score = Age×0.5 + Kids×10 + Peak×0.2",
-            Style::default().fg(Color::DarkGray),
-        )));
-        for (score, e) in &self.world.hall_of_fame.top_living {
-            let age = self.world.tick - e.metabolism.birth_tick;
-            let style = if Some(e.id) == self.selected_entity {
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(e.color())
-            };
-            ho_lines.push(ratatui::text::Line::from(vec![
-                ratatui::text::Span::styled(
-                    format!(" {:.0} ", score),
-                    Style::default()
-                        .fg(Color::White)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                ratatui::text::Span::styled(e.name(), style),
-            ]));
-            ho_lines.push(ratatui::text::Line::from(ratatui::text::Span::styled(
-                format!(
-                    "   Age:{} Kids:{} Peak:{:.0}",
-                    age, e.metabolism.offspring_count, e.metabolism.peak_energy
-                ),
-                Style::default().fg(Color::DarkGray),
-            )));
-        }
-        ho_lines.push(ratatui::text::Line::from(""));
-        ho_lines.push(ratatui::text::Line::from(" 👑 Dominant Lineages (Pop)"));
-        let mut lineage_pop: Vec<_> = self.world.pop_stats.lineage_counts.iter().collect();
-        lineage_pop.sort_by(|a, b| b.1.cmp(a.1));
-        for (id, count) in lineage_pop.iter().take(3) {
-            let id: &uuid::Uuid = id;
-            ho_lines.push(ratatui::text::Line::from(format!(
-                "   #{} : {} entities",
-                &id.to_string()[..8],
-                count
-            )));
-        }
+    fn render_hall_of_fame_and_brain(
+        &self,
+        f: &mut Frame,
+        area: ratatui::layout::Rect,
+        snapshot: &crate::model::state::snapshot::WorldSnapshot,
+    ) -> u16 {
+        let sidebar_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(10), Constraint::Min(0)])
+            .split(area);
 
-        ho_lines.push(ratatui::text::Line::from(""));
-        ho_lines.push(ratatui::text::Line::from(
-            " 🏆 All-Time Success (Total Pop)",
-        ));
-        let top_historical = self.world.lineage_registry.get_top_lineages(3);
-        for (id, record) in top_historical {
-            ho_lines.push(ratatui::text::Line::from(format!(
-                "   #{} : {} total",
-                &id.to_string()[..8],
-                record.total_entities_produced
+        let hof_block = Block::default()
+            .title(" 🏆 Hall of Fame ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow));
+        let mut hof_lines = Vec::new();
+        for (score, e) in &snapshot.hall_of_fame.top_living {
+            let age = snapshot.tick - e.metabolism.birth_tick;
+            hof_lines.push(ratatui::text::Line::from(format!(
+                "Fit {:.0}: {}",
+                score,
+                e.name()
+            )));
+            hof_lines.push(ratatui::text::Line::from(format!(
+                "  Age: {} | Kids: {}",
+                age, e.metabolism.offspring_count
             )));
         }
-        ho_lines.push(ratatui::text::Line::from(""));
+        f.render_widget(
+            Paragraph::new(hof_lines).block(hof_block),
+            sidebar_layout[0],
+        );
 
+        let mut offset = 0;
         if let Some(id) = self.selected_entity {
-            if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
+            if let Some(entity) = snapshot.entities.iter().find(|e| e.id == id) {
                 let brain_block = Block::default()
-                    .title(format!(" 🧬 {} ", entity.name()))
+                    .title(format!(" 🧬 {} ", entity.name))
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(entity.color()));
-                let mut lines = ho_lines;
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Energy: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "{:.0}/{:.0} | Gen: {} | Rep: {:.2}",
-                        entity.metabolism.energy,
-                        entity.metabolism.max_energy,
-                        entity.metabolism.generation,
-                        entity.intel.reputation,
-                    )),
-                ]));
+                    .border_style(Style::default().fg(Color::Rgb(entity.r, entity.g, entity.b)));
 
-                self.gene_editor_offset = lines.len() as u16;
+                let mut lines = Vec::new();
+                lines.push(ratatui::text::Line::from(format!(
+                    " Energy: {:.0}/{:.0}",
+                    entity.energy, entity.max_energy
+                )));
+                lines.push(ratatui::text::Line::from(format!(
+                    " Gen: {} | Age: {}",
+                    entity.generation, entity.age
+                )));
+                lines.push(ratatui::text::Line::from(format!(
+                    " Rank: {:.2}",
+                    entity.rank
+                )));
 
-                use crate::app::state::GeneType;
-                let get_style = |g: GeneType| {
-                    if self.focused_gene == Some(g) {
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD)
-                            .add_modifier(Modifier::REVERSED)
-                    } else {
-                        Style::default().add_modifier(Modifier::BOLD)
-                    }
-                };
-
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(" Trophic: ", get_style(GeneType::Trophic)),
-                    ratatui::text::Span::raw(format!(
-                        "{:.1} (Herb:{:.0}%)",
-                        entity.metabolism.trophic_potential,
-                        (1.0 - entity.metabolism.trophic_potential) * 100.0
-                    )),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(" Sensing: ", get_style(GeneType::Sensing)),
-                    ratatui::text::Span::raw(format!("{:.1}", entity.physics.sensing_range)),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(" Speed:   ", get_style(GeneType::Speed)),
-                    ratatui::text::Span::raw(format!("{:.1}", entity.physics.max_speed)),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(" Max Energy: ", get_style(GeneType::MaxEnergy)),
-                    ratatui::text::Span::raw(format!("{:.0}", entity.metabolism.max_energy)),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Repro Invest: ",
-                        get_style(GeneType::ReproInvest),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "{:.0}%",
-                        entity.intel.genotype.reproductive_investment * 100.0
-                    )),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(" Maturity Gene: ", get_style(GeneType::Maturity)),
-                    ratatui::text::Span::raw(format!(
-                        "{:.1}x",
-                        entity.intel.genotype.maturity_gene
-                    )),
-                ]));
+                offset = lines.len() as u16;
 
                 lines.push(ratatui::text::Line::from(""));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Age:    ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "{} ticks",
-                        self.world.tick - entity.metabolism.birth_tick
-                    )),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Offspring: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!("{}", entity.metabolism.offspring_count)),
-                ]));
-
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Spec Bias: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "S:{:.1} E:{:.1} P:{:.1}",
-                        entity.intel.genotype.specialization_bias[0],
-                        entity.intel.genotype.specialization_bias[1],
-                        entity.intel.genotype.specialization_bias[2],
-                    )),
-                ]));
-
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Specialization: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::styled(
-                        match entity.intel.specialization {
-                            Some(s) => format!("{:?}", s),
-                            None => "None".to_string(),
-                        },
-                        if entity.intel.specialization.is_some() {
-                            Style::default()
-                                .fg(Color::Yellow)
-                                .add_modifier(Modifier::BOLD)
-                        } else {
-                            Style::default().fg(Color::DarkGray)
-                        },
-                    ),
-                ]));
-
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Learning Rate: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "{:.4}",
-                        entity.intel.genotype.brain.learning_rate
-                    )),
-                ]));
-                lines.push(ratatui::text::Line::from(""));
-
-                // Calculate Real-Time Activations for Visualization
-                let (_, _, activations) = entity
-                    .intel
-                    .genotype
-                    .brain
-                    .forward_internal(entity.intel.last_inputs, entity.intel.last_hidden);
-
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Brain Activity (Hot/Cold):",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                ]));
-
-                // Visualize Output Nodes (22..33)
+                lines.push(ratatui::text::Line::from(" Brain Activity:"));
                 let mut out_spans = vec![ratatui::text::Span::raw(" Out: ")];
                 for i in 22..33 {
-                    let val = *activations.get(&i).unwrap_or(&0.0);
-                    let color = if val > 0.5 {
-                        Color::Yellow
-                    } else if val > 0.0 {
-                        Color::Green
-                    } else if val > -0.5 {
-                        Color::Gray
-                    } else {
-                        Color::Red
-                    };
-                    let label = match i {
-                        22 => "Mx",
-                        23 => "My",
-                        24 => "Sp",
-                        25 => "Ag",
-                        26 => "Sh",
-                        27 => "Cl",
-                        28 => "EA",
-                        29 => "EB",
-                        30 => "Bn",
-                        31 => "Dg",
-                        32 => "Bl",
-                        _ => "?",
-                    };
+                    let val = *entity.last_activations.get(&{ i }).unwrap_or(&0.0);
                     out_spans.push(ratatui::text::Span::styled(
-                        format!("{}:{:.1} ", label, val),
-                        Style::default().fg(color),
+                        format!("{:.1} ", val),
+                        Style::default().fg(if val > 0.0 { Color::Green } else { Color::Red }),
                     ));
                 }
                 lines.push(ratatui::text::Line::from(out_spans));
 
-                lines.push(ratatui::text::Line::from(format!(
-                    "  Nodes:       {} ({} hidden)",
-                    entity.intel.genotype.brain.nodes.len(),
-                    entity.intel.genotype.brain.nodes.len().saturating_sub(33) // 22 in + 11 out = 33
-                )));
-                lines.push(ratatui::text::Line::from(format!(
-                    "  Connections: {}",
-                    entity
-                        .intel
-                        .genotype
-                        .brain
-                        .connections
-                        .iter()
-                        .filter(|c| c.enabled)
-                        .count()
-                )));
-                lines.push(ratatui::text::Line::from(""));
-                lines.push(ratatui::text::Line::from(
-                    " Strongest Connections (Active):",
-                ));
-
-                // Sort and show top 12 connections, highlighting active ones
-                let mut conns = entity.intel.genotype.brain.connections.clone();
-                // Sort by magnitude * activation (contribution)? Or just magnitude?
-                // Let's stick to magnitude for stability, but color by input activation.
-                conns.sort_by(|a, b| b.weight.abs().partial_cmp(&a.weight.abs()).unwrap());
-
-                for c in conns.iter().filter(|c| c.enabled).take(12) {
-                    let pre_act = *activations.get(&c.from).unwrap_or(&0.0);
-                    let from_label = match c.from {
-                        0..=21 => format!(
-                            // Inputs 0-21
-                            "I-{}",
-                            match c.from {
-                                0..=13 => "Sen",  // Sensors
-                                14..=19 => "Mem", // Memory
-                                20 => "Ear",      // Hearing
-                                21 => "Prt",      // Partner
-                                _ => "?",
-                            }
-                        ),
-                        _ => format!("H-{}", c.from),
-                    };
-                    let to_label = match c.to {
-                        22..=32 => format!("O-{}", c.to - 22),
-                        _ => format!("H-{}", c.to),
-                    };
-
-                    // Flow visualization:
-                    // If pre_act is high, the connection is "firing".
-                    // Color code:
-                    // Weight > 0: Green (Excitatory)
-                    // Weight < 0: Red (Inhibitory)
-                    // Brightness: Based on pre_act (Input intensity)
-
-                    let base_color = if c.weight > 0.0 {
-                        Color::Green
-                    } else {
-                        Color::Red
-                    };
-                    let style = if pre_act.abs() > 0.5 {
-                        Style::default().fg(base_color).add_modifier(Modifier::BOLD)
-                    // Bright/Active
-                    } else if pre_act.abs() > 0.1 {
-                        Style::default().fg(base_color) // Normal
-                    } else {
-                        Style::default().fg(Color::DarkGray) // Inactive path
-                    };
-
-                    lines.push(ratatui::text::Line::from(vec![
-                        ratatui::text::Span::styled(
-                            format!("  {}→{} ", from_label, to_label),
-                            style,
-                        ),
-                        ratatui::text::Span::styled(format!("{:.2}", c.weight), style),
-                        ratatui::text::Span::raw(format!(" (In:{:.1})", pre_act)),
-                    ]));
-                }
-
-                lines.push(ratatui::text::Line::from(""));
-                let dna_short = &entity.intel.genotype.to_hex()[..16];
-
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " [C] Export DNA ",
-                        Style::default().bg(Color::Blue).fg(Color::White),
-                    ),
-                ]));
+                let dna_short = if entity.genotype_hex.len() > 16 {
+                    &entity.genotype_hex[..16]
+                } else {
+                    &entity.genotype_hex
+                };
                 lines.push(ratatui::text::Line::from(format!(" DNA: {}...", dna_short)));
-                f.render_widget(Paragraph::new(lines).block(brain_block), area);
+                f.render_widget(Paragraph::new(lines).block(brain_block), sidebar_layout[1]);
             }
         }
+        offset
     }
 
     fn render_market(&self, f: &mut Frame, area: ratatui::layout::Rect) {
@@ -823,117 +440,46 @@ impl App {
             .title(" 💹 Multiverse Market ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan));
-
         let mut lines = Vec::new();
         if self.network_state.trade_offers.is_empty() {
             lines.push(ratatui::text::Line::from(" No active trade offers. "));
-            lines.push(ratatui::text::Line::from(
-                " Open a trade to exchange resources. ",
-            ));
         } else {
             for (i, offer) in self.network_state.trade_offers.iter().enumerate() {
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        format!(" #{} Offer: ", i),
-                        Style::default().fg(Color::Green),
-                    ),
-                    ratatui::text::Span::raw(format!(
-                        "{:.0} {:?} ",
-                        offer.offer_amount, offer.offer_resource
-                    )),
-                ]));
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled("      Request: ", Style::default().fg(Color::Red)),
-                    ratatui::text::Span::raw(format!(
-                        "{:.0} {:?} ",
-                        offer.request_amount, offer.request_resource
-                    )),
-                ]));
                 lines.push(ratatui::text::Line::from(format!(
-                    "      From: {}",
-                    &offer.sender_id.to_string()[..8]
+                    " #{} Offer: {:.0} {:?}",
+                    i, offer.offer_amount, offer.offer_resource
                 )));
-                lines.push(ratatui::text::Line::from(""));
+                lines.push(ratatui::text::Line::from(format!(
+                    "      Request: {:.0} {:?}",
+                    offer.request_amount, offer.request_resource
+                )));
             }
-            lines.push(ratatui::text::Line::from(
-                " Press [T] to propose trade, [1-9] to accept.",
-            ));
         }
-
         f.render_widget(Paragraph::new(lines).block(market_block), area);
     }
 
-    fn render_research(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+    fn render_research(
+        &self,
+        f: &mut Frame,
+        area: ratatui::layout::Rect,
+        snapshot: &crate::model::state::snapshot::WorldSnapshot,
+    ) {
         let research_block = Block::default()
-            .title(" 🔬 Neural Research (Plasticity) ")
+            .title(" 🔬 Neural Research ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Magenta));
-
         if let Some(id) = self.selected_entity {
-            if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
-                let mut lines = Vec::new();
-                lines.push(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(
-                        " Subject: ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    ratatui::text::Span::raw(entity.name()),
-                ]));
-                lines.push(ratatui::text::Line::from(""));
-                lines.push(ratatui::text::Line::from(
-                    " Synaptic Plasticity Heatmap (Δw magnitude):",
-                ));
-
-                let mut conns = entity.intel.genotype.brain.connections.clone();
-                let deltas = &entity.intel.genotype.brain.weight_deltas;
-
-                // Sort by delta magnitude
-                conns.sort_by(|a, b| {
-                    let d_a = deltas.get(&a.innovation).unwrap_or(&0.0);
-                    let d_b = deltas.get(&b.innovation).unwrap_or(&0.0);
-                    d_b.partial_cmp(d_a).unwrap()
-                });
-
-                for c in conns.iter().filter(|c| c.enabled).take(20) {
-                    let delta = *deltas.get(&c.innovation).unwrap_or(&0.0);
-                    if delta < 1e-4 {
-                        continue;
-                    }
-
-                    let color = if delta > 0.1 {
-                        Color::Yellow
-                    } else if delta > 0.01 {
-                        Color::Cyan
-                    } else {
-                        Color::Blue
-                    };
-
-                    lines.push(ratatui::text::Line::from(vec![
-                        ratatui::text::Span::styled(
-                            format!("  {}→{} ", c.from, c.to),
-                            Style::default().fg(color),
-                        ),
-                        ratatui::text::Span::raw(format!("Δw: {:.4} ", delta)),
-                        ratatui::text::Span::styled(
-                            "█".repeat((delta * 50.0).min(10.0) as usize),
-                            Style::default().fg(color),
-                        ),
-                    ]));
-                }
-
-                if lines.len() <= 3 {
-                    lines.push(ratatui::text::Line::from(
-                        " No significant neural changes detected. ",
-                    ));
-                }
-
+            if let Some(entity) = snapshot.entities.iter().find(|e| e.id == id) {
+                let lines = vec![
+                    ratatui::text::Line::from(format!(" Subject: {}", entity.name)),
+                    ratatui::text::Line::from(" Snapshot data pending enhancement. "),
+                ];
                 f.render_widget(Paragraph::new(lines).block(research_block), area);
                 return;
             }
         }
-
         f.render_widget(
-            Paragraph::new(" Select an entity to analyze plasticity. ").block(research_block),
+            Paragraph::new(" Select an entity to analyze. ").block(research_block),
             area,
         );
     }

@@ -22,6 +22,7 @@ pub struct MetabolismConfig {
     pub reproduction_threshold: f64,
     pub food_value: f64,
     pub maturity_age: u64, // NEW: Age in ticks before an entity can reproduce
+    pub birth_energy_multiplier: f64, // NEW: Multiplier for initial energy
     /// NEW: Phase 56 - Base oxygen consumption per entity per tick
     pub oxygen_consumption_rate: f64,
 }
@@ -121,6 +122,7 @@ impl Default for AppConfig {
                 reproduction_threshold: 150.0,
                 food_value: 50.0,
                 maturity_age: 150,
+                birth_energy_multiplier: 1.2,
                 oxygen_consumption_rate: 0.005,
             },
             evolution: EvolutionConfig {

@@ -10,7 +10,7 @@ pub struct ActionContext<'a> {
     pub env: &'a Environment,
     pub config: &'a AppConfig,
     pub terrain: &'a TerrainGrid,
-    pub snapshots: &'a [crate::model::world::EntitySnapshot],
+    pub snapshots: &'a [crate::model::world::InternalEntitySnapshot],
     pub width: u16,
     pub height: u16,
 }

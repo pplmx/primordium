@@ -104,9 +104,9 @@ impl Default for TerrainCell {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TerrainGrid {
-    cells: Vec<Vec<TerrainCell>>,
+    pub cells: Vec<Vec<TerrainCell>>,
     pub width: u16,
     pub height: u16,
     pub dust_bowl_timer: u32,

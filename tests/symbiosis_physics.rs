@@ -3,7 +3,7 @@ use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainGrid;
 use primordium_lib::model::systems::action::{action_system, ActionContext};
-use primordium_lib::model::world::EntitySnapshot;
+use primordium_lib::model::world::InternalEntitySnapshot;
 
 #[test]
 fn test_symbiosis_spring_force() {
@@ -12,7 +12,7 @@ fn test_symbiosis_spring_force() {
 
     e1.intel.bonded_to = Some(e2.id);
 
-    let snapshot = EntitySnapshot {
+    let snapshot = InternalEntitySnapshot {
         id: e2.id,
         lineage_id: e2.metabolism.lineage_id,
         x: e2.physics.x,

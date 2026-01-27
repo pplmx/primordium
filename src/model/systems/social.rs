@@ -6,14 +6,14 @@ use crate::model::quadtree::SpatialHash;
 use crate::model::state::entity::{Entity, Health, Intel, Metabolism, Physics};
 use crate::model::state::pheromone::PheromoneGrid;
 use crate::model::systems::intel;
-use crate::model::world::EntitySnapshot;
+use crate::model::world::InternalEntitySnapshot;
 use chrono::Utc;
 use rand::Rng;
 use std::collections::HashSet;
 use uuid::Uuid;
 
 pub struct PredationContext<'a> {
-    pub snapshots: &'a [EntitySnapshot],
+    pub snapshots: &'a [InternalEntitySnapshot],
     pub killed_ids: &'a mut HashSet<Uuid>,
     pub events: &'a mut Vec<LiveEvent>,
     pub config: &'a AppConfig,
@@ -175,6 +175,7 @@ pub fn reproduce_asexual_parallel(
                 rank: 0.5,
                 bonded_to: None,
                 last_inputs: [0.0; 16],
+                last_activations: std::collections::HashMap::new(),
                 specialization: None,
                 spec_meters: std::collections::HashMap::new(),
             },
@@ -249,6 +250,7 @@ pub fn reproduce_with_mate_parallel(
             rank: 0.5,
             bonded_to: None,
             last_inputs: [0.0; 16],
+            last_activations: std::collections::HashMap::new(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
         },

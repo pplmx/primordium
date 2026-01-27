@@ -13,7 +13,7 @@ pub struct SoundDeposit {
 }
 
 /// Grid-based sound map for the world
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SoundGrid {
     pub cells: Vec<Vec<f32>>,
     pub width: u16,
