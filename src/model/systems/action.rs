@@ -195,6 +195,31 @@ pub fn action_system(
         });
     }
 
+    // Phase 60: Biological Irrigation (Engineer caste logic)
+    if entity.intel.specialization == Some(crate::model::state::entity::Specialization::Engineer) {
+        let is_near_river = ctx.terrain.has_neighbor_type(
+            entity.physics.x as u16,
+            entity.physics.y as u16,
+            crate::model::state::terrain::TerrainType::River,
+        );
+        let cell = ctx.terrain.get(entity.physics.x, entity.physics.y);
+        if is_near_river
+            && matches!(
+                cell.terrain_type,
+                crate::model::state::terrain::TerrainType::Plains
+                    | crate::model::state::terrain::TerrainType::Desert
+            )
+        {
+            // Engineers near rivers deposit Dig demand to extend canals
+            pressure.push(crate::model::state::pressure::PressureDeposit {
+                x: entity.physics.x,
+                y: entity.physics.y,
+                ptype: crate::model::state::pressure::PressureType::DigDemand,
+                amount: 0.8,
+            });
+        }
+    }
+
     handle_movement(entity, speed_mult, ctx.terrain, ctx.width, ctx.height);
     ActionResult {
         pheromones,

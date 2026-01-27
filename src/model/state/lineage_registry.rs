@@ -166,6 +166,15 @@ impl LineageRegistry {
         }
     }
 
+    pub fn boost_memory_value(&self, id: &Uuid, key: &str, delta: f32) {
+        if let Some(record) = self.lineages.get(id) {
+            if let Ok(mut mem) = record.collective_memory.write() {
+                let entry = mem.entry(key.to_string()).or_insert(0.0);
+                *entry = (*entry + delta).clamp(0.0, 5.0);
+            }
+        }
+    }
+
     pub fn get_extinct_lineages(&self) -> Vec<Uuid> {
         self.lineages
             .iter()
@@ -174,19 +183,42 @@ impl LineageRegistry {
             .collect()
     }
 
+    pub fn decay_memory(&self, rate: f32) {
+        for record in self.lineages.values() {
+            if let Ok(mut mem) = record.collective_memory.write() {
+                for val in mem.values_mut() {
+                    *val *= rate;
+                }
+                mem.retain(|_, v| *v > 0.01);
+            }
+        }
+    }
+
     pub fn check_goals(&mut self, tick: u64, _social_grid: &[u8], _width: u16, _height: u16) {
+        let top_id = self.get_top_lineages(1).first().map(|&(id, _)| *id);
+
         for record in self.lineages.values_mut() {
             if !record.is_extinct {
                 if record.current_population >= 50
                     && !record.completed_goals.contains(&LineageGoal::Expansion)
                 {
                     record.completed_goals.insert(LineageGoal::Expansion);
+                    if let Ok(mut mem) = record.collective_memory.write() {
+                        mem.insert("goal".to_string(), 1.0);
+                    }
                 }
 
                 if tick.saturating_sub(record.first_appearance_tick) >= 2000
                     && !record.completed_goals.contains(&LineageGoal::Resilience)
                 {
                     record.completed_goals.insert(LineageGoal::Resilience);
+                }
+
+                if Some(record.id) == top_id
+                    && record.total_entities_produced > 100
+                    && !record.completed_goals.contains(&LineageGoal::Dominance)
+                {
+                    record.completed_goals.insert(LineageGoal::Dominance);
                 }
             }
         }

@@ -398,6 +398,7 @@ impl World {
         self.pheromones.update();
         self.sound.update();
         self.pressure.update();
+        self.lineage_registry.decay_memory(0.99);
         environment::handle_disasters(
             env,
             self.entities.len(),
@@ -804,7 +805,8 @@ impl World {
                         x: e.physics.x,
                         y: e.physics.y,
                         attacker_idx: i,
-                        is_nest: outputs[10] > 0.9,
+                        is_nest: outputs[10] > 0.8,
+                        is_outpost: outputs[10] > 0.95 && e.intel.rank > 0.8,
                     });
                 }
                 // Phase 58: Metamorphosis trigger (80% maturity to allow Juvenile stage)

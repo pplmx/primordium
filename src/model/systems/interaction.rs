@@ -103,6 +103,11 @@ pub fn process_interaction_commands(
                     ctx.lineage_consumption
                         .push((attacker_lineage, energy_gain));
 
+                    // Phase 60: Collective Reinforcement
+                    ctx.lineage_registry
+                        .boost_memory_value(&attacker_lineage, "goal", 0.5);
+                    ctx.lineage_registry.boost_memory_value(&tid, "threat", 1.0);
+
                     let attacker_mut = &mut entities[attacker_idx];
                     attacker_mut.metabolism.energy = (attacker_mut.metabolism.energy + energy_gain)
                         .min(attacker_mut.metabolism.max_energy);
@@ -170,6 +175,14 @@ pub fn process_interaction_commands(
                     let attacker_mut = &mut entities[attacker_idx];
                     attacker_mut.metabolism.energy = (attacker_mut.metabolism.energy + energy_gain)
                         .min(attacker_mut.metabolism.max_energy);
+
+                    // Phase 60: Collective Reinforcement (Food abundance)
+                    ctx.lineage_registry.boost_memory_value(
+                        &attacker_mut.metabolism.lineage_id,
+                        "goal",
+                        0.2,
+                    );
+
                     ctx.terrain.deplete(
                         attacker_mut.physics.x,
                         attacker_mut.physics.y,
@@ -183,7 +196,6 @@ pub fn process_interaction_commands(
                     let sender = &entities[target_idx];
                     if sender.intel.specialization == Some(Specialization::Provider) {
                         actual_amount *= ctx.config.terraform.engineer_discount;
-                        // Using discount as a general "efficiency" constant for now
                     }
                 }
                 let target = &mut entities[target_idx];
@@ -264,10 +276,15 @@ pub fn process_interaction_commands(
                 y,
                 attacker_idx,
                 is_nest,
+                is_outpost,
             } => {
                 let cell = ctx.terrain.get(x, y);
                 let attacker = &mut entities[attacker_idx];
-                let mut energy_cost = ctx.config.terraform.build_cost;
+                let mut energy_cost = if is_outpost {
+                    ctx.config.terraform.nest_energy_req * 2.0
+                } else {
+                    ctx.config.terraform.build_cost
+                };
 
                 ctx.env
                     .consume_oxygen(ctx.config.terraform.build_oxygen_cost);
@@ -279,19 +296,28 @@ pub fn process_interaction_commands(
                 if matches!(cell.terrain_type, TerrainType::Plains)
                     && attacker.metabolism.energy > energy_cost
                 {
-                    attacker.metabolism.energy -= energy_cost;
-                    let new_type = if is_nest
+                    let new_type = if is_outpost
+                        && attacker.metabolism.energy > ctx.config.terraform.nest_energy_req * 3.0
+                    {
+                        TerrainType::Outpost
+                    } else if is_nest
                         && attacker.metabolism.energy > ctx.config.terraform.nest_energy_req
                     {
                         TerrainType::Nest
                     } else {
                         TerrainType::Wall
                     };
+                    attacker.metabolism.energy -= energy_cost;
+                    let idx = ctx.terrain.index(x as u16, y as u16);
                     ctx.terrain.set_cell_type(x as u16, y as u16, new_type);
+                    if let Some(c) = ctx.terrain.cells.get_mut(idx) {
+                        c.owner_id = Some(attacker.metabolism.lineage_id);
+                    }
+
                     social::increment_spec_meter(
                         attacker,
                         Specialization::Engineer,
-                        1.0,
+                        if is_outpost { 5.0 } else { 1.0 },
                         ctx.config,
                     );
                 }

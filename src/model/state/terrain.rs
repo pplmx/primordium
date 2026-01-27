@@ -16,6 +16,7 @@ pub enum TerrainType {
     Forest,
     Desert,
     Nest,
+    Outpost,
 }
 
 impl TerrainType {
@@ -30,6 +31,7 @@ impl TerrainType {
             TerrainType::Forest => 0.7,
             TerrainType::Desert => 1.2,
             TerrainType::Nest => 0.8,
+            TerrainType::Outpost => 0.6,
         }
     }
 
@@ -44,6 +46,7 @@ impl TerrainType {
             TerrainType::Forest => 2.0,
             TerrainType::Desert => 0.3,
             TerrainType::Nest => 0.5,
+            TerrainType::Outpost => 0.2,
         }
     }
 
@@ -58,6 +61,7 @@ impl TerrainType {
             TerrainType::Forest => '♠',
             TerrainType::Desert => '▒',
             TerrainType::Nest => 'Ω',
+            TerrainType::Outpost => 'Ψ',
         }
     }
 
@@ -72,6 +76,7 @@ impl TerrainType {
             TerrainType::Forest => Color::Rgb(34, 139, 34),
             TerrainType::Desert => Color::Rgb(210, 180, 140),
             TerrainType::Nest => Color::Rgb(255, 215, 0),
+            TerrainType::Outpost => Color::Rgb(255, 69, 0),
         }
     }
 }
@@ -88,6 +93,8 @@ pub struct TerrainCell {
     pub biomass_accumulation: f32,
     /// NEW: Local plant biomass density (0.0 to 100.0)
     pub plant_biomass: f32,
+    /// NEW: Owner of the cell (for Nests and Outposts)
+    pub owner_id: Option<uuid::Uuid>,
 }
 
 impl Default for TerrainCell {
@@ -100,6 +107,7 @@ impl Default for TerrainCell {
             stability: 1.0,
             biomass_accumulation: 0.0,
             plant_biomass: 10.0,
+            owner_id: None,
         }
     }
 }
@@ -187,7 +195,7 @@ impl TerrainGrid {
     }
 
     #[inline(always)]
-    fn index(&self, x: u16, y: u16) -> usize {
+    pub fn index(&self, x: u16, y: u16) -> usize {
         (y as usize * self.width as usize) + x as usize
     }
 

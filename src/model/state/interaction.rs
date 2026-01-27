@@ -62,6 +62,7 @@ pub enum InteractionCommand {
         y: f64,
         attacker_idx: usize,
         is_nest: bool,
+        is_outpost: bool,
     },
     Metamorphosis {
         target_idx: usize,
