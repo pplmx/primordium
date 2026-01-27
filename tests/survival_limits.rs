@@ -60,13 +60,15 @@ fn test_high_speed_metabolic_exhaustion() {
     use primordium_lib::model::systems::action::{action_system, ActionContext};
 
     let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
+    let pressure = primordium_lib::model::state::pressure::PressureGrid::new(100, 100);
     let mut ctx = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        pressure: &pressure,
         width: 100,
         height: 100,
     };
@@ -96,13 +98,15 @@ fn test_inertia_responsiveness_penalty() {
     e_heavy.physics.vx = 0.0;
 
     use primordium_lib::model::systems::action::{action_system, ActionContext};
+    let pressure = primordium_lib::model::state::pressure::PressureGrid::new(100, 100);
     let mut ctx = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        pressure: &pressure,
         width: 100,
         height: 100,
     };

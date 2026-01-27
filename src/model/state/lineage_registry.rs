@@ -13,7 +13,7 @@ pub enum LineageGoal {
 }
 
 /// High-level metrics for an ancestral line.
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LineageRecord {
     pub id: Uuid,
     pub name: String,
@@ -24,9 +24,36 @@ pub struct LineageRecord {
     pub total_energy_consumed: f64,
     pub first_appearance_tick: u64,
     pub is_extinct: bool,
-    /// NEW: ID of the most successful legendary representative of this lineage
     pub best_legend_id: Option<Uuid>,
     pub completed_goals: std::collections::HashSet<LineageGoal>,
+    #[serde(
+        skip,
+        default = "crate::model::state::lineage_registry::create_shared_memory"
+    )]
+    pub collective_memory: std::sync::Arc<std::sync::RwLock<HashMap<String, f32>>>,
+}
+
+pub fn create_shared_memory() -> std::sync::Arc<std::sync::RwLock<HashMap<String, f32>>> {
+    std::sync::Arc::new(std::sync::RwLock::new(HashMap::new()))
+}
+
+impl Default for LineageRecord {
+    fn default() -> Self {
+        Self {
+            id: Uuid::nil(),
+            name: "Unknown".to_string(),
+            total_entities_produced: 0,
+            current_population: 0,
+            peak_population: 0,
+            max_generation: 0,
+            total_energy_consumed: 0.0,
+            first_appearance_tick: 0,
+            is_extinct: false,
+            best_legend_id: None,
+            completed_goals: std::collections::HashSet::new(),
+            collective_memory: create_shared_memory(),
+        }
+    }
 }
 
 /// Persistent registry of all lineages that have ever existed in the world.
@@ -119,6 +146,23 @@ impl LineageRegistry {
     pub fn update_best_legend(&mut self, lineage_id: Uuid, legend_id: Uuid) {
         if let Some(record) = self.lineages.get_mut(&lineage_id) {
             record.best_legend_id = Some(legend_id);
+        }
+    }
+
+    pub fn get_memory_value(&self, id: &Uuid, key: &str) -> f32 {
+        if let Some(record) = self.lineages.get(id) {
+            if let Ok(mem) = record.collective_memory.read() {
+                return *mem.get(key).unwrap_or(&0.0);
+            }
+        }
+        0.0
+    }
+
+    pub fn set_memory_value(&self, id: &Uuid, key: &str, value: f32) {
+        if let Some(record) = self.lineages.get(id) {
+            if let Ok(mut mem) = record.collective_memory.write() {
+                mem.insert(key.to_string(), value);
+            }
         }
     }
 

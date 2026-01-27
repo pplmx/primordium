@@ -50,7 +50,8 @@ fn test_symbiosis_spring_force() {
         terrain: &terrain,
         snapshots: &[snapshot],
         entity_id_map: &id_map,
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        pressure: &primordium_lib::model::state::pressure::PressureGrid::new(100, 100),
         width: 100,
         height: 100,
     };

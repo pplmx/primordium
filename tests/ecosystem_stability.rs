@@ -27,7 +27,7 @@ fn test_hunter_competition_impact() {
     let config = AppConfig::default();
     let mut pop_stats = PopulationStats::new();
     let mut logger = HistoryLogger::new_dummy();
-    let mut spatial_hash = primordium_lib::model::quadtree::SpatialHash::new(10.0);
+    let mut spatial_hash = primordium_lib::model::quadtree::SpatialHash::new(10.0, 100, 100);
     let mut pheromones = PheromoneGrid::new(100, 100);
 
     let mut hunter = Entity::new(10.0, 10.0, 0);

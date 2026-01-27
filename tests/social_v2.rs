@@ -68,13 +68,15 @@ fn test_metabolic_cost_of_signaling() {
     let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
 
     // quiet: [x, y, speed, aggro, share, signal, emitA, emitB]
+    let pressure = primordium_lib::model::state::pressure::PressureGrid::new(100, 100);
     let mut ctx_q = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        pressure: &pressure,
         width: 100,
         height: 100,
     };
@@ -87,7 +89,8 @@ fn test_metabolic_cost_of_signaling() {
         terrain: &terrain,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        pressure: &pressure,
         width: 100,
         height: 100,
     };

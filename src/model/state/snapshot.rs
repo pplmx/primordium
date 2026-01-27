@@ -32,8 +32,9 @@ pub struct EntitySnapshot {
     pub bonded_to: Option<Uuid>,
     pub trophic_potential: f32,
     pub last_activations: HashMap<i32, f32>,
-    pub last_inputs: [f32; 16],
+    pub last_inputs: [f32; 20],
     pub last_hidden: [f32; 6],
+    pub weight_deltas: HashMap<usize, f32>,
     pub genotype_hex: Option<String>,
 }
 

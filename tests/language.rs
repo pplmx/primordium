@@ -22,7 +22,8 @@ fn test_semantic_pheromone_roundtrip() {
         terrain: &world.terrain,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        pressure: &world.pressure,
         width: 100,
         height: 100,
     };

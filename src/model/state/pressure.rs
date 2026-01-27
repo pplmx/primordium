@@ -7,6 +7,14 @@ pub enum PressureType {
     DigDemand,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct PressureDeposit {
+    pub x: f64,
+    pub y: f64,
+    pub ptype: PressureType,
+    pub amount: f32,
+}
+
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct PressureCell {
     pub build_demand: f32,

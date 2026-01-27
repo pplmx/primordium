@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 pub fn brain_forward(
     brain: &Brain,
-    inputs: [f32; 16],
+    inputs: [f32; 20],
     last_hidden: [f32; 6],
 ) -> ([f32; 11], [f32; 6]) {
     brain.forward(inputs, last_hidden)

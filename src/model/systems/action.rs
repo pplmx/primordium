@@ -13,14 +13,15 @@ pub struct ActionContext<'a> {
     pub snapshots: &'a [crate::model::world::InternalEntitySnapshot],
     pub entity_id_map: &'a std::collections::HashMap<uuid::Uuid, usize>,
     pub spatial_hash: &'a crate::model::quadtree::SpatialHash,
+    pub pressure: &'a crate::model::state::pressure::PressureGrid,
     pub width: u16,
     pub height: u16,
 }
 
-/// Result of an action system pass
 pub struct ActionResult {
     pub pheromones: Vec<crate::model::state::pheromone::PheromoneDeposit>,
     pub sounds: Vec<crate::model::state::sound::SoundDeposit>,
+    pub pressure: Vec<crate::model::state::pressure::PressureDeposit>,
     pub oxygen_drain: f64,
 }
 
@@ -176,10 +177,29 @@ pub fn action_system(
         });
     }
 
+    let mut pressure = Vec::new();
+    if outputs[9] > 0.5 {
+        pressure.push(crate::model::state::pressure::PressureDeposit {
+            x: entity.physics.x,
+            y: entity.physics.y,
+            ptype: crate::model::state::pressure::PressureType::DigDemand,
+            amount: outputs[9],
+        });
+    }
+    if outputs[10] > 0.5 {
+        pressure.push(crate::model::state::pressure::PressureDeposit {
+            x: entity.physics.x,
+            y: entity.physics.y,
+            ptype: crate::model::state::pressure::PressureType::BuildDemand,
+            amount: outputs[10],
+        });
+    }
+
     handle_movement(entity, speed_mult, ctx.terrain, ctx.width, ctx.height);
     ActionResult {
         pheromones,
         sounds,
+        pressure,
         oxygen_drain: activity_drain,
     }
 }
@@ -260,13 +280,15 @@ mod tests {
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
+        let pressure_grid = crate::model::state::pressure::PressureGrid::new(20, 20);
         let mut ctx = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
             snapshots: &[],
             entity_id_map: &std::collections::HashMap::new(),
-            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0),
+            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0, 20, 20),
+            pressure: &pressure_grid,
             width: 20,
             height: 20,
         };
@@ -284,13 +306,15 @@ mod tests {
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
+        let pressure_grid = crate::model::state::pressure::PressureGrid::new(20, 20);
         let mut ctx_n = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
             snapshots: &[],
             entity_id_map: &std::collections::HashMap::new(),
-            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0),
+            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0, 20, 20),
+            pressure: &pressure_grid,
             width: 20,
             height: 20,
         };
@@ -301,7 +325,8 @@ mod tests {
             terrain: &terrain,
             snapshots: &[],
             entity_id_map: &std::collections::HashMap::new(),
-            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0),
+            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0, 20, 20),
+            pressure: &pressure_grid,
             width: 20,
             height: 20,
         };
@@ -318,13 +343,15 @@ mod tests {
         let config = AppConfig::default();
         let mut terrain = TerrainGrid::generate(20, 20, 42);
         terrain.set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Plains);
+        let pressure_grid = crate::model::state::pressure::PressureGrid::new(20, 20);
         let mut ctx = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
             snapshots: &[],
             entity_id_map: &std::collections::HashMap::new(),
-            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0),
+            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0, 20, 20),
+            pressure: &pressure_grid,
             width: 20,
             height: 20,
         };

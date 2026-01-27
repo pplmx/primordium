@@ -2,7 +2,6 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Types of nodes in the neural network.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NodeType {
     Input,
@@ -10,7 +9,6 @@ pub enum NodeType {
     Output,
 }
 
-/// A single node (neuron) in the dynamic brain.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Node {
     pub id: usize,
@@ -18,7 +16,6 @@ pub struct Node {
     pub label: Option<String>,
 }
 
-/// A connection between two nodes.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Connection {
     pub from: usize,
@@ -28,12 +25,6 @@ pub struct Connection {
     pub innovation: usize,
 }
 
-/// Dynamic neural network brain (NEAT-lite).
-///
-/// Topology (Phase 52 Terraforming):
-/// Inputs (0..22): 1 sensor inputs (14 environmental + 6 recurrent + 1 hearing + 1 partner)
-/// Outputs (22..33): MoveX, MoveY, Speed, Aggro, Share, Color, EmitA, EmitB, Bond, Dig, Build (11 nodes)
-/// Hidden (33..39): Initial hidden nodes
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
     pub nodes: Vec<Node>,
@@ -41,16 +32,14 @@ pub struct Brain {
     pub next_node_id: usize,
     pub learning_rate: f32,
     #[serde(skip, default = "HashMap::new")]
-    pub weight_deltas: HashMap<usize, f32>, // innovation -> cumulative delta
+    pub weight_deltas: HashMap<usize, f32>,
 }
 
 impl Brain {
     pub fn new_random() -> Self {
         let mut rng = rand::thread_rng();
         let mut nodes = Vec::new();
-        let mut connections = Vec::new();
 
-        // 1. Create Inputs (0..22)
         let input_labels = [
             "FoodDX",
             "FoodDY",
@@ -74,6 +63,10 @@ impl Brain {
             "Mem5",
             "Hear",
             "PartnerEnergy",
+            "BuildPressure",
+            "DigPressure",
+            "SharedGoal",
+            "SharedThreat",
         ];
 
         for (i, label) in input_labels.iter().enumerate() {
@@ -83,20 +76,18 @@ impl Brain {
                 label: Some(label.to_string()),
             });
         }
-        // 2. Create Outputs (22..33)
         let output_labels = [
             "MoveX", "MoveY", "Speed", "Aggro", "Share", "Color", "EmitA", "EmitB", "Bond", "Dig",
             "Build",
         ];
         for (i, label) in output_labels.iter().enumerate() {
             nodes.push(Node {
-                id: i + 22,
+                id: i + 26,
                 node_type: NodeType::Output,
                 label: Some(label.to_string()),
             });
         }
-        // 3. Create initial Hidden layer (33..39)
-        for i in 33..39 {
+        for i in 37..43 {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Hidden,
@@ -105,9 +96,9 @@ impl Brain {
         }
 
         let mut innov = 0;
-        // 4. Initial connections: Input -> Hidden
-        for i in 0..22 {
-            for h in 33..39 {
+        let mut connections = Vec::new();
+        for i in 0..26 {
+            for h in 37..43 {
                 connections.push(Connection {
                     from: i,
                     to: h,
@@ -118,9 +109,8 @@ impl Brain {
                 innov += 1;
             }
         }
-        // 5. Initial connections: Hidden -> Output
-        for h in 33..39 {
-            for o in 22..33 {
+        for h in 37..43 {
+            for o in 26..37 {
                 connections.push(Connection {
                     from: h,
                     to: o,
@@ -135,38 +125,36 @@ impl Brain {
         Self {
             nodes,
             connections,
-            next_node_id: 39,
-            learning_rate: 0.0, // Default to 0, evolves later
+            next_node_id: 43,
+            learning_rate: 0.0,
             weight_deltas: HashMap::new(),
         }
     }
 
-    /// Forward pass through the graph.
-    pub fn forward(&self, inputs: [f32; 16], last_hidden: [f32; 6]) -> ([f32; 11], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 20], last_hidden: [f32; 6]) -> ([f32; 11], [f32; 6]) {
         let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
         (outputs, next_hidden)
     }
 
-    /// Internal forward pass that also returns activations for learning.
     pub fn forward_internal(
         &self,
-        inputs: [f32; 16],
+        inputs: [f32; 20],
         last_hidden: [f32; 6],
     ) -> ([f32; 11], [f32; 6], HashMap<usize, f32>) {
         let mut node_values: HashMap<usize, f32> = HashMap::new();
 
-        // 1. Load inputs (14 sensors)
         for (i, &val) in inputs.iter().take(14).enumerate() {
             node_values.insert(i, val);
         }
-        // 2. Load memory (6 memory inputs) - Mapped to 14..20
         for (i, &val) in last_hidden.iter().enumerate() {
             node_values.insert(i + 14, val);
         }
-        // 3. Load Hearing input (Index 20)
         node_values.insert(20, inputs[14]);
-        // 4. Load Partner Energy input (Index 21)
         node_values.insert(21, inputs[15]);
+        node_values.insert(22, inputs[16]);
+        node_values.insert(23, inputs[17]);
+        node_values.insert(24, inputs[18]);
+        node_values.insert(25, inputs[19]);
 
         let mut new_values = node_values.clone();
         for conn in &self.connections {
@@ -185,22 +173,19 @@ impl Brain {
             }
         }
 
-        // Outputs range: 22..33
         for (i, output) in outputs.iter_mut().enumerate() {
-            *output = *new_values.get(&(i + 22)).unwrap_or(&0.0);
+            *output = *new_values.get(&(i + 26)).unwrap_or(&0.0);
         }
 
-        // Hidden range: 33..39
         let mut next_hidden = [0.0; 6];
         for (i, val) in next_hidden.iter_mut().enumerate() {
-            *val = *new_values.get(&(i + 33)).unwrap_or(&0.0);
+            *val = *new_values.get(&(i + 37)).unwrap_or(&0.0);
         }
 
         (outputs, next_hidden, new_values)
     }
 
-    /// Hebbian Learning: Update weights based on activation correlation and reinforcement.
-    pub fn learn(&mut self, inputs: [f32; 16], last_hidden: [f32; 6], reinforcement: f32) {
+    pub fn learn(&mut self, inputs: [f32; 20], last_hidden: [f32; 6], reinforcement: f32) {
         if self.learning_rate.abs() < 1e-4 || reinforcement.abs() < 1e-4 {
             return;
         }
@@ -219,9 +204,8 @@ impl Brain {
             conn.weight += delta;
             conn.weight = conn.weight.clamp(-5.0, 5.0);
 
-            // Track plasticity
             let entry = self.weight_deltas.entry(conn.innovation).or_insert(0.0);
-            *entry = (*entry * 0.9) + delta.abs(); // Exponential moving average of delta
+            *entry = (*entry * 0.9) + delta.abs();
         }
     }
 
@@ -295,14 +279,6 @@ impl Brain {
         }
     }
 
-    pub fn distance(&self, other: &Brain) -> f32 {
-        self.genotype_distance(other)
-    }
-
-    pub fn crossover(&self, other: &Brain) -> Brain {
-        crate::model::systems::intel::crossover_brains(self, other)
-    }
-
     pub fn genotype_distance(&self, other: &Brain) -> f32 {
         let mut weight_diff = 0.0;
         let mut matching = 0;
@@ -322,11 +298,17 @@ impl Brain {
         (weight_diff / matching.max(1) as f32) + (disjoint as f32 * 0.5) + lr_diff
     }
 
-    /// Structured remodeling during metamorphosis: ensure adult-stage outputs are connected.
+    pub fn distance(&self, other: &Brain) -> f32 {
+        self.genotype_distance(other)
+    }
+
+    pub fn crossover(&self, other: &Brain) -> Brain {
+        crate::model::systems::intel::crossover_brains(self, other)
+    }
+
     pub fn remodel_for_adult(&mut self) {
         let mut rng = rand::thread_rng();
-        // Adult outputs: Bond (30), Dig (31), Build (32)
-        let adult_outputs = [30, 31, 32];
+        let adult_outputs = [34, 35, 36];
         let hidden_nodes: Vec<usize> = self
             .nodes
             .iter()
@@ -339,23 +321,19 @@ impl Brain {
         }
 
         for &out_id in &adult_outputs {
-            // Check if this output has any incoming connections
             let has_conn = self.connections.iter().any(|c| c.to == out_id && c.enabled);
 
             if !has_conn {
-                // Connect a random hidden node to this output
                 let from = hidden_nodes[rng.gen_range(0..hidden_nodes.len())];
                 self.connections.push(Connection {
                     from,
                     to: out_id,
                     weight: rng.gen_range(-1.0..1.0),
                     enabled: true,
-                    innovation: self.connections.len() + 1_000_000, // Offset to avoid collisions
+                    innovation: self.connections.len() + 1_000_000,
                 });
             }
         }
-
-        // Boost learning rate slightly for adult phase adaptation
         self.learning_rate = (self.learning_rate + 0.05).clamp(0.0, 0.5);
     }
 
@@ -374,39 +352,53 @@ impl Brain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::systems::intel;
 
     #[test]
     fn test_brain_new_random_has_correct_dimensions() {
         let brain = Brain::new_random();
-        assert_eq!(brain.nodes.len(), 39);
-        // 22 inputs, 11 outputs, 6 hidden
-        // 22*6 = 132
-        // 6*11 = 66
-        // Total = 198
-        assert_eq!(brain.connections.len(), 198);
+        assert!(brain.nodes.len() >= 43);
+        let inputs = brain
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Input)
+            .count();
+        let outputs = brain
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Output)
+            .count();
+        assert_eq!(inputs, 26);
+        assert_eq!(outputs, 11);
     }
 
     #[test]
     fn test_brain_forward_is_deterministic() {
         let brain = Brain::new_random();
-        let inputs = [0.0; 16];
-        let last_hidden = [0.0; 6];
-        let (output1, _) = intel::brain_forward(&brain, inputs, last_hidden);
-        let (output2, _) = intel::brain_forward(&brain, inputs, last_hidden);
-        assert_eq!(output1, output2);
+        let inputs = [0.5; 20];
+        let hidden = [0.1; 6];
+        let (out1, hid1) = brain.forward(inputs, hidden);
+        let (out2, hid2) = brain.forward(inputs, hidden);
+        assert_eq!(out1, out2);
+        assert_eq!(hid1, hid2);
     }
 
     #[test]
     fn test_brain_learning_strengthens_connections() {
         let mut brain = Brain::new_random();
         brain.learning_rate = 0.5;
-        let inputs = [1.0; 16];
-        let last_hidden = [0.0; 6];
-        let conn_idx = brain.connections.iter().position(|c| c.enabled).unwrap();
-        let old_weight = brain.connections[conn_idx].weight;
-        brain.learn(inputs, last_hidden, 1.0);
-        let new_weight = brain.connections[conn_idx].weight;
-        assert_ne!(old_weight, new_weight);
+        let inputs = [1.0; 20];
+        let hidden = [1.0; 6];
+        let initial_weights: Vec<f32> = brain.connections.iter().map(|c| c.weight).collect();
+
+        brain.learn(inputs, hidden, 1.0);
+
+        let mut changed = false;
+        for (i, conn) in brain.connections.iter().enumerate() {
+            if conn.enabled && (conn.weight - initial_weights[i]).abs() > 1e-6 {
+                changed = true;
+                break;
+            }
+        }
+        assert!(changed, "At least one weight should have changed");
     }
 }

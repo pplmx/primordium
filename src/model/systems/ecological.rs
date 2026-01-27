@@ -153,7 +153,7 @@ mod tests {
     fn test_sense_nearest_food_empty() {
         let entity = Entity::new(5.0, 5.0, 0);
         let food: Vec<Food> = vec![];
-        let food_hash = SpatialHash::new(5.0);
+        let food_hash = SpatialHash::new(5.0, 100, 100);
         let (dx, dy, _) = sense_nearest_food(&entity, &food, &food_hash);
         assert_eq!(dx, 0.0);
         assert_eq!(dy, 0.0);

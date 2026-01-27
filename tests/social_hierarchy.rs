@@ -122,10 +122,9 @@ fn test_soldier_damage_bonus() {
 
     // FORCE AGGRESSION VIA BRAIN
     soldier.intel.genotype.brain.connections.clear();
-    // Connect Input 2 (Energy) to Output 3 (Aggro) -> Node 22 + 3 = 25
     soldier.intel.genotype.brain.connections.push(Connection {
         from: 2,
-        to: 25,
+        to: 29,
         weight: 10.0,
         enabled: true,
         innovation: 9999,

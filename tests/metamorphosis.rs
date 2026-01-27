@@ -28,7 +28,7 @@ fn test_larval_gating_logic() {
 
     // To ensure outputs are high, we'll manually modify the connections in the brain.
     // Connect all inputs to Dig/Build outputs with high weights.
-    for i in 0..22 {
+    for i in 0..26 {
         larva
             .intel
             .genotype
@@ -36,7 +36,7 @@ fn test_larval_gating_logic() {
             .connections
             .push(primordium_lib::model::brain::Connection {
                 from: i,
-                to: 31, // Dig
+                to: 35,
                 weight: 1.0,
                 enabled: true,
                 innovation: 10000 + i,
@@ -48,7 +48,7 @@ fn test_larval_gating_logic() {
             .connections
             .push(primordium_lib::model::brain::Connection {
                 from: i,
-                to: 32, // Build
+                to: 36,
                 weight: 1.0,
                 enabled: true,
                 innovation: 11000 + i,
@@ -78,18 +78,15 @@ fn test_metamorphosis_transition_and_remodeling() {
     larva.metabolism.birth_tick = 0;
     larva.intel.genotype.maturity_gene = 1.0;
 
-    // Disconnect adult outputs (30, 31, 32) to test remodeling
-    larva.intel.genotype.brain.connections.retain(|c| c.to < 30);
+    larva.intel.genotype.brain.connections.retain(|c| c.to < 34);
 
     let initial_max_energy = larva.metabolism.max_energy;
     let initial_speed = larva.physics.max_speed;
 
     world.entities.push(larva);
 
-    // Advance world to maturity
     world.tick = 10;
 
-    // Run update - should trigger metamorphosis
     let events = world.update(&mut env).unwrap();
 
     let metamorphosed = events.iter().any(|e| {
@@ -105,14 +102,13 @@ fn test_metamorphosis_transition_and_remodeling() {
     assert!(adult.metabolism.max_energy > initial_max_energy);
     assert!(adult.physics.max_speed > initial_speed);
 
-    // Verify remodeling: Output 31 (Dig) should now have at least one connection
     let has_dig_conn = adult
         .intel
         .genotype
         .brain
         .connections
         .iter()
-        .any(|c| c.to == 31 && c.enabled);
+        .any(|c| c.to == 35 && c.enabled);
     assert!(
         has_dig_conn,
         "Adult brain should have Dig connections after remodeling"

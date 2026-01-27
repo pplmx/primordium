@@ -21,6 +21,9 @@ struct Args {
     /// Run in benchmark mode (headless, fixed ticks)
     #[arg(long)]
     benchmark: bool,
+
+    #[arg(long)]
+    relay: Option<String>,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -57,7 +60,10 @@ async fn main() -> Result<()> {
         Mode::Headless => {
             println!("Running in HEADLESS mode...");
             let mut app = App::new()?;
-            // No TUI, just loop
+            if let Some(url) = args.relay {
+                println!("Connecting to relay: {}...", url);
+                app.connect(&url);
+            }
             while app.running {
                 // Background tasks might need a small sleep to not peg CPU at 100% if sim is fast
                 // But for experiments, we want it fast.
@@ -78,6 +84,10 @@ async fn main() -> Result<()> {
             tui.init()?;
 
             let mut app = App::new()?;
+
+            if let Some(url) = args.relay {
+                app.connect(&url);
+            }
 
             // Override game mode from CLI
             match args.gamemode.to_lowercase().as_str() {

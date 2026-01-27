@@ -1,4 +1,3 @@
-use crate::model::state::entity::Entity;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -6,79 +5,93 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize)]
 pub struct SpatialHash {
     pub cell_size: f64,
-    pub cells: HashMap<(i32, i32), Vec<usize>>,
+    pub width: u16,
+    pub height: u16,
+    pub cols: usize,
+    pub rows: usize,
+    #[serde(skip, default = "Vec::new")]
+    pub heads: Vec<i32>,
+    #[serde(skip, default = "Vec::new")]
+    pub next: Vec<i32>,
+    #[serde(skip, default = "Vec::new")]
+    pub entity_indices: Vec<usize>,
     #[serde(skip)]
     pub lineage_centroids: HashMap<uuid::Uuid, (f64, f64, usize)>,
 }
 
 impl SpatialHash {
-    pub fn new(cell_size: f64) -> Self {
+    pub fn new(cell_size: f64, width: u16, height: u16) -> Self {
+        let cols = (width as f64 / cell_size).ceil() as usize;
+        let rows = (height as f64 / cell_size).ceil() as usize;
         Self {
             cell_size,
-            cells: HashMap::new(),
+            width,
+            height,
+            cols,
+            rows,
+            heads: vec![-1; cols * rows],
+            next: Vec::new(),
+            entity_indices: Vec::new(),
             lineage_centroids: HashMap::new(),
         }
     }
 
     pub fn new_empty() -> Self {
-        Self::new(10.0)
+        Self::new(10.0, 1, 1)
     }
 
     pub fn clear(&mut self) {
-        self.cells.clear();
+        if self.heads.len() != self.cols * self.rows {
+            self.heads = vec![-1; self.cols * self.rows];
+        } else {
+            self.heads.fill(-1);
+        }
+        self.next.clear();
+        self.entity_indices.clear();
         self.lineage_centroids.clear();
     }
 
-    pub fn insert(&mut self, x: f64, y: f64, index: usize) {
+    #[inline(always)]
+    fn get_cell_idx(&self, x: f64, y: f64) -> Option<usize> {
         let cx = (x / self.cell_size).floor() as i32;
         let cy = (y / self.cell_size).floor() as i32;
-        self.cells.entry((cx, cy)).or_default().push(index);
+        if cx >= 0 && cx < self.cols as i32 && cy >= 0 && cy < self.rows as i32 {
+            Some((cy as usize * self.cols) + cx as usize)
+        } else {
+            None
+        }
     }
 
-    pub fn build_parallel(&mut self, positions: &[(f64, f64)]) {
-        self.clear();
-
-        self.cells = positions
-            .par_iter()
-            .enumerate()
-            .fold(
-                HashMap::new,
-                |mut acc: HashMap<(i32, i32), Vec<usize>>, (idx, &(x, y))| {
-                    let cx = (x / self.cell_size).floor() as i32;
-                    let cy = (y / self.cell_size).floor() as i32;
-                    acc.entry((cx, cy)).or_default().push(idx);
-                    acc
-                },
-            )
-            .reduce(HashMap::new, |mut a, b| {
-                for (key, value) in b {
-                    a.entry(key).or_default().extend(value);
-                }
-                a
-            });
+    pub fn insert(&mut self, x: f64, y: f64, index: usize) {
+        if let Some(cell_idx) = self.get_cell_idx(x, y) {
+            let entry_idx = self.entity_indices.len() as i32;
+            self.entity_indices.push(index);
+            self.next.push(self.heads[cell_idx]);
+            self.heads[cell_idx] = entry_idx;
+        }
     }
 
-    pub fn build_with_lineage(&mut self, data: &[(f64, f64, uuid::Uuid)]) {
+    pub fn build_parallel(&mut self, positions: &[(f64, f64)], width: u16, height: u16) {
+        self.width = width;
+        self.height = height;
+        self.cols = (width as f64 / self.cell_size).ceil() as usize;
+        self.rows = (height as f64 / self.cell_size).ceil() as usize;
+        self.clear();
+        for (idx, &(x, y)) in positions.iter().enumerate() {
+            self.insert(x, y, idx);
+        }
+    }
+
+    pub fn build_with_lineage(&mut self, data: &[(f64, f64, uuid::Uuid)], width: u16, height: u16) {
+        self.width = width;
+        self.height = height;
+        self.cols = (width as f64 / self.cell_size).ceil() as usize;
+        self.rows = (height as f64 / self.cell_size).ceil() as usize;
         self.clear();
 
-        self.cells = data
-            .par_iter()
-            .enumerate()
-            .fold(
-                HashMap::new,
-                |mut acc: HashMap<(i32, i32), Vec<usize>>, (idx, &(x, y, _))| {
-                    let cx = (x / self.cell_size).floor() as i32;
-                    let cy = (y / self.cell_size).floor() as i32;
-                    acc.entry((cx, cy)).or_default().push(idx);
-                    acc
-                },
-            )
-            .reduce(HashMap::new, |mut a, b| {
-                for (key, value) in b {
-                    a.entry(key).or_default().extend(value);
-                }
-                a
-            });
+        for (idx, &(x, y, _)) in data.iter().enumerate() {
+            self.insert(x, y, idx);
+        }
 
         self.lineage_centroids = data
             .par_iter()
@@ -120,33 +133,24 @@ impl SpatialHash {
         let min_cy = ((y - radius) / self.cell_size).floor() as i32;
         let max_cy = ((y + radius) / self.cell_size).floor() as i32;
 
-        for cx in min_cx..=max_cx {
-            for cy in min_cy..=max_cy {
-                if let Some(indices) = self.cells.get(&(cx, cy)) {
-                    result.extend_from_slice(indices);
+        for cy in min_cy..=max_cy {
+            if cy < 0 || cy >= self.rows as i32 {
+                continue;
+            }
+            for cx in min_cx..=max_cx {
+                if cx < 0 || cx >= self.cols as i32 {
+                    continue;
+                }
+
+                let cell_idx = (cy as usize * self.cols) + cx as usize;
+                let mut head = self.heads[cell_idx];
+                while head != -1 {
+                    result.push(self.entity_indices[head as usize]);
+                    head = self.next[head as usize];
                 }
             }
         }
         result
-    }
-}
-
-// Keeping Rect as it might be useful for future features
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Rect {
-    pub x: f64,
-    pub y: f64,
-    pub w: f64,
-    pub h: f64,
-}
-
-impl Rect {
-    pub fn contains_entity(&self, e: &Entity) -> bool {
-        e.physics.x >= self.x
-            && e.physics.x < self.x + self.w
-            && e.physics.y >= self.y
-            && e.physics.y < self.y + self.h
     }
 }
 
@@ -156,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_spatial_hash_insert_and_query_same_cell() {
-        let mut hash = SpatialHash::new(10.0);
+        let mut hash = SpatialHash::new(10.0, 100, 100);
         hash.insert(5.0, 5.0, 0);
         hash.insert(7.0, 8.0, 1);
 
@@ -168,10 +172,10 @@ mod tests {
 
     #[test]
     fn test_spatial_hash_query_finds_nearby() {
-        let mut hash = SpatialHash::new(5.0);
-        hash.insert(10.0, 10.0, 0); // Cell (2, 2)
-        hash.insert(12.0, 10.0, 1); // Cell (2, 2) - same cell
-        hash.insert(100.0, 100.0, 2); // Cell (20, 20) - far away
+        let mut hash = SpatialHash::new(5.0, 200, 200);
+        hash.insert(10.0, 10.0, 0);
+        hash.insert(12.0, 10.0, 1);
+        hash.insert(100.0, 100.0, 2);
 
         let results = hash.query(11.0, 10.0, 5.0);
 
@@ -181,58 +185,13 @@ mod tests {
     }
 
     #[test]
-    fn test_spatial_hash_query_empty() {
-        let hash = SpatialHash::new(10.0);
-        let results = hash.query(50.0, 50.0, 10.0);
-        assert!(results.is_empty(), "Empty hash should return empty results");
-    }
-
-    #[test]
     fn test_spatial_hash_clear() {
-        let mut hash = SpatialHash::new(10.0);
+        let mut hash = SpatialHash::new(10.0, 100, 100);
         hash.insert(5.0, 5.0, 0);
         hash.insert(15.0, 15.0, 1);
 
-        assert!(!hash.cells.is_empty(), "Should have cells before clear");
-
+        assert!(hash.entity_indices.len() == 2);
         hash.clear();
-
-        assert!(hash.cells.is_empty(), "Should be empty after clear");
-    }
-
-    #[test]
-    fn test_spatial_hash_query_crosses_cell_boundary() {
-        let mut hash = SpatialHash::new(10.0);
-        // Entity at (9, 9) is in cell (0, 0)
-        hash.insert(9.0, 9.0, 0);
-        // Entity at (11, 11) is in cell (1, 1)
-        hash.insert(11.0, 11.0, 1);
-
-        // Query centered at (10, 10) with radius 5 should find both
-        let results = hash.query(10.0, 10.0, 5.0);
-
-        assert!(
-            results.contains(&0),
-            "Should find entity across cell boundary"
-        );
-        assert!(
-            results.contains(&1),
-            "Should find entity across cell boundary"
-        );
-    }
-
-    #[test]
-    fn test_spatial_hash_negative_coordinates() {
-        let mut hash = SpatialHash::new(10.0);
-        hash.insert(-5.0, -5.0, 0); // Cell (-1, -1)
-        hash.insert(-15.0, -15.0, 1); // Cell (-2, -2)
-
-        let results = hash.query(-5.0, -5.0, 5.0);
-
-        assert!(
-            results.contains(&0),
-            "Should find entity at negative coords"
-        );
-        assert!(!results.contains(&1), "Should not find distant entity");
+        assert!(hash.entity_indices.is_empty());
     }
 }

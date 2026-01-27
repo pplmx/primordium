@@ -320,7 +320,7 @@ mod tests {
         let mut entities = vec![Entity::new(5.0, 5.0, 0), Entity::new(5.5, 5.5, 0)];
         let killed_ids = HashSet::new();
         let active_pathogens: Vec<Pathogen> = vec![];
-        let mut spatial_hash = SpatialHash::new(5.0);
+        let mut spatial_hash = SpatialHash::new(5.0, 100, 100);
         spatial_hash.insert(5.0, 5.0, 0);
         spatial_hash.insert(5.5, 5.5, 1);
         let mut rng = rand::thread_rng();

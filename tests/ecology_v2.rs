@@ -23,7 +23,7 @@ fn test_metabolic_niche_efficiency() {
 
     // 3. Green Food
     let food_green = vec![Food::new(10, 10, 0.0)];
-    let mut food_hash = primordium_lib::model::quadtree::SpatialHash::new(5.0);
+    let mut food_hash = primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100);
     food_hash.insert(10.0, 10.0, 0);
 
     let mut eaten_indices = HashSet::new();

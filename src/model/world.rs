@@ -79,7 +79,7 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 16]>,
+    perception_buffer: Vec<[f32; 20]>,
     #[serde(skip, default)]
     decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
@@ -144,8 +144,8 @@ impl World {
             food,
             tick: 0,
             logger,
-            spatial_hash: SpatialHash::new(5.0),
-            food_hash: SpatialHash::new(5.0),
+            spatial_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
+            food_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
             pop_stats: PopulationStats::new(),
             hall_of_fame: HallOfFame::new(),
             cached_terrain: std::sync::Arc::new(terrain.clone()),
@@ -350,6 +350,11 @@ impl World {
                 last_activations: e.intel.last_activations.clone(),
                 last_inputs: e.intel.last_inputs,
                 last_hidden: e.intel.last_hidden,
+                weight_deltas: if Some(e.id) == selected_id {
+                    e.intel.genotype.brain.weight_deltas.clone()
+                } else {
+                    HashMap::new()
+                },
                 genotype_hex: if Some(e.id) == selected_id {
                     Some(e.intel.genotype.to_hex())
                 } else {
@@ -423,6 +428,11 @@ impl World {
         }
         if self.food_dirty {
             self.food_hash.clear();
+            self.food_hash.width = self.width;
+            self.food_hash.height = self.height;
+            self.food_hash.cols = (self.width as f64 / self.food_hash.cell_size).ceil() as usize;
+            self.food_hash.rows = (self.height as f64 / self.food_hash.cell_size).ceil() as usize;
+
             for (i, f) in self.food.iter().enumerate() {
                 self.food_hash.insert(f.x as f64, f.y as f64, i);
             }
@@ -433,7 +443,8 @@ impl World {
             .iter()
             .map(|e| (e.physics.x, e.physics.y, e.metabolism.lineage_id))
             .collect();
-        self.spatial_hash.build_with_lineage(&spatial_data);
+        self.spatial_hash
+            .build_with_lineage(&spatial_data, self.width, self.height);
         let entity_snapshots: Vec<InternalEntitySnapshot> = current_entities
             .par_iter()
             .map(|e| InternalEntitySnapshot {
@@ -522,6 +533,18 @@ impl World {
                             as f32;
                     }
                 }
+
+                let (b_press, d_press) =
+                    self.pressure
+                        .sense(e.physics.x, e.physics.y, e.physics.sensing_range);
+
+                let shared_goal = self
+                    .lineage_registry
+                    .get_memory_value(&e.metabolism.lineage_id, "goal");
+                let shared_threat = self
+                    .lineage_registry
+                    .get_memory_value(&e.metabolism.lineage_id, "threat");
+
                 [
                     (dx_f / 20.0) as f32,
                     (dy_f / 20.0) as f32,
@@ -539,6 +562,10 @@ impl World {
                     e.metabolism.trophic_potential,
                     sound_sense,
                     partner_energy,
+                    b_press,
+                    d_press,
+                    shared_goal,
+                    shared_threat,
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
@@ -828,6 +855,7 @@ impl World {
                         snapshots: &entity_snapshots,
                         entity_id_map: &entity_id_map,
                         spatial_hash: &self.spatial_hash,
+                        pressure: &self.pressure,
                         width: self.width,
                         height: self.height,
                     },
@@ -838,11 +866,14 @@ impl World {
             .collect();
 
         for res in action_results {
-            for p in res.pheromones {
-                self.pheromones.deposit(p.x, p.y, p.ptype, p.amount);
+            for d in res.pheromones {
+                self.pheromones.deposit(d.x, d.y, d.ptype, d.amount);
             }
             for s in res.sounds {
                 self.sound.deposit(s.x, s.y, s.amount);
+            }
+            for p in res.pressure {
+                self.pressure.deposit(p.x, p.y, p.ptype, p.amount);
             }
             env.consume_oxygen(res.oxygen_drain);
         }
