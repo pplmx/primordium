@@ -23,12 +23,13 @@ pub struct ActionResult {
     pub sounds: Vec<crate::model::state::sound::SoundDeposit>,
     pub pressure: Vec<crate::model::state::pressure::PressureDeposit>,
     pub oxygen_drain: f64,
+    pub overmind_broadcast: Option<(uuid::Uuid, f32)>,
 }
 
 /// Process brain outputs and apply movement and metabolic costs.
 pub fn action_system(
     entity: &mut Entity,
-    outputs: [f32; 11],
+    outputs: [f32; 12],
     ctx: &mut ActionContext,
 ) -> ActionResult {
     let speed_cap = entity.physics.max_speed;
@@ -230,12 +231,18 @@ pub fn action_system(
         }
     }
 
+    let mut overmind_broadcast = None;
+    if outputs[11] > 0.5 && entity.intel.rank > 0.8 {
+        overmind_broadcast = Some((entity.metabolism.lineage_id, outputs[11]));
+    }
+
     handle_movement(entity, speed_mult, ctx.terrain, ctx.width, ctx.height);
     ActionResult {
         pheromones,
         sounds,
         pressure,
         oxygen_drain: activity_drain,
+        overmind_broadcast,
     }
 }
 
@@ -311,7 +318,7 @@ mod tests {
         let mut entity = Entity::new(5.0, 5.0, 0);
         entity.metabolism.energy = 100.0;
         let initial_energy = entity.metabolism.energy;
-        let outputs = [0.0; 11];
+        let outputs = [0.0; 12];
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
@@ -336,8 +343,8 @@ mod tests {
         let mut entity_predator = Entity::new(5.0, 5.0, 0);
         entity_normal.metabolism.energy = 100.0;
         entity_predator.metabolism.energy = 100.0;
-        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let predator_outputs = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
@@ -373,7 +380,7 @@ mod tests {
         let mut entity = Entity::new(5.0, 5.0, 0);
         entity.physics.vx = 0.0;
         entity.physics.vy = 0.0;
-        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let outputs = [1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let env = Environment::default();
         let config = AppConfig::default();
         let mut terrain = TerrainGrid::generate(20, 20, 42);

@@ -58,7 +58,7 @@ fn test_symbiosis_spring_force() {
 
     // Outputs: Neutral movement (should stay still if no spring)
     // outputs[0] (dx) = 0.0 -> target vx 0.0
-    let outputs = [0.0; 11];
+    let outputs = [0.0; 12];
 
     e1.physics.vx = 0.0;
     e1.physics.vy = 0.0;

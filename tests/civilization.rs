@@ -35,7 +35,7 @@ fn test_ancestral_trait_metabolism_buff() {
         height: 50,
     };
 
-    let outputs = [0.0; 11];
+    let outputs = [0.0; 12];
     action_system(&mut e, outputs, &mut ctx);
 
     let drain_with_trait = initial_energy - e.metabolism.energy;

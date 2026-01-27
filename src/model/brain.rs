@@ -69,6 +69,7 @@ impl Brain {
             "SharedThreat",
             "LineagePop",
             "LineageEnergy",
+            "Overmind",
         ];
 
         for (i, label) in input_labels.iter().enumerate() {
@@ -79,17 +80,27 @@ impl Brain {
             });
         }
         let output_labels = [
-            "MoveX", "MoveY", "Speed", "Aggro", "Share", "Color", "EmitA", "EmitB", "Bond", "Dig",
+            "MoveX",
+            "MoveY",
+            "Speed",
+            "Aggro",
+            "Share",
+            "Color",
+            "EmitA",
+            "EmitB",
+            "Bond",
+            "Dig",
             "Build",
+            "OvermindEmit",
         ];
         for (i, label) in output_labels.iter().enumerate() {
             nodes.push(Node {
-                id: i + 28,
+                id: i + 29,
                 node_type: NodeType::Output,
                 label: Some(label.to_string()),
             });
         }
-        for i in 39..45 {
+        for i in 41..47 {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Hidden,
@@ -99,8 +110,8 @@ impl Brain {
 
         let mut innov = 0;
         let mut connections = Vec::new();
-        for i in 0..28 {
-            for h in 39..45 {
+        for i in 0..29 {
+            for h in 41..47 {
                 connections.push(Connection {
                     from: i,
                     to: h,
@@ -111,8 +122,8 @@ impl Brain {
                 innov += 1;
             }
         }
-        for h in 39..45 {
-            for o in 28..39 {
+        for h in 41..47 {
+            for o in 29..41 {
                 connections.push(Connection {
                     from: h,
                     to: o,
@@ -127,22 +138,22 @@ impl Brain {
         Self {
             nodes,
             connections,
-            next_node_id: 45,
+            next_node_id: 47,
             learning_rate: 0.0,
             weight_deltas: HashMap::new(),
         }
     }
 
-    pub fn forward(&self, inputs: [f32; 22], last_hidden: [f32; 6]) -> ([f32; 11], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 23], last_hidden: [f32; 6]) -> ([f32; 12], [f32; 6]) {
         let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
         (outputs, next_hidden)
     }
 
     pub fn forward_internal(
         &self,
-        inputs: [f32; 22],
+        inputs: [f32; 23],
         last_hidden: [f32; 6],
-    ) -> ([f32; 11], [f32; 6], HashMap<usize, f32>) {
+    ) -> ([f32; 12], [f32; 6], HashMap<usize, f32>) {
         let mut node_values: HashMap<usize, f32> = HashMap::new();
 
         for (i, &val) in inputs.iter().take(14).enumerate() {
@@ -159,6 +170,7 @@ impl Brain {
         node_values.insert(25, inputs[19]);
         node_values.insert(26, inputs[20]);
         node_values.insert(27, inputs[21]);
+        node_values.insert(28, inputs[22]);
 
         let mut new_values = node_values.clone();
         for conn in &self.connections {
@@ -170,7 +182,7 @@ impl Brain {
             *entry += val * conn.weight;
         }
 
-        let mut outputs = [0.0; 11];
+        let mut outputs = [0.0; 12];
         for node in &self.nodes {
             if let Some(val) = new_values.get_mut(&node.id) {
                 *val = val.tanh();
@@ -178,18 +190,18 @@ impl Brain {
         }
 
         for (i, output) in outputs.iter_mut().enumerate() {
-            *output = *new_values.get(&(i + 28)).unwrap_or(&0.0);
+            *output = *new_values.get(&(i + 29)).unwrap_or(&0.0);
         }
 
         let mut next_hidden = [0.0; 6];
         for (i, val) in next_hidden.iter_mut().enumerate() {
-            *val = *new_values.get(&(i + 39)).unwrap_or(&0.0);
+            *val = *new_values.get(&(i + 41)).unwrap_or(&0.0);
         }
 
         (outputs, next_hidden, new_values)
     }
 
-    pub fn learn(&mut self, inputs: [f32; 22], last_hidden: [f32; 6], reinforcement: f32) {
+    pub fn learn(&mut self, inputs: [f32; 23], last_hidden: [f32; 6], reinforcement: f32) {
         if self.learning_rate.abs() < 1e-4 || reinforcement.abs() < 1e-4 {
             return;
         }
@@ -231,14 +243,14 @@ impl Brain {
                     use crate::model::state::entity::Specialization;
                     let is_protected = match spec {
                         Specialization::Soldier => {
-                            // Soldiers protect weights related to Aggression (output 31)
-                            // ID 28+3 = 31
-                            conn.to == 31
+                            // Soldiers protect weights related to Aggression (output 32)
+                            // ID 29+3 = 32
+                            conn.to == 32
                         }
                         Specialization::Engineer => {
-                            // Engineers protect weights related to Dig/Build (outputs 37, 38)
-                            // ID 28+9=37, 28+10=38
-                            conn.to == 37 || conn.to == 38
+                            // Engineers protect weights related to Dig/Build (outputs 38, 39)
+                            // ID 29+9=38, 29+10=39
+                            conn.to == 38 || conn.to == 39
                         }
                         _ => false,
                     };
@@ -398,15 +410,15 @@ mod tests {
             .iter()
             .filter(|n| n.node_type == NodeType::Output)
             .count();
-        assert_eq!(inputs, 28);
-        assert_eq!(outputs, 11);
+        assert_eq!(inputs, 29);
+        assert_eq!(outputs, 12);
     }
 
     #[test]
     fn test_brain_learning_strengthens_connections() {
         let mut brain = Brain::new_random();
         brain.learning_rate = 0.5;
-        let inputs = [1.0; 22];
+        let inputs = [1.0; 23];
         let hidden = [1.0; 6];
         let initial_weights: Vec<f32> = brain.connections.iter().map(|c| c.weight).collect();
 

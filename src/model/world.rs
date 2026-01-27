@@ -38,7 +38,7 @@ pub struct InternalEntitySnapshot {
 
 #[derive(Default)]
 pub struct EntityDecision {
-    pub outputs: [f32; 11],
+    pub outputs: [f32; 12],
     pub next_hidden: [f32; 6],
     pub activations: std::collections::HashMap<usize, f32>,
 }
@@ -79,7 +79,7 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 22]>,
+    perception_buffer: Vec<[f32; 23]>,
     #[serde(skip, default)]
     decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
@@ -405,13 +405,17 @@ impl World {
                 .collect();
 
             if outpost_group.len() > 1 {
+                // Phase 63: Resource Pipelining (Energy Flow)
                 let total_energy: f32 = outpost_group
                     .iter()
                     .map(|&i| self.terrain.cells[i].energy_store)
                     .sum();
                 let avg_energy = total_energy / outpost_group.len() as f32;
                 for &i in &outpost_group {
-                    self.terrain.cells[i].energy_store = avg_energy;
+                    // Flow towards equilibrium
+                    let current = self.terrain.cells[i].energy_store;
+                    let flow = (avg_energy - current) * 0.1;
+                    self.terrain.cells[i].energy_store += flow;
                 }
             }
         }
@@ -440,29 +444,49 @@ impl World {
             for e_idx in nearby {
                 let e = &mut self.entities[e_idx];
                 if Some(e.metabolism.lineage_id) == owner_id {
-                    if e.metabolism.energy > e.metabolism.max_energy * 0.8 {
-                        let donation = e.metabolism.energy * 0.05;
-                        e.metabolism.energy -= donation;
-                        stored += donation as f32;
-                    }
-                    if e.metabolism.energy < e.metabolism.max_energy * 0.3 && stored > 10.0 {
-                        let grant = (e.metabolism.max_energy * 0.1).min(stored as f64);
-                        e.metabolism.energy += grant;
-                        stored -= grant as f32;
+                    // Phase 63: Outpost Specialization Logic
+                    match self.terrain.cells[idx].outpost_spec {
+                        crate::model::state::terrain::OutpostSpecialization::Silo => {
+                            // Collect more surplus
+                            if e.metabolism.energy > e.metabolism.max_energy * 0.5 {
+                                let donation = e.metabolism.energy * 0.1;
+                                e.metabolism.energy -= donation;
+                                stored += donation as f32;
+                            }
+                        }
+                        crate::model::state::terrain::OutpostSpecialization::Nursery => {
+                            // Grants more to needy
+                            if e.metabolism.energy < e.metabolism.max_energy * 0.5 && stored > 20.0
+                            {
+                                let grant = (e.metabolism.max_energy * 0.2).min(stored as f64);
+                                e.metabolism.energy += grant;
+                                stored -= grant as f32;
+                            }
+                        }
+                        _ => {
+                            // Collect surplus
+                            if e.metabolism.energy > e.metabolism.max_energy * 0.8 {
+                                let donation = e.metabolism.energy * 0.05;
+                                e.metabolism.energy -= donation;
+                                stored += donation as f32;
+                            }
+                            // Distribute to needy
+                            if e.metabolism.energy < e.metabolism.max_energy * 0.3 && stored > 10.0
+                            {
+                                let grant = (e.metabolism.max_energy * 0.1).min(stored as f64);
+                                e.metabolism.energy += grant;
+                                stored -= grant as f32;
+                            }
+                        }
                     }
                 }
             }
 
-            if stored > 50.0 {
-                self.pheromones.deposit(
-                    ox,
-                    oy,
-                    crate::model::state::pheromone::PheromoneType::SignalA,
-                    0.5,
-                );
-            }
-
-            self.terrain.cells[idx].energy_store = stored.min(1000.0);
+            let max_cap = match self.terrain.cells[idx].outpost_spec {
+                crate::model::state::terrain::OutpostSpecialization::Silo => 5000.0,
+                _ => 1000.0,
+            };
+            self.terrain.cells[idx].energy_store = stored.min(max_cap as f32);
         }
     }
 
@@ -565,6 +589,21 @@ impl World {
         );
         let (_total_plant_biomass, total_sequestration) =
             self.terrain.update(self.pop_stats.biomass_h);
+
+        // Phase 63: Ecosystem Dominance (Global Albedo Cooling)
+        let total_owned_forests = self
+            .terrain
+            .cells
+            .iter()
+            .filter(|c| {
+                c.terrain_type == crate::model::state::terrain::TerrainType::Forest
+                    && c.owner_id.is_some()
+            })
+            .count();
+        if total_owned_forests > 100 {
+            env.carbon_level = (env.carbon_level - 0.5).max(100.0);
+        }
+
         env.sequestrate_carbon(total_sequestration * 0.00001);
         env.add_carbon(self.entities.len() as f64 * 0.01);
         env.consume_oxygen(
@@ -706,9 +745,14 @@ impl World {
 
                 let mut lin_pop = 0.0;
                 let mut lin_energy = 0.0;
+                let mut overmind_signal = 0.0;
+
                 if let Some(record) = self.lineage_registry.lineages.get(&e.metabolism.lineage_id) {
                     lin_pop = (record.current_population as f32 / 100.0).min(1.0);
                     lin_energy = (record.total_energy_consumed as f32 / 10000.0).min(1.0);
+                    overmind_signal = self
+                        .lineage_registry
+                        .get_memory_value(&e.metabolism.lineage_id, "overmind");
                 }
 
                 [
@@ -734,6 +778,7 @@ impl World {
                     shared_threat,
                     lin_pop,
                     lin_energy,
+                    overmind_signal,
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
@@ -1006,7 +1051,8 @@ impl World {
             .flatten()
             .collect();
 
-        let current_population = current_entities.len();
+        let _current_population = current_entities.len();
+        let mut broadcasts = Vec::new();
         let action_results: Vec<action::ActionResult> = current_entities
             .par_iter_mut()
             .zip(decision_buffer.par_iter_mut())
@@ -1022,7 +1068,7 @@ impl World {
                     .map(|(k, v)| (k as i32, v))
                     .collect();
                 e.intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
-                let res = action::action_system(
+                action::action_system(
                     e,
                     outputs,
                     &mut action::ActionContext {
@@ -1036,23 +1082,30 @@ impl World {
                         width: self.width,
                         height: self.height,
                     },
-                );
-                biological::biological_system(e, current_population, &self.config);
-                res
+                )
             })
             .collect();
 
         for res in action_results {
-            for d in res.pheromones {
-                self.pheromones.deposit(d.x, d.y, d.ptype, d.amount);
+            for p in res.pheromones {
+                self.pheromones.deposit(p.x, p.y, p.ptype, p.amount);
             }
             for s in res.sounds {
                 self.sound.deposit(s.x, s.y, s.amount);
             }
-            for p in res.pressure {
-                self.pressure.deposit(p.x, p.y, p.ptype, p.amount);
+            for pr in res.pressure {
+                self.pressure.deposit(pr.x, pr.y, pr.ptype, pr.amount);
+            }
+            if let Some(b) = res.overmind_broadcast {
+                broadcasts.push(b);
             }
             env.consume_oxygen(res.oxygen_drain);
+        }
+
+        // Apply broadcasts to LineageRegistry memory
+        for (l_id, amount) in broadcasts {
+            self.lineage_registry
+                .set_memory_value(&l_id, "overmind", amount);
         }
 
         let mut interaction_ctx = interaction::InteractionContext {

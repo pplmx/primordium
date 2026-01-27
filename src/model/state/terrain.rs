@@ -81,6 +81,14 @@ impl TerrainType {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+pub enum OutpostSpecialization {
+    #[default]
+    Standard,
+    Silo,    // Higher energy storage
+    Nursery, // Birth bonus
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct TerrainCell {
     pub terrain_type: TerrainType,
@@ -97,6 +105,7 @@ pub struct TerrainCell {
     pub owner_id: Option<uuid::Uuid>,
     /// NEW: Energy stored in the cell (for Outposts)
     pub energy_store: f32,
+    pub outpost_spec: OutpostSpecialization,
 }
 
 impl Default for TerrainCell {
@@ -111,6 +120,7 @@ impl Default for TerrainCell {
             plant_biomass: 10.0,
             owner_id: None,
             energy_store: 0.0,
+            outpost_spec: OutpostSpecialization::Standard,
         }
     }
 }

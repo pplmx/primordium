@@ -80,7 +80,7 @@ fn test_metabolic_cost_of_signaling() {
         width: 100,
         height: 100,
     };
-    action_system(&mut e_quiet, [0.0; 11], &mut ctx_q);
+    action_system(&mut e_quiet, [0.0; 12], &mut ctx_q);
 
     // loud: [..., signal=1.0]
     let mut ctx_l = ActionContext {
@@ -96,7 +96,7 @@ fn test_metabolic_cost_of_signaling() {
     };
     action_system(
         &mut e_loud,
-        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         &mut ctx_l,
     );
 

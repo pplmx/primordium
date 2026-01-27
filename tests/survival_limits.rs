@@ -73,7 +73,7 @@ fn test_high_speed_metabolic_exhaustion() {
         height: 100,
     };
 
-    let outputs = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let outputs = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
     action_system(&mut e_slow, outputs, &mut ctx);
     action_system(&mut e_fast, outputs, &mut ctx);
@@ -111,7 +111,7 @@ fn test_inertia_responsiveness_penalty() {
         height: 100,
     };
 
-    let outputs = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let outputs = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
     action_system(&mut e_light, outputs, &mut ctx);
     action_system(&mut e_heavy, outputs, &mut ctx);
 

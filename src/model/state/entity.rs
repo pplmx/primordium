@@ -82,7 +82,7 @@ pub struct Intel {
     pub rank: f32,
     pub bonded_to: Option<Uuid>,
     #[serde(skip)]
-    pub last_inputs: [f32; 22],
+    pub last_inputs: [f32; 23],
     #[serde(skip)]
     pub last_activations: std::collections::HashMap<i32, f32>,
     pub specialization: Option<Specialization>,
@@ -166,7 +166,7 @@ impl Entity {
                 reputation: 1.0,
                 rank: 0.5,
                 bonded_to: None,
-                last_inputs: [0.0; 22],
+                last_inputs: [0.0; 23],
                 last_activations: std::collections::HashMap::new(),
                 specialization: None,
                 spec_meters: std::collections::HashMap::new(),

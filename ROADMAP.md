@@ -525,7 +525,7 @@ toml = "0.8"
     - Functional: Castes evolve distinct neural sub-modules (e.g., Soldier-only hidden layer paths).
     - Technical: Topology-restricted mutations based on `Specialization`.
 
-### Phase 62: Planetary Engineering & Hive Mind Synergy 🚧
+### Phase 62: Planetary Engineering & Hive Mind Synergy ✅
 
 - **Atmospheric Engineering**:
     - Functional: Dominant lineages influence global climate via forest management.
@@ -539,6 +539,21 @@ toml = "0.8"
 - **Hive Perception**:
     - Functional: Entities sense the macro-state of their entire lineage.
     - Technical: Neural inputs for `LineageGlobalPop` and `LineageGlobalEnergy`.
+
+### Phase 63: Civilizational Specialization & Resource Pipelining 🚧
+
+- **Outpost Specialization**:
+    - Functional: Outposts can evolve into **Silos** (high energy cap) or **Nurseries** (birth energy bonus).
+    - Technical: Specialization state in `TerrainCell` influenced by nearby entity activity.
+- **Resource Pipelining**:
+    - Functional: Long-distance energy transfer through the Power Grid.
+    - Technical: Implemented "Flow" logic between outposts in the same connected component.
+- **Hive Overmind Broadcast**:
+    - Functional: High-rank Alphas can broadcast a "Goal Pheromone" that overrides kin movement.
+    - Technical: 12th neural output for `OvermindSignal` and 28th input for `BroadcastVector`.
+- **Ecosystem Dominance**:
+    - Functional: Tribes with level 3 civilizations gain global albedo control (cooling).
+    - Technical: Global climate forcing based on total owned forest area.
 
 ---
 
