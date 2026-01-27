@@ -125,7 +125,13 @@ pub fn reproduce_asexual_parallel(
     let child_energy = parent.metabolism.energy * investment;
 
     let mut child_genotype = parent.intel.genotype.clone();
-    intel::mutate_genotype(&mut child_genotype, config, population, is_radiation_storm);
+    intel::mutate_genotype(
+        &mut child_genotype,
+        config,
+        population,
+        is_radiation_storm,
+        parent.intel.specialization,
+    );
     let dist = parent.intel.genotype.distance(&child_genotype);
     if dist > config.evolution.speciation_threshold {
         child_genotype.lineage_id = Uuid::new_v4();
@@ -181,7 +187,7 @@ pub fn reproduce_asexual_parallel(
             reputation: 1.0,
             rank: 0.5,
             bonded_to: None,
-            last_inputs: [0.0; 20],
+            last_inputs: [0.0; 22],
             last_activations: std::collections::HashMap::new(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
@@ -277,7 +283,7 @@ pub fn reproduce_with_mate_parallel(
             reputation: 1.0,
             rank: 0.5,
             bonded_to: None,
-            last_inputs: [0.0; 20],
+            last_inputs: [0.0; 22],
             last_activations: std::collections::HashMap::new(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
@@ -315,7 +321,7 @@ pub fn reproduce_sexual_parallel(
     let child_energy = (p1.metabolism.energy + p2.metabolism.energy) * investment / 2.0;
 
     let mut child_genotype = p1.intel.genotype.crossover(&p2.intel.genotype);
-    intel::mutate_genotype(&mut child_genotype, config, 100, is_radiation_storm);
+    intel::mutate_genotype(&mut child_genotype, config, 100, is_radiation_storm, None);
 
     let r = ((p1.physics.r as i16 + p2.physics.r as i16) / 2 + rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
@@ -370,7 +376,7 @@ pub fn reproduce_sexual_parallel(
             reputation: 1.0,
             rank: 0.5,
             bonded_to: None,
-            last_inputs: [0.0; 20],
+            last_inputs: [0.0; 22],
             last_activations: std::collections::HashMap::new(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),

@@ -202,7 +202,7 @@ impl TerrainGrid {
         (y as usize * self.width as usize) + x as usize
     }
 
-    pub fn update(&mut self, herbivore_biomass: f64) -> f64 {
+    pub fn update(&mut self, herbivore_biomass: f64) -> (f64, f64) {
         self.is_dirty = true;
         if self.dust_bowl_timer > 0 {
             self.dust_bowl_timer -= 1;
@@ -220,9 +220,13 @@ impl TerrainGrid {
             self.hydration_buffer = vec![false; w as usize * h as usize];
         }
 
+        let mut outpost_map = vec![false; self.cells.len()];
         for (i, cell) in self.cells.iter().enumerate() {
             self.type_buffer[i] = cell.terrain_type;
             self.hydration_buffer[i] = false;
+            if cell.terrain_type == TerrainType::Outpost {
+                outpost_map[i] = true;
+            }
         }
 
         // Hydration map: true if cell is within radius 2 of a river
@@ -245,14 +249,16 @@ impl TerrainGrid {
 
         let type_grid = &self.type_buffer;
         let hydration_map = &self.hydration_buffer;
+        let outposts = &outpost_map;
 
         type TransitionVec = Vec<Vec<(u16, u16, TerrainType)>>;
-        let (total_biomass_vec, transitions): (Vec<f64>, TransitionVec) = self
+        let (stats, transitions): (Vec<(f64, f64)>, TransitionVec) = self
             .cells
             .par_chunks_mut(w as usize)
             .enumerate()
             .map(|(y, row)| {
                 let mut row_biomass = 0.0;
+                let mut row_sequestration = 0.0;
                 let mut row_transitions = Vec::new();
                 let mut rng = rand::thread_rng();
 
@@ -260,6 +266,37 @@ impl TerrainGrid {
                     let x_u16 = x as u16;
                     let y_u16 = y as u16;
                     row_biomass += cell.plant_biomass as f64;
+
+                    let is_near_outpost = if cell.terrain_type == TerrainType::Forest {
+                        let mut found = false;
+                        for dy in -2..=2 {
+                            for dx in -2..=2 {
+                                let nx = x as i32 + dx;
+                                let ny = y as i32 + dy;
+                                if nx >= 0
+                                    && nx < w as i32
+                                    && ny >= 0
+                                    && ny < h as i32
+                                    && outposts[(ny as usize * w as usize) + nx as usize]
+                                {
+                                    found = true;
+                                    break;
+                                }
+                            }
+
+                            if found {
+                                break;
+                            }
+                        }
+                        found
+                    } else {
+                        false
+                    };
+
+                    let seq_mult = if is_near_outpost { 2.5 } else { 1.0 };
+                    if cell.terrain_type == TerrainType::Forest {
+                        row_sequestration += cell.plant_biomass as f64 * seq_mult;
+                    }
 
                     let mut fertility_gain =
                         (global_recovery_rate + (cell.plant_biomass * 0.0001)).max(-0.05);
@@ -365,7 +402,7 @@ impl TerrainGrid {
                         _ => {}
                     }
                 }
-                (row_biomass, row_transitions)
+                ((row_biomass, row_sequestration), row_transitions)
             })
             .unzip();
 
@@ -374,7 +411,9 @@ impl TerrainGrid {
                 self.set_cell_type(x, y, t);
             }
         }
-        total_biomass_vec.iter().sum()
+        let total_biomass = stats.iter().map(|s| s.0).sum();
+        let total_sequestration = stats.iter().map(|s| s.1).sum();
+        (total_biomass, total_sequestration)
     }
 
     pub fn trigger_dust_bowl(&mut self, duration: u32) {

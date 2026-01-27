@@ -4,14 +4,18 @@ use std::collections::HashMap;
 
 pub fn brain_forward(
     brain: &Brain,
-    inputs: [f32; 20],
+    inputs: [f32; 22],
     last_hidden: [f32; 6],
 ) -> ([f32; 11], [f32; 6]) {
     brain.forward(inputs, last_hidden)
 }
 
-pub fn mutate_brain(brain: &mut Brain, config: &crate::model::config::AppConfig) {
-    brain.mutate_with_config(config);
+pub fn mutate_brain(
+    brain: &mut Brain,
+    config: &crate::model::config::AppConfig,
+    specialization: Option<crate::model::state::entity::Specialization>,
+) {
+    brain.mutate_with_config(config, specialization);
 }
 
 pub fn mutate_genotype(
@@ -19,6 +23,7 @@ pub fn mutate_genotype(
     config: &crate::model::config::AppConfig,
     population: usize,
     is_radiation_storm: bool,
+    specialization: Option<crate::model::state::entity::Specialization>,
 ) {
     let mut rng = rand::thread_rng();
     let mut effective_mutation_rate = config.evolution.mutation_rate;
@@ -43,7 +48,7 @@ pub fn mutate_genotype(
     let mut brain_config = config.clone();
     brain_config.evolution.mutation_rate = effective_mutation_rate;
     brain_config.evolution.mutation_amount = effective_mutation_amount;
-    mutate_brain(&mut genotype.brain, &brain_config);
+    mutate_brain(&mut genotype.brain, &brain_config, specialization);
 
     if rng.gen::<f32>() < effective_mutation_rate {
         genotype.sensing_range = (genotype.sensing_range

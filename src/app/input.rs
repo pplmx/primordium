@@ -249,7 +249,13 @@ impl App {
                 let pop = self.world.entities.len();
                 let is_storm = self.env.is_radiation_storm();
                 for entity in &mut self.world.entities {
-                    intel::mutate_genotype(&mut entity.intel.genotype, &self.config, pop, is_storm);
+                    intel::mutate_genotype(
+                        &mut entity.intel.genotype,
+                        &self.config,
+                        pop,
+                        is_storm,
+                        entity.intel.specialization,
+                    );
                     // Sync phenotype
                     entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                     entity.physics.max_speed = entity.intel.genotype.max_speed;
@@ -359,8 +365,10 @@ impl App {
                             &self.config,
                             pop,
                             is_storm,
+                            entity.intel.specialization,
                         );
                         // Sync phenotype
+
                         entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                         entity.physics.max_speed = entity.intel.genotype.max_speed;
                         entity.metabolism.max_energy = entity.intel.genotype.max_energy;

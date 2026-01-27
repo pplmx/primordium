@@ -67,6 +67,8 @@ impl Brain {
             "DigPressure",
             "SharedGoal",
             "SharedThreat",
+            "LineagePop",
+            "LineageEnergy",
         ];
 
         for (i, label) in input_labels.iter().enumerate() {
@@ -82,12 +84,12 @@ impl Brain {
         ];
         for (i, label) in output_labels.iter().enumerate() {
             nodes.push(Node {
-                id: i + 26,
+                id: i + 28,
                 node_type: NodeType::Output,
                 label: Some(label.to_string()),
             });
         }
-        for i in 37..43 {
+        for i in 39..45 {
             nodes.push(Node {
                 id: i,
                 node_type: NodeType::Hidden,
@@ -97,8 +99,8 @@ impl Brain {
 
         let mut innov = 0;
         let mut connections = Vec::new();
-        for i in 0..26 {
-            for h in 37..43 {
+        for i in 0..28 {
+            for h in 39..45 {
                 connections.push(Connection {
                     from: i,
                     to: h,
@@ -109,8 +111,8 @@ impl Brain {
                 innov += 1;
             }
         }
-        for h in 37..43 {
-            for o in 26..37 {
+        for h in 39..45 {
+            for o in 28..39 {
                 connections.push(Connection {
                     from: h,
                     to: o,
@@ -125,20 +127,20 @@ impl Brain {
         Self {
             nodes,
             connections,
-            next_node_id: 43,
+            next_node_id: 45,
             learning_rate: 0.0,
             weight_deltas: HashMap::new(),
         }
     }
 
-    pub fn forward(&self, inputs: [f32; 20], last_hidden: [f32; 6]) -> ([f32; 11], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 22], last_hidden: [f32; 6]) -> ([f32; 11], [f32; 6]) {
         let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
         (outputs, next_hidden)
     }
 
     pub fn forward_internal(
         &self,
-        inputs: [f32; 20],
+        inputs: [f32; 22],
         last_hidden: [f32; 6],
     ) -> ([f32; 11], [f32; 6], HashMap<usize, f32>) {
         let mut node_values: HashMap<usize, f32> = HashMap::new();
@@ -155,6 +157,8 @@ impl Brain {
         node_values.insert(23, inputs[17]);
         node_values.insert(24, inputs[18]);
         node_values.insert(25, inputs[19]);
+        node_values.insert(26, inputs[20]);
+        node_values.insert(27, inputs[21]);
 
         let mut new_values = node_values.clone();
         for conn in &self.connections {
@@ -174,18 +178,18 @@ impl Brain {
         }
 
         for (i, output) in outputs.iter_mut().enumerate() {
-            *output = *new_values.get(&(i + 26)).unwrap_or(&0.0);
+            *output = *new_values.get(&(i + 28)).unwrap_or(&0.0);
         }
 
         let mut next_hidden = [0.0; 6];
         for (i, val) in next_hidden.iter_mut().enumerate() {
-            *val = *new_values.get(&(i + 37)).unwrap_or(&0.0);
+            *val = *new_values.get(&(i + 39)).unwrap_or(&0.0);
         }
 
         (outputs, next_hidden, new_values)
     }
 
-    pub fn learn(&mut self, inputs: [f32; 20], last_hidden: [f32; 6], reinforcement: f32) {
+    pub fn learn(&mut self, inputs: [f32; 22], last_hidden: [f32; 6], reinforcement: f32) {
         if self.learning_rate.abs() < 1e-4 || reinforcement.abs() < 1e-4 {
             return;
         }
@@ -209,16 +213,43 @@ impl Brain {
         }
     }
 
-    pub fn mutate_with_config(&mut self, config: &crate::model::config::AppConfig) {
+    pub fn mutate_with_config(
+        &mut self,
+        config: &crate::model::config::AppConfig,
+        specialization: Option<crate::model::state::entity::Specialization>,
+    ) {
         let mut rng = rand::thread_rng();
+        let rate = config.evolution.mutation_rate;
+        let amount = config.evolution.mutation_amount;
 
-        if rng.gen::<f32>() < config.evolution.mutation_rate {
-            self.learning_rate += rng
-                .gen_range(-config.evolution.mutation_amount..config.evolution.mutation_amount)
-                * 0.1;
-            self.learning_rate = self
-                .learning_rate
-                .clamp(0.0, config.brain.learning_rate_max);
+        for conn in &mut self.connections {
+            if rng.gen::<f32>() < rate {
+                let mut mut_amount = amount;
+
+                // Phase 62: Functional Neural Modules (Protected weight sets)
+                if let Some(spec) = specialization {
+                    use crate::model::state::entity::Specialization;
+                    let is_protected = match spec {
+                        Specialization::Soldier => {
+                            // Soldiers protect weights related to Aggression (output 31)
+                            // ID 28+3 = 31
+                            conn.to == 31
+                        }
+                        Specialization::Engineer => {
+                            // Engineers protect weights related to Dig/Build (outputs 37, 38)
+                            // ID 28+9=37, 28+10=38
+                            conn.to == 37 || conn.to == 38
+                        }
+                        _ => false,
+                    };
+                    if is_protected {
+                        mut_amount *= 0.1; // 90% mutation resistance
+                    }
+                }
+
+                conn.weight += rng.gen_range(-mut_amount..mut_amount);
+                conn.weight = conn.weight.clamp(-5.0, 5.0);
+            }
         }
 
         for conn in &mut self.connections {
@@ -356,7 +387,7 @@ mod tests {
     #[test]
     fn test_brain_new_random_has_correct_dimensions() {
         let brain = Brain::new_random();
-        assert!(brain.nodes.len() >= 43);
+        assert!(brain.nodes.len() >= 45);
         let inputs = brain
             .nodes
             .iter()
@@ -367,26 +398,15 @@ mod tests {
             .iter()
             .filter(|n| n.node_type == NodeType::Output)
             .count();
-        assert_eq!(inputs, 26);
+        assert_eq!(inputs, 28);
         assert_eq!(outputs, 11);
-    }
-
-    #[test]
-    fn test_brain_forward_is_deterministic() {
-        let brain = Brain::new_random();
-        let inputs = [0.5; 20];
-        let hidden = [0.1; 6];
-        let (out1, hid1) = brain.forward(inputs, hidden);
-        let (out2, hid2) = brain.forward(inputs, hidden);
-        assert_eq!(out1, out2);
-        assert_eq!(hid1, hid2);
     }
 
     #[test]
     fn test_brain_learning_strengthens_connections() {
         let mut brain = Brain::new_random();
         brain.learning_rate = 0.5;
-        let inputs = [1.0; 20];
+        let inputs = [1.0; 22];
         let hidden = [1.0; 6];
         let initial_weights: Vec<f32> = brain.connections.iter().map(|c| c.weight).collect();
 

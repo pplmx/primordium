@@ -66,7 +66,7 @@ fn test_global_event_radiation_surge() {
     let original_dna = genotype.to_hex();
 
     use primordium_lib::model::systems::intel;
-    intel::mutate_genotype(&mut genotype, &world.config, 100, true);
+    intel::mutate_genotype(&mut genotype, &world.config, 100, true, None);
 
     assert_ne!(genotype.to_hex(), original_dna);
 }

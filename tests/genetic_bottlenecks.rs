@@ -64,6 +64,7 @@ fn test_genetic_drift_in_small_pop() {
             &config,
             population,
             false,
+            None,
         );
         if (test_genotype.trophic_potential - original_tp).abs() > 0.001 {
             drift_occurred = true;

@@ -79,7 +79,7 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 20]>,
+    perception_buffer: Vec<[f32; 22]>,
     #[serde(skip, default)]
     decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
@@ -338,6 +338,85 @@ impl World {
         counts
     }
 
+    fn resolve_power_grid(&mut self) {
+        let mut visited = HashSet::new();
+        let outpost_indices: Vec<usize> = self
+            .terrain
+            .cells
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                matches!(
+                    c.terrain_type,
+                    crate::model::state::terrain::TerrainType::Outpost
+                )
+            })
+            .map(|(i, _)| i)
+            .collect();
+
+        for &start_idx in &outpost_indices {
+            if visited.contains(&start_idx) {
+                continue;
+            }
+
+            let mut group = Vec::new();
+            let mut queue = std::collections::VecDeque::new();
+            queue.push_back(start_idx);
+            visited.insert(start_idx);
+
+            while let Some(current) = queue.pop_front() {
+                group.push(current);
+                let cx = (current % self.width as usize) as i32;
+                let cy = (current / self.width as usize) as i32;
+
+                for dy in -1..=1 {
+                    for dx in -1..=1 {
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
+                        let nx = cx + dx;
+                        let ny = cy + dy;
+                        if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
+                            let nidx = (ny as usize * self.width as usize) + nx as usize;
+                            if !visited.contains(&nidx) {
+                                let cell = &self.terrain.cells[nidx];
+                                if matches!(
+                                    cell.terrain_type,
+                                    crate::model::state::terrain::TerrainType::Outpost
+                                        | crate::model::state::terrain::TerrainType::River
+                                ) {
+                                    visited.insert(nidx);
+                                    queue.push_back(nidx);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let outpost_group: Vec<usize> = group
+                .into_iter()
+                .filter(|&i| {
+                    matches!(
+                        self.terrain.cells[i].terrain_type,
+                        crate::model::state::terrain::TerrainType::Outpost
+                    )
+                })
+                .collect();
+
+            if outpost_group.len() > 1 {
+                let total_energy: f32 = outpost_group
+                    .iter()
+                    .map(|&i| self.terrain.cells[i].energy_store)
+                    .sum();
+                let avg_energy = total_energy / outpost_group.len() as f32;
+                for &i in &outpost_group {
+                    self.terrain.cells[i].energy_store = avg_energy;
+                }
+            }
+        }
+    }
+
     fn handle_outposts(&mut self) {
         let outpost_indices: Vec<usize> = self
             .terrain
@@ -484,8 +563,9 @@ impl World {
             &mut rng,
             &self.config,
         );
-        let total_plant_biomass = self.terrain.update(self.pop_stats.biomass_h);
-        env.sequestrate_carbon(total_plant_biomass * 0.00001);
+        let (_total_plant_biomass, total_sequestration) =
+            self.terrain.update(self.pop_stats.biomass_h);
+        env.sequestrate_carbon(total_sequestration * 0.00001);
         env.add_carbon(self.entities.len() as f64 * 0.01);
         env.consume_oxygen(
             self.entities.len() as f64 * self.config.metabolism.oxygen_consumption_rate,
@@ -624,6 +704,13 @@ impl World {
                     .lineage_registry
                     .get_memory_value(&e.metabolism.lineage_id, "threat");
 
+                let mut lin_pop = 0.0;
+                let mut lin_energy = 0.0;
+                if let Some(record) = self.lineage_registry.lineages.get(&e.metabolism.lineage_id) {
+                    lin_pop = (record.current_population as f32 / 100.0).min(1.0);
+                    lin_energy = (record.total_energy_consumed as f32 / 10000.0).min(1.0);
+                }
+
                 [
                     (dx_f / 20.0) as f32,
                     (dy_f / 20.0) as f32,
@@ -645,6 +732,8 @@ impl World {
                     d_press,
                     shared_goal,
                     shared_threat,
+                    lin_pop,
+                    lin_energy,
                 ]
             })
             .collect_into_vec(&mut perception_buffer);
@@ -722,6 +811,7 @@ impl World {
                                 &self.config,
                                 current_entities.len(),
                                 env.is_radiation_storm(),
+                                None,
                             );
                             let dist = e.intel.genotype.distance(&child_genotype);
                             if dist > self.config.evolution.speciation_threshold {
@@ -1057,6 +1147,9 @@ impl World {
             self.lineage_registry.prune();
         }
         self.handle_outposts();
+        if self.tick.is_multiple_of(10) {
+            self.resolve_power_grid();
+        }
         stats::update_stats(
             self.tick,
             &self.entities,

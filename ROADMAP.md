@@ -510,7 +510,7 @@ toml = "0.8"
     - Functional: Transition from individual survival to collective engineering.
     - Technical: Implement `Structure::Outpost` which acts as a permanent pheromone relay and energy capacitor.
 
-### Phase 61: Evolutionary Ecology & Civilizational Tiers 🚧
+### Phase 61: Evolutionary Ecology & Civilizational Tiers ✅
 
 - **Ancestral Traits & Epigenetics**:
     - Functional: High-fitness lineages accumulate "Ancestral Traits" that persist through mass extinctions.
@@ -524,6 +524,21 @@ toml = "0.8"
 - **Neural Specialization (Phase 2)**:
     - Functional: Castes evolve distinct neural sub-modules (e.g., Soldier-only hidden layer paths).
     - Technical: Topology-restricted mutations based on `Specialization`.
+
+### Phase 62: Planetary Engineering & Hive Mind Synergy 🚧
+
+- **Atmospheric Engineering**:
+    - Functional: Dominant lineages influence global climate via forest management.
+    - Technical: Owned `Forest` cells near `Outposts` sequestrate CO2 at 2.5x rate.
+- **Outpost Power Grid (Civ Level 2)**:
+    - Functional: Connected outposts share energy stores across the network.
+    - Technical: BFS-based connectivity check for Outposts linked by `River` (Canal) cells.
+- **Functional Neural Modules**:
+    - Functional: Castes develop "Protected Clusters" in their brain that resist destructive mutation.
+    - Technical: Implementation of mutation-resistant weight sets based on specialization-driven activity.
+- **Hive Perception**:
+    - Functional: Entities sense the macro-state of their entire lineage.
+    - Technical: Neural inputs for `LineageGlobalPop` and `LineageGlobalEnergy`.
 
 ---
 
