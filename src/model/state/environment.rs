@@ -123,6 +123,7 @@ pub struct Environment {
     pub heat_wave_timer: u32,
     pub ice_age_timer: u32,
     pub abundance_timer: u32,
+    pub radiation_timer: u32,
     // Era System
     pub current_era: Era,
     // Season System
@@ -149,6 +150,7 @@ impl Default for Environment {
             heat_wave_timer: 0,
             ice_age_timer: 0,
             abundance_timer: 0,
+            radiation_timer: 0,
             current_era: Era::Primordial,
             current_season: Season::Spring,
             season_tick: 0,
@@ -218,6 +220,9 @@ impl Environment {
     }
     pub fn is_abundance(&self) -> bool {
         self.abundance_timer > 0
+    }
+    pub fn is_radiation_storm(&self) -> bool {
+        self.radiation_timer >= 50
     }
 
     pub fn climate(&self) -> ClimateState {

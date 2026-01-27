@@ -87,6 +87,8 @@ pub struct Intel {
     pub last_activations: std::collections::HashMap<i32, f32>,
     pub specialization: Option<Specialization>,
     pub spec_meters: std::collections::HashMap<Specialization, f32>,
+    pub ancestral_traits:
+        std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -168,6 +170,7 @@ impl Entity {
                 last_activations: std::collections::HashMap::new(),
                 specialization: None,
                 spec_meters: std::collections::HashMap::new(),
+                ancestral_traits: std::collections::HashSet::new(),
             },
         }
     }

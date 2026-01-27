@@ -162,6 +162,17 @@ impl App {
                             Color::Yellow,
                         ));
                     }
+                    NetMessage::GlobalEvent { event_type, .. } => {
+                        match event_type.as_str() {
+                            "SolarFlare" => self.env.radiation_timer = 500,
+                            "DeepFreeze" => self.env.ice_age_timer = 1000,
+                            _ => {}
+                        }
+                        self.event_log.push_back((
+                            format!("GLOBAL EVENT: {} detected across the Hive!", event_type),
+                            Color::Red,
+                        ));
+                    }
                     _ => {}
                 }
             }

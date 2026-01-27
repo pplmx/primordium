@@ -38,6 +38,10 @@ pub fn update_events(env: &mut Environment, config: &AppConfig) {
     } else {
         env.abundance_timer = env.abundance_timer.saturating_sub(1);
     }
+
+    if env.radiation_timer > 0 {
+        env.radiation_timer = env.radiation_timer.saturating_sub(1);
+    }
 }
 
 /// Update simulation era and season cycle.

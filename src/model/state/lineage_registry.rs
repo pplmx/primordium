@@ -12,6 +12,13 @@ pub enum LineageGoal {
     Resilience,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AncestralTrait {
+    HardenedMetabolism, // Lower idle cost
+    AcuteSenses,        // Higher sensing range
+    SwiftMovement,      // Higher max speed
+}
+
 /// High-level metrics for an ancestral line.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LineageRecord {
@@ -26,6 +33,8 @@ pub struct LineageRecord {
     pub is_extinct: bool,
     pub best_legend_id: Option<Uuid>,
     pub completed_goals: std::collections::HashSet<LineageGoal>,
+    pub ancestral_traits: std::collections::HashSet<AncestralTrait>,
+    pub civilization_level: u32,
     #[serde(
         skip,
         default = "crate::model::state::lineage_registry::create_shared_memory"
@@ -51,6 +60,8 @@ impl Default for LineageRecord {
             is_extinct: false,
             best_legend_id: None,
             completed_goals: std::collections::HashSet::new(),
+            ancestral_traits: std::collections::HashSet::new(),
+            civilization_level: 0,
             collective_memory: create_shared_memory(),
         }
     }
@@ -175,6 +186,13 @@ impl LineageRegistry {
         }
     }
 
+    pub fn get_traits(&self, id: &Uuid) -> std::collections::HashSet<AncestralTrait> {
+        self.lineages
+            .get(id)
+            .map(|r| r.ancestral_traits.clone())
+            .unwrap_or_default()
+    }
+
     pub fn get_extinct_lineages(&self) -> Vec<Uuid> {
         self.lineages
             .iter()
@@ -194,11 +212,24 @@ impl LineageRegistry {
         }
     }
 
-    pub fn check_goals(&mut self, tick: u64, _social_grid: &[u8], _width: u16, _height: u16) {
+    pub fn check_goals(
+        &mut self,
+        tick: u64,
+        _social_grid: &[u8],
+        _width: u16,
+        _height: u16,
+        outpost_counts: &std::collections::HashMap<Uuid, usize>,
+    ) {
         let top_id = self.get_top_lineages(1).first().map(|&(id, _)| *id);
 
         for record in self.lineages.values_mut() {
             if !record.is_extinct {
+                // Civilization Leveling
+                let outposts = *outpost_counts.get(&record.id).unwrap_or(&0);
+                if outposts >= 5 {
+                    record.civilization_level = 1;
+                }
+
                 if record.current_population >= 50
                     && !record.completed_goals.contains(&LineageGoal::Expansion)
                 {
@@ -206,12 +237,18 @@ impl LineageRegistry {
                     if let Ok(mut mem) = record.collective_memory.write() {
                         mem.insert("goal".to_string(), 1.0);
                     }
+                    record
+                        .ancestral_traits
+                        .insert(AncestralTrait::SwiftMovement);
                 }
 
                 if tick.saturating_sub(record.first_appearance_tick) >= 2000
                     && !record.completed_goals.contains(&LineageGoal::Resilience)
                 {
                     record.completed_goals.insert(LineageGoal::Resilience);
+                    record
+                        .ancestral_traits
+                        .insert(AncestralTrait::HardenedMetabolism);
                 }
 
                 if Some(record.id) == top_id
@@ -219,6 +256,7 @@ impl LineageRegistry {
                     && !record.completed_goals.contains(&LineageGoal::Dominance)
                 {
                     record.completed_goals.insert(LineageGoal::Dominance);
+                    record.ancestral_traits.insert(AncestralTrait::AcuteSenses);
                 }
             }
         }

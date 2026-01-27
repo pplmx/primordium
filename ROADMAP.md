@@ -495,7 +495,7 @@ toml = "0.8"
 - **Synaptic Plasticity Tools**: Visualizing Hebbian learning deltas in real-time.
 - **Unified Trade Engine**: Centralized resource management across all simulation tiers.
 
-### Phase 60: Macro-Evolutionary Intelligence & Global Cooperation 🚧
+### Phase 60: Macro-Evolutionary Intelligence & Global Cooperation ✅
 
 - **Lineage-Wide Coordination**:
     - Functional: Implement `LineageGoal` registry to synchronize behavioral biases (e.g., "Expand West") across distributed clusters.
@@ -509,6 +509,21 @@ toml = "0.8"
 - **Civilization Seeds**:
     - Functional: Transition from individual survival to collective engineering.
     - Technical: Implement `Structure::Outpost` which acts as a permanent pheromone relay and energy capacitor.
+
+### Phase 61: Evolutionary Ecology & Civilizational Tiers 🚧
+
+- **Ancestral Traits & Epigenetics**:
+    - Functional: High-fitness lineages accumulate "Ancestral Traits" that persist through mass extinctions.
+    - Technical: Implement trait persistence in `LineageRecord` with metabolic cost scaling.
+- **Global Peer Events**:
+    - Functional: Real-time environmental crises synchronized across the Hive network (e.g., "Solar Flare").
+    - Technical: `NetMessage::GlobalEvent` propagation with deterministic seed synchronization.
+- **Civilization Leveling**:
+    - Functional: Tribes that build connected Outpost networks gain civilization bonuses (e.g., shared energy pool).
+    - Technical: Graph-based connectivity check for Outposts in `World::update`.
+- **Neural Specialization (Phase 2)**:
+    - Functional: Castes evolve distinct neural sub-modules (e.g., Soldier-only hidden layer paths).
+    - Technical: Topology-restricted mutations based on `Specialization`.
 
 ---
 

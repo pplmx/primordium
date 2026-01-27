@@ -74,6 +74,11 @@ pub enum NetMessage {
         amount: f32,
         sender_id: Uuid,
     },
+    GlobalEvent {
+        event_type: String,
+        severity: f32,
+        seed: u64,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

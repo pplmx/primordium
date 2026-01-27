@@ -16,8 +16,14 @@ fn test_r_strategy_fast_reproduction() {
     assert!(r_parent.is_mature(60, config.metabolism.maturity_age));
 
     // Reproduce
-    let child =
-        primordium_lib::model::systems::social::reproduce_asexual(&mut r_parent, 60, &config, 1);
+    let child = primordium_lib::model::systems::social::reproduce_asexual(
+        &mut r_parent,
+        60,
+        &config,
+        1,
+        std::collections::HashSet::new(),
+        false,
+    );
 
     // Child should have 20% of 200 = 40 energy
     assert!(child.metabolism.energy < 50.0);
@@ -42,8 +48,14 @@ fn test_k_strategy_slow_reproduction() {
     assert!(k_parent.is_mature(250, config.metabolism.maturity_age));
 
     // Reproduce
-    let child =
-        primordium_lib::model::systems::social::reproduce_asexual(&mut k_parent, 250, &config, 1);
+    let child = primordium_lib::model::systems::social::reproduce_asexual(
+        &mut k_parent,
+        250,
+        &config,
+        1,
+        std::collections::HashSet::new(),
+        false,
+    );
 
     // Child should have 80% of 400 = 320 energy
     assert!(child.metabolism.energy > 300.0);
@@ -57,12 +69,12 @@ fn test_maturity_body_size_coupling() {
 
     // Strategy R
     genotype.maturity_gene = 0.5;
-    primordium_lib::model::systems::intel::mutate_genotype(&mut genotype, &config, 100);
+    primordium_lib::model::systems::intel::mutate_genotype(&mut genotype, &config, 100, false);
     let r_max = genotype.max_energy;
 
     // Strategy K
     genotype.maturity_gene = 2.0;
-    primordium_lib::model::systems::intel::mutate_genotype(&mut genotype, &config, 100);
+    primordium_lib::model::systems::intel::mutate_genotype(&mut genotype, &config, 100, false);
     let k_max = genotype.max_energy;
 
     assert!(

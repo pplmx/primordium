@@ -18,7 +18,14 @@ fn test_phenotype_inheritance_and_mutation() {
     let config = AppConfig::default();
 
     // Test Asexual Reproduction (Mutation)
-    let child = primordium_lib::model::systems::social::reproduce_asexual(&mut p1, 100, &config, 1);
+    let child = primordium_lib::model::systems::social::reproduce_asexual(
+        &mut p1,
+        100,
+        &config,
+        1,
+        std::collections::HashSet::new(),
+        false,
+    );
 
     // Phenotype fields in Physics/Metabolism should have been synced during reproduction
     assert!(child.physics.sensing_range >= 3.0 && child.physics.sensing_range <= 15.0);

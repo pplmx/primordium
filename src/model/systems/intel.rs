@@ -18,10 +18,16 @@ pub fn mutate_genotype(
     genotype: &mut crate::model::state::entity::Genotype,
     config: &crate::model::config::AppConfig,
     population: usize,
+    is_radiation_storm: bool,
 ) {
     let mut rng = rand::thread_rng();
     let mut effective_mutation_rate = config.evolution.mutation_rate;
     let mut effective_mutation_amount = config.evolution.mutation_amount;
+
+    if is_radiation_storm {
+        effective_mutation_rate *= 5.0;
+        effective_mutation_amount *= 2.0;
+    }
 
     if config.evolution.population_aware && population > 0 {
         if population < config.evolution.bottleneck_threshold {

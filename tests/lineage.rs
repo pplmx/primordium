@@ -9,8 +9,14 @@ fn test_lineage_inheritance() {
     let original_lineage = parent.metabolism.lineage_id;
 
     // Asexual reproduction
-    let child =
-        primordium_lib::model::systems::social::reproduce_asexual(&mut parent, 100, &config, 1);
+    let child = primordium_lib::model::systems::social::reproduce_asexual(
+        &mut parent,
+        100,
+        &config,
+        1,
+        std::collections::HashSet::new(),
+        false,
+    );
 
     assert_eq!(
         child.metabolism.lineage_id, original_lineage,

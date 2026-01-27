@@ -65,6 +65,16 @@ pub fn action_system(
 
     // Nest Metabolic Benefit
     let mut base_idle = ctx.config.metabolism.base_idle_cost;
+
+    // Phase 61: Ancestral Traits (Hardened Metabolism)
+    if entity
+        .intel
+        .ancestral_traits
+        .contains(&crate::model::state::lineage_registry::AncestralTrait::HardenedMetabolism)
+    {
+        base_idle *= 0.8;
+    }
+
     let terrain_type = ctx
         .terrain
         .get(entity.physics.x, entity.physics.y)

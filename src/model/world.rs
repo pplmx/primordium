@@ -325,6 +325,19 @@ impl World {
         }
     }
 
+    pub fn count_outposts_by_lineage(&self) -> std::collections::HashMap<uuid::Uuid, usize> {
+        let mut counts = std::collections::HashMap::new();
+        for cell in &self.terrain.cells {
+            use crate::model::state::terrain::TerrainType;
+            if cell.terrain_type == TerrainType::Outpost {
+                if let Some(id) = cell.owner_id {
+                    *counts.entry(id).or_insert(0) += 1;
+                }
+            }
+        }
+        counts
+    }
+
     fn handle_outposts(&mut self) {
         let outpost_indices: Vec<usize> = self
             .terrain
@@ -708,13 +721,18 @@ impl World {
                                 &mut child_genotype,
                                 &self.config,
                                 current_entities.len(),
+                                env.is_radiation_storm(),
                             );
                             let dist = e.intel.genotype.distance(&child_genotype);
                             if dist > self.config.evolution.speciation_threshold {
                                 child_genotype.lineage_id = uuid::Uuid::new_v4();
                             }
-                            let baby =
-                                social::reproduce_with_mate_parallel(e, self.tick, child_genotype);
+                            let baby = social::reproduce_with_mate_parallel(
+                                e,
+                                self.tick,
+                                child_genotype,
+                                self.lineage_registry.get_traits(&e.metabolism.lineage_id),
+                            );
                             cmds.push(InteractionCommand::Birth {
                                 parent_idx: i,
                                 baby: Box::new(baby),
@@ -823,6 +841,8 @@ impl World {
                         self.tick,
                         &self.config,
                         current_entities.len(),
+                        self.lineage_registry.get_traits(&e.metabolism.lineage_id),
+                        env.is_radiation_storm(),
                     );
                     cmds.push(InteractionCommand::Birth {
                         parent_idx: i,
@@ -1012,11 +1032,13 @@ impl World {
         self.killed_ids = killed_ids;
         self.eaten_food_indices = eaten_food_indices;
         if self.tick.is_multiple_of(1000) {
+            let outpost_counts = self.count_outposts_by_lineage();
             self.lineage_registry.check_goals(
                 self.tick,
                 &self.social_grid,
                 self.width,
                 self.height,
+                &outpost_counts,
             );
             let _ = self
                 .lineage_registry

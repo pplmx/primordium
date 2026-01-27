@@ -117,13 +117,15 @@ pub fn reproduce_asexual_parallel(
     tick: u64,
     config: &crate::model::config::AppConfig,
     population: usize,
+    traits: std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
+    is_radiation_storm: bool,
 ) -> (Entity, f32) {
     let mut rng = rand::thread_rng();
     let investment = parent.intel.genotype.reproductive_investment as f64;
     let child_energy = parent.metabolism.energy * investment;
 
     let mut child_genotype = parent.intel.genotype.clone();
-    intel::mutate_genotype(&mut child_genotype, config, population);
+    intel::mutate_genotype(&mut child_genotype, config, population, is_radiation_storm);
     let dist = parent.intel.genotype.distance(&child_genotype);
     if dist > config.evolution.speciation_threshold {
         child_genotype.lineage_id = Uuid::new_v4();
@@ -133,61 +135,75 @@ pub fn reproduce_asexual_parallel(
     let g = (parent.physics.g as i16 + rng.gen_range(-15..=15)).clamp(0, 255) as u8;
     let b = (parent.physics.b as i16 + rng.gen_range(-15..=15)).clamp(0, 255) as u8;
 
-    (
-        Entity {
-            id: Uuid::new_v4(),
-            parent_id: Some(parent.id),
-            physics: Physics {
-                x: parent.physics.x,
-                y: parent.physics.y,
-                vx: parent.physics.vx,
-                vy: parent.physics.vy,
-                r,
-                g,
-                b,
-                symbol: '●',
-                home_x: parent.physics.x,
-                home_y: parent.physics.y,
-                sensing_range: child_genotype.sensing_range,
-                max_speed: child_genotype.max_speed,
-            },
-            metabolism: Metabolism {
-                trophic_potential: child_genotype.trophic_potential,
-                energy: child_energy,
-                prev_energy: child_energy,
-                max_energy: child_genotype.max_energy,
-                peak_energy: child_energy,
-                birth_tick: tick,
-                generation: parent.metabolism.generation + 1,
-                offspring_count: 0,
-                lineage_id: child_genotype.lineage_id,
-                has_metamorphosed: false,
-                is_in_transit: false,
-                migration_id: None,
-            },
-            health: Health {
-                pathogen: None,
-                infection_timer: 0,
-                immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
-            },
-            intel: Intel {
-                genotype: child_genotype,
-                last_hidden: [0.0; 6],
-                last_aggression: 0.0,
-                last_share_intent: 0.0,
-                last_signal: 0.0,
-                last_vocalization: 0.0,
-                reputation: 1.0,
-                rank: 0.5,
-                bonded_to: None,
-                last_inputs: [0.0; 20],
-                last_activations: std::collections::HashMap::new(),
-                specialization: None,
-                spec_meters: std::collections::HashMap::new(),
-            },
+    let mut baby = Entity {
+        id: Uuid::new_v4(),
+        parent_id: Some(parent.id),
+        physics: Physics {
+            x: parent.physics.x,
+            y: parent.physics.y,
+            vx: parent.physics.vx,
+            vy: parent.physics.vy,
+            r,
+            g,
+            b,
+            symbol: '●',
+            home_x: parent.physics.x,
+            home_y: parent.physics.y,
+            sensing_range: child_genotype.sensing_range,
+            max_speed: child_genotype.max_speed,
         },
-        dist,
-    )
+        metabolism: Metabolism {
+            trophic_potential: child_genotype.trophic_potential,
+            energy: child_energy,
+            prev_energy: child_energy,
+            max_energy: child_genotype.max_energy,
+            peak_energy: child_energy,
+            birth_tick: tick,
+            generation: parent.metabolism.generation + 1,
+            offspring_count: 0,
+            lineage_id: child_genotype.lineage_id,
+            has_metamorphosed: false,
+            is_in_transit: false,
+            migration_id: None,
+        },
+        health: Health {
+            pathogen: None,
+            infection_timer: 0,
+            immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+        },
+        intel: Intel {
+            genotype: child_genotype,
+            last_hidden: [0.0; 6],
+            last_aggression: 0.0,
+            last_share_intent: 0.0,
+            last_signal: 0.0,
+            last_vocalization: 0.0,
+            reputation: 1.0,
+            rank: 0.5,
+            bonded_to: None,
+            last_inputs: [0.0; 20],
+            last_activations: std::collections::HashMap::new(),
+            specialization: None,
+            spec_meters: std::collections::HashMap::new(),
+            ancestral_traits: traits.clone(),
+        },
+    };
+
+    // Apply traits to phenotype
+    for trait_item in traits {
+        use crate::model::state::lineage_registry::AncestralTrait;
+        match trait_item {
+            AncestralTrait::AcuteSenses => {
+                baby.physics.sensing_range *= 1.2;
+            }
+            AncestralTrait::SwiftMovement => {
+                baby.physics.max_speed *= 1.1;
+            }
+            _ => {}
+        }
+    }
+
+    (baby, dist)
 }
 
 pub fn reproduce_asexual(
@@ -195,9 +211,12 @@ pub fn reproduce_asexual(
     tick: u64,
     config: &crate::model::config::AppConfig,
     population: usize,
+    traits: std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
+    is_radiation_storm: bool,
 ) -> Entity {
     let investment = parent.intel.genotype.reproductive_investment as f64;
-    let (baby, _) = reproduce_asexual_parallel(parent, tick, config, population);
+    let (baby, _) =
+        reproduce_asexual_parallel(parent, tick, config, population, traits, is_radiation_storm);
     parent.metabolism.energy *= 1.0 - investment;
     parent.metabolism.offspring_count += 1;
     baby
@@ -207,11 +226,12 @@ pub fn reproduce_with_mate_parallel(
     parent: &Entity,
     tick: u64,
     child_genotype: crate::model::state::entity::Genotype,
+    traits: std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
 ) -> Entity {
     let mut rng = rand::thread_rng();
     let investment = parent.intel.genotype.reproductive_investment as f64;
     let child_energy = parent.metabolism.energy * investment;
-    Entity {
+    let mut baby = Entity {
         id: Uuid::new_v4(),
         parent_id: Some(parent.id),
         physics: Physics {
@@ -261,8 +281,25 @@ pub fn reproduce_with_mate_parallel(
             last_activations: std::collections::HashMap::new(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
+            ancestral_traits: traits.clone(),
         },
+    };
+
+    // Apply traits to phenotype
+    for trait_item in traits {
+        use crate::model::state::lineage_registry::AncestralTrait;
+        match trait_item {
+            AncestralTrait::AcuteSenses => {
+                baby.physics.sensing_range *= 1.2;
+            }
+            AncestralTrait::SwiftMovement => {
+                baby.physics.max_speed *= 1.1;
+            }
+            _ => {}
+        }
     }
+
+    baby
 }
 
 pub fn reproduce_sexual_parallel(
@@ -270,13 +307,15 @@ pub fn reproduce_sexual_parallel(
     p2: &Entity,
     tick: u64,
     config: &crate::model::config::AppConfig,
+    is_radiation_storm: bool,
+    traits: std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
 ) -> (Entity, f32) {
     let mut rng = rand::thread_rng();
     let investment = p1.intel.genotype.reproductive_investment as f64;
     let child_energy = (p1.metabolism.energy + p2.metabolism.energy) * investment / 2.0;
 
     let mut child_genotype = p1.intel.genotype.crossover(&p2.intel.genotype);
-    intel::mutate_genotype(&mut child_genotype, config, 100);
+    intel::mutate_genotype(&mut child_genotype, config, 100, is_radiation_storm);
 
     let r = ((p1.physics.r as i16 + p2.physics.r as i16) / 2 + rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
@@ -285,61 +324,75 @@ pub fn reproduce_sexual_parallel(
     let b = ((p1.physics.b as i16 + p2.physics.b as i16) / 2 + rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
 
-    (
-        Entity {
-            id: Uuid::new_v4(),
-            parent_id: Some(p1.id),
-            physics: Physics {
-                x: p1.physics.x,
-                y: p1.physics.y,
-                vx: p1.physics.vx,
-                vy: p1.physics.vy,
-                r,
-                g,
-                b,
-                symbol: '●',
-                home_x: p1.physics.x,
-                home_y: p1.physics.y,
-                sensing_range: child_genotype.sensing_range,
-                max_speed: child_genotype.max_speed,
-            },
-            metabolism: Metabolism {
-                trophic_potential: child_genotype.trophic_potential,
-                energy: child_energy,
-                prev_energy: child_energy,
-                max_energy: child_genotype.max_energy,
-                peak_energy: child_energy,
-                birth_tick: tick,
-                generation: p1.metabolism.generation.max(p2.metabolism.generation) + 1,
-                offspring_count: 0,
-                lineage_id: child_genotype.lineage_id,
-                has_metamorphosed: false,
-                is_in_transit: false,
-                migration_id: None,
-            },
-            health: Health {
-                pathogen: None,
-                infection_timer: 0,
-                immunity: (p1.health.immunity + p2.health.immunity) / 2.0,
-            },
-            intel: Intel {
-                genotype: child_genotype,
-                last_hidden: [0.0; 6],
-                last_aggression: 0.0,
-                last_share_intent: 0.0,
-                last_signal: 0.0,
-                last_vocalization: 0.0,
-                reputation: 1.0,
-                rank: 0.5,
-                bonded_to: None,
-                last_inputs: [0.0; 20],
-                last_activations: std::collections::HashMap::new(),
-                specialization: None,
-                spec_meters: std::collections::HashMap::new(),
-            },
+    let mut baby = Entity {
+        id: Uuid::new_v4(),
+        parent_id: Some(p1.id),
+        physics: Physics {
+            x: p1.physics.x,
+            y: p1.physics.y,
+            vx: p1.physics.vx,
+            vy: p1.physics.vy,
+            r,
+            g,
+            b,
+            symbol: '●',
+            home_x: p1.physics.x,
+            home_y: p1.physics.y,
+            sensing_range: child_genotype.sensing_range,
+            max_speed: child_genotype.max_speed,
         },
-        0.1,
-    )
+        metabolism: Metabolism {
+            trophic_potential: child_genotype.trophic_potential,
+            energy: child_energy,
+            prev_energy: child_energy,
+            max_energy: child_genotype.max_energy,
+            peak_energy: child_energy,
+            birth_tick: tick,
+            generation: p1.metabolism.generation.max(p2.metabolism.generation) + 1,
+            offspring_count: 0,
+            lineage_id: child_genotype.lineage_id,
+            has_metamorphosed: false,
+            is_in_transit: false,
+            migration_id: None,
+        },
+        health: Health {
+            pathogen: None,
+            infection_timer: 0,
+            immunity: (p1.health.immunity + p2.health.immunity) / 2.0,
+        },
+        intel: Intel {
+            genotype: child_genotype,
+            last_hidden: [0.0; 6],
+            last_aggression: 0.0,
+            last_share_intent: 0.0,
+            last_signal: 0.0,
+            last_vocalization: 0.0,
+            reputation: 1.0,
+            rank: 0.5,
+            bonded_to: None,
+            last_inputs: [0.0; 20],
+            last_activations: std::collections::HashMap::new(),
+            specialization: None,
+            spec_meters: std::collections::HashMap::new(),
+            ancestral_traits: traits.clone(),
+        },
+    };
+
+    // Apply traits to phenotype
+    for trait_item in traits {
+        use crate::model::state::lineage_registry::AncestralTrait;
+        match trait_item {
+            AncestralTrait::AcuteSenses => {
+                baby.physics.sensing_range *= 1.2;
+            }
+            AncestralTrait::SwiftMovement => {
+                baby.physics.max_speed *= 1.1;
+            }
+            _ => {}
+        }
+    }
+
+    (baby, 0.1)
 }
 
 pub fn increment_spec_meter(

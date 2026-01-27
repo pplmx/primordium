@@ -247,8 +247,9 @@ impl App {
             }
             KeyCode::Char('x') | KeyCode::Char('X') => {
                 let pop = self.world.entities.len();
+                let is_storm = self.env.is_radiation_storm();
                 for entity in &mut self.world.entities {
-                    intel::mutate_genotype(&mut entity.intel.genotype, &self.config, pop);
+                    intel::mutate_genotype(&mut entity.intel.genotype, &self.config, pop, is_storm);
                     // Sync phenotype
                     entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                     entity.physics.max_speed = entity.intel.genotype.max_speed;
@@ -351,8 +352,14 @@ impl App {
             KeyCode::Char('m') => {
                 if let Some(id) = self.selected_entity {
                     let pop = self.world.entities.len();
+                    let is_storm = self.env.is_radiation_storm();
                     if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
-                        intel::mutate_genotype(&mut entity.intel.genotype, &self.config, pop);
+                        intel::mutate_genotype(
+                            &mut entity.intel.genotype,
+                            &self.config,
+                            pop,
+                            is_storm,
+                        );
                         // Sync phenotype
                         entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                         entity.physics.max_speed = entity.intel.genotype.max_speed;
