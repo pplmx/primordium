@@ -540,7 +540,7 @@ toml = "0.8"
     - Functional: Entities sense the macro-state of their entire lineage.
     - Technical: Neural inputs for `LineageGlobalPop` and `LineageGlobalEnergy`.
 
-### Phase 63: Civilizational Specialization & Resource Pipelining 🚧
+### Phase 63: Civilizational Specialization & Resource Pipelining ✅
 
 - **Outpost Specialization**:
     - Functional: Outposts can evolve into **Silos** (high energy cap) or **Nurseries** (birth energy bonus).
@@ -554,6 +554,21 @@ toml = "0.8"
 - **Ecosystem Dominance**:
     - Functional: Tribes with level 3 civilizations gain global albedo control (cooling).
     - Technical: Global climate forcing based on total owned forest area.
+
+### Phase 64: Genetic Memory & Evolutionary Rewind 🚧
+
+- **Genotype Checkpointing**:
+    - Functional: Lineages automatically archive the "All-Time Best" genotype in their shared memory.
+    - Technical: Track `max_fitness_genotype` in `LineageRecord`.
+- **Atavistic Recall**:
+    - Functional: Struggling entities have a small chance to revert to an ancestral successful genotype (Rewind).
+    - Technical: Mutation variant that replaces current brain with the checkpointed brain.
+- **Fitness Trend Perception**:
+    - Functional: Organisms perceive whether their metabolic health is improving or declining.
+    - Technical: 30th neural input for `EnergyVelocity` (dE/dt).
+- **Ancestral Specters**:
+    - Functional: Visualization of historical hotspots where extinct lineages flourished.
+    - Technical: Temporal decay heatmap of past high-density regions.
 
 ---
 

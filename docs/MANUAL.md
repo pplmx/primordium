@@ -37,6 +37,7 @@ Primordium runs in two environments:
 | `p` | **Reincarnate** (Reset DNA) selected entity |
 | `! @ # $ % ^` | Select **Terrain Brush** (Plains, Mt, River, Oasis, Wall, Barren) |
 | `Shift+K` | Toggle **Heat Wave** Disaster |
+| `f` | Send **Relief Energy** to selected lineage |
 | `l` | Trigger **Mass Extinction** (90% wipe) |
 | `r` | Trigger **Resource Boom** (Spawn Food) |
 | `w` | **Save** Simulation State to `save.json` |
@@ -114,6 +115,7 @@ Entities are colored based on their **genetic tribe**.
 - `▒` **Desert** (Tan): Resource-poor, high heat stress land. Plains degrade to Desert under low fertility.
 - `░` **Barren** (Brown): Overgrazed or disaster-struck land. Very low food growth.
 - `█` **Wall** (Dark Gray): Impassable physical barrier.
+- `Ψ` **Outpost**: Civilization structure built by Alphas. Acts as an energy capacitor and pheromone relay.
 - `Ω` **Nest** (Gold): Protective structures built by entities. Grant metabolic recovery and energy boost for offspring.
 - `*` **Food** (Green): Energy source spawned based on RAM usage.
 
@@ -221,4 +223,4 @@ Primordium supports **Interstellar Migration**. Travel off the edge while "Onlin
 - [History & Archeology](../docs/wiki/HISTORY.md)
 
 ---
-*Last Updated: 2026-01-24*
+*Last Updated: 2026-01-27*

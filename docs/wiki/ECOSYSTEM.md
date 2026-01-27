@@ -76,8 +76,9 @@ Terrain cells are no longer static entities but living systems that evolve based
 | Biome | Characteristics | Food Yield | Carbon Effect |
 |-------|-----------------|------------|---------------|
 | **Plains** | Baseline state, moderate fertility | 1.0x (baseline) | Neutral |
-| **Forest** | High fertility, sustained biomass | 1.5x (enhanced) | Sequestration (-0.5/tick) |
+| **Forest** | High fertility, sustained biomass | 1.5x (enhanced) | Sequestration (-0.5/tick); -1.25/tick if near Outpost |
 | **Desert** | Depleted fertility, overgrazed | 0.3x (minimal) | Neutral (barren) |
+| **Outpost** | Civilization marker, energy capacitor | 0.2x | High stability, Pheromone relay |
 
 ##### Biome Transition Rules
 
@@ -386,7 +387,27 @@ When varying success levels create tension in high-density areas, tribes can fra
 - **Mechanism**: The entity initiates a "Schism", mutating its color significantly to founding a new, distinct tribe.
 - **Effect**: Reduces local competition by breaking the "Same Tribe" protection pact, allowing the new tribe to fight for resources or migrate away.
 
-### World Eras (Phase 42)
+### Civilizational Infrastructure (Phase 60-63)
+
+Simulation progress has enabled life to move beyond survival and into permanent engineering.
+
+#### Outposts (Ψ)
+Constructed by high-rank Alphas with massive energy surplus.
+- **Energy Capacitor**: Outposts collect 5% surplus energy from nearby kin and redistribute it to those below 30% energy.
+- **Pheromone Relay**: Becomes a permanent beacon for the owning lineage, boosting `SignalA` pheromones.
+- **Atmospheric Engineering**: Forest cells within a radius of 2 from an Outpost sequestrate carbon at **2.5x** the normal rate.
+
+#### Power Grids
+When Outposts are connected via **Canals** (Rivers) or shared borders, they form a **Power Grid**.
+- **Equilibrium Flow**: Energy stores across the connected component are balanced every 10 ticks, allowing remote "Silo" outposts to fuel frontline "Nursery" outposts or defense lines.
+
+#### Specializations
+Outposts can specialize based on local needs:
+- **Standard**: Balanced storage and support.
+- **Silo**: 5x energy capacity (5000.0); aggressive surplus collection.
+- **Nursery**: Enhanced birth energy bonus; aggressive distribution to offspring.
+
+### World Eras (Phase 42-61)
 
 The simulation progresses through narrative eras triggered by macro-ecological metrics rather than simple time:
 
@@ -397,6 +418,7 @@ The simulation progresses through narrative eras triggered by macro-ecological m
 | **Flourishing** | `Hotspots >= 2` AND `Population > 150` | High diversity, adaptive radiation. |
 | **Dominance War** | `CO2 > 800` OR `PredatorBiomass % > 30%` | Resource scarcity, metabolic stress (1.5x). |
 | **Apex Era** | `TopFitness > 8000` | Peak evolution reached, stability focus. |
+| **Civilization Era** | `Outposts >= 10` | Emergence of permanent structures and global cooling. |
 
 ### Photosynthesis (Food Growth)
 

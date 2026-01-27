@@ -60,6 +60,7 @@ Directly manipulate individual organisms to guide evolution or eliminate threats
 | `M` | **Mutate** | Apply random genetic modifications to selected entity |
 | `K` | **Smite** | Remove selected entity from simulation |
 | `P` | **Reincarnate** | Randomize selected entity's HexDNA completely |
+| `F` | **Divine Relief**| Broadcast 500 energy to all kin of the selected entity across the network |
 | `G` | **Resurrect** | Inject extinct genotype from fossil record |
 
 #### Mutation Effects (`M`)
@@ -221,9 +222,10 @@ Each snapshot captures:
 ║  GLOBAL ACTIONS           NAVIGATION                         ║
 ║  X: Genetic Surge         Y: Archeology Mode                 ║
 ║  C: Export HexDNA         [: Previous Snapshot               ║
-║  V: Import HexDNA         ]: Next Snapshot                   ║
-║  W: Save World            Left Click: Select/Paint           ║
-║  Space: Pause/Resume      Right Click: Food Inject           ║
+║  Shift+C: Export Brain    ]: Next Snapshot                   ║
+║  V: Import HexDNA         Left Click: Select/Paint           ║
+║  W: Save World            Right Click: Food Inject           ║
+║  F: Divine Relief         Space: Pause/Resume                ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 

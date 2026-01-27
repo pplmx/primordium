@@ -35,14 +35,25 @@ The entire `Genotype` struct is serialized via `serde_json` and converted to a h
 
 ## Mutation Logic
 
-Mutation is the primary driver of diversity. The engine uses a population-aware scaling system to balance exploration and stability.
+Mutation is the primary driver of diversity. The engine uses a population-aware scaling system and environmental forcing to balance exploration and stability.
 
-### Mutation Rates & Amounts
+### Environmental & Network Forcing (Phase 61)
 
-- **Base Mutation Rate**: Defined in `EvolutionConfig` (default ~0.1).
-- **Base Mutation Amount**: Defined in `EvolutionConfig` (default ~0.1).
+The mutation rate is no longer purely internal. Environmental events, potentially synchronized across the Hive network, can force rapid adaptation.
 
-### Population-Aware Scaling
+- **Radiation Storms**: During "Solar Flare" events, mutation rates increase by **5.0x** and mutation amounts by **2.0x**. This triggers a period of "Adaptive Radiation" where lineages must rapidly explore new genetic configurations to survive increased metabolic stress.
+
+### Ancestral Traits & Epigenetics (Phase 61)
+
+Success leaves a mark beyond the immediate genotype. High-fitness lineages accumulate **Ancestral Traits** that provide persistent physical buffs.
+
+| Trait | Requirement | Impact |
+| :--- | :--- | :--- |
+| **Hardened Metabolism** | 2000+ ticks survival | -20% Base Idle Cost |
+| **Acute Senses** | Dominant rank | +20% Perception Range |
+| **Swift Movement** | 50+ population | +10% Max Speed |
+
+These traits are inherited trans-generationally and are applied directly to the phenotype, representing the "Epigenetic Memory" of the ancestral line.
 
 The mutation intensity scales dynamically based on the current population:
 

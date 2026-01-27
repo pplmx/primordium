@@ -6,6 +6,42 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 60-63: Macro-Evolution & Digital Civilization] - 2026-01-27
+
+### Evolutionary Leap: Collective Intelligence & Planetary Engineering
+
+This major multi-phase update transitions the simulation from a collection of isolated organisms to a networked **Hive Civilization**. Lineages now possess collective memory, cooperate across universes, and actively engineer the planet's atmosphere and infrastructure.
+
+#### ✨ Features
+
+- **Macro-Evolutionary Intelligence (Phase 60)**:
+    - **Collective Memory**: Lineages now share a persistent memory pool. Significant events (predation, abundance) reinforce lineage-wide `threat` and `goal` signals.
+    - **Neural Feedback**: Added `SharedGoal` and `SharedThreat` inputs to the brain, allowing for evolved swarm coordination.
+    - **Outposts (Ψ)**: High-rank Alphas can now establish permanent structures that serve as territorial markers and energy capacitors.
+- **Civilizational Tiers (Phase 61)**:
+    - **Ancestral Traits**: High-fitness lineages accumulate persistent "Epigenetic" buffs (e.g., Hardened Metabolism, Acute Senses) that are inherited across mass extinctions.
+    - **Global Peer Events**: Real-time environmental crises (Solar Flares, Deep Freezes) are now synchronized across the Hive network.
+    - **Radiation Storms**: Solar flares trigger high-intensity mutation surges across all connected peers, forcing rapid adaptation.
+    - **Civ Leveling**: Lineages reach "Civilization Level 1" upon owning 5+ outposts, unlocking specialized infrastructure.
+- **Planetary Engineering & Power Grids (Phase 62)**:
+    - **Atmospheric Management**: Forests near outposts sequestrate CO2 at 2.5x the standard rate, allowing dominant civilizations to steer global climate.
+    - **Outpost Power Grid**: Connected outposts (via canals/rivers) automatically balance and share energy stores using a decentralized BFS distribution logic.
+    - **Hive Perception**: Entities sense the macro-state of their entire lineage (`LineagePop`, `LineageEnergy`) as primary neural inputs.
+- **Resource Pipelining & Overmind (Phase 63)**:
+    - **Outpost Specialization**: Structures can specialize into **Silos** (5x energy capacity) or **Nurseries** (birth energy bonuses).
+    - **Resource Flow**: Energy now "flows" towards equilibrium through the power grid, allowing remote outposts to support frontline kin.
+    - **Hive Overmind Broadcast**: High-rank Alphas can broadcast a `Overmind` goal signal that overrides kin movement across the simulation.
+    - **Protected Brain Modules**: Specialized castes gain 90% mutation resistance on role-critical neural weights, ensuring cognitive stability in high-radiation eras.
+
+#### 🛠️ Technical Achievements
+
+- **Expanded Brain Architecture**: Upgraded to **29 inputs** and **12 outputs** to support macro-perception and civilizational control.
+- **Stigmergic Power Grids**: Implemented a graph-based energy balancing system that operates in the background of the 3-pass parallel loop.
+- **Cross-Universe Relief Protocol**: Developed the `NetMessage::Relief` protocol for non-reciprocal P2P energy transfers.
+- **Planetary Feedback Loops**: Coupled forest ownership and outpost density to global albedo and sequestration metrics.
+
+---
+
 ## [Phase 56-58: Atmospheric Chemistry & Complex Life Cycles] - 2026-01-26
 
 ### Evolutionary Leap: Respiratory Stress & Metamorphosis

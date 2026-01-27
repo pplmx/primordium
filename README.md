@@ -58,12 +58,15 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 - **Kin Recognition**: Entities sense the relative centroid of their lineage members (**KX**, **KY**), enabling collective herding behaviors.
 - **Semantic Language**: Active chemical signaling (**SA**, **SB**) provides a substrate for evolved social coordination.
 - **Linguistic Evolution (Phase 48)**: Entities possess **Hearing** (Input) and **Vocalization** (Output) channels. Real-time acoustic ripples propagate through the `SoundGrid`, allowing for the emergence of alarm calls and swarming behaviors.
+- **Macro-Intelligence (Phase 60)**: Lineages share a persistent **Collective Memory**. Environmental goals and threats are reinforced across the entire ancestry, influencing neural bias globally.
 - **Lifetime Learning (Phase 47)**: Hebbian plasticity allows brains to adapt weights in real-time based on reinforcement signals (Food/Pain).
 - **Massive Parallelism (Phase 41)**: Powered by **Rayon** and a "Proposal Unzipping" pipeline, supporting 10,000+ entities with zero-jitter performance on multi-core systems.
 
 ### 👥 Social & Life History
 
 - **Specialized Castes (Phase 53)**: Entities evolve into **Soldiers** (high damage, high cost), **Engineers** (efficient terraforming), or **Providers** (efficient sharing) based on their lifetime activities and genetic bias.
+- **Planetary Engineering (Phase 62)**: Tribes actively manage the atmosphere. Forests owned by advanced lineages sequestrate CO2 at 2.5x speed, enabling collective control over global warming.
+- **Civilizational Tiers (Phase 61)**: Lineages that build and connect **Outpost Networks** gain civilization bonuses and accumulate **Ancestral Traits** that persist through mass extinctions.
 - **R/K Selection Strategies**: Organisms evolve trade-offs between many weak offspring (Strategy R) or few high-investment heirs (Strategy K).
 - **Metabolic Niches**: Specialized digestion for Green vs Blue food types coupled to terrain geography.
 - **Interspecies Symbiosis (Phase 54)**: Mutualistic bonds can form between different lineages, granting metabolic bonuses and enabling **Interspecies Hybridization** (sexual crossover).
@@ -118,6 +121,8 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 - **P2P Multiverse**: Entities migrate between simulation instances via a high-performance **Axum** relay server.
 - **Peer Discovery**: Automated peer awareness with real-time REST APIs for global monitoring.
 - **HexDNA Protocol**: Unified genetic protocol ensuring 100% fidelity migrations across simulation versions.
+- **Global Altruism (Phase 60)**: Cross-universe P2P relief transfers allow thriving civilizations to support struggling kin in remote realities.
+- **Networked Crises (Phase 61)**: Global events (Solar Flares) are synchronized across all connected peers, forcing Hive-wide adaptive radiations.
 
 ### 📜 The Ledger & Blockchain
 
@@ -169,6 +174,7 @@ cargo run --release -- --mode screensaver
 | `P` | Reincarnate (Randomize DNA) selected organism |
 | `! @ # $ % ^` | Select Terrain Brush (Plains, Mt, River, Oasis, Wall, Barren) |
 | `Shift+K` | Toggle **Heat Wave** Disaster |
+| `F` | Send **Relief Energy** to selected lineage |
 | `L` | Trigger **Mass Extinction** (90% wipe) |
 | `R` | Trigger **Resource Boom** (100x Food) |
 | `+` / `-`| Increase / Decrease time scale |

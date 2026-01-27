@@ -10,14 +10,14 @@ In earlier phases, entities used a fixed MLP (Multilayer Perceptron) architectur
 
 The brain starts with a standard minimal configuration but grows dynamically:
 
-- **Initial Input Layer**: 22 Neurons (14 Environment + 6 Recurrent + 1 Hearing + 1 Partner Energy)
+- **Initial Input Layer**: 29 Neurons (14 Environment + 6 Recurrent + 9 Civilizational/Contextual)
 - **Initial Hidden Layer**: 6 Neurons
-- **Initial Output Layer**: 11 Neurons
+- **Initial Output Layer**: 12 Neurons
 - **Dynamic Growth**: Through mutations, new hidden nodes and connections can be added indefinitely.
-- **Node ID Mapping (Phase 52 Fixed)**: 
-  - Inputs: 0..22 (0-13 Env, 14-19 Memory, 20 Hear, 21 Partner Energy)
-  - Outputs: 22..33
-  - Initial Hidden: 33..39
+- **Node ID Mapping (Phase 63 Update)**: 
+  - Inputs: 0..28 (0-13 Env, 14-19 Memory, 20-28 Macro/Social)
+  - Outputs: 29..40
+  - Initial Hidden: 41..47
 
 ## Inputs (Sensors)
 
@@ -45,6 +45,21 @@ The brain starts with a standard minimal configuration but grows dynamically:
 | 14-19| `Memory` | Output values of the initial 6 hidden nodes from previous tick (T-1) |
 | 20   | `Hear`   | Hearing Input (Sound intensity at location) |
 | 21   | `PartnerEnergy` | Energy level of potential mate |
+| 22   | `BuildPress` | Local demand for building structures |
+| 23   | `DigPress` | Local demand for digging canals |
+| 24   | `SharedGoal` | Lineage-wide goal reinforcement signal |
+| 25   | `SharedThreat` | Lineage-wide threat reinforcement signal |
+| 26   | `LinPop` | Macro population count of the lineage |
+| 27   | `LinEnergy` | Macro total energy consumption of the lineage |
+| 28   | `Overmind` | Active guidance signal from high-rank Alphas |
+
+## Macro-Evolutionary Feedback (Phase 60)
+
+The brain now incorporates **Shared Memory** inputs. When an entity dies to predation or finds massive food, it reinforces a global lineage signal. Every member of the lineage senses this via the `SharedGoal` and `SharedThreat` inputs, allowing for the emergence of "Instinctual Swarming" or "Collective Cowardice" without direct proximity.
+
+## Planetary Perception (Phase 62)
+
+Advanced lineages perceive their global footprint. Inputs 26 and 27 (`LinPop`, `LinEnergy`) allow organisms to scale their aggression or reproductive investment based on their lineage's current dominance or vulnerability in the simulation.
 
 ## Trophic Spectrum Influence (Phase 33)
 
@@ -58,17 +73,25 @@ With the introduction of the **Trophic Potential (TP)** gene, the brain must now
 
 | ID | Action | Threshold |
 | ---- | --------- | ------------ |
-| 22 | `MoveX` | Continuous (-1.0 to 1.0) |
-| 23 | `MoveY` | Continuous (-1.0 to 1.0) |
-| 24 | `Speed` | Continuous (Max speed modulation) |
-| 25 | `Aggro` | > 0.5 invokes attack state |
-| 26 | `Share` | > 0.5 transfers energy to tribe |
-| 27 | `Color` | Real-time color modulation (-1.0 to 1.0) |
-| 28 | `EmitSA` | > 0.5 emits Signal A |
-| 29 | `EmitSB` | > 0.5 emits Signal B |
-| 30 | `Bond` | > 0.5 initiates symbiosis/mating request |
-| 31 | `Dig` | > 0.5 convert Wall/Mountain -> Plains |
-| 32 | `Build` | > 0.5 convert Plains -> Wall/Nest |
+| 29 | `MoveX` | Continuous (-1.0 to 1.0) |
+| 30 | `MoveY` | Continuous (-1.0 to 1.0) |
+| 31 | `Speed` | Continuous (Max speed modulation) |
+| 32 | `Aggro` | > 0.5 invokes attack state |
+| 33 | `Share` | > 0.5 transfers energy to tribe |
+| 34 | `Color` | Real-time color modulation (-1.0 to 1.0) |
+| 35 | `EmitSA` | > 0.5 emits Signal A |
+| 36 | `EmitSB` | > 0.5 emits Signal B |
+| 37 | `Bond` | > 0.5 initiates symbiosis/mating request |
+| 38 | `Dig` | > 0.5 convert Wall/Mountain -> Plains |
+| 39 | `Build` | > 0.5 convert Plains -> Wall/Nest/Outpost |
+| 40 | `Overmind` | > 0.5 emits lineage-wide Overmind signal (Alphas only) |
+
+## Protected Cognitive Modules (Phase 62)
+
+To prevent civilizational collapse in high-radiation eras, specialized castes develop **Protected weight sets**. 
+- **Soldiers**: Weights leading to the `Aggro` output (32) are resistant to mutation.
+- **Engineers**: Weights leading to `Dig` and `Build` (38, 39) are resistant to mutation.
+This allows lineages to maintain their engineering and defense capabilities even when environmental stressors force rapid neural drift in other behavioral areas.
 
 ## Topological Mutations
 

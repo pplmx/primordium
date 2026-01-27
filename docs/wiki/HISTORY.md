@@ -39,7 +39,13 @@ To enable deep history browsing, the engine periodically captures the entire mac
     - Location of biodiversity hotspots.
 - **Logging**: Snapshots are streamed to `logs/live.jsonl` as `Snapshot` events, providing an immutable record of the world's progress.
 
-## Implementation Details (`src/model/history.rs`)
+## Civilizational History (Phase 63)
+
+Simulation history now records the rise of civilizational structures.
+
+- **Outpost Timeline**: Snapshots track the density and ownership of Outposts (`Ψ`), mapping the expansion of digital territories.
+- **Power Grid Formation**: History captures when lineages successfully link remote outposts via canal networks, marking the transition from decentralized tribes to integrated civilizations.
+- **Climate Legacy**: Long-term atmospheric graphs show how dominant lineages used forest management near outposts to reverse global warming, leaving a "Planetary Fingerprint" of their reign.
 
 The history system is built around several key structures:
 - `Fossil`: The data structure representing an extinct lineage's legacy.

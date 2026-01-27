@@ -247,6 +247,15 @@ let x = X { field: val, ..X::default() };
 - **Specialized Castes**: `Soldier`, `Engineer`, and `Provider` castes with specific metabolic and behavioral benefits (e.g., Engineer 50% dig/build cost reduction).
 - **Parallelization**: Full parallel execution of action and biological systems via pheromone/sound proposal unzipping.
 
+### Phase 60-63 Updates (Macro-Evolution & Civilization)
+
+- **Collective Intelligence**: Shared lineage memory with goal/threat reinforcement and neural feedback loop.
+- **Global Altruism**: P2P energy relief protocol for lineage-based energy transfers between universes.
+- **Outpost Networks**: High-rank Alphas can establish Outposts (`Ψ`) with energy storage and specialization (Silo/Nursery).
+- **Planetary Engineering**: Forests near outposts sequestrate CO2 at 2.5x rate; tribal networks provide global cooling.
+- **Power Grids**: Connected outposts share and balance energy stores via stigmergic canals (Rivers).
+- **Protected Brain Modules**: Specialized castes gain mutation resistance on role-critical neural weights.
+
 ### Phase 58 Update
 
 - **Metamorphosis**: Completed structured life stage transition.

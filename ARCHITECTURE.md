@@ -143,3 +143,8 @@ src/
 * **Phase 41**: **Massive Parallelism**。实现了大规模并行化仿真。基于 Rayon 构建了三阶段更新环（快照 -> 并行提案 -> 顺序应用），并优化了行分区（Row-partitioned）的空间哈希算法，支持万级实体的高性能模拟。
 * **Phase 42**: **Macro-Environmental Pressures**。引入了宏观环境压力系统。根据不同时代（Era）自动调整选择压力（如代谢率、突变率缩放），由生物量、碳水平和多样性等宏观指标驱动时代的更替。
 * **Phase 49**: **Advanced Social Hierarchies**。实现了高级社会等级系统。引入了 **Social Rank**（社会等级）计算逻辑以及 **Soldier**（士兵）阶层。实现了基于密度的 **Tribal Splitting**（部落分裂）机制，当低等级个体处于拥挤环境时会自发分裂出新的敌对部落。修复了神经网络输出层的寻址偏移问题。
+* **Phase 60-63**: **Macro-Evolution & Civilizational Infrastructure**。
+    * **Collective Intelligence**: 建立了全谱系共享的**集体记忆 (Shared Memory)**。捕食与丰饶事件实时反馈至谱系信号，通过神经反馈引导族群行为。
+    * **Planetary Engineering**: 引入了**前哨站 (Outpost)** 文档化结构。支持前哨动力网格 (Power Grids) 能量平衡、行星级碳汇加速（Outpost-adjacent Forest Sequestration）以及全球救济协议 (P2P Relief)。
+    * **Protected Modules**: 在特化阶级（战士/工程师）中引入了**受保护神经簇**，具备极高的变异抗性，确保在环境剧变下文明核心技能的存续。
+    * **P2P Altruism**: 实现了跨 Universe 的利他救济协议，支持繁荣文明对异域同族的远程能量支援。
