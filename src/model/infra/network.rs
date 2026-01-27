@@ -1,16 +1,11 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Information about a connected peer
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PeerInfo {
-    /// Unique identifier for this peer
     pub peer_id: Uuid,
-    /// Number of entities in this peer's world
     pub entity_count: usize,
-    /// Total migrations sent by this peer
     pub migrations_sent: usize,
-    /// Total migrations received by this peer
     pub migrations_received: usize,
 }
 
@@ -32,61 +27,56 @@ pub struct TradeProposal {
     pub request_amount: f32,
 }
 
-/// Messages exchanged between Client and Server
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", content = "payload")]
 pub enum NetMessage {
-    /// Client -> Server: Handshake on connect
-    Handshake { client_id: Uuid },
-    /// Server -> Client: Acknowledge handshake
+    Handshake {
+        client_id: Uuid,
+    },
     Welcome {
         server_message: String,
         online_count: usize,
     },
-    /// Bidirectional: Migrate an entity to another world
     MigrateEntity {
+        migration_id: Uuid,
         dna: String,
         energy: f32,
         generation: u32,
-        species_name: String, // Basic metadata
-        /// NEW: Phase 45 - Validation fields
-        fingerprint: String, // Hash of sender's world config
-        checksum: String,     // Hash of (dna + energy + gen)
+        species_name: String,
+        fingerprint: String,
+        checksum: String,
     },
-    /// Server -> All Clients: Broadcast stats
+    MigrateAck {
+        migration_id: Uuid,
+    },
     StatsUpdate {
         online_count: usize,
         total_migrations: usize,
     },
-    /// Client -> Server: Announce peer presence and stats
     PeerAnnounce {
         entity_count: usize,
         migrations_sent: usize,
         migrations_received: usize,
     },
-    /// Server -> All Clients: Broadcast list of connected peers
-    PeerList { peers: Vec<PeerInfo> },
-    /// Bidirectional: Propose a trade (broadcasted by server)
+    PeerList {
+        peers: Vec<PeerInfo>,
+    },
     TradeOffer(TradeProposal),
-    /// Bidirectional: Accept a trade
     TradeAccept {
         proposal_id: Uuid,
         acceptor_id: Uuid,
     },
+    TradeRevoke {
+        proposal_id: Uuid,
+    },
 }
 
-/// Network state visible to the simulation
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct NetworkState {
-    /// List of connected peers
     pub peers: Vec<PeerInfo>,
-    /// This client's ID (assigned by server)
     pub client_id: Option<Uuid>,
-    /// Total migrations sent
     pub migrations_sent: usize,
-    /// Total migrations received
     pub migrations_received: usize,
-    /// NEW: Active trade offers in the multiverse
     pub trade_offers: Vec<TradeProposal>,
 }
 
@@ -175,7 +165,9 @@ mod tests {
 
     #[test]
     fn test_migrate_entity_serialization() {
+        let migration_id = Uuid::new_v4();
         let msg = NetMessage::MigrateEntity {
+            migration_id,
             dna: "ABCD1234".to_string(),
             energy: 150.5,
             generation: 7,
@@ -184,10 +176,12 @@ mod tests {
             checksum: "sum".to_string(),
         };
 
-        let json = serde_json::to_string(&msg).expect("Failed to serialize");
-        let parsed: NetMessage = serde_json::from_str(&json).expect("Failed to deserialize");
+        let json = serde_json::to_string(&msg).expect("Failed to serialize message");
+        let parsed: NetMessage =
+            serde_json::from_str(&json).expect("Failed to deserialize message");
 
         if let NetMessage::MigrateEntity {
+            migration_id: m_id,
             dna,
             energy,
             generation,
@@ -196,6 +190,7 @@ mod tests {
             checksum,
         } = parsed
         {
+            assert_eq!(m_id, migration_id);
             assert_eq!(dna, "ABCD1234");
             assert!((energy - 150.5).abs() < 0.01);
             assert_eq!(generation, 7);

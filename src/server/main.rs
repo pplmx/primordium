@@ -18,7 +18,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 // Re-use the shared network protocol from the main library
-use primordium_lib::model::infra::network::{NetMessage, PeerInfo};
+use primordium_lib::model::infra::network::{NetMessage, PeerInfo, TradeProposal};
 
 /// Server state tracking connected peers and their info
 struct AppState {
@@ -28,6 +28,7 @@ struct AppState {
     peers: Arc<Mutex<HashMap<Uuid, PeerInfo>>>,
     /// Total migrations processed by server
     total_migrations: Arc<Mutex<usize>>,
+    active_trades: Arc<Mutex<HashMap<Uuid, TradeProposal>>>,
 }
 
 #[tokio::main]
@@ -44,6 +45,7 @@ async fn main() {
         tx,
         peers: Arc::new(Mutex::new(HashMap::new())),
         total_migrations: Arc::new(Mutex::new(0)),
+        active_trades: Arc::new(Mutex::new(HashMap::new())),
     });
 
     let app = Router::new()
@@ -141,6 +143,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let tx = state.tx.clone();
     let peers_clone = state.peers.clone();
     let total_migrations_clone = state.total_migrations.clone();
+    let active_trades_clone = state.active_trades.clone();
     let id_clone = client_id;
 
     // Process incoming messages
@@ -161,12 +164,36 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         tracing::info!("Relaying migration from {}", id_clone);
                         let _ = tx.send(text);
                     }
-                    NetMessage::TradeOffer(_) => {
+                    NetMessage::TradeOffer(proposal) => {
+                        {
+                            let mut trades = active_trades_clone.lock().expect("Mutex poisoned");
+                            trades.insert(proposal.id, proposal.clone());
+                        }
                         tracing::info!("Relaying trade offer from {}", id_clone);
                         let _ = tx.send(text);
                     }
-                    NetMessage::TradeAccept { .. } => {
-                        tracing::info!("Relaying trade acceptance from {}", id_clone);
+                    NetMessage::TradeAccept { proposal_id, .. } => {
+                        let is_valid = {
+                            let mut trades = active_trades_clone.lock().expect("Mutex poisoned");
+                            trades.remove(&proposal_id).is_some()
+                        };
+
+                        if is_valid {
+                            tracing::info!("Relaying valid trade acceptance for {}", proposal_id);
+                            let _ = tx.send(text);
+                        } else {
+                            tracing::warn!("Blocked double-acceptance for trade {}", proposal_id);
+                        }
+                    }
+                    NetMessage::TradeRevoke { proposal_id } => {
+                        {
+                            let mut trades = active_trades_clone.lock().expect("Mutex poisoned");
+                            trades.remove(&proposal_id);
+                        }
+                        let _ = tx.send(text);
+                    }
+                    NetMessage::MigrateAck { .. } => {
+                        tracing::info!("Relaying migration ACK for {}", id_clone);
                         let _ = tx.send(text);
                     }
                     NetMessage::PeerAnnounce {
@@ -204,6 +231,28 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // Cleanup on disconnect
     send_task.abort();
+
+    let revoked_ids = {
+        let mut trades = state.active_trades.lock().expect("Mutex poisoned");
+        let to_remove: Vec<Uuid> = trades
+            .iter()
+            .filter(|(_, p)| p.sender_id == client_id)
+            .map(|(id, _)| *id)
+            .collect();
+
+        for id in &to_remove {
+            trades.remove(id);
+        }
+        to_remove
+    };
+
+    for id in revoked_ids {
+        let revoke = NetMessage::TradeRevoke { proposal_id: id };
+        if let Ok(msg_str) = serde_json::to_string(&revoke) {
+            let _ = tx.send(msg_str);
+        }
+    }
+
     let disconnect_peer_list_msg = {
         let mut peers = peers_clone.lock().expect("Mutex poisoned");
         peers.remove(&id_clone);

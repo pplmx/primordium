@@ -22,7 +22,9 @@ fn test_entity_migration_via_network() {
     hasher.update(entity.metabolism.generation.to_be_bytes());
     let checksum = hex::encode(hasher.finalize());
 
+    let migration_id = Uuid::new_v4();
     let msg = NetMessage::MigrateEntity {
+        migration_id,
         dna: brain_dna.clone(),
         energy: entity.metabolism.energy as f32,
         generation: entity.metabolism.generation,
@@ -39,6 +41,7 @@ fn test_entity_migration_via_network() {
         serde_json::from_str(&transport_json).expect("Failed to parse message");
 
     if let NetMessage::MigrateEntity {
+        migration_id: m_id,
         dna,
         energy,
         generation,
@@ -47,6 +50,7 @@ fn test_entity_migration_via_network() {
         checksum,
     } = received_msg
     {
+        assert_eq!(m_id, migration_id);
         assert_eq!(dna, brain_dna);
         assert_eq!(energy, 175.0);
         assert_eq!(generation, 5);
@@ -83,7 +87,9 @@ fn test_entity_migration_with_hex_dna() {
     hasher.update(entity.metabolism.generation.to_be_bytes());
     let checksum = hex::encode(hasher.finalize());
 
+    let migration_id = Uuid::new_v4();
     let msg = NetMessage::MigrateEntity {
+        migration_id,
         dna: brain_hex.clone(),
         energy: entity.metabolism.energy as f32,
         generation: entity.metabolism.generation,

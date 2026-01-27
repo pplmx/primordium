@@ -33,9 +33,11 @@ fn test_hunter_competition_impact() {
     let mut hunter = Entity::new(10.0, 10.0, 0);
     hunter.metabolism.trophic_potential = 1.0;
     hunter.metabolism.energy = 100.0;
+    hunter.metabolism.max_energy = 1000.0;
 
     let mut prey = Entity::new(10.5, 10.5, 0);
     prey.metabolism.energy = 100.0;
+    prey.metabolism.max_energy = 1000.0;
     prey.physics.r = 0;
 
     spatial_hash.insert(10.5, 10.5, 1);

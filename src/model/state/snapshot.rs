@@ -2,6 +2,7 @@ use crate::model::history::{HallOfFame, PopulationStats};
 use crate::model::state::entity::{EntityStatus, Specialization};
 use crate::model::state::food::Food;
 use crate::model::state::pheromone::PheromoneGrid;
+use crate::model::state::pressure::PressureGrid;
 use crate::model::state::sound::SoundGrid;
 use crate::model::state::terrain::TerrainGrid;
 use serde::{Deserialize, Serialize};
@@ -46,7 +47,8 @@ pub struct WorldSnapshot {
     pub terrain: Arc<TerrainGrid>,
     pub pheromones: Arc<PheromoneGrid>,
     pub sound: Arc<SoundGrid>,
-    pub social_grid: Arc<Vec<Vec<u8>>>,
+    pub pressure: Arc<PressureGrid>,
+    pub social_grid: Arc<Vec<u8>>,
     pub width: u16,
     pub height: u16,
 }

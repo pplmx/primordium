@@ -5,6 +5,7 @@ pub mod interaction;
 pub mod lineage_registry;
 pub mod pathogen;
 pub mod pheromone;
+pub mod pressure;
 pub mod snapshot;
 pub mod sound;
 pub mod terrain;

@@ -15,9 +15,9 @@ pub struct SoundDeposit {
 /// Grid-based sound map for the world
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct SoundGrid {
-    pub cells: Vec<Vec<f32>>,
+    pub cells: Vec<f32>,
     #[serde(skip)]
-    pub back_buffer: Vec<Vec<f32>>,
+    pub back_buffer: Vec<f32>,
     pub width: u16,
     pub height: u16,
     #[serde(skip)]
@@ -27,18 +27,24 @@ pub struct SoundGrid {
 impl SoundGrid {
     pub fn new(width: u16, height: u16) -> Self {
         Self {
-            cells: vec![vec![0.0; width as usize]; height as usize],
-            back_buffer: vec![vec![0.0; width as usize]; height as usize],
+            cells: vec![0.0; width as usize * height as usize],
+            back_buffer: vec![0.0; width as usize * height as usize],
             width,
             height,
             is_dirty: true,
         }
     }
 
+    #[inline(always)]
+    fn index(&self, x: u16, y: u16) -> usize {
+        (y as usize * self.width as usize) + x as usize
+    }
+
     pub fn deposit(&mut self, x: f64, y: f64, amount: f32) {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        self.cells[iy][ix] = (self.cells[iy][ix] + amount).min(2.0);
+        let ix = (x as u16).min(self.width - 1);
+        let iy = (y as u16).min(self.height - 1);
+        let idx = self.index(ix, iy);
+        self.cells[idx] = (self.cells[idx] + amount).min(2.0);
         self.is_dirty = true;
     }
 
@@ -48,9 +54,16 @@ impl SoundGrid {
         std::mem::swap(&mut self.cells, &mut self.back_buffer);
 
         let old_cells = &self.back_buffer;
+        let width = self.width;
+        let height = self.height;
 
-        self.cells.par_iter_mut().enumerate().for_each(|(y, row)| {
-            for (x, cell) in row.iter_mut().enumerate() {
+        self.cells
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(idx, cell)| {
+                let x = (idx % width as usize) as i32;
+                let y = (idx / width as usize) as i32;
+
                 let mut neighbors_sum = 0.0;
                 let mut count = 0;
 
@@ -59,10 +72,11 @@ impl SoundGrid {
                         if dx == 0 && dy == 0 {
                             continue;
                         }
-                        let nx = x as i32 + dx;
-                        let ny = y as i32 + dy;
-                        if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                            neighbors_sum += old_cells[ny as usize][nx as usize];
+                        let nx = x + dx;
+                        let ny = y + dy;
+                        if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                            neighbors_sum +=
+                                old_cells[(ny as usize * width as usize) + nx as usize];
                             count += 1;
                         }
                     }
@@ -73,13 +87,12 @@ impl SoundGrid {
                 } else {
                     0.0
                 };
-                *cell = (old_cells[y][x] * 0.4 + diffused * 0.6) * 0.7;
+                *cell = (old_cells[idx] * 0.4 + diffused * 0.6) * 0.7;
 
                 if *cell < 0.01 {
                     *cell = 0.0;
                 }
-            }
-        });
+            });
     }
 
     pub fn sense(&self, x: f64, y: f64, radius: f64) -> f32 {
@@ -94,7 +107,7 @@ impl SoundGrid {
                 let nx = cx + dx;
                 let ny = cy + dy;
                 if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                    sum += self.cells[ny as usize][nx as usize];
+                    sum += self.cells[(ny as usize * self.width as usize) + nx as usize];
                     count += 1;
                 }
             }

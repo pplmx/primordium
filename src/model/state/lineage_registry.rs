@@ -130,7 +130,7 @@ impl LineageRegistry {
             .collect()
     }
 
-    pub fn check_goals(&mut self, tick: u64, _social_grid: &[Vec<u8>], _width: u16, _height: u16) {
+    pub fn check_goals(&mut self, tick: u64, _social_grid: &[u8], _width: u16, _height: u16) {
         for record in self.lineages.values_mut() {
             if !record.is_extinct {
                 if record.current_population >= 50

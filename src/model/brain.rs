@@ -295,6 +295,14 @@ impl Brain {
         }
     }
 
+    pub fn distance(&self, other: &Brain) -> f32 {
+        self.genotype_distance(other)
+    }
+
+    pub fn crossover(&self, other: &Brain) -> Brain {
+        crate::model::systems::intel::crossover_brains(self, other)
+    }
+
     pub fn genotype_distance(&self, other: &Brain) -> f32 {
         let mut weight_diff = 0.0;
         let mut matching = 0;

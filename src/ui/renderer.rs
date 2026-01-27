@@ -77,6 +77,7 @@ impl<'a> WorldWidget<'a> {
             EntityStatus::Foraging => '●',
             EntityStatus::Soldier => '⚔',
             EntityStatus::Bonded => '⚭',
+            EntityStatus::InTransit => '✈',
         }
     }
 
@@ -92,6 +93,7 @@ impl<'a> WorldWidget<'a> {
             EntityStatus::Foraging => Color::Rgb(entity.r, entity.g, entity.b),
             EntityStatus::Soldier => Color::Red,
             EntityStatus::Bonded => Color::Rgb(255, 215, 0),
+            EntityStatus::InTransit => Color::Rgb(150, 150, 150),
         }
     }
 }
@@ -133,7 +135,8 @@ impl<'a> Widget for WorldWidget<'a> {
                             ));
                         }
                         2 => {
-                            let sm = self.snapshot.social_grid[y as usize][x as usize];
+                            let sm = self.snapshot.social_grid
+                                [(y as usize * self.snapshot.width as usize) + x as usize];
                             if sm == 1 {
                                 cell.set_bg(Color::Rgb(0, 0, 100));
                             } else if sm == 2 {
@@ -183,7 +186,8 @@ impl<'a> Widget for WorldWidget<'a> {
                             cell.set_bg(Color::Rgb(intensity, intensity, 0));
                         }
                         _ => {
-                            let sm = self.snapshot.social_grid[y as usize][x as usize];
+                            let sm = self.snapshot.social_grid
+                                [(y as usize * self.snapshot.width as usize) + x as usize];
                             if sm == 1 {
                                 cell.set_bg(Color::Rgb(0, 0, 40));
                             } else if sm == 2 {

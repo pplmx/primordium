@@ -106,38 +106,41 @@ impl Default for TerrainCell {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct TerrainGrid {
-    pub cells: Vec<Vec<TerrainCell>>,
+    pub cells: Vec<TerrainCell>,
     pub width: u16,
     pub height: u16,
     pub dust_bowl_timer: u32,
     #[serde(skip)]
     pub is_dirty: bool,
+    #[serde(skip)]
+    type_buffer: Vec<TerrainType>,
+    #[serde(skip)]
+    hydration_buffer: Vec<bool>,
 }
 
 impl TerrainGrid {
     pub fn generate(width: u16, height: u16, seed: u64) -> Self {
         let mut rng = rand::thread_rng();
-        let mut cells = vec![vec![TerrainCell::default(); width as usize]; height as usize];
+        let mut cells = vec![TerrainCell::default(); width as usize * height as usize];
 
-        for (y, row) in cells.iter_mut().enumerate() {
-            for (x, cell) in row.iter_mut().enumerate() {
-                let noise = Self::value_noise(x as f32, y as f32, seed);
-                cell.elevation = noise;
-            }
+        let w = width as usize;
+        for (idx, cell) in cells.iter_mut().enumerate() {
+            let x = (idx % w) as f32;
+            let y = (idx / w) as f32;
+            let noise = Self::value_noise(x, y, seed);
+            cell.elevation = noise;
         }
 
         let mountain_threshold = 0.7;
         let river_threshold = 0.25;
 
-        for row in &mut cells {
-            for cell in row {
-                if cell.elevation > mountain_threshold {
-                    cell.terrain_type = TerrainType::Mountain;
-                    cell.original_type = TerrainType::Mountain;
-                } else if cell.elevation < river_threshold {
-                    cell.terrain_type = TerrainType::River;
-                    cell.original_type = TerrainType::River;
-                }
+        for cell in &mut cells {
+            if cell.elevation > mountain_threshold {
+                cell.terrain_type = TerrainType::Mountain;
+                cell.original_type = TerrainType::Mountain;
+            } else if cell.elevation < river_threshold {
+                cell.terrain_type = TerrainType::River;
+                cell.original_type = TerrainType::River;
             }
         }
 
@@ -149,9 +152,10 @@ impl TerrainGrid {
         while placed < oasis_count && attempts < oasis_count * 10 {
             let x = rng.gen_range(0..width as usize);
             let y = rng.gen_range(0..height as usize);
-            if cells[y][x].terrain_type == TerrainType::Plains {
-                cells[y][x].terrain_type = TerrainType::Oasis;
-                cells[y][x].original_type = TerrainType::Oasis;
+            let idx = (y * width as usize) + x;
+            if cells[idx].terrain_type == TerrainType::Plains {
+                cells[idx].terrain_type = TerrainType::Oasis;
+                cells[idx].original_type = TerrainType::Oasis;
                 placed += 1;
             }
             attempts += 1;
@@ -162,9 +166,10 @@ impl TerrainGrid {
         while placed < rock_count && attempts < rock_count * 10 {
             let x = rng.gen_range(0..width as usize);
             let y = rng.gen_range(0..height as usize);
-            if cells[y][x].terrain_type == TerrainType::Plains {
-                cells[y][x].terrain_type = TerrainType::Wall;
-                cells[y][x].original_type = TerrainType::Wall;
+            let idx = (y * width as usize) + x;
+            if cells[idx].terrain_type == TerrainType::Plains {
+                cells[idx].terrain_type = TerrainType::Wall;
+                cells[idx].original_type = TerrainType::Wall;
                 placed += 1;
             }
             attempts += 1;
@@ -176,7 +181,14 @@ impl TerrainGrid {
             height,
             dust_bowl_timer: 0,
             is_dirty: true,
+            type_buffer: vec![TerrainType::Plains; width as usize * height as usize],
+            hydration_buffer: vec![false; width as usize * height as usize],
         }
+    }
+
+    #[inline(always)]
+    fn index(&self, x: u16, y: u16) -> usize {
+        (y as usize * self.width as usize) + x as usize
     }
 
     pub fn update(&mut self, herbivore_biomass: f64) -> f64 {
@@ -189,28 +201,30 @@ impl TerrainGrid {
         let global_recovery_rate = (0.001 - pressure).max(-0.01);
         let is_dust_bowl = self.dust_bowl_timer > 0;
 
-        // Create a lightweight type grid for neighbor checks in parallel
-        let type_grid: Vec<Vec<TerrainType>> = self
-            .cells
-            .iter()
-            .map(|row| row.iter().map(|c| c.terrain_type).collect())
-            .collect();
+        let w = self.width;
+        let h = self.height;
+
+        if self.type_buffer.len() != w as usize * h as usize {
+            self.type_buffer = vec![TerrainType::Plains; w as usize * h as usize];
+            self.hydration_buffer = vec![false; w as usize * h as usize];
+        }
+
+        for (i, cell) in self.cells.iter().enumerate() {
+            self.type_buffer[i] = cell.terrain_type;
+            self.hydration_buffer[i] = false;
+        }
 
         // Hydration map: true if cell is within radius 2 of a river
-        let mut hydration_map = vec![vec![false; self.width as usize]; self.height as usize];
-        for (y, row) in type_grid.iter().enumerate() {
-            for (x, &t) in row.iter().enumerate() {
-                if t == TerrainType::River {
+        for y in 0..h {
+            for x in 0..w {
+                if self.type_buffer[self.index(x, y)] == TerrainType::River {
                     for dy in -2..=2 {
                         for dx in -2..=2 {
                             let nx = x as i32 + dx;
                             let ny = y as i32 + dy;
-                            if nx >= 0
-                                && nx < self.width as i32
-                                && ny >= 0
-                                && ny < self.height as i32
-                            {
-                                hydration_map[ny as usize][nx as usize] = true;
+                            if nx >= 0 && nx < w as i32 && ny >= 0 && ny < h as i32 {
+                                let nidx = (ny as usize * w as usize) + nx as usize;
+                                self.hydration_buffer[nidx] = true;
                             }
                         }
                     }
@@ -218,10 +232,13 @@ impl TerrainGrid {
             }
         }
 
+        let type_grid = &self.type_buffer;
+        let hydration_map = &self.hydration_buffer;
+
         type TransitionVec = Vec<Vec<(u16, u16, TerrainType)>>;
         let (total_biomass_vec, transitions): (Vec<f64>, TransitionVec) = self
             .cells
-            .par_iter_mut()
+            .par_chunks_mut(w as usize)
             .enumerate()
             .map(|(y, row)| {
                 let mut row_biomass = 0.0;
@@ -233,12 +250,10 @@ impl TerrainGrid {
                     let y_u16 = y as u16;
                     row_biomass += cell.plant_biomass as f64;
 
-                    // 1. Local Biological Feedback
                     let mut fertility_gain =
                         (global_recovery_rate + (cell.plant_biomass * 0.0001)).max(-0.05);
 
-                    // Phase 52: Hydration Effect
-                    if hydration_map[y][x] {
+                    if hydration_map[(y * w as usize) + x] {
                         fertility_gain += 0.005;
                     }
 
@@ -258,14 +273,11 @@ impl TerrainGrid {
 
                     cell.fertility = (cell.fertility + fertility_gain - plant_loss).clamp(0.0, 1.0);
 
-                    let _k = cell.fertility * 100.0;
-
                     cell.biomass_accumulation *= 0.999;
                     if is_dust_bowl && cell.terrain_type == TerrainType::Plains {
                         cell.fertility = (cell.fertility - 0.05).max(0.0);
                     }
 
-                    // 2. Succession Logic (using type_grid snapshot)
                     let mut forest_neighbors = 0;
                     for dy in -1..=1 {
                         for dx in -1..=1 {
@@ -275,10 +287,11 @@ impl TerrainGrid {
                             let nx = x as i32 + dx;
                             let ny = y as i32 + dy;
                             if nx >= 0
-                                && nx < type_grid[0].len() as i32
+                                && nx < w as i32
                                 && ny >= 0
-                                && ny < type_grid.len() as i32
-                                && type_grid[ny as usize][nx as usize] == TerrainType::Forest
+                                && ny < h as i32
+                                && type_grid[(ny as usize * w as usize) + nx as usize]
+                                    == TerrainType::Forest
                             {
                                 forest_neighbors += 1;
                             }
@@ -305,8 +318,6 @@ impl TerrainGrid {
                             }
                         }
                         TerrainType::River => {
-                            // Phase 54 Tuning: River Evaporation
-                            // Isolated rivers or rivers in low fertility zones can dry up
                             let mut river_neighbors = 0;
                             for dy in -1..=1 {
                                 for dx in -1..=1 {
@@ -316,10 +327,11 @@ impl TerrainGrid {
                                     let nx = x as i32 + dx;
                                     let ny = y as i32 + dy;
                                     if nx >= 0
-                                        && nx < type_grid[0].len() as i32
+                                        && nx < w as i32
                                         && ny >= 0
-                                        && ny < type_grid.len() as i32
-                                        && type_grid[ny as usize][nx as usize] == TerrainType::River
+                                        && ny < h as i32
+                                        && type_grid[(ny as usize * w as usize) + nx as usize]
+                                            == TerrainType::River
                                     {
                                         river_neighbors += 1;
                                     }
@@ -346,7 +358,6 @@ impl TerrainGrid {
             })
             .unzip();
 
-        // Apply transitions sequentially
         for row_list in transitions {
             for (x, y, t) in row_list {
                 self.set_cell_type(x, y, t);
@@ -362,6 +373,8 @@ impl TerrainGrid {
     pub fn has_neighbor_type(&self, x: u16, y: u16, t: TerrainType) -> bool {
         let ix = x as i32;
         let iy = y as i32;
+        let w = self.width as i32;
+        let h = self.height as i32;
         for dy in -1..=1 {
             for dx in -1..=1 {
                 if dx == 0 && dy == 0 {
@@ -370,10 +383,11 @@ impl TerrainGrid {
                 let nx = ix + dx;
                 let ny = iy + dy;
                 if nx >= 0
-                    && nx < self.width as i32
+                    && nx < w
                     && ny >= 0
-                    && ny < self.height as i32
-                    && self.cells[ny as usize][nx as usize].terrain_type == t
+                    && ny < h
+                    && self.cells[(ny as usize * self.width as usize) + nx as usize].terrain_type
+                        == t
                 {
                     return true;
                 }
@@ -383,23 +397,26 @@ impl TerrainGrid {
     }
 
     pub fn deplete(&mut self, x: f64, y: f64, amount: f32) {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        self.cells[iy][ix].fertility = (self.cells[iy][ix].fertility - amount).max(0.0);
+        let ix = (x as u16).min(self.width - 1);
+        let iy = (y as u16).min(self.height - 1);
+        let idx = self.index(ix, iy);
+        self.cells[idx].fertility = (self.cells[idx].fertility - amount).max(0.0);
         self.is_dirty = true;
     }
 
     pub fn fertilize(&mut self, x: f64, y: f64, amount: f32) {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        self.cells[iy][ix].fertility = (self.cells[iy][ix].fertility + amount).min(1.0);
+        let ix = (x as u16).min(self.width - 1);
+        let iy = (y as u16).min(self.height - 1);
+        let idx = self.index(ix, iy);
+        self.cells[idx].fertility = (self.cells[idx].fertility + amount).min(1.0);
         self.is_dirty = true;
     }
 
     pub fn add_biomass(&mut self, x: f64, y: f64, amount: f32) {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        self.cells[iy][ix].biomass_accumulation += amount;
+        let ix = (x as u16).min(self.width - 1);
+        let iy = (y as u16).min(self.height - 1);
+        let idx = self.index(ix, iy);
+        self.cells[idx].biomass_accumulation += amount;
         self.is_dirty = true;
     }
 
@@ -437,9 +454,9 @@ impl TerrainGrid {
     }
 
     pub fn get(&self, x: f64, y: f64) -> &TerrainCell {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        &self.cells[iy][ix]
+        let ix = (x as u16).min(self.width - 1);
+        let iy = (y as u16).min(self.height - 1);
+        &self.cells[self.index(ix, iy)]
     }
 
     pub fn movement_modifier(&self, x: f64, y: f64) -> f64 {
@@ -449,50 +466,46 @@ impl TerrainGrid {
         self.get(x, y).terrain_type.food_spawn_modifier()
     }
     pub fn get_cell(&self, x: u16, y: u16) -> &TerrainCell {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        &self.cells[iy][ix]
+        let ix = x.min(self.width - 1);
+        let iy = y.min(self.height - 1);
+        &self.cells[self.index(ix, iy)]
     }
 
     /// Manually set cell type (useful for testing and disasters)
     pub fn set_cell_type(&mut self, x: u16, y: u16, t: TerrainType) {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        self.cells[iy][ix].terrain_type = t;
+        let ix = x.min(self.width - 1);
+        let iy = y.min(self.height - 1);
+        let idx = self.index(ix, iy);
+        self.cells[idx].terrain_type = t;
         self.is_dirty = true;
     }
 
     /// Manually set cell fertility (useful for testing)
     pub fn set_fertility(&mut self, x: u16, y: u16, f: f32) {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        self.cells[iy][ix].fertility = f.clamp(0.0, 1.0);
+        let ix = x.min(self.width - 1);
+        let iy = y.min(self.height - 1);
+        let idx = self.index(ix, iy);
+        self.cells[idx].fertility = f.clamp(0.0, 1.0);
         self.is_dirty = true;
     }
 
     pub fn average_fertility(&self) -> f32 {
-        let mut sum = 0.0;
-        let mut count = 0;
-        for row in &self.cells {
-            for cell in row {
-                sum += cell.fertility;
-                count += 1;
-            }
+        if self.cells.is_empty() {
+            return 0.0;
         }
-        if count > 0 {
-            sum / count as f32
-        } else {
-            0.0
-        }
+        let sum: f32 = self.cells.iter().map(|c| c.fertility).sum();
+        sum / self.cells.len() as f32
     }
 
     pub fn add_global_fertility(&mut self, amount: f32) {
-        let per_cell = amount / (self.width as f32 * self.height as f32);
-        for row in &mut self.cells {
-            for cell in row {
-                cell.fertility = (cell.fertility + per_cell).clamp(0.0, 1.0);
-            }
+        if self.cells.is_empty() {
+            return;
         }
+        let per_cell = amount / self.cells.len() as f32;
+        for cell in &mut self.cells {
+            cell.fertility = (cell.fertility + per_cell).clamp(0.0, 1.0);
+        }
+        self.is_dirty = true;
     }
 }
 

@@ -1,9 +1,5 @@
-#[cfg(target_arch = "wasm32")]
-pub mod client;
-
-// These must be available to server too!
-// These must be available to server too!
 pub mod app;
+pub mod client;
 pub mod model;
 pub mod ui;
 
@@ -20,9 +16,9 @@ use crate::model::infra::network::NetMessage;
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub struct Simulation {
-    world: World,
-    env: Environment,
-    network: Option<NetworkManager>,
+    world: model::world::World,
+    env: model::state::environment::Environment,
+    network: Option<crate::client::manager::NetworkManager>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -31,13 +27,13 @@ impl Simulation {
     pub fn new() -> Result<Simulation, JsValue> {
         console_error_panic_hook::set_once();
 
-        let config = AppConfig::default();
-        let world = World::new(config.world.initial_population, config.clone())
+        let config = model::config::AppConfig::default();
+        let world = model::world::World::new(config.world.initial_population, config.clone())
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         Ok(Simulation {
             world,
-            env: Environment::default(),
+            env: model::state::environment::Environment::default(),
             network: None,
         })
     }

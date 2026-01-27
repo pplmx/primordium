@@ -15,6 +15,8 @@ use std::time::{Duration, Instant};
 use crate::model::history::LiveEvent;
 use crate::model::systems::environment as environment_system;
 use crate::ui::tui::Tui;
+use ratatui::style::Color;
+use uuid::Uuid;
 
 impl App {
     pub async fn run(&mut self, tui: &mut Tui) -> Result<()> {
@@ -109,6 +111,106 @@ impl App {
     fn update_world(&mut self) -> Result<()> {
         let events = self.world.update(&mut self.env)?;
         self.latest_snapshot = Some(self.world.create_snapshot(self.selected_entity));
+
+        if let Some(net) = &self.network {
+            self.network_state = net.get_state();
+
+            for msg in net.pop_pending_limited(5) {
+                use crate::model::infra::network::NetMessage;
+                match msg {
+                    NetMessage::MigrateEntity {
+                        migration_id,
+                        dna,
+                        energy,
+                        generation,
+                        fingerprint,
+                        checksum,
+                        ..
+                    } => {
+                        let _ = self.world.import_migrant(
+                            dna,
+                            energy,
+                            generation,
+                            &fingerprint,
+                            &checksum,
+                        );
+                        self.event_log.push_back((
+                            "MIGRANT ARRIVED: An entity has entered this universe!".to_string(),
+                            Color::Cyan,
+                        ));
+                        net.send(&NetMessage::MigrateAck { migration_id });
+                    }
+                    NetMessage::MigrateAck { migration_id } => {
+                        self.world
+                            .entities
+                            .retain(|e| e.metabolism.migration_id != Some(migration_id));
+                        self.event_log.push_back((
+                            "MIGRATION CONFIRMED: Entity successfully reached another universe."
+                                .to_string(),
+                            Color::Green,
+                        ));
+                    }
+                    _ => {}
+                }
+            }
+
+            let mut migrants = Vec::new();
+            let width = self.world.width as f64;
+            let height = self.world.height as f64;
+            let config_fingerprint = self.world.config.fingerprint();
+
+            for e in &mut self.world.entities {
+                if e.metabolism.is_in_transit {
+                    continue;
+                }
+
+                let leaving = e.physics.x < 1.0
+                    || e.physics.x > (width - 2.0)
+                    || e.physics.y < 1.0
+                    || e.physics.y > (height - 2.0);
+
+                if leaving {
+                    use crate::model::infra::network::NetMessage;
+                    use sha2::{Digest, Sha256};
+                    let dna = e.intel.genotype.to_hex();
+                    let energy = e.metabolism.energy as f32;
+                    let generation = e.metabolism.generation;
+
+                    let mut hasher = Sha256::new();
+                    hasher.update(dna.as_bytes());
+                    hasher.update(energy.to_be_bytes());
+                    hasher.update(generation.to_be_bytes());
+                    let checksum = hex::encode(hasher.finalize());
+
+                    let migration_id = Uuid::new_v4();
+                    e.metabolism.is_in_transit = true;
+                    e.metabolism.migration_id = Some(migration_id);
+
+                    migrants.push(NetMessage::MigrateEntity {
+                        migration_id,
+                        dna,
+                        energy,
+                        generation,
+                        species_name: e.name(),
+                        fingerprint: config_fingerprint.clone(),
+                        checksum,
+                    });
+                }
+            }
+
+            for msg in migrants {
+                net.send(&msg);
+                self.event_log.push_back((
+                    "MIGRANT DEPARTED: An entity is in transit to another universe...".to_string(),
+                    Color::Magenta,
+                ));
+            }
+
+            if self.world.tick.is_multiple_of(300) {
+                net.announce(self.world.entities.len());
+            }
+        }
+
         for ev in events {
             let (msg, color) = ev.to_ui_message();
             self.event_log.push_back((msg, color));

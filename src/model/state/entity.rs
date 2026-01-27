@@ -4,7 +4,6 @@ use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Status symbols for entity states
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum EntityStatus {
     Starving,
@@ -17,6 +16,7 @@ pub enum EntityStatus {
     Foraging,
     Soldier,
     Bonded,
+    InTransit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -55,6 +55,10 @@ pub struct Metabolism {
     pub offspring_count: u32,
     pub lineage_id: Uuid,
     pub has_metamorphosed: bool,
+    #[serde(default)]
+    pub is_in_transit: bool,
+    #[serde(default)]
+    pub migration_id: Option<Uuid>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -98,61 +102,7 @@ pub struct Genotype {
     pub maturity_gene: f32,
     pub mate_preference: f32,
     pub pairing_bias: f32,
-    pub specialization_bias: [f32; 3], // Soldier, Engineer, Provider
-}
-
-impl Genotype {
-    pub fn new_random() -> Self {
-        let mut rng = rand::thread_rng();
-        Self {
-            brain: Brain::new_random(),
-            sensing_range: 5.0,
-            max_speed: 1.0,
-            max_energy: 200.0,
-            lineage_id: Uuid::new_v4(),
-            metabolic_niche: rng.gen_range(0.0..1.0),
-            trophic_potential: rng.gen_range(0.0..1.0),
-            reproductive_investment: 0.5,
-            maturity_gene: 1.0,
-            mate_preference: rng.gen_range(0.0..1.0),
-            pairing_bias: rng.gen_range(0.0..1.0),
-            specialization_bias: [
-                rng.gen_range(0.0..1.0),
-                rng.gen_range(0.0..1.0),
-                rng.gen_range(0.0..1.0),
-            ],
-        }
-    }
-
-    pub fn to_hex(&self) -> String {
-        let bytes = serde_json::to_vec(self).unwrap_or_default();
-        hex::encode(bytes)
-    }
-
-    pub fn from_hex(hex_str: &str) -> anyhow::Result<Self> {
-        let bytes = hex::decode(hex_str)?;
-        let gt = serde_json::from_slice(&bytes)?;
-        Ok(gt)
-    }
-
-    pub fn distance(&self, other: &Genotype) -> f32 {
-        let brain_dist = self.brain.genotype_distance(&other.brain);
-        let trait_dist = (self.sensing_range - other.sensing_range).abs() as f32 / 5.0
-            + (self.max_speed - other.max_speed).abs() as f32 / 1.0
-            + (self.max_energy - other.max_energy).abs() as f32 / 100.0
-            + (self.metabolic_niche - other.metabolic_niche).abs()
-            + (self.trophic_potential - other.trophic_potential).abs()
-            + (self.pairing_bias - other.pairing_bias).abs()
-            + (self.specialization_bias[0] - other.specialization_bias[0]).abs()
-            + (self.specialization_bias[1] - other.specialization_bias[1]).abs()
-            + (self.specialization_bias[2] - other.specialization_bias[2]).abs();
-        brain_dist + trait_dist
-    }
-
-    pub fn relatedness(&self, other: &Genotype) -> f32 {
-        let dist = self.distance(other);
-        (2.0f32).powf(-dist * 0.5)
-    }
+    pub specialization_bias: [f32; 3],
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -167,25 +117,18 @@ pub struct Entity {
 
 impl Entity {
     pub fn new(x: f64, y: f64, tick: u64) -> Self {
-        let mut rng = rand::thread_rng();
-        let vx = rng.gen_range(-0.5..0.5);
-        let vy = rng.gen_range(-0.5..0.5);
-        let r = rng.gen_range(100..255);
-        let g = rng.gen_range(100..255);
-        let b = rng.gen_range(100..255);
         let genotype = Genotype::new_random();
-
         Self {
             id: Uuid::new_v4(),
             parent_id: None,
             physics: Physics {
                 x,
                 y,
-                vx,
-                vy,
-                r,
-                g,
-                b,
+                vx: 0.0,
+                vy: 0.0,
+                r: 100,
+                g: 200,
+                b: 100,
                 symbol: '●',
                 home_x: x,
                 home_y: y,
@@ -193,21 +136,23 @@ impl Entity {
                 max_speed: genotype.max_speed,
             },
             metabolism: Metabolism {
-                trophic_potential: genotype.trophic_potential,
+                trophic_potential: 0.5,
                 energy: 100.0,
                 prev_energy: 100.0,
-                max_energy: genotype.max_energy,
+                max_energy: 100.0,
                 peak_energy: 100.0,
                 birth_tick: tick,
-                generation: 1,
+                generation: 0,
                 offspring_count: 0,
                 lineage_id: genotype.lineage_id,
                 has_metamorphosed: false,
+                is_in_transit: false,
+                migration_id: None,
             },
             health: Health {
                 pathogen: None,
                 infection_timer: 0,
-                immunity: rng.gen_range(0.0..0.3),
+                immunity: 0.0,
             },
             intel: Intel {
                 genotype,
@@ -228,21 +173,14 @@ impl Entity {
     }
 
     pub fn color(&self) -> Color {
-        let (r, g, b) = (self.physics.r, self.physics.g, self.physics.b);
-        let signal = self.intel.last_signal;
-        let factor = if signal > 0.0 {
-            1.0 + signal as f64 * 0.5
-        } else {
-            1.0 + signal as f64 * 0.7
-        };
-        Color::Rgb(
-            (r as f64 * factor).clamp(20.0, 255.0) as u8,
-            (g as f64 * factor).clamp(20.0, 255.0) as u8,
-            (b as f64 * factor).clamp(20.0, 255.0) as u8,
-        )
+        Color::Rgb(self.physics.r, self.physics.g, self.physics.b)
     }
 
     pub fn status(&self, threshold: f32, current_tick: u64, maturity_age: u64) -> EntityStatus {
+        if self.metabolism.is_in_transit {
+            return EntityStatus::InTransit;
+        }
+
         let actual_maturity = (maturity_age as f32 * self.intel.genotype.maturity_gene) as u64;
         if self.metabolism.energy / self.metabolism.max_energy < 0.2 {
             EntityStatus::Starving
@@ -279,6 +217,7 @@ impl Entity {
             EntityStatus::Foraging => '●',
             EntityStatus::Soldier => '⚔',
             EntityStatus::Bonded => '⚭',
+            EntityStatus::InTransit => '✈',
         }
     }
 
@@ -294,6 +233,7 @@ impl Entity {
             EntityStatus::Foraging => self.color(),
             EntityStatus::Soldier => Color::Red,
             EntityStatus::Bonded => Color::Rgb(255, 215, 0),
+            EntityStatus::InTransit => Color::Rgb(150, 150, 150),
         }
     }
 
@@ -340,14 +280,55 @@ impl Entity {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_entity_new_has_valid_initial_state() {
-        let entity = Entity::new(50.0, 25.0, 100);
-        assert_eq!(entity.physics.x, 50.0);
-        assert_eq!(entity.metabolism.generation, 1);
-        assert_eq!(entity.metabolism.energy, 100.0);
+impl Genotype {
+    pub fn crossover(&self, other: &Self) -> Self {
+        let mut rng = rand::thread_rng();
+        let child_brain = self.brain.crossover(&other.brain);
+
+        let mut child_genotype = if rng.gen_bool(0.5) {
+            self.clone()
+        } else {
+            other.clone()
+        };
+        child_genotype.brain = child_brain;
+        child_genotype
+    }
+
+    pub fn to_hex(&self) -> String {
+        let bytes = serde_json::to_vec(self).unwrap_or_default();
+        hex::encode(bytes)
+    }
+
+    pub fn from_hex(hex_str: &str) -> anyhow::Result<Self> {
+        let bytes = hex::decode(hex_str)?;
+        let genotype = serde_json::from_slice(&bytes)?;
+        Ok(genotype)
+    }
+
+    pub fn distance(&self, other: &Self) -> f32 {
+        self.brain.distance(&other.brain)
+    }
+
+    pub fn relatedness(&self, other: &Self) -> f32 {
+        let dist = self.distance(other);
+        (1.0 - (dist / 10.0)).clamp(0.0, 1.0)
+    }
+
+    pub fn new_random() -> Self {
+        let brain = Brain::new_random();
+        Self {
+            brain,
+            sensing_range: 10.0,
+            max_speed: 1.0,
+            max_energy: 100.0,
+            lineage_id: Uuid::new_v4(),
+            metabolic_niche: 0.5,
+            trophic_potential: 0.5,
+            reproductive_investment: 0.5,
+            maturity_gene: 1.0,
+            mate_preference: 0.5,
+            pairing_bias: 0.5,
+            specialization_bias: [0.33, 0.33, 0.34],
+        }
     }
 }

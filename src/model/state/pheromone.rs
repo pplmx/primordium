@@ -73,7 +73,9 @@ impl PheromoneCell {
 /// Grid-based pheromone map for the world
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PheromoneGrid {
-    pub cells: Vec<Vec<PheromoneCell>>,
+    pub cells: Vec<PheromoneCell>,
+    #[serde(skip)]
+    pub back_buffer: Vec<PheromoneCell>,
     pub width: u16,
     pub height: u16,
     pub decay_rate: f32, // Per-tick decay multiplier
@@ -83,9 +85,11 @@ pub struct PheromoneGrid {
 
 impl PheromoneGrid {
     pub fn new(width: u16, height: u16) -> Self {
-        let cells = vec![vec![PheromoneCell::default(); width as usize]; height as usize];
+        let cells = vec![PheromoneCell::default(); width as usize * height as usize];
+        let back_buffer = cells.clone();
         Self {
             cells,
+            back_buffer,
             width,
             height,
             decay_rate: 0.995,
@@ -93,10 +97,16 @@ impl PheromoneGrid {
         }
     }
 
+    #[inline(always)]
+    fn index(&self, x: u16, y: u16) -> usize {
+        (y as usize * self.width as usize) + x as usize
+    }
+
     pub fn deposit(&mut self, x: f64, y: f64, ptype: PheromoneType, amount: f32) {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        self.cells[iy][ix].deposit(ptype, amount);
+        let ix = (x as u16).min(self.width - 1);
+        let iy = (y as u16).min(self.height - 1);
+        let idx = self.index(ix, iy);
+        self.cells[idx].deposit(ptype, amount);
         self.is_dirty = true;
     }
 
@@ -118,7 +128,8 @@ impl PheromoneGrid {
                 let nx = cx + dx;
                 let ny = cy + dy;
                 if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                    let cell = &self.cells[ny as usize][nx as usize];
+                    let idx = self.index(nx as u16, ny as u16);
+                    let cell = &self.back_buffer[idx];
                     food_sum += cell.food_strength;
                     danger_sum += cell.danger_strength;
                     sig_a_sum += cell.sig_a_strength;
@@ -146,19 +157,20 @@ impl PheromoneGrid {
         (f, d)
     }
 
-    pub fn decay(&mut self) {
+    pub fn update(&mut self) {
         self.is_dirty = true;
-        for row in &mut self.cells {
-            for cell in row {
-                cell.decay(self.decay_rate);
-            }
+        for cell in &mut self.cells {
+            cell.decay(self.decay_rate);
+        }
+        for i in 0..self.cells.len() {
+            self.back_buffer[i] = self.cells[i];
         }
     }
 
     pub fn get_cell(&self, x: u16, y: u16) -> &PheromoneCell {
-        let ix = (x as usize).min(self.width as usize - 1);
-        let iy = (y as usize).min(self.height as usize - 1);
-        &self.cells[iy][ix]
+        let ix = x.min(self.width - 1);
+        let iy = y.min(self.height - 1);
+        &self.cells[self.index(ix, iy)]
     }
 }
 

@@ -76,6 +76,7 @@ pub struct App {
 
     pub network_state: crate::model::infra::network::NetworkState, // NEW
     pub latest_snapshot: Option<crate::model::state::snapshot::WorldSnapshot>,
+    pub network: Option<crate::client::manager::NetworkManager>,
 }
 
 impl App {
@@ -145,7 +146,12 @@ impl App {
             event_log: VecDeque::with_capacity(15),
             network_state: crate::model::infra::network::NetworkState::default(),
             latest_snapshot,
+            network: None,
         })
+    }
+
+    pub fn connect(&mut self, url: &str) {
+        self.network = Some(crate::client::manager::NetworkManager::new(url));
     }
 
     pub fn save_state(&self) -> Result<()> {

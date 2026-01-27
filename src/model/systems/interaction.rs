@@ -2,12 +2,14 @@ use crate::model::config::AppConfig;
 use crate::model::history::{FossilRegistry, HistoryLogger, LiveEvent, PopulationStats};
 use crate::model::state::entity::{Entity, EntityStatus, Specialization};
 use crate::model::state::environment::Environment;
+use crate::model::state::food::Food;
 use crate::model::state::interaction::InteractionCommand;
 use crate::model::state::lineage_registry::LineageRegistry;
 use crate::model::state::terrain::{TerrainGrid, TerrainType};
 use crate::model::systems::social;
 use chrono::Utc;
 use std::collections::HashSet;
+use uuid::Uuid;
 
 pub struct InteractionContext<'a> {
     pub terrain: &'a mut TerrainGrid,
@@ -20,9 +22,9 @@ pub struct InteractionContext<'a> {
     pub tick: u64,
     pub width: u16,
     pub height: u16,
-    pub social_grid: &'a mut Vec<Vec<u8>>,
-    pub lineage_consumption: &'a mut Vec<(uuid::Uuid, f64)>,
-    pub food: &'a mut Vec<crate::model::state::food::Food>,
+    pub social_grid: &'a mut [u8],
+    pub lineage_consumption: &'a mut Vec<(Uuid, f64)>,
+    pub food: &'a mut Vec<Food>,
 }
 
 pub struct InteractionResult {
@@ -75,8 +77,8 @@ pub fn process_interaction_commands(
                     // Phase 49: War Zone bonus
                     let ix = (attacker.physics.x as usize).min(ctx.width as usize - 1);
                     let iy = (attacker.physics.y as usize).min(ctx.height as usize - 1);
-                    if ctx.social_grid[iy][ix] == 2 {
-                        multiplier *= ctx.config.social.war_zone_mult;
+                    if ctx.social_grid[iy * ctx.width as usize + ix] == 2 {
+                        multiplier *= ctx.config.social.soldier_damage_mult;
                     }
 
                     let energy_gain = target.metabolism.energy
@@ -207,7 +209,7 @@ pub fn process_interaction_commands(
             InteractionCommand::TribalTerritory { x, y, is_war } => {
                 let ix = (x as usize).min(ctx.width as usize - 1);
                 let iy = (y as usize).min(ctx.height as usize - 1);
-                ctx.social_grid[iy][ix] = if is_war { 2 } else { 1 };
+                ctx.social_grid[iy * ctx.width as usize + ix] = if is_war { 2 } else { 1 };
             }
             InteractionCommand::Dig { x, y, attacker_idx } => {
                 let cell = ctx.terrain.get(x, y);

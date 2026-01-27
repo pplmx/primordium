@@ -61,7 +61,8 @@ pub struct World {
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
     pub sound: SoundGrid,
-    pub social_grid: Vec<Vec<u8>>,
+    pub pressure: crate::model::state::pressure::PressureGrid,
+    pub social_grid: Vec<u8>,
     pub lineage_registry: LineageRegistry,
     pub fossil_registry: FossilRegistry,
     pub config: AppConfig,
@@ -90,8 +91,10 @@ pub struct World {
     #[serde(skip)]
     cached_sound: std::sync::Arc<SoundGrid>,
     #[serde(skip)]
-    cached_social_grid: std::sync::Arc<Vec<Vec<u8>>>,
+    cached_pressure: std::sync::Arc<crate::model::state::pressure::PressureGrid>,
     #[serde(skip)]
+    cached_social_grid: std::sync::Arc<Vec<u8>>,
+    #[serde(skip, default)]
     food_dirty: bool,
 }
 
@@ -128,7 +131,11 @@ impl World {
         let terrain = TerrainGrid::generate(config.world.width, config.world.height, 42);
         let pheromones = PheromoneGrid::new(config.world.width, config.world.height);
         let sound = SoundGrid::new(config.world.width, config.world.height);
-        let social_grid = vec![vec![0; config.world.width as usize]; config.world.height as usize];
+        let pressure = crate::model::state::pressure::PressureGrid::new(
+            config.world.width,
+            config.world.height,
+        );
+        let social_grid = vec![0; config.world.width as usize * config.world.height as usize];
 
         Ok(Self {
             width: config.world.width,
@@ -144,11 +151,12 @@ impl World {
             cached_terrain: std::sync::Arc::new(terrain.clone()),
             cached_pheromones: std::sync::Arc::new(pheromones.clone()),
             cached_sound: std::sync::Arc::new(sound.clone()),
+            cached_pressure: std::sync::Arc::new(pressure.clone()),
             cached_social_grid: std::sync::Arc::new(social_grid.clone()),
-            food_dirty: true,
             terrain,
             pheromones,
             sound,
+            pressure,
             social_grid,
             lineage_registry,
             config,
@@ -163,6 +171,7 @@ impl World {
             perception_buffer: Vec::new(),
             decision_buffer: Vec::new(),
             lineage_consumption: Vec::new(),
+            food_dirty: true,
         })
     }
 
@@ -358,6 +367,7 @@ impl World {
             terrain: self.cached_terrain.clone(),
             pheromones: self.cached_pheromones.clone(),
             sound: self.cached_sound.clone(),
+            pressure: self.cached_pressure.clone(),
             social_grid: self.cached_social_grid.clone(),
             width: self.width,
             height: self.height,
@@ -376,16 +386,13 @@ impl World {
             self.height,
         );
         if self.tick.is_multiple_of(50) {
-            for row in &mut self.social_grid {
-                for cell in row {
-                    if *cell > 0 && rng.gen_bool(0.1) {
-                        *cell = 0;
-                    }
-                }
+            for val in &mut self.social_grid {
+                *val = 0;
             }
         }
-        self.pheromones.decay();
+        self.pheromones.update();
         self.sound.update();
+        self.pressure.update();
         environment::handle_disasters(
             env,
             self.entities.len(),
@@ -950,6 +957,10 @@ impl World {
         if self.sound.is_dirty {
             self.cached_sound = std::sync::Arc::new(self.sound.clone());
             self.sound.is_dirty = false;
+        }
+        if self.pressure.is_dirty {
+            self.cached_pressure = std::sync::Arc::new(self.pressure.clone());
+            self.pressure.is_dirty = false;
         }
         self.cached_social_grid = std::sync::Arc::new(self.social_grid.clone());
 

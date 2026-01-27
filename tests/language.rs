@@ -33,6 +33,8 @@ fn test_semantic_pheromone_roundtrip() {
     for d in res.sounds {
         world.sound.deposit(d.x, d.y, d.amount);
     }
+    world.pheromones.update();
+    world.sound.update();
 
     // 2. Verify Signal A is in the grid
     let cell = world.pheromones.get_cell(10, 10);

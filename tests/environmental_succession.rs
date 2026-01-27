@@ -67,12 +67,21 @@ fn test_biodiversity_hotspots() {
 
     // Inject 10 entities of different lineages into a small area
     for _ in 0..10 {
-        let mut e = primordium_lib::model::state::entity::Entity::new(5.0, 5.0, 0);
-        e.metabolism.lineage_id = uuid::Uuid::new_v4();
+        let mut e = primordium_lib::model::state::entity::Entity::new(15.0, 15.0, 0);
+        let lid = uuid::Uuid::new_v4();
+        e.metabolism.lineage_id = lid;
+        e.intel.genotype.lineage_id = lid;
         e.physics.vx = 0.0;
         e.physics.vy = 0.0;
         e.metabolism.energy = 1000.0;
+        e.metabolism.max_energy = 1000.0;
         world.entities.push(e);
+    }
+
+    for y in 10..20 {
+        for x in 10..20 {
+            world.terrain.set_cell_type(x, y, TerrainType::Plains);
+        }
     }
 
     // Run for 61 ticks (updates every 60)

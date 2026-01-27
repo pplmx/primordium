@@ -26,7 +26,7 @@ pub struct PredationContext<'a> {
     pub lineage_consumption: &'a mut Vec<(Uuid, f64)>,
 }
 
-pub fn get_territorial_aggression(entity: &Entity, config: &AppConfig) -> f64 {
+pub fn soldier_territorial_bonus(entity: &Entity, config: &AppConfig) -> f64 {
     let dist = ((entity.physics.x - entity.physics.home_x).powi(2)
         + (entity.physics.y - entity.physics.home_y).powi(2))
     .sqrt();
@@ -162,6 +162,8 @@ pub fn reproduce_asexual_parallel(
                 offspring_count: 0,
                 lineage_id: child_genotype.lineage_id,
                 has_metamorphosed: false,
+                is_in_transit: false,
+                migration_id: None,
             },
             health: Health {
                 pathogen: None,
@@ -237,6 +239,8 @@ pub fn reproduce_with_mate_parallel(
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
             has_metamorphosed: false,
+            is_in_transit: false,
+            migration_id: None,
         },
         health: Health {
             pathogen: None,
@@ -259,6 +263,83 @@ pub fn reproduce_with_mate_parallel(
             spec_meters: std::collections::HashMap::new(),
         },
     }
+}
+
+pub fn reproduce_sexual_parallel(
+    p1: &Entity,
+    p2: &Entity,
+    tick: u64,
+    config: &crate::model::config::AppConfig,
+) -> (Entity, f32) {
+    let mut rng = rand::thread_rng();
+    let investment = p1.intel.genotype.reproductive_investment as f64;
+    let child_energy = (p1.metabolism.energy + p2.metabolism.energy) * investment / 2.0;
+
+    let mut child_genotype = p1.intel.genotype.crossover(&p2.intel.genotype);
+    intel::mutate_genotype(&mut child_genotype, config, 100);
+
+    let r = ((p1.physics.r as i16 + p2.physics.r as i16) / 2 + rng.gen_range(-10..=10))
+        .clamp(0, 255) as u8;
+    let g = ((p1.physics.g as i16 + p2.physics.g as i16) / 2 + rng.gen_range(-10..=10))
+        .clamp(0, 255) as u8;
+    let b = ((p1.physics.b as i16 + p2.physics.b as i16) / 2 + rng.gen_range(-10..=10))
+        .clamp(0, 255) as u8;
+
+    (
+        Entity {
+            id: Uuid::new_v4(),
+            parent_id: Some(p1.id),
+            physics: Physics {
+                x: p1.physics.x,
+                y: p1.physics.y,
+                vx: p1.physics.vx,
+                vy: p1.physics.vy,
+                r,
+                g,
+                b,
+                symbol: '●',
+                home_x: p1.physics.x,
+                home_y: p1.physics.y,
+                sensing_range: child_genotype.sensing_range,
+                max_speed: child_genotype.max_speed,
+            },
+            metabolism: Metabolism {
+                trophic_potential: child_genotype.trophic_potential,
+                energy: child_energy,
+                prev_energy: child_energy,
+                max_energy: child_genotype.max_energy,
+                peak_energy: child_energy,
+                birth_tick: tick,
+                generation: p1.metabolism.generation.max(p2.metabolism.generation) + 1,
+                offspring_count: 0,
+                lineage_id: child_genotype.lineage_id,
+                has_metamorphosed: false,
+                is_in_transit: false,
+                migration_id: None,
+            },
+            health: Health {
+                pathogen: None,
+                infection_timer: 0,
+                immunity: (p1.health.immunity + p2.health.immunity) / 2.0,
+            },
+            intel: Intel {
+                genotype: child_genotype,
+                last_hidden: [0.0; 6],
+                last_aggression: 0.0,
+                last_share_intent: 0.0,
+                last_signal: 0.0,
+                last_vocalization: 0.0,
+                reputation: 1.0,
+                rank: 0.5,
+                bonded_to: None,
+                last_inputs: [0.0; 16],
+                last_activations: std::collections::HashMap::new(),
+                specialization: None,
+                spec_meters: std::collections::HashMap::new(),
+            },
+        },
+        0.1,
+    )
 }
 
 pub fn increment_spec_meter(
@@ -333,7 +414,6 @@ pub fn is_legend_worthy(entity: &Entity, tick: u64) -> bool {
         || entity.metabolism.peak_energy > 300.0
 }
 
-// DEPRECATED WRAPPERS
 pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut PredationContext) {
     let targets = ctx
         .spatial_hash
@@ -346,7 +426,9 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
         {
             let gain = v_snap.energy
                 * entities[idx].metabolism.trophic_potential as f64
-                * (1.0 - (ctx.pop_stats.biomass_c / 10000.0)).max(0.5);
+                * (1.0
+                    - (ctx.pop_stats.biomass_c / ctx.config.ecosystem.predation_competition_scale))
+                    .max(ctx.config.ecosystem.predation_min_efficiency);
             entities[idx].metabolism.energy =
                 (entities[idx].metabolism.energy + gain).min(entities[idx].metabolism.max_energy);
             ctx.killed_ids.insert(v_snap.id);

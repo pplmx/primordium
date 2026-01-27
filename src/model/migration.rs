@@ -55,15 +55,13 @@ impl World {
         entity.metabolism.energy = energy as f64;
         entity.metabolism.generation = generation;
 
-        // Deserialize DNA (Genotype)
-        if let Ok(genotype) = crate::model::state::entity::Genotype::from_hex(&dna) {
-            entity.intel.genotype = genotype;
-            // Sync phenotype
-            entity.physics.sensing_range = entity.intel.genotype.sensing_range;
-            entity.physics.max_speed = entity.intel.genotype.max_speed;
-            entity.metabolism.max_energy = entity.intel.genotype.max_energy;
-            entity.metabolism.lineage_id = entity.intel.genotype.lineage_id;
-        }
+        let genotype = crate::model::state::entity::Genotype::from_hex(&dna)?;
+        entity.intel.genotype = genotype;
+        // Sync phenotype
+        entity.physics.sensing_range = entity.intel.genotype.sensing_range;
+        entity.physics.max_speed = entity.intel.genotype.max_speed;
+        entity.metabolism.max_energy = entity.intel.genotype.max_energy;
+        entity.metabolism.lineage_id = entity.intel.genotype.lineage_id;
 
         self.lineage_registry.record_migration_in(
             entity.metabolism.lineage_id,

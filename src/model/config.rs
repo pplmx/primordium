@@ -100,6 +100,8 @@ pub struct EcosystemConfig {
     pub base_spawn_chance: f32,
     pub nutrient_niche_multiplier: f32,
     pub predation_energy_gain_fraction: f64,
+    pub predation_competition_scale: f64,
+    pub predation_min_efficiency: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -197,6 +199,8 @@ impl Default for AppConfig {
                 base_spawn_chance: 0.0083,
                 nutrient_niche_multiplier: 1.5,
                 predation_energy_gain_fraction: 0.5,
+                predation_competition_scale: 10000.0,
+                predation_min_efficiency: 0.5,
             },
             target_fps: 60,
             game_mode: GameMode::Standard,

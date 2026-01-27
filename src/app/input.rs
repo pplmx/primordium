@@ -511,7 +511,8 @@ impl App {
                         if self.is_social_brush {
                             let ix = (wx as usize).min(self.world.width as usize - 1);
                             let iy = (wy as usize).min(self.world.height as usize - 1);
-                            self.world.social_grid[iy][ix] = self.social_brush;
+                            let width = self.world.width as usize;
+                            self.world.social_grid[iy * width + ix] = self.social_brush;
                         } else {
                             self.world
                                 .terrain
