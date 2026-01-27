@@ -309,6 +309,71 @@ impl World {
         }
     }
 
+    pub fn apply_relief(&mut self, lineage_id: uuid::Uuid, amount: f32) {
+        let members: Vec<_> = self
+            .entities
+            .iter_mut()
+            .filter(|e| e.metabolism.lineage_id == lineage_id)
+            .collect();
+
+        if !members.is_empty() {
+            let amount_per = amount as f64 / members.len() as f64;
+            for e in members {
+                e.metabolism.energy =
+                    (e.metabolism.energy + amount_per).min(e.metabolism.max_energy);
+            }
+        }
+    }
+
+    fn handle_outposts(&mut self) {
+        let outpost_indices: Vec<usize> = self
+            .terrain
+            .cells
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.terrain_type == crate::model::state::terrain::TerrainType::Outpost)
+            .map(|(i, _)| i)
+            .collect();
+
+        for idx in outpost_indices {
+            let (ox, oy) = (
+                (idx % self.width as usize) as f64,
+                (idx / self.width as usize) as f64,
+            );
+            let owner_id = self.terrain.cells[idx].owner_id;
+
+            let nearby = self.spatial_hash.query(ox, oy, 3.0);
+            let mut stored = self.terrain.cells[idx].energy_store;
+
+            for e_idx in nearby {
+                let e = &mut self.entities[e_idx];
+                if Some(e.metabolism.lineage_id) == owner_id {
+                    if e.metabolism.energy > e.metabolism.max_energy * 0.8 {
+                        let donation = e.metabolism.energy * 0.05;
+                        e.metabolism.energy -= donation;
+                        stored += donation as f32;
+                    }
+                    if e.metabolism.energy < e.metabolism.max_energy * 0.3 && stored > 10.0 {
+                        let grant = (e.metabolism.max_energy * 0.1).min(stored as f64);
+                        e.metabolism.energy += grant;
+                        stored -= grant as f32;
+                    }
+                }
+            }
+
+            if stored > 50.0 {
+                self.pheromones.deposit(
+                    ox,
+                    oy,
+                    crate::model::state::pheromone::PheromoneType::SignalA,
+                    0.5,
+                );
+            }
+
+            self.terrain.cells[idx].energy_store = stored.min(1000.0);
+        }
+    }
+
     pub fn clear_research_deltas(&mut self, entity_id: uuid::Uuid) {
         if let Some(e) = self.entities.iter_mut().find(|e| e.id == entity_id) {
             e.intel.genotype.brain.weight_deltas.clear();
@@ -969,6 +1034,7 @@ impl World {
             self.handle_fossilization();
             self.lineage_registry.prune();
         }
+        self.handle_outposts();
         stats::update_stats(
             self.tick,
             &self.entities,

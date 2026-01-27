@@ -136,6 +136,9 @@ impl NetworkManager {
             NetMessage::TradeRevoke { proposal_id } => {
                 s.trade_offers.retain(|o| o.id != proposal_id);
             }
+            NetMessage::Relief { .. } => {
+                pending.lock().unwrap().push(msg);
+            }
             _ => {}
         }
     }

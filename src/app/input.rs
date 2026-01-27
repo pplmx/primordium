@@ -384,6 +384,32 @@ impl App {
                     }
                 }
             }
+            KeyCode::Char('f') | KeyCode::Char('F') => {
+                if let Some(id) = self.selected_entity {
+                    if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
+                        let l_id = entity.metabolism.lineage_id;
+                        if let Some(net) = &self.network {
+                            use crate::model::infra::network::NetMessage;
+                            let msg = NetMessage::Relief {
+                                lineage_id: l_id,
+                                amount: 500.0,
+                                sender_id: self
+                                    .network_state
+                                    .client_id
+                                    .unwrap_or_else(uuid::Uuid::new_v4),
+                            };
+                            net.send(&msg);
+                            self.event_log.push_back((
+                                format!(
+                                    "RELIEF SENT: 500.0 energy broadcast for lineage {}",
+                                    &l_id.to_string()[..4]
+                                ),
+                                Color::Yellow,
+                            ));
+                        }
+                    }
+                }
+            }
             // GOD MODE COMMANDS
             KeyCode::Char('K') => {
                 if self.env.god_climate_override.is_some() {

@@ -95,6 +95,8 @@ pub struct TerrainCell {
     pub plant_biomass: f32,
     /// NEW: Owner of the cell (for Nests and Outposts)
     pub owner_id: Option<uuid::Uuid>,
+    /// NEW: Energy stored in the cell (for Outposts)
+    pub energy_store: f32,
 }
 
 impl Default for TerrainCell {
@@ -108,6 +110,7 @@ impl Default for TerrainCell {
             biomass_accumulation: 0.0,
             plant_biomass: 10.0,
             owner_id: None,
+            energy_store: 0.0,
         }
     }
 }

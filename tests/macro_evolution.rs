@@ -99,3 +99,46 @@ fn test_outpost_construction() {
     assert_eq!(cell.terrain_type, TerrainType::Outpost);
     assert_eq!(cell.owner_id, Some(l_id));
 }
+
+#[test]
+fn test_outpost_energy_capacitor() {
+    let config = AppConfig::default();
+    let mut world = World::new(0, config).unwrap();
+    let mut _env = Environment::default();
+
+    let l_id = Uuid::new_v4();
+    let mut donor = Entity::new(10.0, 10.0, 0);
+    donor.metabolism.lineage_id = l_id;
+    donor.metabolism.energy = 450.0;
+    donor.metabolism.max_energy = 500.0;
+    world.entities.push(donor);
+
+    let idx = world.terrain.index(10, 10);
+    world.terrain.set_cell_type(10, 10, TerrainType::Outpost);
+    world.terrain.cells[idx].owner_id = Some(l_id);
+
+    world.update(&mut _env).unwrap();
+
+    let idx = world.terrain.index(10, 10);
+    assert!(
+        world.terrain.cells[idx].energy_store > 0.0,
+        "Outpost should collect energy"
+    );
+
+    let mut needy = Entity::new(11.0, 11.0, 0);
+    needy.metabolism.lineage_id = l_id;
+    needy.metabolism.energy = 20.0;
+    needy.metabolism.max_energy = 500.0;
+    world.entities.push(needy);
+
+    world.update(&mut _env).unwrap();
+
+    let needy_idx = world
+        .entities
+        .iter()
+        .position(|e| e.metabolism.energy > 20.0 && e.id != world.entities[0].id);
+    assert!(
+        needy_idx.is_some(),
+        "Needy entity should have received energy"
+    );
+}

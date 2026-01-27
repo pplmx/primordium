@@ -150,6 +150,18 @@ impl App {
                             Color::Green,
                         ));
                     }
+                    NetMessage::Relief {
+                        lineage_id, amount, ..
+                    } => {
+                        self.world.apply_relief(lineage_id, amount);
+                        self.event_log.push_back((
+                            format!(
+                                "RELIEF RECEIVED: {:.1} energy granted to kin of this universe!",
+                                amount
+                            ),
+                            Color::Yellow,
+                        ));
+                    }
                     _ => {}
                 }
             }

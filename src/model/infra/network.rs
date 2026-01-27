@@ -69,6 +69,11 @@ pub enum NetMessage {
     TradeRevoke {
         proposal_id: Uuid,
     },
+    Relief {
+        lineage_id: Uuid,
+        amount: f32,
+        sender_id: Uuid,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
