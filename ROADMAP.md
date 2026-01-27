@@ -18,6 +18,25 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 ---
 
+## 🎯 Immediate Priorities (Top 10)
+
+> **"Focus is not saying yes; it is saying no to the hundred other good ideas."**
+
+These tasks are the critical path to the next major version of Primordium.
+
+1.  **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite*
+2.  **Phase 66: Data-Oriented Core (ECS Refactor)** - *Performance Foundation*
+3.  **T2: Engineering Excellence (CI/CD + Determinism)** - *Safety Net*
+4.  **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement*
+5.  **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth*
+6.  **Phase 68: The Song of Entropy (Audio)** - *Immersion*
+7.  **Phase 67: The Creator's Interface (Plugin Architecture)** - *Extensibility*
+8.  **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
+9.  **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
+10. **T4: Knowledge Preservation (Docs)** - *Maintainability*
+
+---
+
 ## 📦 Technology Stack
 
 ```toml
@@ -557,18 +576,157 @@ toml = "0.8"
 
 ### Phase 64: Genetic Memory & Evolutionary Rewind 🚧
 
+**Goal:** Deepen biological realism through temporal genetic mechanisms.
+
 - **Genotype Checkpointing**:
     - Functional: Lineages automatically archive the "All-Time Best" genotype in their shared memory.
     - Technical: Track `max_fitness_genotype` in `LineageRecord`.
 - **Atavistic Recall**:
     - Functional: Struggling entities have a small chance to revert to an ancestral successful genotype (Rewind).
     - Technical: Mutation variant that replaces current brain with the checkpointed brain.
-- **Fitness Trend Perception**:
-    - Functional: Organisms perceive whether their metabolic health is improving or declining.
-    - Technical: 30th neural input for `EnergyVelocity` (dE/dt).
+- **Epigenetic Markers**:
+    - Functional: Stress-induced non-structural inheritance (e.g., higher stress tolerance in offspring of stressed parents).
+    - Technical: `EpigeneticState` vector passed to offspring, decaying over generations.
 - **Ancestral Specters**:
     - Functional: Visualization of historical hotspots where extinct lineages flourished.
     - Technical: Temporal decay heatmap of past high-density regions.
+
+### Phase 65: The Silicon Scribe (LLM Integration) 🚀
+
+**Goal:** Ultimate Observability regarding "Why did this happen?".
+
+- **Narrator System**:
+    - Functional: Natural language event logs describing epic moments (e.g., "The Red Tribe migrated south due to famine").
+    - Technical: Async Rust bindings to local LLM (e.g., Llama 3) encapsulated in **`primordium_observer`** to prevent core bloat.
+- **Analyst Agent**:
+    - Functional: RAG system allowing users to query simulation history.
+    - Technical: Vector database integration for `logs/history.jsonl`.
+- **Interactive Query**:
+    - Functional: "Show me the lineage that survived the Great Drought."
+    - Technical: Natural Language to SQL/Filter converter for `primordium-analyze`.
+
+### Phase 66: Data-Oriented Core (ECS Refactor) ⚡
+
+**Goal:** Maximize CPU cache localization and parallelism.
+
+- **Step 1: The Component Split**:
+    - Functional: Decompose the monolithic `Entity` struct.
+    - Technical: Create atomic components: `Position`, `Velocity`, `Brain`, `Metabolism`, `Genotype`.
+- **Step 2: The Archetype Migration**:
+    - Functional: Optimize memory layout for different entity types (e.g. `Food` vs `Organism`).
+    - Technical: Adopt `hecs` or `bevy_ecs` to manage SoA (Structure of Arrays) storage efficiently.
+- **Step 3: System Parallelism**:
+    - Functional: Fearless concurrency for massive scale.
+    - Technical: Use explicit queries like `Query<(&mut Position, &Velocity)>` to remove `RwLock` contention.
+- **Step 4: Zero-Copy Serialization**:
+    - Functional: Instant simulation saves and network transfers.
+    - Technical: Implement `rkyv` for memory-mapped persistence of **component tables** (Archetypes).
+
+### Phase 67: The Creator's Interface (Plugin Architecture) 🧩
+
+**Goal:** Community extensibility and modding support.
+
+- **WASM Plugin Host**:
+    - Functional: Users can write custom `Systems` (e.g., new disease logic) in Rust/WASM.
+    - Technical: `wasmer` or `wasmtime` integration to run sandboxed systems during `World::update`.
+- **Lua Scripting**:
+    - Functional: Lightweight scripting for "Disaster Scenarios" or level design.
+    - Technical: `mlua` integration for triggering events based on world state conditions.
+- **Mod Loader**:
+    - Functional: Simple CLI to load/unload mods.
+    - Technical: `mods/` directory scanner and dependency resolution.
+
+### 🎨 Creative Construction
+
+*Focus on the artistic and sensory experience.*
+
+- **Phase 68: The Song of Entropy (Procedural Audio)** 🎵
+    - **Goal**: Hear the state of the world.
+    - **Features**:
+        - `Entropy Synth`: Sound generation driven by global system entropy.
+        - `Event SFX`: Spatial audio for predation and birth.
+        - `Bio-Music`: Dominant lineage genomes converted to melody.
+
+- **Phase 69: Visual Synthesis (ASCII Raytracing)** 👁️
+    - **Goal**: Push the limits of the terminal.
+    - **Features**:
+        - `SDF Rendering`: Signed Distance Field rendering for "blobs" in TUI.
+        - `Glow Effects`: Simulated CRT bloom using RGB colors.
+
+### 🌐 Ecosystem Expansion
+
+*Focus on platform reach and developer integration.*
+
+- **Phase 70: The Galactic Federation (Central Server)** 🏛️
+    - **Goal**: A persistent, shared multiverse.
+    - **Features**:
+        - `Global Registry`: Permanent storage of "Hall of Fame" genomes.
+        - `Marketplace`: Exchange "Seeds" (Simulation Configs) and "Specimens".
+
+---
+
+## 🏗️ Technical Evolution
+
+> **"Code is not just functionality; it is the literature of logic."**
+
+These parallel workstreams focus on the long-term health, stability, and developer experience of the Primordium engine.
+
+### T1: Architectural Decoupling (The Hexagonal Refactor) 🧱
+- **Goal**: Achieve a "Perfect" separation of Data, Logic, IO, and Presentation.
+- **Tasks**:
+    - **`primordium_data`** (The Atom):
+        - *Role*: Pure Data Structs (POD) shared by Tools, SDKs, and Engine.
+        - *Content*: `EntityData`, `Genotype`, `PhysicsState`.
+        - *Dependencies*: `serde`, `uuid`. NO Logic.
+    - **`primordium_core`** (The Engine):
+        - *Role*: Deterministic Simulation Logic.
+        - *Content*: `Systems`, `World::update()`.
+        - *Constraints*: `no_std` compatible, WASM-pure. NO Disk/Net I/O.
+    - **`primordium_io`** (The Scribe):
+        - *Role*: Persistence and Logging.
+        - *Content*: `HistoryLogger`, `FossilRegistry`, `SaveManager`.
+        - *Why*: Isolates heavy I/O from the lightweight Core.
+    - **`primordium_driver`** (The Contract):
+        - *Role*: Trait definitions for Hardware Abstraction (`Renderer`, `Input`).
+        - *Why*: Enables swapping TUI for WebCanvas or Headless without touching App logic.
+    - **`primordium_net`** (The Voice):
+        - *Role*: P2P Networking implementation.
+        - *Dependencies*: `primordium_data`, `tokio`.
+    - **`primordium_tui`** (The Lens):
+        - *Role*: TUI implementation of `primordium_driver`.
+    - **`primordium_app`** (The Glue):
+        - *Role*: Composition Root (`main.rs`) that wires Drivers to Core.
+    - **`primordium_tools`** (The Toolkit):
+        - *Role*: CLI utilities for data analysis and verification.
+        - *Binaries*: `analyze` (from `src/bin/analyze.rs`), `verify` (from `src/bin/verify.rs`).
+        - *Dependencies*: `primordium_data`, `primordium_io`.
+    - **`primordium_server`** (The Nexus):
+        - *Role*: Dedicated backend binary for the Galactic Federation.
+        - *Content*: Current `src/server/main.rs` logic.
+        - *Dependencies*: `primordium_net`, `axum`, `tokio`.
+
+### T2: Continuous Evolution (CI/CD Pipeline) 🔄
+- **Goal**: Automate quality assurance.
+- **Tasks**:
+    - `test.yml`: Run `cargo test` on every push.
+    - `release.yml`: Auto-build binaries for Linux/MacOS/Windows on semantic tags.
+    - `audit.yml`: Weekly security scan with `cargo audit`.
+    - `clippy.yml`: Enforce strict linting rules on PRs.
+
+### T3: The Testing Gauntlet 🛡️
+- **Goal**: Catch distinct edge cases and ensure deterministic simulation.
+- **Tasks**:
+    - **Property Testing**: Integrate `proptest` to fuzz `physics` and `collision` logic with millions of inputs.
+    - **Determinism Check**: Regression test suite ensuring that `seed_A` always produces `history_A` across platforms.
+    - **Long-Haul Tests**: 24-hour runtime verification to check for memory leaks and numerical drift.
+
+### T4: Knowledge Preservation (Documentation) 📚
+- **Goal**: Move beyond markdown files to a searchable knowledge base.
+- **Tasks**:
+    - Setup `mdBook` framework for documentation.
+    - Compile `ARCHITECTURE.md`, `AGENTS.md`, and `CHANGELOG.md` into a static site.
+    - Generate `cargo doc` pages for the internal API.
+    - Deploy to GitHub Pages.
 
 ---
 
@@ -578,5 +736,5 @@ Primordium is an experiment in **emergent complexity**. You provide the rules, t
 
 Every run is unique. Every lineage is precious. Every extinction teaches us something.
 
-*Last updated: 2026-01-25*
+*Last updated: 2026-01-27*
 *Version: 0.0.1*
