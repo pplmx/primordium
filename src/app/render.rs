@@ -423,12 +423,11 @@ impl App {
                 }
                 lines.push(ratatui::text::Line::from(out_spans));
 
-                let dna_short = if entity.genotype_hex.len() > 16 {
-                    &entity.genotype_hex[..16]
-                } else {
-                    &entity.genotype_hex
-                };
-                lines.push(ratatui::text::Line::from(format!(" DNA: {}...", dna_short)));
+                if let Some(ref hex) = entity.genotype_hex {
+                    let dna_short = if hex.len() > 16 { &hex[..16] } else { hex };
+                    lines.push(ratatui::text::Line::from(format!(" DNA: {}...", dna_short)));
+                }
+
                 f.render_widget(Paragraph::new(lines).block(brain_block), sidebar_layout[1]);
             }
         }

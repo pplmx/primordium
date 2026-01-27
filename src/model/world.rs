@@ -83,6 +83,14 @@ pub struct World {
     decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
     lineage_consumption: Vec<(uuid::Uuid, f64)>,
+    #[serde(skip)]
+    cached_terrain: std::sync::Arc<TerrainGrid>,
+    #[serde(skip)]
+    cached_pheromones: std::sync::Arc<PheromoneGrid>,
+    #[serde(skip)]
+    cached_sound: std::sync::Arc<SoundGrid>,
+    #[serde(skip)]
+    cached_social_grid: std::sync::Arc<Vec<Vec<u8>>>,
 }
 
 impl World {
@@ -118,6 +126,8 @@ impl World {
         let terrain = TerrainGrid::generate(config.world.width, config.world.height, 42);
         let pheromones = PheromoneGrid::new(config.world.width, config.world.height);
         let sound = SoundGrid::new(config.world.width, config.world.height);
+        let social_grid = vec![vec![0; config.world.width as usize]; config.world.height as usize];
+
         Ok(Self {
             width: config.world.width,
             height: config.world.height,
@@ -129,10 +139,14 @@ impl World {
             food_hash: SpatialHash::new(5.0),
             pop_stats: PopulationStats::new(),
             hall_of_fame: HallOfFame::new(),
+            cached_terrain: std::sync::Arc::new(terrain.clone()),
+            cached_pheromones: std::sync::Arc::new(pheromones.clone()),
+            cached_sound: std::sync::Arc::new(sound.clone()),
+            cached_social_grid: std::sync::Arc::new(social_grid.clone()),
             terrain,
             pheromones,
             sound,
-            social_grid: vec![vec![0; config.world.width as usize]; config.world.height as usize],
+            social_grid,
             lineage_registry,
             config,
             fossil_registry: FossilRegistry::default(),
@@ -288,7 +302,10 @@ impl World {
         }
     }
 
-    pub fn create_snapshot(&self) -> crate::model::state::snapshot::WorldSnapshot {
+    pub fn create_snapshot(
+        &self,
+        selected_id: Option<uuid::Uuid>,
+    ) -> crate::model::state::snapshot::WorldSnapshot {
         use crate::model::state::snapshot::{EntitySnapshot, WorldSnapshot};
         let entities = self
             .entities
@@ -320,7 +337,11 @@ impl World {
                 last_activations: e.intel.last_activations.clone(),
                 last_inputs: e.intel.last_inputs,
                 last_hidden: e.intel.last_hidden,
-                genotype_hex: e.intel.genotype.to_hex(),
+                genotype_hex: if Some(e.id) == selected_id {
+                    Some(e.intel.genotype.to_hex())
+                } else {
+                    None
+                },
             })
             .collect();
 
@@ -330,10 +351,10 @@ impl World {
             food: self.food.clone(),
             stats: self.pop_stats.clone(),
             hall_of_fame: self.hall_of_fame.clone(),
-            terrain: self.terrain.clone(),
-            pheromones: self.pheromones.clone(),
-            sound: self.sound.clone(),
-            social_grid: self.social_grid.clone(),
+            terrain: self.cached_terrain.clone(),
+            pheromones: self.cached_pheromones.clone(),
+            sound: self.cached_sound.clone(),
+            social_grid: self.cached_social_grid.clone(),
             width: self.width,
             height: self.height,
         }
@@ -390,11 +411,11 @@ impl World {
             self.food_hash.insert(f.x as f64, f.y as f64, i);
         }
         let mut current_entities = std::mem::take(&mut self.entities);
-        let positions: Vec<(f64, f64)> = current_entities
+        let spatial_data: Vec<(f64, f64, uuid::Uuid)> = current_entities
             .iter()
-            .map(|e| (e.physics.x, e.physics.y))
+            .map(|e| (e.physics.x, e.physics.y, e.metabolism.lineage_id))
             .collect();
-        self.spatial_hash.build_parallel(&positions);
+        self.spatial_hash.build_with_lineage(&spatial_data);
         let entity_snapshots: Vec<InternalEntitySnapshot> = current_entities
             .par_iter()
             .map(|e| InternalEntitySnapshot {
@@ -415,6 +436,12 @@ impl World {
                     self.config.metabolism.maturity_age,
                 ),
             })
+            .collect();
+
+        let entity_id_map: HashMap<uuid::Uuid, usize> = current_entities
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (e.id, i))
             .collect();
 
         let mut killed_ids = std::mem::take(&mut self.killed_ids);
@@ -439,7 +466,7 @@ impl World {
             e.metabolism.prev_energy = e.metabolism.energy;
             e.intel.rank = social::calculate_social_rank(e, self.tick, &self.config);
             if let Some(p_id) = e.intel.bonded_to {
-                if let Some(partner) = entity_snapshots.iter().find(|s| s.id == p_id) {
+                if let Some(partner) = entity_id_map.get(&p_id).map(|&idx| &entity_snapshots[idx]) {
                     let dx = partner.x - e.physics.x;
                     let dy = partner.y - e.physics.y;
                     if (dx * dx + dy * dy) > self.config.social.bond_break_dist.powi(2) {
@@ -471,7 +498,7 @@ impl World {
                         .sense(e.physics.x, e.physics.y, e.physics.sensing_range);
                 let mut partner_energy = 0.0;
                 if let Some(p_id) = e.intel.bonded_to {
-                    if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
+                    if let Some(&p_idx) = entity_id_map.get(&p_id) {
                         partner_energy = (entity_snapshots[p_idx].energy
                             / e.metabolism.max_energy.max(1.0))
                             as f32;
@@ -552,7 +579,7 @@ impl World {
                     // Voluntary bond breaking: if Bond output < 0.2
                     if outputs[8] < 0.2 {
                         cmds.push(InteractionCommand::BondBreak { target_idx: i });
-                    } else if let Some(p_idx) = entity_snapshots.iter().position(|s| s.id == p_id) {
+                    } else if let Some(&p_idx) = entity_id_map.get(&p_id) {
                         // Phase 54: Sexual Reproduction (Bonded Partners)
                         // If both are mature and have high energy, reproduce sexually.
                         let partner = &current_entities[p_idx];
@@ -884,6 +911,20 @@ impl World {
             &mut self.hall_of_fame,
             &self.terrain,
         );
+        if self.terrain.is_dirty {
+            self.cached_terrain = std::sync::Arc::new(self.terrain.clone());
+            self.terrain.is_dirty = false;
+        }
+        if self.pheromones.is_dirty {
+            self.cached_pheromones = std::sync::Arc::new(self.pheromones.clone());
+            self.pheromones.is_dirty = false;
+        }
+        if self.sound.is_dirty {
+            self.cached_sound = std::sync::Arc::new(self.sound.clone());
+            self.sound.is_dirty = false;
+        }
+        self.cached_social_grid = std::sync::Arc::new(self.social_grid.clone());
+
         Ok(events)
     }
 }

@@ -6,6 +6,7 @@ use crate::model::state::sound::SoundGrid;
 use crate::model::state::terrain::TerrainGrid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -32,7 +33,7 @@ pub struct EntitySnapshot {
     pub last_activations: HashMap<i32, f32>,
     pub last_inputs: [f32; 16],
     pub last_hidden: [f32; 6],
-    pub genotype_hex: String, // For DNA export in UI
+    pub genotype_hex: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -42,10 +43,10 @@ pub struct WorldSnapshot {
     pub food: Vec<Food>,
     pub stats: PopulationStats,
     pub hall_of_fame: HallOfFame,
-    pub terrain: TerrainGrid,
-    pub pheromones: PheromoneGrid,
-    pub sound: SoundGrid,
-    pub social_grid: Vec<Vec<u8>>,
+    pub terrain: Arc<TerrainGrid>,
+    pub pheromones: Arc<PheromoneGrid>,
+    pub sound: Arc<SoundGrid>,
+    pub social_grid: Arc<Vec<Vec<u8>>>,
     pub width: u16,
     pub height: u16,
 }

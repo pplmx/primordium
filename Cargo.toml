@@ -30,7 +30,7 @@ path = "src/server/main.rs"
 anyhow = "1.0"
 
 # Serialization & Data
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 chrono = "0.4"
 uuid = { version = "1.0", features = ["v4", "serde"] }

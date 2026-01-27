@@ -98,7 +98,7 @@ impl App {
             World::new(config.world.initial_population, config.clone())?
         };
 
-        let latest_snapshot = Some(world.create_snapshot());
+        let latest_snapshot = Some(world.create_snapshot(None));
 
         Ok(Self {
             running: true,

@@ -104,12 +104,14 @@ impl Default for TerrainCell {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct TerrainGrid {
     pub cells: Vec<Vec<TerrainCell>>,
     pub width: u16,
     pub height: u16,
     pub dust_bowl_timer: u32,
+    #[serde(skip)]
+    pub is_dirty: bool,
 }
 
 impl TerrainGrid {
@@ -173,10 +175,12 @@ impl TerrainGrid {
             width,
             height,
             dust_bowl_timer: 0,
+            is_dirty: true,
         }
     }
 
     pub fn update(&mut self, herbivore_biomass: f64) -> f64 {
+        self.is_dirty = true;
         if self.dust_bowl_timer > 0 {
             self.dust_bowl_timer -= 1;
         }
@@ -382,18 +386,21 @@ impl TerrainGrid {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
         self.cells[iy][ix].fertility = (self.cells[iy][ix].fertility - amount).max(0.0);
+        self.is_dirty = true;
     }
 
     pub fn fertilize(&mut self, x: f64, y: f64, amount: f32) {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
         self.cells[iy][ix].fertility = (self.cells[iy][ix].fertility + amount).min(1.0);
+        self.is_dirty = true;
     }
 
     pub fn add_biomass(&mut self, x: f64, y: f64, amount: f32) {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
         self.cells[iy][ix].biomass_accumulation += amount;
+        self.is_dirty = true;
     }
 
     fn value_noise(x: f32, y: f32, seed: u64) -> f32 {
@@ -452,6 +459,7 @@ impl TerrainGrid {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
         self.cells[iy][ix].terrain_type = t;
+        self.is_dirty = true;
     }
 
     /// Manually set cell fertility (useful for testing)
@@ -459,6 +467,7 @@ impl TerrainGrid {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
         self.cells[iy][ix].fertility = f.clamp(0.0, 1.0);
+        self.is_dirty = true;
     }
 
     pub fn average_fertility(&self) -> f32 {

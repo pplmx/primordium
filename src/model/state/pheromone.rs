@@ -71,12 +71,14 @@ impl PheromoneCell {
 }
 
 /// Grid-based pheromone map for the world
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PheromoneGrid {
     pub cells: Vec<Vec<PheromoneCell>>,
     pub width: u16,
     pub height: u16,
     pub decay_rate: f32, // Per-tick decay multiplier
+    #[serde(skip)]
+    pub is_dirty: bool,
 }
 
 impl PheromoneGrid {
@@ -87,6 +89,7 @@ impl PheromoneGrid {
             width,
             height,
             decay_rate: 0.995,
+            is_dirty: true,
         }
     }
 
@@ -94,6 +97,7 @@ impl PheromoneGrid {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
         self.cells[iy][ix].deposit(ptype, amount);
+        self.is_dirty = true;
     }
 
     /// Sense average pheromone strengths in a radius.
@@ -143,6 +147,7 @@ impl PheromoneGrid {
     }
 
     pub fn decay(&mut self) {
+        self.is_dirty = true;
         for row in &mut self.cells {
             for cell in row {
                 cell.decay(self.decay_rate);

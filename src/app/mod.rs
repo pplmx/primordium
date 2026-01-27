@@ -108,7 +108,7 @@ impl App {
 
     fn update_world(&mut self) -> Result<()> {
         let events = self.world.update(&mut self.env)?;
-        self.latest_snapshot = Some(self.world.create_snapshot());
+        self.latest_snapshot = Some(self.world.create_snapshot(self.selected_entity));
         for ev in events {
             let (msg, color) = ev.to_ui_message();
             self.event_log.push_back((msg, color));

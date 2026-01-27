@@ -7,6 +7,8 @@ use std::collections::HashMap;
 pub struct SpatialHash {
     pub cell_size: f64,
     pub cells: HashMap<(i32, i32), Vec<usize>>,
+    #[serde(skip)]
+    pub lineage_centroids: HashMap<uuid::Uuid, (f64, f64, usize)>,
 }
 
 impl SpatialHash {
@@ -14,15 +16,17 @@ impl SpatialHash {
         Self {
             cell_size,
             cells: HashMap::new(),
+            lineage_centroids: HashMap::new(),
         }
     }
 
     pub fn new_empty() -> Self {
-        Self::new(10.0) // Default cell size
+        Self::new(10.0)
     }
 
     pub fn clear(&mut self) {
         self.cells.clear();
+        self.lineage_centroids.clear();
     }
 
     pub fn insert(&mut self, x: f64, y: f64, index: usize) {
@@ -31,12 +35,9 @@ impl SpatialHash {
         self.cells.entry((cx, cy)).or_default().push(index);
     }
 
-    /// NEW: Build the hash in parallel from a slice of positions.
     pub fn build_parallel(&mut self, positions: &[(f64, f64)]) {
         self.clear();
 
-        // Use Rayon's fold and reduce to avoid lock contention.
-        // Each thread builds its own local hashmap, then they are merged.
         self.cells = positions
             .par_iter()
             .enumerate()
@@ -55,6 +56,61 @@ impl SpatialHash {
                 }
                 a
             });
+    }
+
+    pub fn build_with_lineage(&mut self, data: &[(f64, f64, uuid::Uuid)]) {
+        self.clear();
+
+        self.cells = data
+            .par_iter()
+            .enumerate()
+            .fold(
+                HashMap::new,
+                |mut acc: HashMap<(i32, i32), Vec<usize>>, (idx, &(x, y, _))| {
+                    let cx = (x / self.cell_size).floor() as i32;
+                    let cy = (y / self.cell_size).floor() as i32;
+                    acc.entry((cx, cy)).or_default().push(idx);
+                    acc
+                },
+            )
+            .reduce(HashMap::new, |mut a, b| {
+                for (key, value) in b {
+                    a.entry(key).or_default().extend(value);
+                }
+                a
+            });
+
+        self.lineage_centroids = data
+            .par_iter()
+            .fold(
+                HashMap::new,
+                |mut acc: HashMap<uuid::Uuid, (f64, f64, usize)>, &(x, y, lid)| {
+                    let entry = acc.entry(lid).or_insert((0.0, 0.0, 0));
+                    entry.0 += x;
+                    entry.1 += y;
+                    entry.2 += 1;
+                    acc
+                },
+            )
+            .reduce(HashMap::new, |mut a, b| {
+                for (lid, (sx, sy, count)) in b {
+                    let entry = a.entry(lid).or_insert((0.0, 0.0, 0));
+                    entry.0 += sx;
+                    entry.1 += sy;
+                    entry.2 += count;
+                }
+                a
+            });
+    }
+
+    pub fn get_lineage_centroid(&self, lid: &uuid::Uuid) -> Option<(f64, f64)> {
+        self.lineage_centroids.get(lid).map(|&(sx, sy, c)| {
+            if c > 0 {
+                (sx / c as f64, sy / c as f64)
+            } else {
+                (0.0, 0.0)
+            }
+        })
     }
 
     pub fn query(&self, x: f64, y: f64, radius: f64) -> Vec<usize> {

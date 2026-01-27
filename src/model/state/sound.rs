@@ -13,19 +13,25 @@ pub struct SoundDeposit {
 }
 
 /// Grid-based sound map for the world
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct SoundGrid {
     pub cells: Vec<Vec<f32>>,
+    #[serde(skip)]
+    pub back_buffer: Vec<Vec<f32>>,
     pub width: u16,
     pub height: u16,
+    #[serde(skip)]
+    pub is_dirty: bool,
 }
 
 impl SoundGrid {
     pub fn new(width: u16, height: u16) -> Self {
         Self {
             cells: vec![vec![0.0; width as usize]; height as usize],
+            back_buffer: vec![vec![0.0; width as usize]; height as usize],
             width,
             height,
+            is_dirty: true,
         }
     }
 
@@ -33,11 +39,15 @@ impl SoundGrid {
         let ix = (x as usize).min(self.width as usize - 1);
         let iy = (y as usize).min(self.height as usize - 1);
         self.cells[iy][ix] = (self.cells[iy][ix] + amount).min(2.0);
+        self.is_dirty = true;
     }
 
     pub fn update(&mut self) {
-        // 1. Diffusion & Decay (Simulating ripples)
-        let old_cells = self.cells.clone();
+        self.is_dirty = true;
+
+        std::mem::swap(&mut self.cells, &mut self.back_buffer);
+
+        let old_cells = &self.back_buffer;
 
         self.cells.par_iter_mut().enumerate().for_each(|(y, row)| {
             for (x, cell) in row.iter_mut().enumerate() {
@@ -58,7 +68,6 @@ impl SoundGrid {
                     }
                 }
 
-                // Diffusion factor (0.1) and rapid decay (0.7)
                 let diffused = if count > 0 {
                     neighbors_sum / count as f32
                 } else {
