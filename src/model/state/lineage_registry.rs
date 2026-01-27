@@ -5,6 +5,13 @@ use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use uuid::Uuid;
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum LineageGoal {
+    Expansion,
+    Dominance,
+    Resilience,
+}
+
 /// High-level metrics for an ancestral line.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct LineageRecord {
@@ -19,6 +26,7 @@ pub struct LineageRecord {
     pub is_extinct: bool,
     /// NEW: ID of the most successful legendary representative of this lineage
     pub best_legend_id: Option<Uuid>,
+    pub completed_goals: std::collections::HashSet<LineageGoal>,
 }
 
 /// Persistent registry of all lineages that have ever existed in the world.
@@ -120,6 +128,24 @@ impl LineageRegistry {
             .filter(|(_, r)| r.is_extinct)
             .map(|(id, _)| *id)
             .collect()
+    }
+
+    pub fn check_goals(&mut self, tick: u64, _social_grid: &[Vec<u8>], _width: u16, _height: u16) {
+        for record in self.lineages.values_mut() {
+            if !record.is_extinct {
+                if record.current_population >= 50
+                    && !record.completed_goals.contains(&LineageGoal::Expansion)
+                {
+                    record.completed_goals.insert(LineageGoal::Expansion);
+                }
+
+                if tick.saturating_sub(record.first_appearance_tick) >= 2000
+                    && !record.completed_goals.contains(&LineageGoal::Resilience)
+                {
+                    record.completed_goals.insert(LineageGoal::Resilience);
+                }
+            }
+        }
     }
 
     pub fn prune(&mut self) {

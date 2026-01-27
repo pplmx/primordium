@@ -9,10 +9,10 @@ pub struct WorldConfig {
     pub initial_food: usize,
     pub max_food: usize,
     pub disaster_chance: f32,
-    pub heat_wave_cpu: f32,    // Default 80.0
-    pub ice_age_cpu: f32,      // Default 10.0
-    pub abundance_ram: f32,    // Default 40.0
-    pub apex_fitness_req: f64, // Default 8000.0
+    pub heat_wave_cpu: f32,
+    pub ice_age_cpu: f32,
+    pub abundance_ram: f32,
+    pub apex_fitness_req: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -21,10 +21,13 @@ pub struct MetabolismConfig {
     pub base_idle_cost: f64,
     pub reproduction_threshold: f64,
     pub food_value: f64,
-    pub maturity_age: u64, // NEW: Age in ticks before an entity can reproduce
-    pub birth_energy_multiplier: f64, // NEW: Multiplier for initial energy
-    /// NEW: Phase 56 - Base oxygen consumption per entity per tick
+    pub maturity_age: u64,
+    pub birth_energy_multiplier: f64,
     pub oxygen_consumption_rate: f64,
+    pub adult_energy_multiplier: f64,
+    pub adult_speed_multiplier: f64,
+    pub adult_sensing_multiplier: f64,
+    pub metamorphosis_trigger_maturity: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,12 +36,13 @@ pub struct EvolutionConfig {
     pub mutation_amount: f32,
     pub drift_rate: f32,
     pub drift_amount: f32,
-    pub speciation_rate: f32, // NEW: Chance for offspring to flip trophic role
-    pub speciation_threshold: f32, // NEW: Genetic distance threshold for automatic speciation
-    /// NEW: Phase 39 - Scaling mutation based on population density
+    pub speciation_rate: f32,
+    pub speciation_threshold: f32,
     pub population_aware: bool,
-    pub bottleneck_threshold: usize, // e.g. 20
-    pub stasis_threshold: usize,     // e.g. 500
+    pub bottleneck_threshold: usize,
+    pub stasis_threshold: usize,
+    pub crowding_threshold: f32,
+    pub crowding_normalization: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -50,42 +54,52 @@ pub enum GameMode {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BrainConfig {
-    pub hidden_node_cost: f64,       // Default 0.02
-    pub connection_cost: f64,        // Default 0.005
-    pub activation_threshold: f32,   // Default 0.5
-    pub learning_rate_max: f32,      // Default 0.5
-    pub learning_reinforcement: f32, // Default 10.0
+    pub hidden_node_cost: f64,
+    pub connection_cost: f64,
+    pub activation_threshold: f32,
+    pub learning_rate_max: f32,
+    pub learning_reinforcement: f32,
+    pub coupling_spring_constant: f64,
+    pub alpha_following_force: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SocialConfig {
-    pub rank_weights: [f32; 4],     // [Energy, Age, Offspring, Reputation]
-    pub soldier_damage_mult: f64,   // Default 1.5
-    pub war_zone_mult: f64,         // Default 2.0
-    pub sharing_threshold: f32,     // Default 0.5
-    pub sharing_fraction: f64,      // Default 0.05
-    pub bond_break_dist: f64,       // Default 20.0
-    pub relatedness_half_life: f64, // Default 0.5
-    pub territorial_range: f64,     // Default 8.0
-    pub tribe_color_threshold: i32, // Default 60
+    pub rank_weights: [f32; 4],
+    pub soldier_damage_mult: f64,
+    pub war_zone_mult: f64,
+    pub sharing_threshold: f32,
+    pub sharing_fraction: f64,
+    pub bond_break_dist: f64,
+    pub relatedness_half_life: f64,
+    pub territorial_range: f64,
+    pub tribe_color_threshold: i32,
+    pub age_rank_normalization: f32,
+    pub offspring_rank_normalization: f32,
+    pub specialization_threshold: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TerraformConfig {
-    pub dig_cost: f64,          // Default 10.0
-    pub build_cost: f64,        // Default 15.0
-    pub canal_cost: f64,        // Default 30.0
-    pub engineer_discount: f64, // Default 0.5
-    pub nest_energy_req: f64,   // Default 150.0
+    pub dig_cost: f64,
+    pub build_cost: f64,
+    pub canal_cost: f64,
+    pub engineer_discount: f64,
+    pub nest_energy_req: f64,
+    pub dig_oxygen_cost: f64,
+    pub build_oxygen_cost: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EcosystemConfig {
-    pub carbon_emission_rate: f64,    // Default 0.01
-    pub sequestration_rate: f64,      // Default 0.00001
-    pub oxygen_consumption_unit: f64, // Default 0.05
-    pub soil_depletion_unit: f32,     // Default 0.01
-    pub corpse_fertility_mult: f32,   // Default 0.1
+    pub carbon_emission_rate: f64,
+    pub sequestration_rate: f64,
+    pub oxygen_consumption_unit: f64,
+    pub soil_depletion_unit: f32,
+    pub corpse_fertility_mult: f32,
+    pub base_spawn_chance: f32,
+    pub nutrient_niche_multiplier: f32,
+    pub predation_energy_gain_fraction: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -124,6 +138,10 @@ impl Default for AppConfig {
                 maturity_age: 150,
                 birth_energy_multiplier: 1.2,
                 oxygen_consumption_rate: 0.005,
+                adult_energy_multiplier: 1.5,
+                adult_speed_multiplier: 1.2,
+                adult_sensing_multiplier: 1.2,
+                metamorphosis_trigger_maturity: 0.8,
             },
             evolution: EvolutionConfig {
                 mutation_rate: 0.1,
@@ -135,6 +153,8 @@ impl Default for AppConfig {
                 population_aware: true,
                 bottleneck_threshold: 20,
                 stasis_threshold: 500,
+                crowding_threshold: 0.8,
+                crowding_normalization: 10.0,
             },
             brain: BrainConfig {
                 hidden_node_cost: 0.02,
@@ -142,6 +162,8 @@ impl Default for AppConfig {
                 activation_threshold: 0.5,
                 learning_rate_max: 0.5,
                 learning_reinforcement: 10.0,
+                coupling_spring_constant: 0.05,
+                alpha_following_force: 0.02,
             },
             social: SocialConfig {
                 rank_weights: [0.3, 0.3, 0.1, 0.3],
@@ -153,6 +175,9 @@ impl Default for AppConfig {
                 relatedness_half_life: 0.5,
                 territorial_range: 8.0,
                 tribe_color_threshold: 60,
+                age_rank_normalization: 2000.0,
+                offspring_rank_normalization: 20.0,
+                specialization_threshold: 100.0,
             },
             terraform: TerraformConfig {
                 dig_cost: 10.0,
@@ -160,6 +185,8 @@ impl Default for AppConfig {
                 canal_cost: 30.0,
                 engineer_discount: 0.5,
                 nest_energy_req: 150.0,
+                dig_oxygen_cost: 0.02,
+                build_oxygen_cost: 0.03,
             },
             ecosystem: EcosystemConfig {
                 carbon_emission_rate: 0.01,
@@ -167,6 +194,9 @@ impl Default for AppConfig {
                 oxygen_consumption_unit: 0.05,
                 soil_depletion_unit: 0.01,
                 corpse_fertility_mult: 0.1,
+                base_spawn_chance: 0.0083,
+                nutrient_niche_multiplier: 1.5,
+                predation_energy_gain_fraction: 0.5,
             },
             target_fps: 60,
             game_mode: GameMode::Standard,

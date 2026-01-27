@@ -73,6 +73,8 @@ fn test_metabolic_cost_of_signaling() {
         config: &config,
         terrain: &terrain,
         snapshots: &[],
+        entity_id_map: &std::collections::HashMap::new(),
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
         width: 100,
         height: 100,
     };
@@ -84,6 +86,8 @@ fn test_metabolic_cost_of_signaling() {
         config: &config,
         terrain: &terrain,
         snapshots: &[],
+        entity_id_map: &std::collections::HashMap::new(),
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
         width: 100,
         height: 100,
     };

@@ -44,10 +44,10 @@ pub fn biological_system(entity: &mut Entity, population_count: usize, config: &
     if entity.intel.specialization.is_none() {
         let progress = 0.01;
         if entity.intel.last_aggression > 0.8 {
-            social::increment_spec_meter(entity, Specialization::Soldier, progress);
+            social::increment_spec_meter(entity, Specialization::Soldier, progress, config);
         }
         if entity.intel.last_share_intent > 0.8 {
-            social::increment_spec_meter(entity, Specialization::Provider, progress);
+            social::increment_spec_meter(entity, Specialization::Provider, progress, config);
         }
     }
 

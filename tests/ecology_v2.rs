@@ -39,7 +39,7 @@ fn test_metabolic_niche_efficiency() {
         eaten_indices: &mut eaten_indices,
         terrain: &mut terrain,
         pheromones: &mut pheromones,
-        food_value: 100.0,
+        config: &AppConfig::default(),
         lineage_consumption: &mut lineage_consumption,
     };
     ecological::handle_feeding_optimized(0, &mut entities_g, &mut ctx_g);
@@ -54,18 +54,15 @@ fn test_metabolic_niche_efficiency() {
         eaten_indices: &mut eaten_indices_b,
         terrain: &mut terrain,
         pheromones: &mut pheromones,
-        food_value: 100.0,
+        config: &AppConfig::default(),
         lineage_consumption: &mut lineage_consumption_b,
     };
     ecological::handle_feeding_optimized(0, &mut entities_b, &mut ctx_b);
 
     // 6. Assertions
-    // Green Specialist on Green Food: Niche match (1.0 - abs(0-0)) = 1.0. Efficiency = 1.2x.
-    // Trophic potential 0.0 -> 1.0x efficiency. Gain = 120.
-    // Blue Specialist on Green Food: Niche match (1.0 - abs(1-0)) = 0.0. Efficiency = 0.2x. Gain = 20.
     assert!(entities_g[0].metabolism.energy > entities_b[0].metabolism.energy);
-    assert_eq!(entities_g[0].metabolism.energy, 220.0); // 100 + 120
-    assert_eq!(entities_b[0].metabolism.energy, 120.0); // 100 + 20
+    assert_eq!(entities_g[0].metabolism.energy, 160.0);
+    assert_eq!(entities_b[0].metabolism.energy, 110.0);
 }
 
 #[test]
@@ -137,7 +134,7 @@ fn test_niche_partitioning_coexistence() {
         eaten_indices: &mut eaten_indices,
         terrain: &mut world.terrain,
         pheromones: &mut world.pheromones,
-        food_value: 100.0,
+        config: &world.config,
         lineage_consumption: &mut lineage_consumption,
     };
 

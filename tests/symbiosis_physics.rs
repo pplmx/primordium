@@ -41,13 +41,18 @@ fn test_symbiosis_spring_force() {
         primordium_lib::model::state::terrain::TerrainType::Plains,
     );
 
+    let mut id_map = std::collections::HashMap::new();
+    id_map.insert(e2.id, 0);
+
     let mut ctx = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
         snapshots: &[snapshot],
-        width: 20,
-        height: 20,
+        entity_id_map: &id_map,
+        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0),
+        width: 100,
+        height: 100,
     };
 
     // Outputs: Neutral movement (should stay still if no spring)

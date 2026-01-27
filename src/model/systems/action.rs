@@ -11,6 +11,8 @@ pub struct ActionContext<'a> {
     pub config: &'a AppConfig,
     pub terrain: &'a TerrainGrid,
     pub snapshots: &'a [crate::model::world::InternalEntitySnapshot],
+    pub entity_id_map: &'a std::collections::HashMap<uuid::Uuid, usize>,
+    pub spatial_hash: &'a crate::model::quadtree::SpatialHash,
     pub width: u16,
     pub height: u16,
 }
@@ -88,12 +90,16 @@ pub fn action_system(
 
     // Kinematic Coupling (Spring Force)
     if let Some(partner_id) = entity.intel.bonded_to {
-        if let Some(partner) = ctx.snapshots.iter().find(|s| s.id == partner_id) {
+        if let Some(partner) = ctx
+            .entity_id_map
+            .get(&partner_id)
+            .map(|&idx| &ctx.snapshots[idx])
+        {
             let dx = partner.x - entity.physics.x;
             let dy = partner.y - entity.physics.y;
             let dist = (dx * dx + dy * dy).sqrt();
 
-            let k = 0.05;
+            let k = ctx.config.brain.coupling_spring_constant;
             let rest_length = 2.0;
 
             if dist > rest_length {
@@ -112,7 +118,14 @@ pub fn action_system(
         let mut best_alpha_pos = None;
         let mut max_rank = entity.intel.rank;
 
-        for s in ctx.snapshots {
+        let nearby = ctx.spatial_hash.query(
+            entity.physics.x,
+            entity.physics.y,
+            entity.physics.sensing_range,
+        );
+
+        for idx in nearby {
+            let s = &ctx.snapshots[idx];
             if s.id != entity.id && s.lineage_id == entity.metabolism.lineage_id {
                 let dx = s.x - entity.physics.x;
                 let dy = s.y - entity.physics.y;
@@ -129,8 +142,8 @@ pub fn action_system(
             let dx = ax - entity.physics.x;
             let dy = ay - entity.physics.y;
             let dist = (dx * dx + dy * dy).sqrt().max(1.0);
-            entity.physics.vx += (dx / dist) * 0.02;
-            entity.physics.vy += (dy / dist) * 0.02;
+            entity.physics.vx += (dx / dist) * ctx.config.brain.alpha_following_force;
+            entity.physics.vy += (dy / dist) * ctx.config.brain.alpha_following_force;
         }
     }
 
@@ -252,6 +265,8 @@ mod tests {
             config: &config,
             terrain: &terrain,
             snapshots: &[],
+            entity_id_map: &std::collections::HashMap::new(),
+            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0),
             width: 20,
             height: 20,
         };
@@ -274,6 +289,8 @@ mod tests {
             config: &config,
             terrain: &terrain,
             snapshots: &[],
+            entity_id_map: &std::collections::HashMap::new(),
+            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0),
             width: 20,
             height: 20,
         };
@@ -283,6 +300,8 @@ mod tests {
             config: &config,
             terrain: &terrain,
             snapshots: &[],
+            entity_id_map: &std::collections::HashMap::new(),
+            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0),
             width: 20,
             height: 20,
         };
@@ -304,6 +323,8 @@ mod tests {
             config: &config,
             terrain: &terrain,
             snapshots: &[],
+            entity_id_map: &std::collections::HashMap::new(),
+            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0),
             width: 20,
             height: 20,
         };

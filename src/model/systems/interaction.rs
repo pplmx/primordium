@@ -79,7 +79,9 @@ pub fn process_interaction_commands(
                         multiplier *= ctx.config.social.war_zone_mult;
                     }
 
-                    let energy_gain = target.metabolism.energy * 0.5 * multiplier;
+                    let energy_gain = target.metabolism.energy
+                        * ctx.config.ecosystem.predation_energy_gain_fraction
+                        * multiplier;
 
                     killed_ids.insert(tid);
                     ctx.pop_stats
@@ -212,7 +214,7 @@ pub fn process_interaction_commands(
                 let attacker = &mut entities[attacker_idx];
                 let mut energy_cost = ctx.config.terraform.dig_cost;
 
-                ctx.env.consume_oxygen(0.02);
+                ctx.env.consume_oxygen(ctx.config.terraform.dig_oxygen_cost);
 
                 if attacker.intel.specialization == Some(Specialization::Engineer) {
                     energy_cost *= ctx.config.terraform.engineer_discount;
@@ -223,7 +225,12 @@ pub fn process_interaction_commands(
                         attacker.metabolism.energy -= energy_cost;
                         ctx.terrain
                             .set_cell_type(x as u16, y as u16, TerrainType::Plains);
-                        social::increment_spec_meter(attacker, Specialization::Engineer, 1.0);
+                        social::increment_spec_meter(
+                            attacker,
+                            Specialization::Engineer,
+                            1.0,
+                            ctx.config,
+                        );
                     }
                 } else if matches!(cell.terrain_type, TerrainType::Plains) {
                     let eff_hydro_cost =
@@ -241,7 +248,12 @@ pub fn process_interaction_commands(
                         attacker.metabolism.energy -= eff_hydro_cost;
                         ctx.terrain
                             .set_cell_type(x as u16, y as u16, TerrainType::River);
-                        social::increment_spec_meter(attacker, Specialization::Engineer, 2.0);
+                        social::increment_spec_meter(
+                            attacker,
+                            Specialization::Engineer,
+                            2.0,
+                            ctx.config,
+                        );
                     }
                 }
             }
@@ -255,7 +267,8 @@ pub fn process_interaction_commands(
                 let attacker = &mut entities[attacker_idx];
                 let mut energy_cost = ctx.config.terraform.build_cost;
 
-                ctx.env.consume_oxygen(0.03);
+                ctx.env
+                    .consume_oxygen(ctx.config.terraform.build_oxygen_cost);
 
                 if attacker.intel.specialization == Some(Specialization::Engineer) {
                     energy_cost *= ctx.config.terraform.engineer_discount;
@@ -273,20 +286,25 @@ pub fn process_interaction_commands(
                         TerrainType::Wall
                     };
                     ctx.terrain.set_cell_type(x as u16, y as u16, new_type);
-                    social::increment_spec_meter(attacker, Specialization::Engineer, 1.0);
+                    social::increment_spec_meter(
+                        attacker,
+                        Specialization::Engineer,
+                        1.0,
+                        ctx.config,
+                    );
                 }
             }
             InteractionCommand::Metamorphosis { target_idx } => {
                 let e = &mut entities[target_idx];
                 e.metabolism.has_metamorphosed = true;
-                e.metabolism.max_energy *= 1.5;
+                e.metabolism.max_energy *= ctx.config.metabolism.adult_energy_multiplier;
                 e.metabolism.peak_energy = e.metabolism.max_energy;
 
                 e.intel.genotype.brain.remodel_for_adult();
 
                 // Phase 58 Fix: Apply physical buffs to Physics component only to prevent genetic runaway
-                e.physics.max_speed *= 1.2;
-                e.physics.sensing_range *= 1.2;
+                e.physics.max_speed *= ctx.config.metabolism.adult_speed_multiplier;
+                e.physics.sensing_range *= ctx.config.metabolism.adult_sensing_multiplier;
 
                 let ev = LiveEvent::Metamorphosis {
                     id: e.id,

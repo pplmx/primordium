@@ -91,6 +91,8 @@ pub struct World {
     cached_sound: std::sync::Arc<SoundGrid>,
     #[serde(skip)]
     cached_social_grid: std::sync::Arc<Vec<Vec<u8>>>,
+    #[serde(skip)]
+    food_dirty: bool,
 }
 
 impl World {
@@ -143,6 +145,7 @@ impl World {
             cached_pheromones: std::sync::Arc::new(pheromones.clone()),
             cached_sound: std::sync::Arc::new(sound.clone()),
             cached_social_grid: std::sync::Arc::new(social_grid.clone()),
+            food_dirty: true,
             terrain,
             pheromones,
             sound,
@@ -292,6 +295,7 @@ impl World {
                     self.food
                         .truncate(self.food.len().saturating_sub(amount as usize));
                 }
+                self.food_dirty = true;
             }
         }
     }
@@ -397,18 +401,25 @@ impl World {
         );
         env.tick();
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut rng);
+        let old_food_len = self.food.len();
         ecological::spawn_food(
             &mut self.food,
             env,
             &self.terrain,
-            self.config.world.max_food,
+            &self.config,
             self.width,
             self.height,
             &mut rng,
         );
-        self.food_hash.clear();
-        for (i, f) in self.food.iter().enumerate() {
-            self.food_hash.insert(f.x as f64, f.y as f64, i);
+        if self.food.len() != old_food_len {
+            self.food_dirty = true;
+        }
+        if self.food_dirty {
+            self.food_hash.clear();
+            for (i, f) in self.food.iter().enumerate() {
+                self.food_hash.insert(f.x as f64, f.y as f64, i);
+            }
+            self.food_dirty = false;
         }
         let mut current_entities = std::mem::take(&mut self.entities);
         let spatial_data: Vec<(f64, f64, uuid::Uuid)> = current_entities
@@ -696,7 +707,8 @@ impl World {
                 }
                 // Phase 49: Tribal Splitting
                 let nearby = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
-                let crowding = (nearby.len() as f32 / 10.0).min(1.0);
+                let crowding =
+                    (nearby.len() as f32 / self.config.evolution.crowding_normalization).min(1.0);
                 if let Some(new_color) = social::start_tribal_split(e, crowding, &self.config) {
                     cmds.push(InteractionCommand::TribalSplit {
                         target_idx: i,
@@ -765,7 +777,12 @@ impl World {
                 let actual_maturity = (self.config.metabolism.maturity_age as f32
                     * e.intel.genotype.maturity_gene) as u64;
                 let age = self.tick - e.metabolism.birth_tick;
-                if !e.metabolism.has_metamorphosed && age >= (actual_maturity as f32 * 0.8) as u64 {
+                if !e.metabolism.has_metamorphosed
+                    && age
+                        >= (actual_maturity as f32
+                            * self.config.metabolism.metamorphosis_trigger_maturity)
+                            as u64
+                {
                     cmds.push(InteractionCommand::Metamorphosis { target_idx: i });
                 }
 
@@ -802,6 +819,8 @@ impl World {
                         config: &self.config,
                         terrain: &self.terrain,
                         snapshots: &entity_snapshots,
+                        entity_id_map: &entity_id_map,
+                        spatial_hash: &self.spatial_hash,
                         width: self.width,
                         height: self.height,
                     },
@@ -874,17 +893,26 @@ impl World {
         }
         self.entities.append(&mut alive_entities);
         self.entities.append(&mut new_babies);
-        let mut i = 0;
-        self.food.retain(|_| {
-            let k = !eaten_food_indices.contains(&i);
-            i += 1;
-            k
-        });
+        if !eaten_food_indices.is_empty() {
+            let mut i = 0;
+            self.food.retain(|_| {
+                let k = !eaten_food_indices.contains(&i);
+                i += 1;
+                k
+            });
+            self.food_dirty = true;
+        }
         self.perception_buffer = perception_buffer;
         self.decision_buffer = decision_buffer;
         self.killed_ids = killed_ids;
         self.eaten_food_indices = eaten_food_indices;
         if self.tick.is_multiple_of(1000) {
+            self.lineage_registry.check_goals(
+                self.tick,
+                &self.social_grid,
+                self.width,
+                self.height,
+            );
             let _ = self
                 .lineage_registry
                 .save(format!("{}/lineages.json", self.log_dir));

@@ -41,8 +41,10 @@ pub fn calculate_social_rank(entity: &Entity, tick: u64, config: &AppConfig) -> 
     let energy_score =
         (entity.metabolism.energy / entity.metabolism.max_energy).clamp(0.0, 1.0) as f32;
     let age = tick - entity.metabolism.birth_tick;
-    let age_score = (age as f32 / 2000.0).min(1.0);
-    let offspring_score = (entity.metabolism.offspring_count as f32 / 20.0).min(1.0);
+    let age_score = (age as f32 / config.social.age_rank_normalization).min(1.0);
+    let offspring_score = (entity.metabolism.offspring_count as f32
+        / config.social.offspring_rank_normalization)
+        .min(1.0);
     let rep_score = entity.intel.reputation.clamp(0.0, 1.0);
 
     let w = config.social.rank_weights;
@@ -54,7 +56,9 @@ pub fn start_tribal_split(
     crowding: f32,
     config: &AppConfig,
 ) -> Option<(u8, u8, u8)> {
-    if crowding > 0.8 && entity.intel.rank < config.social.sharing_threshold * 0.4 {
+    if crowding > config.evolution.crowding_threshold
+        && entity.intel.rank < config.social.sharing_threshold * 0.4
+    {
         let mut rng = rand::thread_rng();
         Some((
             rng.gen_range(0..255),
@@ -261,6 +265,7 @@ pub fn increment_spec_meter(
     entity: &mut Entity,
     spec: crate::model::state::entity::Specialization,
     amount: f32,
+    config: &AppConfig,
 ) {
     if entity.intel.specialization.is_none() {
         let bias_idx = match spec {
@@ -270,7 +275,7 @@ pub fn increment_spec_meter(
         };
         let meter = entity.intel.spec_meters.entry(spec).or_insert(0.0);
         *meter += amount * (1.0 + entity.intel.genotype.specialization_bias[bias_idx]);
-        if *meter >= 100.0 {
+        if *meter >= config.social.specialization_threshold {
             entity.intel.specialization = Some(spec);
         }
     }

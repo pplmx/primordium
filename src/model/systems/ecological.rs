@@ -16,7 +16,7 @@ pub struct FeedingContext<'a> {
     pub eaten_indices: &'a mut HashSet<usize>,
     pub terrain: &'a mut TerrainGrid,
     pub pheromones: &'a mut PheromoneGrid,
-    pub food_value: f64,
+    pub config: &'a crate::model::config::AppConfig,
     pub lineage_consumption: &'a mut Vec<(uuid::Uuid, f64)>,
 }
 
@@ -25,14 +25,15 @@ pub fn spawn_food(
     food: &mut Vec<Food>,
     env: &Environment,
     terrain: &TerrainGrid,
-    max_food: usize,
+    config: &crate::model::config::AppConfig,
     width: u16,
     height: u16,
     rng: &mut impl Rng,
 ) {
     let food_spawn_mult = env.food_spawn_multiplier();
-    let base_spawn_chance = 0.0083 * food_spawn_mult * env.light_level() as f64;
-    if food.len() < max_food {
+    let base_spawn_chance =
+        config.ecosystem.base_spawn_chance as f64 * food_spawn_mult * env.light_level() as f64;
+    if food.len() < config.world.max_food {
         for _ in 0..3 {
             let x = rng.gen_range(1..width - 1);
             let y = rng.gen_range(1..height - 1);
@@ -90,14 +91,19 @@ pub fn handle_feeding_optimized(idx: usize, entities: &mut [Entity], ctx: &mut F
         // Niche match efficiency
         let niche_match =
             1.0 - (entities[idx].intel.genotype.metabolic_niche - f.nutrient_type).abs() as f64;
-        let efficiency = (niche_match * 1.5).clamp(0.2, 1.2) * trophic_efficiency;
+        let efficiency = (niche_match * ctx.config.ecosystem.nutrient_niche_multiplier as f64)
+            .clamp(0.2, 1.2)
+            * trophic_efficiency;
 
-        let energy_gain = ctx.food_value * efficiency;
+        let energy_gain = ctx.config.metabolism.food_value * efficiency;
         entities[idx].metabolism.energy = (entities[idx].metabolism.energy + energy_gain)
             .min(entities[idx].metabolism.max_energy);
 
-        ctx.terrain
-            .deplete(entities[idx].physics.x, entities[idx].physics.y, 0.4);
+        ctx.terrain.deplete(
+            entities[idx].physics.x,
+            entities[idx].physics.y,
+            ctx.config.ecosystem.soil_depletion_unit,
+        );
         ctx.pheromones.deposit(
             entities[idx].physics.x,
             entities[idx].physics.y,
@@ -160,7 +166,8 @@ mod tests {
         let terrain = TerrainGrid::generate(20, 20, 42);
         let mut rng = rand::thread_rng();
         let initial_count = food.len();
-        spawn_food(&mut food, &env, &terrain, 100, 20, 20, &mut rng);
+        let config = crate::model::config::AppConfig::default();
+        spawn_food(&mut food, &env, &terrain, &config, 20, 20, &mut rng);
         assert_eq!(food.len(), initial_count);
     }
 }
