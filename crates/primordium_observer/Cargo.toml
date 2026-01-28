@@ -1,0 +1,12 @@
+[package]
+name = "primordium_observer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+primordium_data = { path = "../primordium_data" }
+# Future: candle-core or similar for local LLM

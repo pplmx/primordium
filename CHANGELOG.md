@@ -6,6 +6,36 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 65-66 Refinement: Architectural Decoupling & Silicon Scribe] - 2026-01-28
+
+### Evolutionary Leap: Modular Systems & Ultimate Observability
+
+This update focuses on the transition towards a modular, system-based architecture and introduces the foundation for natural language simulation narration. Core logic has been decoupled from the `World` monolith, and a new observation infrastructure has been established.
+
+#### ✨ Features
+
+- **Architectural Decoupling (T1 Refinement)**:
+    - **Civilization System**: Extracted civilization logic (outpost handling, power grids) into a dedicated `civilization` system.
+    - **History System**: Extracted history logic (fossilization, legend management) into a dedicated `history` system.
+    - **Systemic Modularization**: Reduced `world.rs` complexity by 20% and established clear boundaries for civilizational and historical evolution.
+- **Silicon Scribe (Phase 65 Foundation)**:
+    - **Narrator Infrastructure**: Established the `primordium_observer` crate with a `SiliconScribe` engine.
+    - **Heuristic Narration**: Implemented rule-based narration for significant world events (Extinctions, Famines).
+    - **Narrative Dashboard**: Updated the macro report to include a chronological stream of simulation narrations.
+- **Performance Optimization**:
+    - **Snapshot Recycling**: Implemented buffer reuse for entity snapshots, significantly reducing memory allocations in the parallel update loop.
+    - **Sensory Refinement**: Optimized wall sensing and kin recognition through specialized spatial hashing methods.
+- **Configuration Excellence**:
+    - **Refactored Constants**: Extracted over 10 hardcoded simulation constants (sequestration rates, energy caps, intervals) into `config.toml`.
+
+#### 🛠️ Technical Achievements
+
+- **Brain Consistency Fix**: Corrected a discrepancy between documented brain inputs (29) and implemented buffer sizes (23), ensuring full utilization of the NEAT-lite architecture.
+- **Crate Expansion**: Modularized the codebase further with the introduction of the `primordium_observer` crate in the workspace.
+- **Zero-Panic Hardening**: Verified and hardened spatial hashing queries against out-of-bounds edge cases.
+
+---
+
 ## [Phase 60-63: Macro-Evolution & Digital Civilization] - 2026-01-27
 
 ### Evolutionary Leap: Collective Intelligence & Planetary Engineering

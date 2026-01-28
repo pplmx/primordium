@@ -1,6 +1,7 @@
 use crate::model::history::PopulationStats;
 use crate::model::state::environment::Environment;
 use crate::model::state::lineage_registry::LineageRegistry;
+use primordium_observer::SiliconScribe;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -15,6 +16,7 @@ pub struct MacroEvent {
 pub struct WorldObserver {
     pub history: VecDeque<MacroEvent>,
     pub max_history: usize,
+    pub scribe: SiliconScribe,
     last_population: usize,
     ticks_since_famine: u64,
 }
@@ -30,6 +32,7 @@ impl WorldObserver {
         Self {
             history: VecDeque::new(),
             max_history: 100,
+            scribe: SiliconScribe::new(),
             last_population: 0,
             ticks_since_famine: 0,
         }
@@ -83,6 +86,9 @@ impl WorldObserver {
             description: desc.to_string(),
             severity,
         });
+
+        // Use Silicon Scribe for narration
+        self.scribe.narrate(tick, etype, desc, severity);
     }
 
     pub fn generate_macro_report(&self) -> String {
@@ -96,6 +102,14 @@ impl WorldObserver {
                     "[Tick {}] {}: {}\n",
                     ev.tick, ev.event_type, ev.description
                 ));
+            }
+        }
+        report.push_str("\n--- SILICON SCRIBE NARRATIONS ---\n");
+        if self.scribe.narrations.is_empty() {
+            report.push_str("No narrations yet.\n");
+        } else {
+            for n in &self.scribe.narrations {
+                report.push_str(&format!("{}\n", n.text));
             }
         }
         report

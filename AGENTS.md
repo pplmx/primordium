@@ -96,6 +96,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 - **Rayon Integration**: Parallelized Perception and Intel/Action systems.
 - **Command Proposals**: 3-pass update loop (Snapshot -> Parallel Proposals -> Sequential Apply).
 - **Spatial Scaling**: Optimized for 10,000+ entities via row-partitioned Spatial Hash.
+- **Systemic Modularization (Phase 65-66 Refinement)**: Civilization and History logic decoupled into standalone systems.
 
 ### Life History Strategies (Phase 32)
 

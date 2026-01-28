@@ -1372,6 +1372,7 @@ dependencies = [
  "js-sys",
  "petgraph",
  "primordium_data",
+ "primordium_observer",
  "rand",
  "rand_chacha",
  "ratatui",
@@ -1397,6 +1398,17 @@ name = "primordium_data"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "uuid",
+]
+
+[[package]]
+name = "primordium_observer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "primordium_data",
+ "serde",
+ "tokio",
  "uuid",
 ]
 
