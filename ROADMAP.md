@@ -24,16 +24,16 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 These tasks are the critical path to the next major version of Primordium.
 
-1.  **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite*
-2.  **Phase 66: Data-Oriented Core (ECS Refactor)** - *Performance Foundation*
-3.  **T2: Engineering Excellence (CI/CD + Determinism)** - *Safety Net*
-4.  **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement*
-5.  **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth*
-6.  **Phase 68: The Song of Entropy (Audio)** - *Immersion*
+1.  **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite* ✅ (Partial - Civ/History systems, primordium_data, primordium_observer)
+2.  **Phase 66: Data-Oriented Core (ECS Refactor)** - *Performance Foundation* 🚧 (Step 1 Done - Food migrated to hecs)
+3.  **T2: Engineering Excellence (CI/CD + Determinism)** - *Safety Net* ✅ (CI + Release workflows, Clippy, Audit, Caching)
+4.  **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement* ✅ (Foundation - Heuristic narration via primordium_observer)
+5.  **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth* ✅
+6.  **Phase 66 Step 2: Entity ECS Migration** - *Performance* - Next priority
 7.  **Phase 67: The Creator's Interface (Plugin Architecture)** - *Extensibility*
-8.  **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
-9.  **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
-10. **T4: Knowledge Preservation (Docs)** - *Maintainability*
+8.  **Phase 68: The Song of Entropy (Audio)** - *Immersion*
+9.  **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
+10. **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
 
 ---
 
