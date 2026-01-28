@@ -3,15 +3,21 @@
 use crate::model::config::AppConfig;
 use crate::model::history::{LiveEvent, PopulationStats};
 use crate::model::quadtree::SpatialHash;
-use crate::model::state::entity::{Entity, Specialization};
+use crate::model::state::entity::Entity;
 use crate::model::state::pathogen::Pathogen;
 use crate::model::systems::social;
 use chrono::Utc;
+use primordium_data::Specialization;
 use rand::Rng;
 use std::collections::HashSet;
 
 /// Process entity infection, immunity, and genetic drift.
-pub fn biological_system(entity: &mut Entity, population_count: usize, config: &AppConfig) {
+pub fn biological_system<R: Rng>(
+    entity: &mut Entity,
+    population_count: usize,
+    config: &AppConfig,
+    rng: &mut R,
+) {
     process_infection(entity);
 
     // Phase 46: Reputation Recovery
@@ -20,22 +26,22 @@ pub fn biological_system(entity: &mut Entity, population_count: usize, config: &
     }
 
     // Phase 39: Genetic Drift
-    if population_count > 0 && population_count < 10 {
-        let mut rng = rand::thread_rng();
-        if rng.gen_bool(config.evolution.drift_rate as f64) {
-            match rng.gen_range(0..4) {
-                0 => {
-                    entity.intel.genotype.metabolic_niche = rng.gen_range(0.0..1.0);
-                }
-                1 => {
-                    entity.intel.genotype.max_speed = rng.gen_range(0.5..1.5);
-                }
-                2 => {
-                    entity.intel.genotype.sensing_range = rng.gen_range(5.0..15.0);
-                }
-                _ => {
-                    entity.intel.genotype.max_energy = rng.gen_range(50.0..150.0);
-                }
+    if population_count > 0
+        && population_count < 10
+        && rng.gen_bool(config.evolution.drift_rate as f64)
+    {
+        match rng.gen_range(0..4) {
+            0 => {
+                entity.intel.genotype.metabolic_niche = rng.gen_range(0.0..1.0);
+            }
+            1 => {
+                entity.intel.genotype.max_speed = rng.gen_range(0.5..1.5);
+            }
+            2 => {
+                entity.intel.genotype.sensing_range = rng.gen_range(5.0..15.0);
+            }
+            _ => {
+                entity.intel.genotype.max_energy = rng.gen_range(50.0..150.0);
             }
         }
     }
@@ -65,12 +71,11 @@ pub fn biological_system(entity: &mut Entity, population_count: usize, config: &
 }
 
 /// Try to infect an entity with a pathogen.
-pub fn try_infect(entity: &mut Entity, pathogen: &Pathogen) -> bool {
+pub fn try_infect<R: Rng>(entity: &mut Entity, pathogen: &Pathogen, rng: &mut R) -> bool {
     if entity.health.pathogen.is_some() {
         return false;
     }
 
-    let mut rng = rand::thread_rng();
     // Roll for infection: virulence vs immunity
     let chance = (pathogen.virulence - entity.health.immunity).max(0.01);
     if rng.gen::<f32>() < chance {
@@ -103,25 +108,25 @@ pub fn handle_pathogen_emergence(active_pathogens: &mut Vec<Pathogen>, rng: &mut
 }
 
 /// Process infection spread between entities.
-pub fn handle_infection(
+pub fn handle_infection<R: Rng>(
     idx: usize,
     entities: &mut [Entity],
     killed_ids: &HashSet<uuid::Uuid>,
     active_pathogens: &[Pathogen],
     spatial_hash: &SpatialHash,
-    rng: &mut impl Rng,
+    rng: &mut R,
 ) {
     process_infection(&mut entities[idx]);
     for p in active_pathogens {
         if rng.gen_bool(0.005) {
-            try_infect(&mut entities[idx], p);
+            try_infect(&mut entities[idx], p, rng);
         }
     }
     if let Some(p) = entities[idx].health.pathogen.clone() {
         for n_idx in spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 2.0) {
             if n_idx != idx
                 && !killed_ids.contains(&entities[n_idx].id)
-                && try_infect(&mut entities[n_idx], &p)
+                && try_infect(&mut entities[n_idx], &p, rng)
             {}
         }
     }
@@ -161,9 +166,10 @@ mod tests {
     fn test_biological_system_processes_infection() {
         let mut entity = Entity::new(5.0, 5.0, 0);
         let config = AppConfig::default();
+        let mut rng = rand::thread_rng();
         // Entity without infection should only have brain metabolic cost
         let initial_energy = entity.metabolism.energy;
-        biological_system(&mut entity, 100, &config);
+        biological_system(&mut entity, 100, &config, &mut rng);
 
         // Calculate expected brain maintenance
         let nodes_count = entity.intel.genotype.brain.nodes.len();
@@ -178,12 +184,13 @@ mod tests {
     fn test_biological_system_with_infected_entity() {
         let mut entity = Entity::new(5.0, 5.0, 0);
         let config = AppConfig::default();
+        let mut rng = rand::thread_rng();
         entity.health.pathogen = Some(Pathogen::new_random());
         entity.health.infection_timer = 5;
 
         let initial_timer = entity.health.infection_timer;
         let initial_energy = entity.metabolism.energy;
-        biological_system(&mut entity, 100, &config);
+        biological_system(&mut entity, 100, &config, &mut rng);
 
         // Timer should decrease or infection should progress
         assert!(
@@ -201,20 +208,22 @@ mod tests {
     #[test]
     fn test_biological_system_genetic_drift() {
         let mut entity = Entity::new(5.0, 5.0, 0);
-        let config = AppConfig::default();
+        let mut config = AppConfig::default();
+        config.evolution.drift_rate = 1.0; // Force drift
+        let mut rng = rand::thread_rng();
+
         let initial_niche = entity.intel.genotype.metabolic_niche;
         let initial_speed = entity.intel.genotype.max_speed;
         let initial_range = entity.intel.genotype.sensing_range;
         let initial_energy_max = entity.intel.genotype.max_energy;
 
-        // Run many times with low population to trigger drift
         let mut drifted = false;
-        for _ in 0..10000 {
-            biological_system(&mut entity, 5, &config);
-            if entity.intel.genotype.metabolic_niche != initial_niche
-                || entity.intel.genotype.max_speed != initial_speed
-                || entity.intel.genotype.sensing_range != initial_range
-                || entity.intel.genotype.max_energy != initial_energy_max
+        for _ in 0..100 {
+            biological_system(&mut entity, 5, &config, &mut rng);
+            if (entity.intel.genotype.metabolic_niche - initial_niche).abs() > 1e-6
+                || (entity.intel.genotype.max_speed - initial_speed).abs() > 1e-6
+                || (entity.intel.genotype.sensing_range - initial_range).abs() > 1e-6
+                || (entity.intel.genotype.max_energy - initial_energy_max).abs() > 1e-6
             {
                 drifted = true;
                 break;

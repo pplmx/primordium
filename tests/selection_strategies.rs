@@ -69,11 +69,14 @@ fn test_maturity_body_size_coupling() {
 
     // Strategy R
     genotype.maturity_gene = 0.5;
+    let mut rng = rand::thread_rng();
     primordium_lib::model::systems::intel::mutate_genotype(
         &mut genotype,
         &config,
         100,
         false,
+        None,
+        &mut rng,
         None,
     );
     let r_max = genotype.max_energy;
@@ -85,6 +88,8 @@ fn test_maturity_body_size_coupling() {
         &config,
         100,
         false,
+        None,
+        &mut rng,
         None,
     );
     let k_max = genotype.max_energy;

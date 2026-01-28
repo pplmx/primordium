@@ -1,7 +1,7 @@
+use primordium_data::AncestralTrait;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::state::lineage_registry::AncestralTrait;
 use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 use uuid::Uuid;
@@ -66,7 +66,16 @@ fn test_global_event_radiation_surge() {
     let original_dna = genotype.to_hex();
 
     use primordium_lib::model::systems::intel;
-    intel::mutate_genotype(&mut genotype, &world.config, 100, true, None);
+    let mut rng = rand::thread_rng();
+    intel::mutate_genotype(
+        &mut genotype,
+        &world.config,
+        100,
+        true,
+        None,
+        &mut rng,
+        None,
+    );
 
     assert_ne!(genotype.to_hex(), original_dna);
 }

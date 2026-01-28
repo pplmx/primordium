@@ -28,22 +28,20 @@ impl World {
             anyhow::bail!("Migration checksum mismatch");
         }
 
-        let mut rng = rand::thread_rng();
-
         // Spawn at random edge
-        let (x, y) = if rng.gen_bool(0.5) {
+        let (x, y) = if self.rng.gen_bool(0.5) {
             (
-                if rng.gen_bool(0.5) {
+                if self.rng.gen_bool(0.5) {
                     1.0
                 } else {
                     (self.width - 2) as f64
                 },
-                rng.gen_range(1.0..(self.height - 2) as f64),
+                self.rng.gen_range(1.0..(self.height - 2) as f64),
             )
         } else {
             (
-                rng.gen_range(1.0..(self.width - 2) as f64),
-                if rng.gen_bool(0.5) {
+                self.rng.gen_range(1.0..(self.width - 2) as f64),
+                if self.rng.gen_bool(0.5) {
                     1.0
                 } else {
                     (self.height - 2) as f64
@@ -51,7 +49,7 @@ impl World {
             )
         };
 
-        let mut entity = Entity::new(x, y, self.tick);
+        let mut entity = Entity::new_with_rng(x, y, self.tick, &mut self.rng);
         entity.metabolism.energy = energy as f64;
         entity.metabolism.generation = generation;
 

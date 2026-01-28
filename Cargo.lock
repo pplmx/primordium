@@ -1371,7 +1371,9 @@ dependencies = [
  "husky-rs",
  "js-sys",
  "petgraph",
+ "primordium_data",
  "rand",
+ "rand_chacha",
  "ratatui",
  "rayon",
  "reqwest",
@@ -1388,6 +1390,14 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "primordium_data"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "uuid",
 ]
 
 [[package]]

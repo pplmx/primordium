@@ -1,17 +1,20 @@
 use crate::model::config::AppConfig;
 use crate::model::history::{FossilRegistry, HistoryLogger, LiveEvent, PopulationStats};
-use crate::model::state::entity::{Entity, EntityStatus, Specialization};
+use crate::model::state::entity::{Entity, EntityStatus};
 use crate::model::state::environment::Environment;
 use crate::model::state::food::Food;
 use crate::model::state::interaction::InteractionCommand;
 use crate::model::state::lineage_registry::LineageRegistry;
 use crate::model::state::terrain::{TerrainGrid, TerrainType};
-use crate::model::systems::social;
+use crate::model::systems::{biological, social};
 use chrono::Utc;
+use primordium_data::Specialization;
 use std::collections::HashSet;
 use uuid::Uuid;
 
-pub struct InteractionContext<'a> {
+use rand::Rng;
+
+pub struct InteractionContext<'a, R: Rng> {
     pub terrain: &'a mut TerrainGrid,
     pub env: &'a mut Environment,
     pub pop_stats: &'a mut PopulationStats,
@@ -25,6 +28,7 @@ pub struct InteractionContext<'a> {
     pub social_grid: &'a mut [u8],
     pub lineage_consumption: &'a mut Vec<(Uuid, f64)>,
     pub food: &'a mut Vec<Food>,
+    pub rng: &'a mut R,
 }
 
 pub struct InteractionResult {
@@ -34,10 +38,10 @@ pub struct InteractionResult {
     pub new_babies: Vec<Entity>,
 }
 
-pub fn process_interaction_commands(
+pub fn process_interaction_commands<R: Rng>(
     entities: &mut [Entity],
     commands: Vec<InteractionCommand>,
-    ctx: &mut InteractionContext,
+    ctx: &mut InteractionContext<R>,
 ) -> InteractionResult {
     let mut events = Vec::new();
     let mut killed_ids = HashSet::new();
@@ -207,8 +211,7 @@ pub fn process_interaction_commands(
                 pathogen,
             } => {
                 let target = &mut entities[target_idx];
-                target.health.pathogen = Some(pathogen.clone());
-                target.health.infection_timer = pathogen.duration;
+                biological::try_infect(target, &pathogen, ctx.rng);
             }
             InteractionCommand::UpdateReputation { target_idx, delta } => {
                 let target = &mut entities[target_idx];
@@ -328,7 +331,7 @@ pub fn process_interaction_commands(
                 e.metabolism.max_energy *= ctx.config.metabolism.adult_energy_multiplier;
                 e.metabolism.peak_energy = e.metabolism.max_energy;
 
-                e.intel.genotype.brain.remodel_for_adult();
+                e.intel.genotype.brain.remodel_for_adult_with_rng(ctx.rng);
 
                 // Phase 58 Fix: Apply physical buffs to Physics component only to prevent genetic runaway
                 e.physics.max_speed *= ctx.config.metabolism.adult_speed_multiplier;

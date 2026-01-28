@@ -66,8 +66,17 @@ fn test_genetic_surge() {
 
     // Simulate surge (same logic as in app/input.rs)
     use primordium_lib::model::systems::intel;
+    let mut rng = rand::thread_rng();
     for entity in &mut world.entities {
-        intel::mutate_genotype(&mut entity.intel.genotype, &world.config, 10, false, None);
+        intel::mutate_genotype(
+            &mut entity.intel.genotype,
+            &world.config,
+            10,
+            false,
+            None,
+            &mut rng,
+            None,
+        );
     }
 
     let after_surge_dnas: Vec<String> = world

@@ -574,7 +574,7 @@ toml = "0.8"
     - Functional: Tribes with level 3 civilizations gain global albedo control (cooling).
     - Technical: Global climate forcing based on total owned forest area.
 
-### Phase 64: Genetic Memory & Evolutionary Rewind 🚧
+### Phase 64: Genetic Memory & Evolutionary Rewind ✅
 
 **Goal:** Deepen biological realism through temporal genetic mechanisms.
 
@@ -584,12 +584,14 @@ toml = "0.8"
 - **Atavistic Recall**:
     - Functional: Struggling entities have a small chance to revert to an ancestral successful genotype (Rewind).
     - Technical: Mutation variant that replaces current brain with the checkpointed brain.
-- **Epigenetic Markers**:
-    - Functional: Stress-induced non-structural inheritance (e.g., higher stress tolerance in offspring of stressed parents).
-    - Technical: `EpigeneticState` vector passed to offspring, decaying over generations.
-- **Ancestral Specters**:
-    - Functional: Visualization of historical hotspots where extinct lineages flourished.
-    - Technical: Temporal decay heatmap of past high-density regions.
+
+### T1: Architectural Decoupling & Foundation Refactor 🏗️
+
+- **Goal**: Achieve a "Perfect" separation of Data, Logic, IO, and Presentation.
+- **Progress**:
+    - ✅ **Shared Definitions**: Created `defs.rs` to break circular dependencies between Entity, Intel, and LineageRegistry.
+    - ✅ **Deterministic Foundation**: Implemented seeded RNG and parallel determinism for robust simulation replay.
+    - 🚧 **Data-Logic Split**: Moving towards ECS (Phase 66).
 
 ### Phase 65: The Silicon Scribe (LLM Integration) 🚀
 

@@ -1,10 +1,11 @@
 use crate::model::history::{HallOfFame, PopulationStats};
-use crate::model::state::entity::{EntityStatus, Specialization};
+use crate::model::state::entity::EntityStatus;
 use crate::model::state::food::Food;
 use crate::model::state::pheromone::PheromoneGrid;
 use crate::model::state::pressure::PressureGrid;
 use crate::model::state::sound::SoundGrid;
 use crate::model::state::terrain::TerrainGrid;
+use primordium_data::Specialization;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -1,23 +1,11 @@
+use crate::model::state::entity::Genotype;
+use primordium_data::{AncestralTrait, LineageGoal};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use uuid::Uuid;
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum LineageGoal {
-    Expansion,
-    Dominance,
-    Resilience,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum AncestralTrait {
-    HardenedMetabolism, // Lower idle cost
-    AcuteSenses,        // Higher sensing range
-    SwiftMovement,      // Higher max speed
-}
 
 /// High-level metrics for an ancestral line.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -32,6 +20,7 @@ pub struct LineageRecord {
     pub first_appearance_tick: u64,
     pub is_extinct: bool,
     pub best_legend_id: Option<Uuid>,
+    pub max_fitness_genotype: Option<Genotype>,
     pub completed_goals: std::collections::HashSet<LineageGoal>,
     pub ancestral_traits: std::collections::HashSet<AncestralTrait>,
     pub civilization_level: u32,
@@ -59,6 +48,7 @@ impl Default for LineageRecord {
             first_appearance_tick: 0,
             is_extinct: false,
             best_legend_id: None,
+            max_fitness_genotype: None,
             completed_goals: std::collections::HashSet::new(),
             ancestral_traits: std::collections::HashSet::new(),
             civilization_level: 0,
@@ -240,6 +230,23 @@ impl LineageRegistry {
                     record
                         .ancestral_traits
                         .insert(AncestralTrait::SwiftMovement);
+                }
+
+                if tick.saturating_sub(record.first_appearance_tick) >= 2000
+                    && !record.completed_goals.contains(&LineageGoal::Resilience)
+                {
+                    record.completed_goals.insert(LineageGoal::Resilience);
+                    record
+                        .ancestral_traits
+                        .insert(AncestralTrait::HardenedMetabolism);
+                }
+
+                if Some(record.id) == top_id
+                    && record.total_entities_produced > 100
+                    && !record.completed_goals.contains(&LineageGoal::Dominance)
+                {
+                    record.completed_goals.insert(LineageGoal::Dominance);
+                    record.ancestral_traits.insert(AncestralTrait::AcuteSenses);
                 }
 
                 if tick.saturating_sub(record.first_appearance_tick) >= 2000

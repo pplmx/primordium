@@ -12,10 +12,11 @@ use crate::model::state::pheromone::PheromoneGrid;
 use crate::model::state::sound::SoundGrid;
 use crate::model::state::terrain::TerrainGrid;
 use crate::model::systems::{
-    action, biological, ecological, environment, intel, interaction, social, stats,
+    action, biological, ecological, environment, interaction, social, stats,
 };
 use chrono::Utc;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -70,6 +71,8 @@ pub struct World {
     pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
     #[serde(skip, default)]
     pub best_legends: HashMap<uuid::Uuid, crate::model::history::Legend>,
+    #[serde(skip, default = "ChaCha8Rng::from_entropy")]
+    pub rng: ChaCha8Rng,
     #[serde(skip, default)]
     killed_ids: HashSet<uuid::Uuid>,
     #[serde(skip, default)]
@@ -107,15 +110,20 @@ impl World {
         config: AppConfig,
         log_dir: &str,
     ) -> anyhow::Result<Self> {
-        let mut rng = rand::thread_rng();
+        let mut rng = if let Some(seed) = config.world.seed {
+            ChaCha8Rng::seed_from_u64(seed)
+        } else {
+            ChaCha8Rng::from_entropy()
+        };
         let mut entities = Vec::with_capacity(initial_population);
         let logger = HistoryLogger::new_at(log_dir)?;
         let mut lineage_registry = LineageRegistry::new();
         for _ in 0..initial_population {
-            let e = Entity::new(
+            let e = Entity::new_with_rng(
                 rng.gen_range(1.0..config.world.width as f64 - 1.0),
                 rng.gen_range(1.0..config.world.height as f64 - 1.0),
                 0,
+                &mut rng,
             );
             lineage_registry.record_birth(e.metabolism.lineage_id, 1, 0);
             entities.push(e);
@@ -164,6 +172,7 @@ impl World {
             log_dir: log_dir.to_string(),
             active_pathogens: Vec::new(),
             best_legends: HashMap::new(),
+            rng,
             killed_ids: HashSet::new(),
             eaten_food_indices: HashSet::new(),
             new_babies: Vec::new(),
@@ -220,7 +229,11 @@ impl World {
         if (legend.lifespan as f64 * 0.5 + legend.offspring_count as f64 * 10.0)
             > (entry.lifespan as f64 * 0.5 + entry.offspring_count as f64 * 10.0)
         {
-            *entry = legend;
+            *entry = legend.clone();
+            // Phase 64: Genetic Memory - Update max fitness genotype
+            if let Some(record) = self.lineage_registry.lineages.get_mut(&legend.lineage_id) {
+                record.max_fitness_genotype = Some(legend.genotype);
+            }
         }
     }
 
@@ -563,7 +576,15 @@ impl World {
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
         let mut events = Vec::new();
         self.tick += 1;
-        let mut rng = rand::thread_rng();
+
+        let world_seed = self.config.world.seed.unwrap_or(0);
+
+        // Phase 66 Determinism: Mock hardware metrics if in deterministic mode
+        if self.config.world.deterministic {
+            env.cpu_usage = 20.0 + (self.tick as f32 * 0.01).sin() * 10.0;
+            env.ram_usage_percent = 30.0 + (self.tick as f32 * 0.02).cos() * 5.0;
+        }
+
         action::handle_game_modes(
             &mut self.entities,
             &self.config,
@@ -584,11 +605,12 @@ impl World {
             env,
             self.entities.len(),
             &mut self.terrain,
-            &mut rng,
+            &mut self.rng,
             &self.config,
         );
         let (_total_plant_biomass, total_sequestration) =
-            self.terrain.update(self.pop_stats.biomass_h);
+            self.terrain
+                .update(self.pop_stats.biomass_h, self.tick, world_seed);
 
         // Phase 63: Ecosystem Dominance (Global Albedo Cooling)
         let total_owned_forests = self
@@ -610,7 +632,7 @@ impl World {
             self.entities.len() as f64 * self.config.metabolism.oxygen_consumption_rate,
         );
         env.tick();
-        biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut rng);
+        biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut self.rng);
         let old_food_len = self.food.len();
         ecological::spawn_food(
             &mut self.food,
@@ -619,7 +641,7 @@ impl World {
             &self.config,
             self.width,
             self.height,
-            &mut rng,
+            &mut self.rng,
         );
         if self.food.len() != old_food_len {
             self.food_dirty = true;
@@ -811,12 +833,20 @@ impl World {
             })
             .collect_into_vec(&mut decision_buffer);
 
+        // Phase 66 Determinism: Seeded RNG for parallel command generation
+        let world_seed = self.config.world.seed.unwrap_or(0);
+        let world_tick = self.tick;
+
         let interaction_commands: Vec<InteractionCommand> = current_entities
             .par_iter()
             .enumerate()
             .filter_map(|(i, e)| {
                 let mut cmds = Vec::new();
-                let mut rng = rand::thread_rng();
+
+                // Deterministic local RNG
+                let entity_seed = world_seed ^ world_tick ^ (e.id.as_u128() as u64);
+                let mut local_rng = ChaCha8Rng::seed_from_u64(entity_seed);
+
                 let decision = &decision_buffer[i];
                 let outputs = decision.outputs;
                 if e.intel.bonded_to.is_none() && e.metabolism.has_metamorphosed {
@@ -847,27 +877,25 @@ impl World {
                             && partner.metabolism.energy
                                 > self.config.metabolism.reproduction_threshold
                         {
-                            let mut child_genotype = intel::crossover_genotypes(
-                                &e.intel.genotype,
-                                &partner.intel.genotype,
-                            );
-                            intel::mutate_genotype(
-                                &mut child_genotype,
-                                &self.config,
-                                current_entities.len(),
-                                env.is_radiation_storm(),
-                                None,
-                            );
-                            let dist = e.intel.genotype.distance(&child_genotype);
-                            if dist > self.config.evolution.speciation_threshold {
-                                child_genotype.lineage_id = uuid::Uuid::new_v4();
-                            }
-                            let baby = social::reproduce_with_mate_parallel(
-                                e,
-                                self.tick,
-                                child_genotype,
-                                self.lineage_registry.get_traits(&e.metabolism.lineage_id),
-                            );
+                            let ancestral = self
+                                .lineage_registry
+                                .lineages
+                                .get(&e.metabolism.lineage_id)
+                                .and_then(|r| r.max_fitness_genotype.as_ref());
+
+                            let mut repro_ctx = social::ReproductionContext {
+                                tick: self.tick,
+                                config: &self.config,
+                                population: current_entities.len(),
+                                traits: self.lineage_registry.get_traits(&e.metabolism.lineage_id),
+                                is_radiation_storm: env.is_radiation_storm(),
+                                rng: &mut local_rng,
+                                ancestral_genotype: ancestral,
+                            };
+
+                            let (baby, dist) =
+                                social::reproduce_sexual_parallel(e, partner, &mut repro_ctx);
+
                             cmds.push(InteractionCommand::Birth {
                                 parent_idx: i,
                                 baby: Box::new(baby),
@@ -933,7 +961,7 @@ impl World {
                         }
                     }
                 }
-                if e.intel.rank > 0.9 && rng.gen_bool(0.1) {
+                if e.intel.rank > 0.9 && local_rng.gen_bool(0.1) {
                     cmds.push(InteractionCommand::TribalTerritory {
                         x: e.physics.x,
                         y: e.physics.y,
@@ -962,7 +990,9 @@ impl World {
                 let nearby = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
                 let crowding =
                     (nearby.len() as f32 / self.config.evolution.crowding_normalization).min(1.0);
-                if let Some(new_color) = social::start_tribal_split(e, crowding, &self.config) {
+                if let Some(new_color) =
+                    social::start_tribal_split(e, crowding, &self.config, &mut local_rng)
+                {
                     cmds.push(InteractionCommand::TribalSplit {
                         target_idx: i,
                         new_color,
@@ -971,14 +1001,21 @@ impl World {
                 if e.is_mature(self.tick, self.config.metabolism.maturity_age)
                     && e.metabolism.energy > self.config.metabolism.reproduction_threshold
                 {
-                    let (baby, dist) = social::reproduce_asexual_parallel(
-                        e,
-                        self.tick,
-                        &self.config,
-                        current_entities.len(),
-                        self.lineage_registry.get_traits(&e.metabolism.lineage_id),
-                        env.is_radiation_storm(),
-                    );
+                    let ancestral = self
+                        .lineage_registry
+                        .lineages
+                        .get(&e.metabolism.lineage_id)
+                        .and_then(|r| r.max_fitness_genotype.as_ref());
+                    let mut repro_ctx = social::ReproductionContext {
+                        tick: self.tick,
+                        config: &self.config,
+                        population: current_entities.len(),
+                        traits: self.lineage_registry.get_traits(&e.metabolism.lineage_id),
+                        is_radiation_storm: env.is_radiation_storm(),
+                        rng: &mut local_rng,
+                        ancestral_genotype: ancestral,
+                    };
+                    let (baby, dist) = social::reproduce_asexual_parallel(e, &mut repro_ctx);
                     cmds.push(InteractionCommand::Birth {
                         parent_idx: i,
                         baby: Box::new(baby),
@@ -1003,7 +1040,7 @@ impl World {
                     let targets = self.spatial_hash.query(e.physics.x, e.physics.y, 2.0);
                     for t_idx in targets {
                         if entity_snapshots[t_idx].id != e.id
-                            && rng.gen::<f32>() < path.transmission
+                            && local_rng.gen::<f32>() < path.transmission
                         {
                             cmds.push(InteractionCommand::Infect {
                                 target_idx: t_idx,
@@ -1122,6 +1159,7 @@ impl World {
             social_grid: &mut self.social_grid,
             lineage_consumption: &mut self.lineage_consumption,
             food: &mut self.food,
+            rng: &mut self.rng,
         };
 
         let interaction_result = interaction::process_interaction_commands(

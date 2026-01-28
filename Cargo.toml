@@ -4,6 +4,9 @@ version = "0.0.1"
 edition = "2021"
 default-run = "primordium"
 
+[workspace]
+members = ["crates/*"]
+
 # ============================================================================
 # Library Configuration
 # ============================================================================
@@ -26,6 +29,7 @@ path = "src/server/main.rs"
 # Common Dependencies
 # ============================================================================
 [dependencies]
+primordium_data = { path = "crates/primordium_data" }
 # Error handling
 anyhow = "1.0"
 
@@ -42,6 +46,7 @@ toml = "0.8"
 # Algorithms & Data Structures
 petgraph = "0.6"
 rand = "0.8"
+rand_chacha = "0.3"
 rayon = "1.8"
 flate2 = "1.0"
 futures = "0.3"

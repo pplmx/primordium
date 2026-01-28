@@ -1,5 +1,6 @@
+use primordium_data::Specialization;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::{Entity, Specialization};
+use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
@@ -68,6 +69,7 @@ fn test_outpost_construction() {
     use primordium_lib::model::systems::interaction;
 
     let mut lineage_cons = Vec::new();
+    let mut rng = rand::thread_rng();
 
     let mut ctx = interaction::InteractionContext {
         terrain: &mut world.terrain,
@@ -83,6 +85,7 @@ fn test_outpost_construction() {
         social_grid: &mut world.social_grid,
         lineage_consumption: &mut lineage_cons,
         food: &mut world.food,
+        rng: &mut rng,
     };
 
     let cmd = InteractionCommand::Build {

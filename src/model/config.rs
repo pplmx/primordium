@@ -13,6 +13,8 @@ pub struct WorldConfig {
     pub ice_age_cpu: f32,
     pub abundance_ram: f32,
     pub apex_fitness_req: f64,
+    pub seed: Option<u64>,
+    pub deterministic: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -131,6 +133,8 @@ impl Default for AppConfig {
                 ice_age_cpu: 10.0,
                 abundance_ram: 40.0,
                 apex_fitness_req: 8000.0,
+                seed: None,
+                deterministic: false,
             },
             metabolism: MetabolismConfig {
                 base_move_cost: 1.0,

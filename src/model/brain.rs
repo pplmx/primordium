@@ -36,8 +36,7 @@ pub struct Brain {
 }
 
 impl Brain {
-    pub fn new_random() -> Self {
-        let mut rng = rand::thread_rng();
+    pub fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self {
         let mut nodes = Vec::new();
 
         let input_labels = [
@@ -144,6 +143,11 @@ impl Brain {
         }
     }
 
+    pub fn new_random() -> Self {
+        let mut rng = rand::thread_rng();
+        Self::new_random_with_rng(&mut rng)
+    }
+
     pub fn forward(&self, inputs: [f32; 23], last_hidden: [f32; 6]) -> ([f32; 12], [f32; 6]) {
         let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
         (outputs, next_hidden)
@@ -225,12 +229,12 @@ impl Brain {
         }
     }
 
-    pub fn mutate_with_config(
+    pub fn mutate_with_config<R: Rng>(
         &mut self,
         config: &crate::model::config::AppConfig,
-        specialization: Option<crate::model::state::entity::Specialization>,
+        specialization: Option<primordium_data::Specialization>,
+        rng: &mut R,
     ) {
-        let mut rng = rand::thread_rng();
         let rate = config.evolution.mutation_rate;
         let amount = config.evolution.mutation_amount;
 
@@ -240,7 +244,7 @@ impl Brain {
 
                 // Phase 62: Functional Neural Modules (Protected weight sets)
                 if let Some(spec) = specialization {
-                    use crate::model::state::entity::Specialization;
+                    use primordium_data::Specialization;
                     let is_protected = match spec {
                         Specialization::Soldier => {
                             // Soldiers protect weights related to Aggression (output 32)
@@ -345,12 +349,16 @@ impl Brain {
         self.genotype_distance(other)
     }
 
-    pub fn crossover(&self, other: &Brain) -> Brain {
-        crate::model::systems::intel::crossover_brains(self, other)
+    pub fn crossover_with_rng<R: Rng>(&self, other: &Brain, rng: &mut R) -> Brain {
+        crate::model::systems::intel::crossover_brains(self, other, rng)
     }
 
-    pub fn remodel_for_adult(&mut self) {
+    pub fn crossover(&self, other: &Brain) -> Brain {
         let mut rng = rand::thread_rng();
+        self.crossover_with_rng(other, &mut rng)
+    }
+
+    pub fn remodel_for_adult_with_rng<R: Rng>(&mut self, rng: &mut R) {
         let adult_outputs = [34, 35, 36];
         let hidden_nodes: Vec<usize> = self
             .nodes

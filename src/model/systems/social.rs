@@ -8,6 +8,7 @@ use crate::model::state::pheromone::PheromoneGrid;
 use crate::model::systems::intel;
 use crate::model::world::InternalEntitySnapshot;
 use chrono::Utc;
+use primordium_data::{AncestralTrait, Specialization};
 use rand::Rng;
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -51,15 +52,15 @@ pub fn calculate_social_rank(entity: &Entity, tick: u64, config: &AppConfig) -> 
     w[0] * energy_score + w[1] * age_score + w[2] * offspring_score + w[3] * rep_score
 }
 
-pub fn start_tribal_split(
+pub fn start_tribal_split<R: Rng>(
     entity: &Entity,
     crowding: f32,
     config: &AppConfig,
+    rng: &mut R,
 ) -> Option<(u8, u8, u8)> {
     if crowding > config.evolution.crowding_threshold
         && entity.intel.rank < config.social.sharing_threshold * 0.4
     {
-        let mut rng = rand::thread_rng();
         Some((
             rng.gen_range(0..255),
             rng.gen_range(0..255),
@@ -112,34 +113,41 @@ pub fn handle_symbiosis(
     None
 }
 
-pub fn reproduce_asexual_parallel(
+pub struct ReproductionContext<'a, R: Rng> {
+    pub tick: u64,
+    pub config: &'a crate::model::config::AppConfig,
+    pub population: usize,
+    pub traits: std::collections::HashSet<AncestralTrait>,
+    pub is_radiation_storm: bool,
+    pub rng: &'a mut R,
+    pub ancestral_genotype: Option<&'a crate::model::state::entity::Genotype>,
+}
+
+pub fn reproduce_asexual_parallel<R: Rng>(
     parent: &Entity,
-    tick: u64,
-    config: &crate::model::config::AppConfig,
-    population: usize,
-    traits: std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
-    is_radiation_storm: bool,
+    ctx: &mut ReproductionContext<R>,
 ) -> (Entity, f32) {
-    let mut rng = rand::thread_rng();
     let investment = parent.intel.genotype.reproductive_investment as f64;
     let child_energy = parent.metabolism.energy * investment;
 
     let mut child_genotype = parent.intel.genotype.clone();
     intel::mutate_genotype(
         &mut child_genotype,
-        config,
-        population,
-        is_radiation_storm,
+        ctx.config,
+        ctx.population,
+        ctx.is_radiation_storm,
         parent.intel.specialization,
+        ctx.rng,
+        ctx.ancestral_genotype,
     );
     let dist = parent.intel.genotype.distance(&child_genotype);
-    if dist > config.evolution.speciation_threshold {
+    if dist > ctx.config.evolution.speciation_threshold {
         child_genotype.lineage_id = Uuid::new_v4();
     }
 
-    let r = (parent.physics.r as i16 + rng.gen_range(-15..=15)).clamp(0, 255) as u8;
-    let g = (parent.physics.g as i16 + rng.gen_range(-15..=15)).clamp(0, 255) as u8;
-    let b = (parent.physics.b as i16 + rng.gen_range(-15..=15)).clamp(0, 255) as u8;
+    let r = (parent.physics.r as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
+    let g = (parent.physics.g as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
+    let b = (parent.physics.b as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
 
     let mut baby = Entity {
         id: Uuid::new_v4(),
@@ -164,7 +172,7 @@ pub fn reproduce_asexual_parallel(
             prev_energy: child_energy,
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
-            birth_tick: tick,
+            birth_tick: ctx.tick,
             generation: parent.metabolism.generation + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
@@ -175,7 +183,7 @@ pub fn reproduce_asexual_parallel(
         health: Health {
             pathogen: None,
             infection_timer: 0,
-            immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+            immunity: (parent.health.immunity + ctx.rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
         },
         intel: Intel {
             genotype: child_genotype,
@@ -191,13 +199,13 @@ pub fn reproduce_asexual_parallel(
             last_activations: std::collections::HashMap::new(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
-            ancestral_traits: traits.clone(),
+            ancestral_traits: ctx.traits.clone(),
         },
     };
 
     // Apply traits to phenotype
-    for trait_item in traits {
-        use crate::model::state::lineage_registry::AncestralTrait;
+    for trait_item in &ctx.traits {
+        use primordium_data::AncestralTrait;
         match trait_item {
             AncestralTrait::AcuteSenses => {
                 baby.physics.sensing_range *= 1.2;
@@ -217,117 +225,53 @@ pub fn reproduce_asexual(
     tick: u64,
     config: &crate::model::config::AppConfig,
     population: usize,
-    traits: std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
+    traits: std::collections::HashSet<AncestralTrait>,
     is_radiation_storm: bool,
 ) -> Entity {
+    let mut rng = rand::thread_rng();
     let investment = parent.intel.genotype.reproductive_investment as f64;
-    let (baby, _) =
-        reproduce_asexual_parallel(parent, tick, config, population, traits, is_radiation_storm);
+    let mut ctx = ReproductionContext {
+        tick,
+        config,
+        population,
+        traits,
+        is_radiation_storm,
+        rng: &mut rng,
+        ancestral_genotype: None,
+    };
+    let (baby, _) = reproduce_asexual_parallel(parent, &mut ctx);
     parent.metabolism.energy *= 1.0 - investment;
     parent.metabolism.offspring_count += 1;
     baby
 }
 
-pub fn reproduce_with_mate_parallel(
-    parent: &Entity,
-    tick: u64,
-    child_genotype: crate::model::state::entity::Genotype,
-    traits: std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
-) -> Entity {
-    let mut rng = rand::thread_rng();
-    let investment = parent.intel.genotype.reproductive_investment as f64;
-    let child_energy = parent.metabolism.energy * investment;
-    let mut baby = Entity {
-        id: Uuid::new_v4(),
-        parent_id: Some(parent.id),
-        physics: Physics {
-            x: parent.physics.x,
-            y: parent.physics.y,
-            vx: parent.physics.vx,
-            vy: parent.physics.vy,
-            r: parent.physics.r,
-            g: parent.physics.g,
-            b: parent.physics.b,
-            symbol: '●',
-            home_x: parent.physics.x,
-            home_y: parent.physics.y,
-            sensing_range: child_genotype.sensing_range,
-            max_speed: child_genotype.max_speed,
-        },
-        metabolism: Metabolism {
-            trophic_potential: child_genotype.trophic_potential,
-            energy: child_energy,
-            prev_energy: child_energy,
-            max_energy: child_genotype.max_energy,
-            peak_energy: child_energy,
-            birth_tick: tick,
-            generation: parent.metabolism.generation + 1,
-            offspring_count: 0,
-            lineage_id: child_genotype.lineage_id,
-            has_metamorphosed: false,
-            is_in_transit: false,
-            migration_id: None,
-        },
-        health: Health {
-            pathogen: None,
-            infection_timer: 0,
-            immunity: (parent.health.immunity + rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
-        },
-        intel: Intel {
-            genotype: child_genotype,
-            last_hidden: [0.0; 6],
-            last_aggression: 0.0,
-            last_share_intent: 0.0,
-            last_signal: 0.0,
-            last_vocalization: 0.0,
-            reputation: 1.0,
-            rank: 0.5,
-            bonded_to: None,
-            last_inputs: [0.0; 23],
-            last_activations: std::collections::HashMap::new(),
-            specialization: None,
-            spec_meters: std::collections::HashMap::new(),
-            ancestral_traits: traits.clone(),
-        },
-    };
-
-    // Apply traits to phenotype
-    for trait_item in traits {
-        use crate::model::state::lineage_registry::AncestralTrait;
-        match trait_item {
-            AncestralTrait::AcuteSenses => {
-                baby.physics.sensing_range *= 1.2;
-            }
-            AncestralTrait::SwiftMovement => {
-                baby.physics.max_speed *= 1.1;
-            }
-            _ => {}
-        }
-    }
-
-    baby
-}
-
-pub fn reproduce_sexual_parallel(
+pub fn reproduce_sexual_parallel<R: Rng>(
     p1: &Entity,
     p2: &Entity,
-    tick: u64,
-    config: &crate::model::config::AppConfig,
-    is_radiation_storm: bool,
-    traits: std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
+    ctx: &mut ReproductionContext<R>,
 ) -> (Entity, f32) {
-    let mut rng = rand::thread_rng();
     let investment = p1.intel.genotype.reproductive_investment as f64;
     let child_energy = (p1.metabolism.energy + p2.metabolism.energy) * investment / 2.0;
 
-    let mut child_genotype = p1.intel.genotype.crossover(&p2.intel.genotype);
-    intel::mutate_genotype(&mut child_genotype, config, 100, is_radiation_storm, None);
+    let mut child_genotype = p1
+        .intel
+        .genotype
+        .crossover_with_rng(&p2.intel.genotype, ctx.rng);
+    intel::mutate_genotype(
+        &mut child_genotype,
+        ctx.config,
+        100,
+        ctx.is_radiation_storm,
+        None,
+        ctx.rng,
+        ctx.ancestral_genotype,
+    );
 
-    let r = ((p1.physics.r as i16 + p2.physics.r as i16) / 2 + rng.gen_range(-10..=10))
+    let r_mut = ((p1.physics.r as i16 + p2.physics.r as i16) / 2 + ctx.rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
-    let g = ((p1.physics.g as i16 + p2.physics.g as i16) / 2 + rng.gen_range(-10..=10))
+    let g_mut = ((p1.physics.g as i16 + p2.physics.g as i16) / 2 + ctx.rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
-    let b = ((p1.physics.b as i16 + p2.physics.b as i16) / 2 + rng.gen_range(-10..=10))
+    let b_mut = ((p1.physics.b as i16 + p2.physics.b as i16) / 2 + ctx.rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
 
     let mut baby = Entity {
@@ -338,9 +282,9 @@ pub fn reproduce_sexual_parallel(
             y: p1.physics.y,
             vx: p1.physics.vx,
             vy: p1.physics.vy,
-            r,
-            g,
-            b,
+            r: r_mut,
+            g: g_mut,
+            b: b_mut,
             symbol: '●',
             home_x: p1.physics.x,
             home_y: p1.physics.y,
@@ -353,7 +297,7 @@ pub fn reproduce_sexual_parallel(
             prev_energy: child_energy,
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
-            birth_tick: tick,
+            birth_tick: ctx.tick,
             generation: p1.metabolism.generation.max(p2.metabolism.generation) + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
@@ -380,13 +324,13 @@ pub fn reproduce_sexual_parallel(
             last_activations: std::collections::HashMap::new(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
-            ancestral_traits: traits.clone(),
+            ancestral_traits: ctx.traits.clone(),
         },
     };
 
     // Apply traits to phenotype
-    for trait_item in traits {
-        use crate::model::state::lineage_registry::AncestralTrait;
+    for trait_item in &ctx.traits {
+        use primordium_data::AncestralTrait;
         match trait_item {
             AncestralTrait::AcuteSenses => {
                 baby.physics.sensing_range *= 1.2;
@@ -403,15 +347,15 @@ pub fn reproduce_sexual_parallel(
 
 pub fn increment_spec_meter(
     entity: &mut Entity,
-    spec: crate::model::state::entity::Specialization,
+    spec: Specialization,
     amount: f32,
     config: &AppConfig,
 ) {
     if entity.intel.specialization.is_none() {
         let bias_idx = match spec {
-            crate::model::state::entity::Specialization::Soldier => 0,
-            crate::model::state::entity::Specialization::Engineer => 1,
-            crate::model::state::entity::Specialization::Provider => 2,
+            Specialization::Soldier => 0,
+            Specialization::Engineer => 1,
+            Specialization::Provider => 2,
         };
         let meter = entity.intel.spec_meters.entry(spec).or_insert(0.0);
         *meter += amount * (1.0 + entity.intel.genotype.specialization_bias[bias_idx]);

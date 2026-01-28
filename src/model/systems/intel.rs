@@ -10,28 +10,37 @@ pub fn brain_forward(
     brain.forward(inputs, last_hidden)
 }
 
-pub fn mutate_brain(
+pub fn mutate_brain<R: Rng>(
     brain: &mut Brain,
     config: &crate::model::config::AppConfig,
-    specialization: Option<crate::model::state::entity::Specialization>,
+    specialization: Option<primordium_data::Specialization>,
+    rng: &mut R,
 ) {
-    brain.mutate_with_config(config, specialization);
+    brain.mutate_with_config(config, specialization, rng);
 }
 
-pub fn mutate_genotype(
+pub fn mutate_genotype<R: Rng>(
     genotype: &mut crate::model::state::entity::Genotype,
     config: &crate::model::config::AppConfig,
     population: usize,
     is_radiation_storm: bool,
-    specialization: Option<crate::model::state::entity::Specialization>,
+    specialization: Option<primordium_data::Specialization>,
+    rng: &mut R,
+    ancestral_genotype: Option<&crate::model::state::entity::Genotype>,
 ) {
-    let mut rng = rand::thread_rng();
     let mut effective_mutation_rate = config.evolution.mutation_rate;
     let mut effective_mutation_amount = config.evolution.mutation_amount;
 
     if is_radiation_storm {
         effective_mutation_rate *= 5.0;
         effective_mutation_amount *= 2.0;
+    }
+
+    // Phase 64: Atavistic Recall - chance to revert to ancestral successful brain
+    if let Some(ancestral) = ancestral_genotype {
+        if rng.gen_bool(0.01) {
+            genotype.brain = ancestral.brain.clone();
+        }
     }
 
     if config.evolution.population_aware && population > 0 {
@@ -48,7 +57,7 @@ pub fn mutate_genotype(
     let mut brain_config = config.clone();
     brain_config.evolution.mutation_rate = effective_mutation_rate;
     brain_config.evolution.mutation_amount = effective_mutation_amount;
-    mutate_brain(&mut genotype.brain, &brain_config, specialization);
+    mutate_brain(&mut genotype.brain, &brain_config, specialization, rng);
 
     if rng.gen::<f32>() < effective_mutation_rate {
         genotype.sensing_range = (genotype.sensing_range
@@ -118,12 +127,12 @@ pub fn mutate_genotype(
     }
 }
 
-pub fn crossover_genotypes(
+pub fn crossover_genotypes<R: Rng>(
     p1: &crate::model::state::entity::Genotype,
     p2: &crate::model::state::entity::Genotype,
+    rng: &mut R,
 ) -> crate::model::state::entity::Genotype {
-    let mut rng = rand::thread_rng();
-    let brain = crossover_brains(&p1.brain, &p2.brain);
+    let brain = crossover_brains(&p1.brain, &p2.brain, rng);
 
     crate::model::state::entity::Genotype {
         brain,
@@ -181,8 +190,7 @@ pub fn crossover_genotypes(
     }
 }
 
-pub fn crossover_brains(p1: &Brain, p2: &Brain) -> Brain {
-    let mut rng = rand::thread_rng();
+pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
     let mut child_nodes = p1.nodes.clone();
     let mut child_connections = Vec::new();
     let mut map2 = std::collections::HashMap::new();

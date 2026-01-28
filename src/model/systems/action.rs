@@ -71,7 +71,7 @@ pub fn action_system(
     if entity
         .intel
         .ancestral_traits
-        .contains(&crate::model::state::lineage_registry::AncestralTrait::HardenedMetabolism)
+        .contains(&primordium_data::AncestralTrait::HardenedMetabolism)
     {
         base_idle *= 0.8;
     }
@@ -207,7 +207,7 @@ pub fn action_system(
     }
 
     // Phase 60: Biological Irrigation (Engineer caste logic)
-    if entity.intel.specialization == Some(crate::model::state::entity::Specialization::Engineer) {
+    if entity.intel.specialization == Some(primordium_data::Specialization::Engineer) {
         let is_near_river = ctx.terrain.has_neighbor_type(
             entity.physics.x as u16,
             entity.physics.y as u16,

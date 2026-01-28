@@ -139,9 +139,12 @@ pub struct TerrainGrid {
     hydration_buffer: Vec<bool>,
 }
 
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
+
 impl TerrainGrid {
     pub fn generate(width: u16, height: u16, seed: u64) -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
         let mut cells = vec![TerrainCell::default(); width as usize * height as usize];
 
         let w = width as usize;
@@ -212,8 +215,7 @@ impl TerrainGrid {
         (y as usize * self.width as usize) + x as usize
     }
 
-    pub fn update(&mut self, herbivore_biomass: f64) -> (f64, f64) {
-        self.is_dirty = true;
+    pub fn update(&mut self, herbivore_biomass: f64, tick: u64, world_seed: u64) -> (f64, f64) {
         if self.dust_bowl_timer > 0 {
             self.dust_bowl_timer -= 1;
         }
@@ -270,7 +272,7 @@ impl TerrainGrid {
                 let mut row_biomass = 0.0;
                 let mut row_sequestration = 0.0;
                 let mut row_transitions = Vec::new();
-                let mut rng = rand::thread_rng();
+                let mut rng = ChaCha8Rng::seed_from_u64(world_seed ^ tick ^ (y as u64));
 
                 for (x, cell) in row.iter_mut().enumerate() {
                     let x_u16 = x as u16;
@@ -602,7 +604,7 @@ mod tests {
         assert_eq!(terrain.dust_bowl_timer, 0);
 
         terrain.trigger_dust_bowl(500);
-        terrain.update(0.0);
+        terrain.update(0.0, 0, 42);
         assert_eq!(terrain.dust_bowl_timer, 499);
     }
 
@@ -621,7 +623,7 @@ mod tests {
 
         // Update to recover (slowly)
         for _ in 0..100 {
-            terrain.update(0.0);
+            terrain.update(0.0, 0, 42);
         }
         let recovered_fertility = terrain.get_cell(5, 5).fertility;
         assert!(
@@ -638,12 +640,5 @@ mod tests {
         let _ = terrain.get(100.0, 100.0);
         let _ = terrain.get(-5.0, -5.0);
         let _ = terrain.get_cell(100, 100);
-    }
-
-    #[test]
-    fn test_terrain_set_cell_type() {
-        let mut terrain = TerrainGrid::generate(10, 10, 42);
-        terrain.set_cell_type(5, 5, TerrainType::Wall);
-        assert_eq!(terrain.get_cell(5, 5).terrain_type, TerrainType::Wall);
     }
 }

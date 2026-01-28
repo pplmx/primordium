@@ -1,4 +1,5 @@
 use crate::model::brain::Brain;
+use primordium_data::{AncestralTrait, Specialization};
 use rand::Rng;
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
@@ -17,13 +18,6 @@ pub enum EntityStatus {
     Soldier,
     Bonded,
     InTransit,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Specialization {
-    Soldier,
-    Engineer,
-    Provider,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -87,8 +81,7 @@ pub struct Intel {
     pub last_activations: std::collections::HashMap<i32, f32>,
     pub specialization: Option<Specialization>,
     pub spec_meters: std::collections::HashMap<Specialization, f32>,
-    pub ancestral_traits:
-        std::collections::HashSet<crate::model::state::lineage_registry::AncestralTrait>,
+    pub ancestral_traits: std::collections::HashSet<AncestralTrait>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -118,8 +111,8 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn new(x: f64, y: f64, tick: u64) -> Self {
-        let genotype = Genotype::new_random();
+    pub fn new_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) -> Self {
+        let genotype = Genotype::new_random_with_rng(rng);
         Self {
             id: Uuid::new_v4(),
             parent_id: None,
@@ -173,6 +166,11 @@ impl Entity {
                 ancestral_traits: std::collections::HashSet::new(),
             },
         }
+    }
+
+    pub fn new(x: f64, y: f64, tick: u64) -> Self {
+        let mut rng = rand::thread_rng();
+        Self::new_with_rng(x, y, tick, &mut rng)
     }
 
     pub fn color(&self) -> Color {
@@ -284,17 +282,21 @@ impl Entity {
 }
 
 impl Genotype {
-    pub fn crossover(&self, other: &Self) -> Self {
-        let mut rng = rand::thread_rng();
-        let child_brain = self.brain.crossover(&other.brain);
+    pub fn crossover_with_rng<R: Rng>(&self, other: &Self, rng: &mut R) -> Self {
+        let brain = self.brain.crossover_with_rng(&other.brain, rng);
 
         let mut child_genotype = if rng.gen_bool(0.5) {
             self.clone()
         } else {
             other.clone()
         };
-        child_genotype.brain = child_brain;
+        child_genotype.brain = brain;
         child_genotype
+    }
+
+    pub fn crossover(&self, other: &Self) -> Self {
+        let mut rng = rand::thread_rng();
+        self.crossover_with_rng(other, &mut rng)
     }
 
     pub fn to_hex(&self) -> String {
@@ -317,8 +319,8 @@ impl Genotype {
         (1.0 - (dist / 10.0)).clamp(0.0, 1.0)
     }
 
-    pub fn new_random() -> Self {
-        let brain = Brain::new_random();
+    pub fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self {
+        let brain = Brain::new_random_with_rng(rng);
         Self {
             brain,
             sensing_range: 10.0,
@@ -333,5 +335,10 @@ impl Genotype {
             pairing_bias: 0.5,
             specialization_bias: [0.33, 0.33, 0.34],
         }
+    }
+
+    pub fn new_random() -> Self {
+        let mut rng = rand::thread_rng();
+        Self::new_random_with_rng(&mut rng)
     }
 }

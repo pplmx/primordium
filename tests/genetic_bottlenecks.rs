@@ -57,6 +57,7 @@ fn test_genetic_drift_in_small_pop() {
 
     // Run many mutations to trigger the 5% drift chance
     let mut drift_occurred = false;
+    let mut rng = rand::thread_rng();
     for _ in 0..1000 {
         let mut test_genotype = parent_genotype.clone();
         primordium_lib::model::systems::intel::mutate_genotype(
@@ -64,6 +65,8 @@ fn test_genetic_drift_in_small_pop() {
             &config,
             population,
             false,
+            None,
+            &mut rng,
             None,
         );
         if (test_genotype.trophic_potential - original_tp).abs() > 0.001 {

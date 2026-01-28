@@ -248,6 +248,7 @@ impl App {
             KeyCode::Char('x') | KeyCode::Char('X') => {
                 let pop = self.world.entities.len();
                 let is_storm = self.env.is_radiation_storm();
+                let mut rng = rand::thread_rng();
                 for entity in &mut self.world.entities {
                     intel::mutate_genotype(
                         &mut entity.intel.genotype,
@@ -255,6 +256,8 @@ impl App {
                         pop,
                         is_storm,
                         entity.intel.specialization,
+                        &mut rng,
+                        None,
                     );
                     // Sync phenotype
                     entity.physics.sensing_range = entity.intel.genotype.sensing_range;
@@ -360,12 +363,15 @@ impl App {
                     let pop = self.world.entities.len();
                     let is_storm = self.env.is_radiation_storm();
                     if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
+                        let mut rng = rand::thread_rng();
                         intel::mutate_genotype(
                             &mut entity.intel.genotype,
                             &self.config,
                             pop,
                             is_storm,
                             entity.intel.specialization,
+                            &mut rng,
+                            None,
                         );
                         // Sync phenotype
 
