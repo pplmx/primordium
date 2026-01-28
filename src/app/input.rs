@@ -122,6 +122,11 @@ impl App {
                 self.event_log
                     .push_back(("View: NEURAL RESEARCH".to_string(), Color::Magenta));
             }
+            KeyCode::Char('8') if !self.show_help && self.onboarding_step.is_none() => {
+                self.view_mode = 7;
+                self.event_log
+                    .push_back(("View: CIVILIZATION".to_string(), Color::Yellow));
+            }
             KeyCode::Char('0') if self.view_mode == 6 => {
                 if let Some(id) = self.selected_entity {
                     self.world.clear_research_deltas(id);

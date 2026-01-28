@@ -29,6 +29,7 @@ impl App {
             "[4]Eras",
             "[5]Visuals",
             "[6]Research",
+            "[7]Civ",
         ];
         let mut tab_spans = Vec::new();
         for (i, title) in tab_titles.iter().enumerate() {
@@ -60,7 +61,7 @@ impl App {
                 " [[/]]     Archeology Seek (Time)",
                 " [↑/↓]     Fossil Select (in Archeology)",
                 " [G]       Resurrect Fossil (Cloning)",
-                " [1-7]     Switch View modes",
+                " [1-8]     Switch View modes",
                 " [J]       Toggle Social Brush (Peace/War)",
                 " [H]       Toggle this Help",
                 " [X]       Genetic Surge (mutate all)",
@@ -149,7 +150,7 @@ impl App {
             ],
             4 => vec![
                 "",
-                " 👁️  VISUALIZATION MODES [1-7]",
+                " 👁️  VISUALIZATION MODES [1-8]",
                 " ─────────────────────────────────",
                 " [1] Normal      - Default view",
                 " [2] Fertility   - Soil health (G:Healthy, R:Depleted)",
@@ -158,6 +159,7 @@ impl App {
                 " [5] Vocal       - Vocal signal propagation (Yellow)",
                 " [6] Market      - Multiverse trade offers",
                 " [7] Research    - Neural plasticity heatmap",
+                " [8] Civilization- Global Dynasty dashboard",
                 "",
                 " 🪖  SPECIAL INDICATORS",
                 " ─────────────────────────────────",
@@ -178,6 +180,22 @@ impl App {
                 "",
                 " This reveals the learning pathways that",
                 " the organism is currently reinforcing.",
+            ],
+            6 => vec![
+                "",
+                " 🏛️  CIVILIZATION & DYNASTIES",
+                " ─────────────────────────────────",
+                " View mode [8] tracks the macro-progress of",
+                " the most successful lineages (Dynasties).",
+                "",
+                " 🏆 Levels: Ownership of outposts and high",
+                "    population grants civilization buffs.",
+                "",
+                " 🧠 Collective Memory: Lineages share a",
+                "    shared memory pool for goals & threats.",
+                "",
+                " 🛡️ Ancestral Traits: Long-lived lineages",
+                "    evolve persistent epigenetic bonuses.",
             ],
             _ => vec![""],
         };
