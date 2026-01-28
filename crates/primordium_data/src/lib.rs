@@ -20,3 +20,16 @@ pub enum LineageGoal {
     Dominance,
     Resilience,
 }
+
+// Phase 66 Components
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Position {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct MetabolicNiche(pub f32);
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Energy(pub f64);
