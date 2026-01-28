@@ -23,7 +23,7 @@ impl App {
                     Constraint::Length(0)
                 },
             ])
-            .split(f.size());
+            .split(f.area());
 
         self.last_sidebar_rect = main_layout[1];
 
@@ -41,7 +41,7 @@ impl App {
 
         if self.screensaver {
             let world_widget = WorldWidget::new(snapshot, true, self.view_mode);
-            f.render_widget(world_widget, f.size());
+            f.render_widget(world_widget, f.area());
         } else {
             // STATUS BAR
             let status_lines = Layout::default()

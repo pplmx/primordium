@@ -123,7 +123,7 @@ impl<'a> Widget for WorldWidget<'a> {
                 let screen_x = inner.x + x;
                 let screen_y = inner.y + y;
                 if screen_x < inner.right() && screen_y < inner.bottom() {
-                    let cell = buf.get_mut(screen_x, screen_y);
+                    let cell = &mut buf[(screen_x, screen_y)];
 
                     match self.view_mode {
                         1 => {
@@ -207,7 +207,7 @@ impl<'a> Widget for WorldWidget<'a> {
             if let Some((x, y)) =
                 Self::world_to_screen(f64::from(food.x), f64::from(food.y), area, self.screensaver)
             {
-                let cell = buf.get_mut(x, y);
+                let cell = &mut buf[(x, y)];
                 cell.set_symbol(&food.symbol.to_string());
                 cell.set_fg(Color::Rgb(
                     food.color_rgb.0,
@@ -221,7 +221,7 @@ impl<'a> Widget for WorldWidget<'a> {
             if let Some((x, y)) = Self::world_to_screen(entity.x, entity.y, area, self.screensaver)
             {
                 let status = entity.status;
-                let cell = buf.get_mut(x, y);
+                let cell = &mut buf[(x, y)];
                 cell.set_symbol(&Self::symbol_for_status(status).to_string());
                 cell.set_fg(Self::color_for_status(entity, status));
                 if self.view_mode >= 2 {
@@ -271,7 +271,7 @@ impl<'a> Widget for WorldWidget<'a> {
                             && y0 >= inner.top() as i16
                             && y0 < inner.bottom() as i16
                         {
-                            let b_cell = buf.get_mut(x0 as u16, y0 as u16);
+                            let b_cell = &mut buf[(x0 as u16, y0 as u16)];
                             if b_cell.symbol() == " " || b_cell.symbol() == "·" {
                                 b_cell.set_symbol("·");
                                 b_cell.set_fg(Color::Yellow);

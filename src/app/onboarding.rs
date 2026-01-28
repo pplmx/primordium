@@ -11,7 +11,7 @@ impl App {
             None => return,
         };
 
-        let area = f.size();
+        let area = f.area();
         let modal_width = 55.min(area.width - 4);
         let modal_height = 16.min(area.height - 4);
         let modal_area = Rect::new(

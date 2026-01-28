@@ -10,7 +10,7 @@ impl App {
             return;
         }
 
-        let area = f.size();
+        let area = f.area();
         let help_width = 60.min(area.width - 4);
         let help_height = 20.min(area.height - 4);
         let help_area = Rect::new(
