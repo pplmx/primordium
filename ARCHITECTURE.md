@@ -148,3 +148,5 @@ src/
     * **Planetary Engineering**: 引入了**前哨站 (Outpost)** 文档化结构。支持前哨动力网格 (Power Grids) 能量平衡、行星级碳汇加速（Outpost-adjacent Forest Sequestration）以及全球救济协议 (P2P Relief)。
     * **Protected Modules**: 在特化阶级（战士/工程师）中引入了**受保护神经簇**，具备极高的变异抗性，确保在环境剧变下文明核心技能的存续。
     * **P2P Altruism**: 实现了跨 Universe 的利他救济协议，支持繁荣文明对异域同族的远程能量支援。
+* **Phase 64**: **Genetic Memory & Atavistic Recall**。引入了谱系级遗传记忆系统。每个谱系自动归档其"历史最优"基因型。挣扎中的个体有 1% 的概率回归祖先成功的神经架构（返祖回溯）。
+* **Phase 66**: **Determinism & Reproducibility**。实现了完全确定性的模拟引擎。当 `config.world.deterministic = true` 时，使用模拟硬件指标（sin/cos 波形）替代真实系统监控。引入 `ChaCha8Rng` 种子化随机数生成器，支持跨平台可重现仿真。

@@ -287,15 +287,14 @@ impl Brain {
         let topo_rate = config.evolution.mutation_rate * 0.1;
 
         if rng.gen::<f32>() < topo_rate {
-            let from = self.nodes[rng.gen_range(0..self.nodes.len())].id;
-            let to = self.nodes[rng.gen_range(0..self.nodes.len())].id;
-            if !matches!(
-                self.nodes.iter().find(|n| n.id == to).unwrap().node_type,
-                NodeType::Input
-            ) {
+            let from_idx = rng.gen_range(0..self.nodes.len());
+            let to_idx = rng.gen_range(0..self.nodes.len());
+            let from = self.nodes[from_idx].id;
+            let to_node = &self.nodes[to_idx];
+            if !matches!(to_node.node_type, NodeType::Input) {
                 self.connections.push(Connection {
                     from,
-                    to,
+                    to: to_node.id,
                     weight: rng.gen_range(-1.0..1.0),
                     enabled: true,
                     innovation: self.connections.len(),

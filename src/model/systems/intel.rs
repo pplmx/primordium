@@ -210,15 +210,25 @@ pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
         }
     }
 
+    // O(1) lookup set for existing node IDs
+    let mut existing_node_ids: std::collections::HashSet<usize> =
+        child_nodes.iter().map(|n| n.id).collect();
+
+    // O(1) lookup map for p2 nodes
+    let p2_node_map: std::collections::HashMap<usize, &crate::model::brain::Node> =
+        p2.nodes.iter().map(|n| (n.id, n)).collect();
+
     for c in &child_connections {
-        if !child_nodes.iter().any(|n| n.id == c.from) {
-            if let Some(n) = p2.nodes.iter().find(|n| n.id == c.from) {
+        if !existing_node_ids.contains(&c.from) {
+            if let Some(&n) = p2_node_map.get(&c.from) {
                 child_nodes.push(n.clone());
+                existing_node_ids.insert(c.from);
             }
         }
-        if !child_nodes.iter().any(|n| n.id == c.to) {
-            if let Some(n) = p2.nodes.iter().find(|n| n.id == c.to) {
+        if !existing_node_ids.contains(&c.to) {
+            if let Some(&n) = p2_node_map.get(&c.to) {
                 child_nodes.push(n.clone());
+                existing_node_ids.insert(c.to);
             }
         }
     }
