@@ -132,6 +132,12 @@ pub enum LiveEvent {
         stats: PopulationStats,
         timestamp: String,
     },
+    Narration {
+        tick: u64,
+        text: String,
+        severity: f32,
+        timestamp: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -508,6 +514,16 @@ impl LiveEvent {
                 format!("🏛️ Snapshot saved at tick {}", tick),
                 Color::DarkGray,
             ),
+            LiveEvent::Narration { text, severity, .. } => {
+                let color = if *severity > 0.8 {
+                    Color::Red
+                } else if *severity > 0.5 {
+                    Color::Yellow
+                } else {
+                    Color::Green
+                };
+                (format!("📜 {}", text), color)
+            }
         }
     }
 }

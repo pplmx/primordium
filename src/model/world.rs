@@ -13,6 +13,7 @@ use crate::model::state::pheromone::PheromoneGrid;
 use crate::model::state::sound::SoundGrid;
 use crate::model::state::terrain::TerrainGrid;
 use chrono::Utc;
+use hecs;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
@@ -22,6 +23,7 @@ use std::collections::{HashMap, HashSet};
 use crate::model::systems::{
     action, biological, civilization, ecological, environment, history, interaction, social, stats,
 };
+use primordium_data::{MetabolicNiche, Position};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct InternalEntitySnapshot {
@@ -60,6 +62,8 @@ pub struct World {
     pub entities: Vec<Entity>,
     pub food: Vec<Food>,
     pub tick: u64,
+    #[serde(skip, default = "hecs::World::new")]
+    pub ecs: hecs::World,
     #[serde(skip, default = "HistoryLogger::new_dummy")]
     pub logger: HistoryLogger,
     #[serde(skip, default = "SpatialHash::new_empty")]
@@ -142,11 +146,18 @@ impl World {
             entities.push(e);
         }
         let mut food = Vec::new();
+        let mut ecs = hecs::World::new();
         for _ in 0..config.world.initial_food {
-            food.push(Food::new(
-                rng.gen_range(1..config.world.width - 1),
-                rng.gen_range(1..config.world.height - 1),
-                rng.gen_range(0.0..1.0),
+            let fx = rng.gen_range(1..config.world.width - 1);
+            let fy = rng.gen_range(1..config.world.height - 1);
+            let n_type = rng.gen_range(0.0..1.0);
+            food.push(Food::new(fx, fy, n_type));
+            ecs.spawn((
+                Position {
+                    x: fx as f64,
+                    y: fy as f64,
+                },
+                MetabolicNiche(n_type),
             ));
         }
         let terrain = TerrainGrid::generate(config.world.width, config.world.height, 42);
@@ -164,6 +175,7 @@ impl World {
             entities,
             food,
             tick: 0,
+            ecs,
             logger,
             spatial_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
             food_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
@@ -490,7 +502,21 @@ impl World {
             for (i, f) in self.food.iter().enumerate() {
                 self.food_hash.insert(f.x as f64, f.y as f64, i);
             }
+            self.sync_ecs_from_food();
             self.food_dirty = false;
+        }
+    }
+
+    fn sync_ecs_from_food(&mut self) {
+        self.ecs.clear();
+        for f in &self.food {
+            self.ecs.spawn((
+                Position {
+                    x: f.x as f64,
+                    y: f.y as f64,
+                },
+                MetabolicNiche(f.nutrient_type),
+            ));
         }
     }
 
@@ -1164,6 +1190,15 @@ impl World {
 
         self.observer
             .observe(self.tick, &self.pop_stats, &self.lineage_registry, env);
+
+        for n in self.observer.consume_narrations() {
+            events.push(LiveEvent::Narration {
+                tick: n.tick,
+                text: n.text,
+                severity: n.severity,
+                timestamp: Utc::now().to_rfc3339(),
+            });
+        }
 
         if self.terrain.is_dirty {
             self.cached_terrain = std::sync::Arc::new(self.terrain.clone());

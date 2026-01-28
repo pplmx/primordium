@@ -114,4 +114,8 @@ impl WorldObserver {
         }
         report
     }
+
+    pub fn consume_narrations(&mut self) -> Vec<primordium_observer::Narration> {
+        self.scribe.consume_narrations()
+    }
 }

@@ -43,4 +43,8 @@ impl SiliconScribe {
         }
         self.narrations.push(narration);
     }
+
+    pub fn consume_narrations(&mut self) -> Vec<Narration> {
+        std::mem::take(&mut self.narrations)
+    }
 }
