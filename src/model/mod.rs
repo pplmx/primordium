@@ -2,6 +2,7 @@ pub mod brain;
 pub mod config;
 pub mod history;
 pub mod migration;
+pub mod observer;
 pub mod quadtree;
 pub mod world;
 

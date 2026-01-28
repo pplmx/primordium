@@ -53,8 +53,19 @@ pub fn action_system(
     // Speed-dependent oxygen consumption
     let activity_drain = (speed_mult - 1.0).max(0.0) * 0.01;
 
+    let cell = ctx.terrain.get(entity.physics.x, entity.physics.y);
+    let local_cooling = cell.local_cooling;
+
+    let effective_metabolism_mult = if metabolism_mult > 1.0 {
+        1.0 + (metabolism_mult - 1.0) * (1.0 - local_cooling as f64 * 0.8).max(0.0)
+    } else {
+        metabolism_mult
+    };
+
     let mut move_cost =
-        ctx.config.metabolism.base_move_cost * metabolism_mult * speed_mult / aerobic_boost;
+        ctx.config.metabolism.base_move_cost * effective_metabolism_mult * speed_mult
+            / aerobic_boost;
+
     if predation_mode {
         move_cost *= 2.0;
     }
@@ -87,7 +98,7 @@ pub fn action_system(
         base_idle *= 1.0 - ctx.config.ecosystem.corpse_fertility_mult as f64; // Using as proxy for nest bonus
     }
 
-    let mut idle_cost = (base_idle + brain_maintenance) * metabolism_mult;
+    let mut idle_cost = (base_idle + brain_maintenance) * effective_metabolism_mult;
 
     // Symbiosis Efficiency Bonus
     if entity.intel.bonded_to.is_some() {

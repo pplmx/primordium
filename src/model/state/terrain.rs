@@ -106,6 +106,8 @@ pub struct TerrainCell {
     /// NEW: Energy stored in the cell (for Outposts)
     pub energy_store: f32,
     pub outpost_spec: OutpostSpecialization,
+    pub local_moisture: f32,
+    pub local_cooling: f32,
 }
 
 impl Default for TerrainCell {
@@ -121,6 +123,8 @@ impl Default for TerrainCell {
             owner_id: None,
             energy_store: 0.0,
             outpost_spec: OutpostSpecialization::Standard,
+            local_moisture: 0.5,
+            local_cooling: 0.0,
         }
     }
 }
@@ -137,6 +141,10 @@ pub struct TerrainGrid {
     type_buffer: Vec<TerrainType>,
     #[serde(skip)]
     hydration_buffer: Vec<bool>,
+    #[serde(skip)]
+    moisture_buffer: Vec<f32>,
+    #[serde(skip)]
+    cooling_buffer: Vec<f32>,
 }
 
 use rand::SeedableRng;
@@ -207,6 +215,8 @@ impl TerrainGrid {
             is_dirty: true,
             type_buffer: vec![TerrainType::Plains; width as usize * height as usize],
             hydration_buffer: vec![false; width as usize * height as usize],
+            moisture_buffer: vec![0.5; width as usize * height as usize],
+            cooling_buffer: vec![0.0; width as usize * height as usize],
         }
     }
 
@@ -230,16 +240,67 @@ impl TerrainGrid {
         if self.type_buffer.len() != w as usize * h as usize {
             self.type_buffer = vec![TerrainType::Plains; w as usize * h as usize];
             self.hydration_buffer = vec![false; w as usize * h as usize];
+            self.moisture_buffer = vec![0.5; w as usize * h as usize];
+            self.cooling_buffer = vec![0.0; w as usize * h as usize];
         }
 
         let mut outpost_map = vec![false; self.cells.len()];
         for (i, cell) in self.cells.iter().enumerate() {
             self.type_buffer[i] = cell.terrain_type;
             self.hydration_buffer[i] = false;
+
+            match cell.terrain_type {
+                TerrainType::River => {
+                    self.moisture_buffer[i] = 1.0;
+                    self.cooling_buffer[i] = 0.5;
+                }
+                TerrainType::Forest => {
+                    self.moisture_buffer[i] = (self.moisture_buffer[i] + 0.1).min(1.0);
+                    self.cooling_buffer[i] = 1.0;
+                }
+                TerrainType::Oasis => {
+                    self.moisture_buffer[i] = 1.0;
+                    self.cooling_buffer[i] = 0.8;
+                }
+                TerrainType::Desert => {
+                    self.moisture_buffer[i] *= 0.95;
+                    self.cooling_buffer[i] *= 0.9;
+                }
+                _ => {
+                    self.moisture_buffer[i] *= 0.99;
+                    self.cooling_buffer[i] *= 0.99;
+                }
+            }
+
             if cell.terrain_type == TerrainType::Outpost {
                 outpost_map[i] = true;
             }
         }
+
+        let mut next_moisture = self.moisture_buffer.clone();
+        let mut next_cooling = self.cooling_buffer.clone();
+
+        for y in 1..(h as usize - 1) {
+            for x in 1..(w as usize - 1) {
+                let idx = y * w as usize + x;
+                let avg_m = (self.moisture_buffer[idx - 1]
+                    + self.moisture_buffer[idx + 1]
+                    + self.moisture_buffer[idx - w as usize]
+                    + self.moisture_buffer[idx + w as usize])
+                    * 0.25;
+                next_moisture[idx] =
+                    (self.moisture_buffer[idx] * 0.9 + avg_m * 0.1).clamp(0.0, 1.0);
+
+                let avg_c = (self.cooling_buffer[idx - 1]
+                    + self.cooling_buffer[idx + 1]
+                    + self.cooling_buffer[idx - w as usize]
+                    + self.cooling_buffer[idx + w as usize])
+                    * 0.25;
+                next_cooling[idx] = (self.cooling_buffer[idx] * 0.9 + avg_c * 0.1).clamp(0.0, 1.0);
+            }
+        }
+        self.moisture_buffer = next_moisture;
+        self.cooling_buffer = next_cooling;
 
         // Hydration map: true if cell is within radius 2 of a river
         for y in 0..h {
@@ -261,6 +322,8 @@ impl TerrainGrid {
 
         let type_grid = &self.type_buffer;
         let hydration_map = &self.hydration_buffer;
+        let moisture_map = &self.moisture_buffer;
+        let cooling_map = &self.cooling_buffer;
         let outposts = &outpost_map;
 
         type TransitionVec = Vec<Vec<(u16, u16, TerrainType)>>;
@@ -275,6 +338,10 @@ impl TerrainGrid {
                 let mut rng = ChaCha8Rng::seed_from_u64(world_seed ^ tick ^ (y as u64));
 
                 for (x, cell) in row.iter_mut().enumerate() {
+                    let idx = y * w as usize + x;
+                    cell.local_moisture = moisture_map[idx];
+                    cell.local_cooling = cooling_map[idx];
+
                     let x_u16 = x as u16;
                     let y_u16 = y as u16;
                     row_biomass += cell.plant_biomass as f64;
@@ -303,6 +370,32 @@ impl TerrainGrid {
                         found
                     } else {
                         false
+                    };
+
+                    let seq_mult = if is_near_outpost { 2.5 } else { 1.0 };
+                    if cell.terrain_type == TerrainType::Forest {
+                        row_sequestration += cell.plant_biomass as f64
+                            * seq_mult
+                            * (1.0 + cell.local_moisture as f64);
+                    }
+
+                    let mut fertility_gain =
+                        (global_recovery_rate + (cell.plant_biomass * 0.0001)).max(-0.05);
+
+                    fertility_gain += cell.local_moisture * 0.01;
+
+                    if hydration_map[idx] {
+                        fertility_gain += 0.005;
+                    }
+
+                    cell.fertility = (cell.fertility + fertility_gain).clamp(0.0, 1.0);
+
+                    let _r = match cell.terrain_type {
+                        TerrainType::Forest => 0.05 * (1.0 + cell.local_moisture),
+                        TerrainType::Plains => 0.02,
+                        TerrainType::Oasis => 0.08,
+                        TerrainType::Desert => 0.005,
+                        _ => 0.0,
                     };
 
                     let seq_mult = if is_near_outpost { 2.5 } else { 1.0 };
