@@ -626,6 +626,30 @@ impl TerrainGrid {
         &self.cells[self.index(ix, iy)]
     }
 
+    pub fn sense_wall(&self, x: f64, y: f64, range: f64) -> f32 {
+        let mut min_dist = range;
+        let ix = x as i32;
+        let iy = y as i32;
+        let r = range as i32;
+
+        for dy in -r..=r {
+            for dx in -r..=r {
+                let nx = ix + dx;
+                let ny = iy + dy;
+                if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
+                    let cell = &self.cells[ny as usize * self.width as usize + nx as usize];
+                    if cell.terrain_type == TerrainType::Wall {
+                        let dist = ((dx * dx + dy * dy) as f64).sqrt();
+                        if dist < min_dist {
+                            min_dist = dist;
+                        }
+                    }
+                }
+            }
+        }
+        (1.0 - (min_dist / range)).clamp(0.0, 1.0) as f32
+    }
+
     /// Manually set cell type (useful for testing and disasters)
     pub fn set_cell_type(&mut self, x: u16, y: u16, t: TerrainType) {
         let ix = x.min(self.width - 1);

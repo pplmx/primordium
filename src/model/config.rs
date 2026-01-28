@@ -15,6 +15,8 @@ pub struct WorldConfig {
     pub apex_fitness_req: f64,
     pub seed: Option<u64>,
     pub deterministic: bool,
+    pub fossil_interval: u64,
+    pub power_grid_interval: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -79,6 +81,8 @@ pub struct SocialConfig {
     pub age_rank_normalization: f32,
     pub offspring_rank_normalization: f32,
     pub specialization_threshold: f32,
+    pub silo_energy_capacity: f32,
+    pub outpost_energy_capacity: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -135,6 +139,8 @@ impl Default for AppConfig {
                 apex_fitness_req: 8000.0,
                 seed: None,
                 deterministic: false,
+                fossil_interval: 1000,
+                power_grid_interval: 10,
             },
             metabolism: MetabolismConfig {
                 base_move_cost: 1.0,
@@ -184,6 +190,8 @@ impl Default for AppConfig {
                 age_rank_normalization: 2000.0,
                 offspring_rank_normalization: 20.0,
                 specialization_threshold: 100.0,
+                silo_energy_capacity: 5000.0,
+                outpost_energy_capacity: 1000.0,
             },
             terraform: TerraformConfig {
                 dig_cost: 10.0,

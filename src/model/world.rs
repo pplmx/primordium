@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::model::systems::{
-    action, biological, ecological, environment, interaction, social, stats,
+    action, biological, civilization, ecological, environment, history, interaction, social, stats,
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -93,11 +93,13 @@ pub struct World {
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
     #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 23]>,
+    perception_buffer: Vec<[f32; 29]>,
     #[serde(skip, default)]
     decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
     lineage_consumption: Vec<(uuid::Uuid, f64)>,
+    #[serde(skip, default)]
+    entity_snapshots: Vec<InternalEntitySnapshot>,
     #[serde(skip)]
     cached_terrain: std::sync::Arc<TerrainGrid>,
     #[serde(skip)]
@@ -192,6 +194,7 @@ impl World {
             perception_buffer: Vec::new(),
             decision_buffer: Vec::new(),
             lineage_consumption: Vec::new(),
+            entity_snapshots: Vec::new(),
             food_dirty: true,
         })
     }
@@ -202,51 +205,6 @@ impl World {
         self.fossil_registry =
             FossilRegistry::load(&format!("{}/fossils.json.gz", self.log_dir)).unwrap_or_default();
         Ok(())
-    }
-
-    pub(crate) fn handle_fossilization(&mut self) {
-        let extinct = self.lineage_registry.get_extinct_lineages();
-        for l_id in extinct {
-            if let Some(legend) = self.best_legends.remove(&l_id) {
-                if !self
-                    .fossil_registry
-                    .fossils
-                    .iter()
-                    .any(|f| f.lineage_id == l_id)
-                {
-                    if let Some(record) = self.lineage_registry.lineages.get(&l_id) {
-                        self.fossil_registry
-                            .add_fossil(crate::model::history::Fossil {
-                                lineage_id: l_id,
-                                name: record.name.clone(),
-                                color_rgb: legend.color_rgb,
-                                avg_lifespan: legend.lifespan as f64,
-                                max_generation: record.max_generation,
-                                total_offspring: record.total_entities_produced as u32,
-                                extinct_tick: self.tick,
-                                peak_population: record.peak_population,
-                                genotype: legend.genotype.clone(),
-                            });
-                    }
-                }
-            }
-        }
-    }
-
-    fn update_best_legend(&mut self, legend: crate::model::history::Legend) {
-        let entry = self
-            .best_legends
-            .entry(legend.lineage_id)
-            .or_insert_with(|| legend.clone());
-        if (legend.lifespan as f64 * 0.5 + legend.offspring_count as f64 * 10.0)
-            > (entry.lifespan as f64 * 0.5 + entry.offspring_count as f64 * 10.0)
-        {
-            *entry = legend.clone();
-            // Phase 64: Genetic Memory - Update max fitness genotype
-            if let Some(record) = self.lineage_registry.lineages.get_mut(&legend.lineage_id) {
-                record.max_fitness_genotype = Some(legend.genotype);
-            }
-        }
     }
 
     pub fn apply_genetic_edit(
@@ -350,171 +308,6 @@ impl World {
         }
     }
 
-    pub fn count_outposts_by_lineage(&self) -> std::collections::HashMap<uuid::Uuid, usize> {
-        let mut counts = std::collections::HashMap::new();
-        for cell in &self.terrain.cells {
-            use crate::model::state::terrain::TerrainType;
-            if cell.terrain_type == TerrainType::Outpost {
-                if let Some(id) = cell.owner_id {
-                    *counts.entry(id).or_insert(0) += 1;
-                }
-            }
-        }
-        counts
-    }
-
-    fn resolve_power_grid(&mut self) {
-        let mut visited = HashSet::new();
-        let outpost_indices: Vec<usize> = self
-            .terrain
-            .cells
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| {
-                matches!(
-                    c.terrain_type,
-                    crate::model::state::terrain::TerrainType::Outpost
-                )
-            })
-            .map(|(i, _)| i)
-            .collect();
-
-        for &start_idx in &outpost_indices {
-            if visited.contains(&start_idx) {
-                continue;
-            }
-
-            let mut group = Vec::new();
-            let mut queue = std::collections::VecDeque::new();
-            queue.push_back(start_idx);
-            visited.insert(start_idx);
-
-            while let Some(current) = queue.pop_front() {
-                group.push(current);
-                let cx = (current % self.width as usize) as i32;
-                let cy = (current / self.width as usize) as i32;
-
-                for dy in -1..=1 {
-                    for dx in -1..=1 {
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        }
-                        let nx = cx + dx;
-                        let ny = cy + dy;
-                        if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
-                            let nidx = (ny as usize * self.width as usize) + nx as usize;
-                            if !visited.contains(&nidx) {
-                                let cell = &self.terrain.cells[nidx];
-                                if matches!(
-                                    cell.terrain_type,
-                                    crate::model::state::terrain::TerrainType::Outpost
-                                        | crate::model::state::terrain::TerrainType::River
-                                ) {
-                                    visited.insert(nidx);
-                                    queue.push_back(nidx);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            let outpost_group: Vec<usize> = group
-                .into_iter()
-                .filter(|&i| {
-                    matches!(
-                        self.terrain.cells[i].terrain_type,
-                        crate::model::state::terrain::TerrainType::Outpost
-                    )
-                })
-                .collect();
-
-            if outpost_group.len() > 1 {
-                // Phase 63: Resource Pipelining (Energy Flow)
-                let total_energy: f32 = outpost_group
-                    .iter()
-                    .map(|&i| self.terrain.cells[i].energy_store)
-                    .sum();
-                let avg_energy = total_energy / outpost_group.len() as f32;
-                for &i in &outpost_group {
-                    // Flow towards equilibrium
-                    let current = self.terrain.cells[i].energy_store;
-                    let flow = (avg_energy - current) * 0.1;
-                    self.terrain.cells[i].energy_store += flow;
-                }
-            }
-        }
-    }
-
-    fn handle_outposts(&mut self) {
-        let outpost_indices: Vec<usize> = self
-            .terrain
-            .cells
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| c.terrain_type == crate::model::state::terrain::TerrainType::Outpost)
-            .map(|(i, _)| i)
-            .collect();
-
-        for idx in outpost_indices {
-            let (ox, oy) = (
-                (idx % self.width as usize) as f64,
-                (idx / self.width as usize) as f64,
-            );
-            let owner_id = self.terrain.cells[idx].owner_id;
-
-            let nearby = self.spatial_hash.query(ox, oy, 3.0);
-            let mut stored = self.terrain.cells[idx].energy_store;
-
-            for e_idx in nearby {
-                let e = &mut self.entities[e_idx];
-                if Some(e.metabolism.lineage_id) == owner_id {
-                    // Phase 63: Outpost Specialization Logic
-                    match self.terrain.cells[idx].outpost_spec {
-                        crate::model::state::terrain::OutpostSpecialization::Silo => {
-                            // Collect more surplus
-                            if e.metabolism.energy > e.metabolism.max_energy * 0.5 {
-                                let donation = e.metabolism.energy * 0.1;
-                                e.metabolism.energy -= donation;
-                                stored += donation as f32;
-                            }
-                        }
-                        crate::model::state::terrain::OutpostSpecialization::Nursery => {
-                            // Grants more to needy
-                            if e.metabolism.energy < e.metabolism.max_energy * 0.5 && stored > 20.0
-                            {
-                                let grant = (e.metabolism.max_energy * 0.2).min(stored as f64);
-                                e.metabolism.energy += grant;
-                                stored -= grant as f32;
-                            }
-                        }
-                        _ => {
-                            // Collect surplus
-                            if e.metabolism.energy > e.metabolism.max_energy * 0.8 {
-                                let donation = e.metabolism.energy * 0.05;
-                                e.metabolism.energy -= donation;
-                                stored += donation as f32;
-                            }
-                            // Distribute to needy
-                            if e.metabolism.energy < e.metabolism.max_energy * 0.3 && stored > 10.0
-                            {
-                                let grant = (e.metabolism.max_energy * 0.1).min(stored as f64);
-                                e.metabolism.energy += grant;
-                                stored -= grant as f32;
-                            }
-                        }
-                    }
-                }
-            }
-
-            let max_cap = match self.terrain.cells[idx].outpost_spec {
-                crate::model::state::terrain::OutpostSpecialization::Silo => 5000.0,
-                _ => 1000.0,
-            };
-            self.terrain.cells[idx].energy_store = stored.min(max_cap as f32);
-        }
-    }
-
     pub fn clear_research_deltas(&mut self, entity_id: uuid::Uuid) {
         if let Some(e) = self.entities.iter_mut().find(|e| e.id == entity_id) {
             e.intel.genotype.brain.weight_deltas.clear();
@@ -593,14 +386,15 @@ impl World {
 
         self.update_environment_and_resources(env, world_seed);
 
-        let (entity_snapshots, entity_id_map) = self.prepare_spatial_and_snapshots();
+        let entity_id_map = self.prepare_spatial_and_snapshots();
 
-        self.learn_and_rank_parallel(&entity_snapshots, &entity_id_map);
+        self.learn_and_rank_parallel(&entity_id_map);
 
-        let interaction_commands =
-            self.perceive_and_decide(env, &entity_snapshots, &entity_id_map, world_seed);
+        let interaction_commands = self.perceive_and_decide(env, &entity_id_map, world_seed);
 
-        self.execute_actions(env, &entity_snapshots, &entity_id_map);
+        let snapshots = std::mem::take(&mut self.entity_snapshots);
+        self.execute_actions(env, &snapshots, &entity_id_map);
+        self.entity_snapshots = snapshots;
 
         let mut interaction_events = self.execute_interactions(env, interaction_commands);
         events.append(&mut interaction_events);
@@ -662,8 +456,8 @@ impl World {
             env.carbon_level = (env.carbon_level - 0.5).max(100.0);
         }
 
-        env.sequestrate_carbon(total_sequestration * 0.00001);
-        env.add_carbon(self.entities.len() as f64 * 0.01);
+        env.sequestrate_carbon(total_sequestration * self.config.ecosystem.sequestration_rate);
+        env.add_carbon(self.entities.len() as f64 * self.config.ecosystem.carbon_emission_rate);
         env.consume_oxygen(
             self.entities.len() as f64 * self.config.metabolism.oxygen_consumption_rate,
         );
@@ -700,9 +494,7 @@ impl World {
         }
     }
 
-    fn prepare_spatial_and_snapshots(
-        &mut self,
-    ) -> (Vec<InternalEntitySnapshot>, HashMap<uuid::Uuid, usize>) {
+    fn prepare_spatial_and_snapshots(&mut self) -> HashMap<uuid::Uuid, usize> {
         let spatial_data: Vec<(f64, f64, uuid::Uuid)> = self
             .entities
             .iter()
@@ -712,8 +504,8 @@ impl World {
         self.spatial_hash
             .build_with_lineage(&spatial_data, self.width, self.height);
 
-        let entity_snapshots: Vec<InternalEntitySnapshot> = self
-            .entities
+        let mut entity_snapshots = std::mem::take(&mut self.entity_snapshots);
+        self.entities
             .par_iter()
             .map(|e| InternalEntitySnapshot {
                 id: e.id,
@@ -733,7 +525,7 @@ impl World {
                     self.config.metabolism.maturity_age,
                 ),
             })
-            .collect();
+            .collect_into_vec(&mut entity_snapshots);
 
         let entity_id_map: HashMap<uuid::Uuid, usize> = self
             .entities
@@ -742,16 +534,14 @@ impl World {
             .map(|(i, e)| (e.id, i))
             .collect();
 
-        (entity_snapshots, entity_id_map)
+        self.entity_snapshots = entity_snapshots;
+        entity_id_map
     }
 
-    fn learn_and_rank_parallel(
-        &mut self,
-        entity_snapshots: &[InternalEntitySnapshot],
-        entity_id_map: &HashMap<uuid::Uuid, usize>,
-    ) {
+    fn learn_and_rank_parallel(&mut self, entity_id_map: &HashMap<uuid::Uuid, usize>) {
         let tick = self.tick;
         let config = &self.config;
+        let snapshots = &self.entity_snapshots;
 
         self.entities.par_iter_mut().for_each(|e| {
             e.intel.genotype.brain.learn(
@@ -765,7 +555,7 @@ impl World {
             e.intel.rank = social::calculate_social_rank(e, tick, config);
 
             if let Some(p_id) = e.intel.bonded_to {
-                if let Some(partner) = entity_id_map.get(&p_id).map(|&idx| &entity_snapshots[idx]) {
+                if let Some(partner) = entity_id_map.get(&p_id).map(|&idx| &snapshots[idx]) {
                     let dx = partner.x - e.physics.x;
                     let dy = partner.y - e.physics.y;
                     if (dx * dx + dy * dy) > config.social.bond_break_dist.powi(2) {
@@ -781,12 +571,12 @@ impl World {
     fn perceive_and_decide(
         &mut self,
         env: &Environment,
-        entity_snapshots: &[InternalEntitySnapshot],
         entity_id_map: &HashMap<uuid::Uuid, usize>,
         world_seed: u64,
     ) -> Vec<InteractionCommand> {
         let mut perception_buffer = std::mem::take(&mut self.perception_buffer);
         let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
+        let snapshots = &self.entity_snapshots;
 
         self.entities
             .par_iter()
@@ -797,20 +587,28 @@ impl World {
                 let nearby =
                     self.spatial_hash
                         .query(e.physics.x, e.physics.y, e.physics.sensing_range);
-                let (ph_f, _, _, _) = self.pheromones.sense_all(
+                let (ph_f, tribe_d, sa, sb) = self.pheromones.sense_all(
                     e.physics.x,
                     e.physics.y,
                     e.physics.sensing_range / 2.0,
                 );
+                let (kx, ky) = self.spatial_hash.sense_kin(
+                    e.physics.x,
+                    e.physics.y,
+                    e.physics.sensing_range,
+                    e.metabolism.lineage_id,
+                );
+                let wall_dist = self.terrain.sense_wall(e.physics.x, e.physics.y, 5.0);
+                let age_ratio = (self.tick - e.metabolism.birth_tick) as f32 / 2000.0;
+
                 let sound_sense =
                     self.sound
                         .sense(e.physics.x, e.physics.y, e.physics.sensing_range);
                 let mut partner_energy = 0.0;
                 if let Some(p_id) = e.intel.bonded_to {
                     if let Some(&p_idx) = entity_id_map.get(&p_id) {
-                        partner_energy = (entity_snapshots[p_idx].energy
-                            / e.metabolism.max_energy.max(1.0))
-                            as f32;
+                        partner_energy =
+                            (snapshots[p_idx].energy / e.metabolism.max_energy.max(1.0)) as f32;
                     }
                 }
 
@@ -843,15 +641,21 @@ impl World {
                     (e.metabolism.energy / e.metabolism.max_energy.max(1.0)) as f32,
                     (nearby.len() as f32 / 10.0).min(1.0),
                     ph_f,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
+                    tribe_d,
+                    kx as f32,
+                    ky as f32,
+                    sa,
+                    sb,
+                    wall_dist,
+                    age_ratio.min(1.0),
                     f_type,
                     e.metabolism.trophic_potential,
+                    e.intel.last_hidden[0],
+                    e.intel.last_hidden[1],
+                    e.intel.last_hidden[2],
+                    e.intel.last_hidden[3],
+                    e.intel.last_hidden[4],
+                    e.intel.last_hidden[5],
                     sound_sense,
                     partner_energy,
                     b_press,
@@ -966,7 +770,7 @@ impl World {
                         }
 
                         let self_energy = e.metabolism.energy;
-                        let partner_energy = entity_snapshots[p_idx].energy;
+                        let partner_energy = snapshots[p_idx].energy;
 
                         if self_energy > partner_energy + 2.0 {
                             let diff = self_energy - partner_energy;
@@ -990,7 +794,7 @@ impl World {
                     let nearby = spatial_hash.query(e.physics.x, e.physics.y, 2.0);
                     for &t_idx in &nearby {
                         if t_idx != i && social::are_same_tribe(e, &self.entities[t_idx], config) {
-                            let t_snap = &entity_snapshots[t_idx];
+                            let t_snap = &snapshots[t_idx];
                             if t_snap.energy < e.metabolism.energy {
                                 let r = e
                                     .intel
@@ -1023,7 +827,7 @@ impl World {
                 if outputs[3] > 0.5 {
                     let targets = spatial_hash.query(e.physics.x, e.physics.y, 1.5);
                     for t_idx in targets {
-                        let is_partner = e.intel.bonded_to == Some(entity_snapshots[t_idx].id);
+                        let is_partner = e.intel.bonded_to == Some(snapshots[t_idx].id);
                         if t_idx != i
                             && !social::are_same_tribe(e, &self.entities[t_idx], config)
                             && !is_partner
@@ -1093,8 +897,7 @@ impl World {
                 if let Some(ref path) = e.health.pathogen {
                     let targets = spatial_hash.query(e.physics.x, e.physics.y, 2.0);
                     for t_idx in targets {
-                        if entity_snapshots[t_idx].id != e.id
-                            && local_rng.gen::<f32>() < path.transmission
+                        if snapshots[t_idx].id != e.id && local_rng.gen::<f32>() < path.transmission
                         {
                             cmds.push(InteractionCommand::Infect {
                                 target_idx: t_idx,
@@ -1268,7 +1071,11 @@ impl World {
             if self.killed_ids.contains(&e.id) || e.metabolism.energy <= 0.0 {
                 self.lineage_registry.record_death(e.metabolism.lineage_id);
                 if let Some(legend) = social::archive_if_legend(&e, tick, &self.logger) {
-                    self.update_best_legend(legend);
+                    history::update_best_legend(
+                        &mut self.lineage_registry,
+                        &mut self.best_legends,
+                        legend,
+                    );
                 }
                 let fertilize_amount = (e.metabolism.max_energy
                     * self.config.ecosystem.corpse_fertility_mult as f64)
@@ -1298,8 +1105,8 @@ impl World {
             self.food_dirty = true;
         }
 
-        if self.tick.is_multiple_of(1000) {
-            let outpost_counts = self.count_outposts_by_lineage();
+        if self.tick.is_multiple_of(self.config.world.fossil_interval) {
+            let outpost_counts = civilization::count_outposts_by_lineage(&self.terrain);
             self.lineage_registry.check_goals(
                 self.tick,
                 &self.social_grid,
@@ -1320,13 +1127,28 @@ impl World {
             };
             let _ = self.logger.log_event(snap_ev.clone());
             events.push(snap_ev);
-            self.handle_fossilization();
+            history::handle_fossilization(
+                &self.lineage_registry,
+                &mut self.fossil_registry,
+                &mut self.best_legends,
+                self.tick,
+            );
             self.lineage_registry.prune();
         }
 
-        self.handle_outposts();
-        if self.tick.is_multiple_of(10) {
-            self.resolve_power_grid();
+        civilization::handle_outposts(
+            &mut self.terrain,
+            &mut self.entities,
+            &self.spatial_hash,
+            self.width,
+            self.config.social.silo_energy_capacity,
+            self.config.social.outpost_energy_capacity,
+        );
+        if self
+            .tick
+            .is_multiple_of(self.config.world.power_grid_interval)
+        {
+            civilization::resolve_power_grid(&mut self.terrain, self.width, self.height);
         }
 
         stats::update_stats(

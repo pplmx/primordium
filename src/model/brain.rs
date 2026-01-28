@@ -156,33 +156,21 @@ impl Brain {
         Self::new_random_with_rng(&mut rng)
     }
 
-    pub fn forward(&self, inputs: [f32; 23], last_hidden: [f32; 6]) -> ([f32; 12], [f32; 6]) {
+    pub fn forward(&self, inputs: [f32; 29], last_hidden: [f32; 6]) -> ([f32; 12], [f32; 6]) {
         let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
         (outputs, next_hidden)
     }
 
     pub fn forward_internal(
         &self,
-        inputs: [f32; 23],
-        last_hidden: [f32; 6],
+        inputs: [f32; 29],
+        _last_hidden: [f32; 6],
     ) -> ([f32; 12], [f32; 6], HashMap<usize, f32>) {
         let mut node_values: HashMap<usize, f32> = HashMap::new();
 
-        for (i, &val) in inputs.iter().take(14).enumerate() {
+        for (i, &val) in inputs.iter().enumerate() {
             node_values.insert(i, val);
         }
-        for (i, &val) in last_hidden.iter().enumerate() {
-            node_values.insert(i + 14, val);
-        }
-        node_values.insert(20, inputs[14]);
-        node_values.insert(21, inputs[15]);
-        node_values.insert(22, inputs[16]);
-        node_values.insert(23, inputs[17]);
-        node_values.insert(24, inputs[18]);
-        node_values.insert(25, inputs[19]);
-        node_values.insert(26, inputs[20]);
-        node_values.insert(27, inputs[21]);
-        node_values.insert(28, inputs[22]);
 
         let mut new_values = node_values.clone();
         for conn in &self.connections {
@@ -213,7 +201,7 @@ impl Brain {
         (outputs, next_hidden, new_values)
     }
 
-    pub fn learn(&mut self, inputs: [f32; 23], last_hidden: [f32; 6], reinforcement: f32) {
+    pub fn learn(&mut self, inputs: [f32; 29], last_hidden: [f32; 6], reinforcement: f32) {
         if self.learning_rate.abs() < 1e-4 || reinforcement.abs() < 1e-4 {
             return;
         }
@@ -433,7 +421,7 @@ mod tests {
     fn test_brain_learning_strengthens_connections() {
         let mut brain = Brain::new_random();
         brain.learning_rate = 0.5;
-        let inputs = [1.0; 23];
+        let inputs = [1.0; 29];
         let hidden = [1.0; 6];
         let initial_weights: Vec<f32> = brain.connections.iter().map(|c| c.weight).collect();
 

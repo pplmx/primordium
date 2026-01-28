@@ -126,6 +126,16 @@ impl SpatialHash {
         })
     }
 
+    pub fn sense_kin(&self, x: f64, y: f64, range: f64, lid: uuid::Uuid) -> (f64, f64) {
+        if let Some((cx, cy)) = self.get_lineage_centroid(&lid) {
+            let dx = (cx - x) / range;
+            let dy = (cy - y) / range;
+            (dx.clamp(-1.0, 1.0), dy.clamp(-1.0, 1.0))
+        } else {
+            (0.0, 0.0)
+        }
+    }
+
     pub fn query(&self, x: f64, y: f64, radius: f64) -> Vec<usize> {
         let mut result = Vec::new();
         self.query_into(x, y, radius, &mut result);
