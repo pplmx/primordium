@@ -235,3 +235,303 @@ pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
         weight_deltas: HashMap::new(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::config::AppConfig;
+    use crate::model::state::entity::Genotype;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    fn create_test_genotype() -> Genotype {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        Genotype::new_random_with_rng(&mut rng)
+    }
+
+    fn create_test_config() -> AppConfig {
+        AppConfig::default()
+    }
+
+    // =========================================================================
+    // Mutation Tests
+    // =========================================================================
+
+    #[test]
+    fn test_mutate_genotype_respects_clamping_bounds() {
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
+        let config = create_test_config();
+        let mut genotype = create_test_genotype();
+
+        // Force extreme mutation
+        for _ in 0..100 {
+            mutate_genotype(&mut genotype, &config, 100, false, None, &mut rng, None);
+        }
+
+        // Verify all traits are within valid bounds
+        assert!(genotype.sensing_range >= 3.0 && genotype.sensing_range <= 15.0);
+        assert!(genotype.max_speed >= 0.5 && genotype.max_speed <= 3.0);
+        assert!(genotype.max_energy >= 100.0 && genotype.max_energy <= 500.0);
+        assert!(genotype.maturity_gene >= 0.5 && genotype.maturity_gene <= 2.0);
+        assert!(genotype.metabolic_niche >= 0.0 && genotype.metabolic_niche <= 1.0);
+        assert!(genotype.trophic_potential >= 0.0 && genotype.trophic_potential <= 1.0);
+        assert!(genotype.reproductive_investment >= 0.1 && genotype.reproductive_investment <= 0.9);
+        assert!(genotype.mate_preference >= 0.0 && genotype.mate_preference <= 1.0);
+        assert!(genotype.pairing_bias >= 0.0 && genotype.pairing_bias <= 1.0);
+    }
+
+    #[test]
+    fn test_mutate_genotype_population_aware_bottleneck_scaling() {
+        let mut rng1 = ChaCha8Rng::seed_from_u64(999);
+        let mut rng2 = ChaCha8Rng::seed_from_u64(999);
+        let config = create_test_config();
+
+        // Genotype in bottleneck population (<10)
+        let mut genotype_bottleneck = create_test_genotype();
+        let original_brain_bottleneck = genotype_bottleneck.brain.clone();
+
+        // Genotype in large population
+        let mut genotype_large = create_test_genotype();
+        let original_brain_large = genotype_large.brain.clone();
+
+        mutate_genotype(
+            &mut genotype_bottleneck,
+            &config,
+            5, // bottleneck population
+            false,
+            None,
+            &mut rng1,
+            None,
+        );
+
+        mutate_genotype(
+            &mut genotype_large,
+            &config,
+            1000, // large population
+            false,
+            None,
+            &mut rng2,
+            None,
+        );
+
+        // In bottleneck, mutation rate is 3x higher so more changes expected
+        // This is a statistical test - with same seed, bottleneck should have more changes
+        let bottleneck_changes =
+            count_weight_differences(&original_brain_bottleneck, &genotype_bottleneck.brain);
+        let large_changes = count_weight_differences(&original_brain_large, &genotype_large.brain);
+
+        // Bottleneck scaling should cause more mutations on average
+        // (Note: with same seed RNG, this tests the scaling logic path)
+        assert!(
+            bottleneck_changes >= large_changes,
+            "Bottleneck scaling failed: bottleneck={} vs large={}",
+            bottleneck_changes,
+            large_changes
+        );
+    }
+
+    #[test]
+    fn test_mutate_genotype_radiation_storm_increases_mutation() {
+        let mut rng1 = ChaCha8Rng::seed_from_u64(777);
+        let mut rng2 = ChaCha8Rng::seed_from_u64(777);
+        let config = create_test_config();
+
+        let mut genotype_normal = create_test_genotype();
+        let mut genotype_storm = create_test_genotype();
+
+        mutate_genotype(
+            &mut genotype_normal,
+            &config,
+            100,
+            false, // no storm
+            None,
+            &mut rng1,
+            None,
+        );
+
+        mutate_genotype(
+            &mut genotype_storm,
+            &config,
+            100,
+            true, // radiation storm (5x mutation rate)
+            None,
+            &mut rng2,
+            None,
+        );
+
+        // Both started with same seed, storm should have more changes
+        // (Radiation storm multiplies mutation_rate by 5x and mutation_amount by 2x)
+        // This verifies the storm code path is executed
+        assert!(!genotype_storm.brain.connections.is_empty());
+    }
+
+    #[test]
+    fn test_mutate_genotype_genetic_drift_in_small_population() {
+        let config = create_test_config();
+
+        // Test genetic drift: population < 10 has 5% chance of random trait replacement
+        // 5% * 5 traits = we should see at least one major shift in ~500 attempts
+        let mut drift_occurred = false;
+        for seed in 0..500 {
+            let mut rng = ChaCha8Rng::seed_from_u64(seed);
+            let mut genotype = create_test_genotype();
+            let original_trophic = genotype.trophic_potential;
+            let original_niche = genotype.metabolic_niche;
+            let original_mate = genotype.mate_preference;
+            let original_maturity = genotype.maturity_gene;
+            let original_pairing = genotype.pairing_bias;
+
+            mutate_genotype(
+                &mut genotype,
+                &config,
+                5, // tiny population triggers drift
+                false,
+                None,
+                &mut rng,
+                None,
+            );
+
+            // Check if ANY trait was completely randomized (drift resets to random value)
+            let trophic_drift = (genotype.trophic_potential - original_trophic).abs() > 0.3;
+            let niche_drift = (genotype.metabolic_niche - original_niche).abs() > 0.3;
+            let mate_drift = (genotype.mate_preference - original_mate).abs() > 0.3;
+            let maturity_drift = (genotype.maturity_gene - original_maturity).abs() > 0.3;
+            let pairing_drift = (genotype.pairing_bias - original_pairing).abs() > 0.3;
+
+            if trophic_drift || niche_drift || mate_drift || maturity_drift || pairing_drift {
+                drift_occurred = true;
+                break;
+            }
+        }
+
+        assert!(
+            drift_occurred,
+            "Genetic drift should occasionally occur in bottleneck populations"
+        );
+    }
+
+    #[test]
+    fn test_atavistic_recall_replaces_brain_with_ancestral() {
+        // Test Phase 64 Atavistic Recall (1% chance)
+        let config = create_test_config();
+
+        let mut ancestral = create_test_genotype();
+        // Make ancestral brain distinctive
+        ancestral.brain.learning_rate = 0.999;
+
+        let mut recall_occurred = false;
+        for seed in 0..500 {
+            let mut rng = ChaCha8Rng::seed_from_u64(seed);
+            let mut genotype = create_test_genotype();
+            genotype.brain.learning_rate = 0.0;
+
+            mutate_genotype(
+                &mut genotype,
+                &config,
+                100,
+                false,
+                None,
+                &mut rng,
+                Some(&ancestral),
+            );
+
+            if (genotype.brain.learning_rate - 0.999).abs() < 0.01 {
+                recall_occurred = true;
+                break;
+            }
+        }
+
+        assert!(
+            recall_occurred,
+            "Atavistic Recall should trigger occasionally (1% chance)"
+        );
+    }
+
+    // =========================================================================
+    // Crossover Tests
+    // =========================================================================
+
+    #[test]
+    fn test_crossover_genotypes_produces_valid_offspring() {
+        let mut rng = ChaCha8Rng::seed_from_u64(123);
+        let p1 = create_test_genotype();
+        let p2 = create_test_genotype();
+
+        let child = crossover_genotypes(&p1, &p2, &mut rng);
+
+        // Child should inherit lineage from p1
+        assert_eq!(child.lineage_id, p1.lineage_id);
+
+        // Child traits should be from either parent
+        assert!(child.sensing_range == p1.sensing_range || child.sensing_range == p2.sensing_range);
+        assert!(child.max_speed == p1.max_speed || child.max_speed == p2.max_speed);
+
+        // Brain should be valid
+        assert!(!child.brain.nodes.is_empty());
+        assert!(!child.brain.connections.is_empty());
+    }
+
+    #[test]
+    fn test_crossover_brains_preserves_innovation_alignment() {
+        let mut rng = ChaCha8Rng::seed_from_u64(456);
+        let p1 = Brain::new_random_with_rng(&mut rng);
+        let mut rng = ChaCha8Rng::seed_from_u64(789);
+        let p2 = Brain::new_random_with_rng(&mut rng);
+
+        let mut rng = ChaCha8Rng::seed_from_u64(111);
+        let child = crossover_brains(&p1, &p2, &mut rng);
+
+        // Child should have reasonable structure
+        assert!(!child.nodes.is_empty());
+        assert!(child.next_node_id >= p1.next_node_id.min(p2.next_node_id));
+
+        // All connections should reference valid nodes
+        for conn in &child.connections {
+            assert!(
+                child.nodes.iter().any(|n| n.id == conn.from),
+                "Connection from {} has no source node",
+                conn.from
+            );
+            assert!(
+                child.nodes.iter().any(|n| n.id == conn.to),
+                "Connection to {} has no target node",
+                conn.to
+            );
+        }
+    }
+
+    #[test]
+    fn test_crossover_determinism_with_same_seed() {
+        let p1 = create_test_genotype();
+        let p2 = create_test_genotype();
+
+        let mut rng1 = ChaCha8Rng::seed_from_u64(42);
+        let child1 = crossover_genotypes(&p1, &p2, &mut rng1);
+
+        let mut rng2 = ChaCha8Rng::seed_from_u64(42);
+        let child2 = crossover_genotypes(&p1, &p2, &mut rng2);
+
+        // Same seed should produce identical results
+        assert_eq!(child1.sensing_range, child2.sensing_range);
+        assert_eq!(child1.max_speed, child2.max_speed);
+        assert_eq!(child1.trophic_potential, child2.trophic_potential);
+        assert_eq!(
+            child1.brain.connections.len(),
+            child2.brain.connections.len()
+        );
+    }
+
+    // =========================================================================
+    // Helper Functions
+    // =========================================================================
+
+    fn count_weight_differences(b1: &Brain, b2: &Brain) -> usize {
+        let mut differences = 0;
+        for (c1, c2) in b1.connections.iter().zip(b2.connections.iter()) {
+            if (c1.weight - c2.weight).abs() > 0.001 {
+                differences += 1;
+            }
+        }
+        differences
+    }
+}

@@ -128,6 +128,13 @@ impl SpatialHash {
 
     pub fn query(&self, x: f64, y: f64, radius: f64) -> Vec<usize> {
         let mut result = Vec::new();
+        self.query_into(x, y, radius, &mut result);
+        result
+    }
+
+    #[inline]
+    pub fn query_into(&self, x: f64, y: f64, radius: f64, result: &mut Vec<usize>) {
+        result.clear();
         let min_cx = ((x - radius) / self.cell_size).floor() as i32;
         let max_cx = ((x + radius) / self.cell_size).floor() as i32;
         let min_cy = ((y - radius) / self.cell_size).floor() as i32;
@@ -150,7 +157,6 @@ impl SpatialHash {
                 }
             }
         }
-        result
     }
 }
 
@@ -193,5 +199,26 @@ mod tests {
         assert!(hash.entity_indices.len() == 2);
         hash.clear();
         assert!(hash.entity_indices.is_empty());
+    }
+
+    #[test]
+    fn test_spatial_hash_query_into_reuses_buffer() {
+        let mut hash = SpatialHash::new(5.0, 200, 200);
+        hash.insert(10.0, 10.0, 0);
+        hash.insert(12.0, 10.0, 1);
+        hash.insert(100.0, 100.0, 2);
+
+        let mut buffer = Vec::with_capacity(100);
+        hash.query_into(11.0, 10.0, 5.0, &mut buffer);
+
+        assert!(buffer.contains(&0));
+        assert!(buffer.contains(&1));
+        assert!(!buffer.contains(&2));
+
+        let capacity_before = buffer.capacity();
+        hash.query_into(100.0, 100.0, 5.0, &mut buffer);
+        assert_eq!(buffer.len(), 1);
+        assert!(buffer.contains(&2));
+        assert_eq!(buffer.capacity(), capacity_before);
     }
 }

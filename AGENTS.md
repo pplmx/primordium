@@ -30,7 +30,7 @@ src/
 │   ├── state/           # 数据层 (entity, terrain, environment, food, pheromone, pathogen, lineage_registry)
 │   ├── systems/         # 系统层 (intel, action, biological, social, ecological, environment, stats)
 │   ├── infra/           # 基础设施 (blockchain, network, lineage_tree)
-│   ├── brain.rs         # 神经网络 (20-6-8 RNN-lite / NEAT-lite)
+│   ├── brain.rs         # 神经网络 (29-6-12 NEAT-lite, 47 nodes)
 │   ├── quadtree.rs      # 空间索引 (实为 SpatialHash)
 │   ├── world.rs         # 协调器
 │   ├── config.rs        # 配置
@@ -46,14 +46,14 @@ src/
 
 `World::update` 每 tick 执行顺序:
 
-1. **Perception** (Rayon 并行) — 感知计算
-2. **Intel** (Rayon 并行) — 神经网络推理
-3. **Action** — 移动、边界
-4. **Biological** — 代谢、死亡
-5. **Social** — 捕食、繁殖、群体防御 (Group Defense)
-6. **Ecological** — 食物生成
-7. **Environment** — 时代、季节
-8. **Stats** — 统计更新 (含 Lineage Stats)
+1. **Environment & Resources** — 硬件耦合、信息素/声音衰减、灾害、地形更新
+2. **Ecological** (spawn_food) — 食物生成
+3. **Prepare** (Rayon 并行) — 构建空间索引与实体快照
+4. **Learn & Rank** (Rayon 并行) — Hebbian 学习、社会等级计算
+5. **Perception & Intel** (Rayon 并行) — 感知计算与神经网络推理
+6. **Action** — 移动、边界、地形交互
+7. **Interaction** — 捕食、繁殖、共生、群体防御
+8. **Finalize** — 死亡处理、新生儿添加、统计更新
 
 ---
 
@@ -102,23 +102,60 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 - **Investment**: `reproductive_investment` (0.1 to 0.9) defines the % of parent energy given to offspring.
 - **Maturation**: `maturity_gene` (0.5 to 2.0) scales the time needed to reach adulthood and the `max_energy` ceiling.
 
-### Brain Details
+### Brain Details (Phase 66 - Updated)
 
-- **Architecture**: Dynamic graph-based topology. Initialized as 22 inputs (14 sensors + 6 memory + 1 hearing + 1 partner_energy) → 6 hidden → 9 outputs.
+- **Architecture**: Dynamic graph-based NEAT-lite topology. Initialized as **29 inputs → 6 hidden → 12 outputs** (47 nodes total).
 - **Topological Evolution**: Supports "Add Node" and "Add Connection" mutations with Innovation Tracking for crossover.
-- **Memory**: The 6 initial hidden layer values from $T-1$ are fed back as inputs for $T$ (Mapped to indices 14..20).
-- **Hearing**: Standard input at index 20.
-- **Partner Energy**: Input at index 21.
-- **Outputs**: Standard outputs at indices 22..30.
-    - 22: Move X
-    - 23: Move Y
-    - 24: Speed
-    - 25: Aggression
-    - 26: Share Intent
-    - 27: Color
-    - 28: Vocalization A
-    - 29: Vocalization B
-    - 30: Bond Request
+- **Memory**: The 6 initial hidden layer values from $T-1$ are fed back as inputs for $T$ (Mapped to indices 14..19).
+
+#### Input Nodes (0..28, 29 total)
+
+| Index | Label | Description |
+|-------|-------|-------------|
+| 0 | FoodDX | Food delta X |
+| 1 | FoodDY | Food delta Y |
+| 2 | Energy | Current energy ratio |
+| 3 | Density | Local entity density |
+| 4 | Phero | Pheromone strength |
+| 5 | Tribe | Tribe density |
+| 6 | KX | Kin centroid X |
+| 7 | KY | Kin centroid Y |
+| 8 | SA | Signal A concentration |
+| 9 | SB | Signal B concentration |
+| 10 | WL | Wall proximity |
+| 11 | AG | Age / maturity |
+| 12 | NT | Nutrient type |
+| 13 | TP | Trophic potential |
+| 14-19 | Mem0-5 | Memory (hidden $T-1$) |
+| 20 | Hear | Acoustic input |
+| 21 | PartnerEnergy | Bond partner energy |
+| 22 | BuildPressure | Local build activity |
+| 23 | DigPressure | Local dig activity |
+| 24 | SharedGoal | Lineage goal signal |
+| 25 | SharedThreat | Lineage threat signal |
+| 26 | LineagePop | Lineage population |
+| 27 | LineageEnergy | Lineage total energy |
+| 28 | Overmind | Alpha broadcast signal |
+
+#### Output Nodes (29..40, 12 total)
+
+| Index | Label | Description |
+|-------|-------|-------------|
+| 29 | MoveX | Movement X |
+| 30 | MoveY | Movement Y |
+| 31 | Speed | Speed modulation |
+| 32 | Aggro | Aggression |
+| 33 | Share | Share intent |
+| 34 | Color | Color modulation |
+| 35 | EmitA | Emit Signal A |
+| 36 | EmitB | Emit Signal B |
+| 37 | Bond | Bond request |
+| 38 | Dig | Dig terrain |
+| 39 | Build | Build structure |
+| 40 | OvermindEmit | Broadcast to kin |
+
+#### Hidden Nodes (41..46, 6 total)
+
 - **Metabolic Cost**: 0.02 per hidden node + 0.005 per enabled connection.
 
 ### Metabolic Niches (Phase 31)
@@ -232,13 +269,15 @@ let x = X { field: val, ..X::default() };
 
 - 地形灾害由 `World` 触发,在 `TerrainGrid` 更新中处理
 
-### 神经网络 Fix
+### 神经网络 Fix (Phase 66 Corrected)
 
-- Output Nodes 应为 22..33 (共11个)。之前版本曾有 Off-by-one 错误及 ID 重叠 (Input 20 vs Output 20)，已在 Phase 52 修复。
-- Inputs: 0..21 (22个)
-- Outputs: 22..32 (11个)
-- Hidden: 33..38 (6个)
-- Total Nodes: 39 (ID 0..38)
+- **Current Architecture** (Phase 66):
+- Inputs: 0..28 (29个)
+- Outputs: 29..40 (12个)
+- Hidden: 41..46 (6个)
+- Total Nodes: 47 (ID 0..46)
+
+> Note: 之前版本曾有 Off-by-one 错误及 ID 重叠，已在 Phase 52 修复，Phase 60-66 进一步扩展。
 
 ### Phase 52 & 53 Updates
 
@@ -261,6 +300,13 @@ let x = X { field: val, ..X::default() };
 - **Metamorphosis**: Completed structured life stage transition.
 - **Larval stage**: Restricted to foraging and survival (cannot Bond, Dig, or Build).
 - **Adult stage**: Unlocked via `remodel_for_adult()` which ensures neural connectivity for advanced behaviors and applies physical buffs (1.5x Energy, 1.2x Speed/Sensing).
+
+### Phase 64-66 Updates (Genetic Memory & Determinism)
+
+- **Genetic Memory (Phase 64)**: Lineages archive their "All-Time Best" genotype. Struggling entities have 1% chance of Atavistic Recall (reverting to ancestral brain).
+- **Deterministic Mode (Phase 66)**: Mock hardware metrics (sin/cos waves) for reproducible simulations when `config.world.deterministic = true`.
+- **Workspace Refactor**: Introduced `primordium_data` crate for shared type definitions.
+- **Seeded RNG**: Full determinism via `ChaCha8Rng` with configurable seed.
 
 ---
 

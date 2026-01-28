@@ -2,6 +2,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Type of node in the neural network graph.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NodeType {
     Input,
@@ -9,6 +10,7 @@ pub enum NodeType {
     Output,
 }
 
+/// A node in the NEAT-lite neural network graph.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Node {
     pub id: usize,
@@ -16,15 +18,21 @@ pub struct Node {
     pub label: Option<String>,
 }
 
+/// A weighted connection between two nodes in the neural graph.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Connection {
     pub from: usize,
     pub to: usize,
     pub weight: f32,
     pub enabled: bool,
+    /// Innovation number for NEAT crossover alignment.
     pub innovation: usize,
 }
 
+/// Dynamic graph-based NEAT-lite neural network.
+///
+/// Architecture: 29 inputs → 6 hidden → 12 outputs (47 nodes total).
+/// Supports topological evolution via "Add Node" and "Add Connection" mutations.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Brain {
     pub nodes: Vec<Node>,

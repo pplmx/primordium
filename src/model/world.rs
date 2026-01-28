@@ -39,6 +39,7 @@ pub struct InternalEntitySnapshot {
     pub status: crate::model::state::entity::EntityStatus,
 }
 
+/// Result of a neural network forward pass for an entity.
 #[derive(Default)]
 pub struct EntityDecision {
     pub outputs: [f32; 12],
@@ -46,6 +47,12 @@ pub struct EntityDecision {
     pub activations: std::collections::HashMap<usize, f32>,
 }
 
+/// The main simulation universe containing all entities, terrain, and state.
+///
+/// Update loop follows a 3-pass parallel architecture:
+/// 1. Environment & Ecological (food spawn, terrain update)
+/// 2. Perception & Intel (parallel neural inference)
+/// 3. Action & Interaction (sequential command resolution)
 #[derive(Serialize, Deserialize)]
 pub struct World {
     pub width: u16,
