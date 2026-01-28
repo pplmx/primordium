@@ -93,7 +93,8 @@ fn test_civilization_leveling_outposts() {
         world.terrain.cells[idx].owner_id = Some(l_id);
     }
 
-    let outpost_counts = world.count_outposts_by_lineage();
+    let outpost_counts =
+        primordium_lib::model::systems::civilization::count_outposts_by_lineage(&world.terrain);
     assert_eq!(outpost_counts.get(&l_id), Some(&5));
 
     world.lineage_registry.record_birth(l_id, 0, 0);

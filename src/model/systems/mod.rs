@@ -13,8 +13,10 @@
 
 pub mod action;
 pub mod biological;
+pub mod civilization;
 pub mod ecological;
 pub mod environment;
+pub mod history;
 pub mod intel;
 pub mod interaction;
 pub mod social;

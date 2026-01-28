@@ -1,0 +1,159 @@
+use crate::model::quadtree::SpatialHash;
+use crate::model::state::entity::Entity;
+use crate::model::state::terrain::{OutpostSpecialization, TerrainGrid, TerrainType};
+use std::collections::{HashSet, VecDeque};
+use uuid::Uuid;
+
+/// Phase 62: Outpost Power Grid (Civ Level 2)
+/// Connected outposts (via canals/rivers) automatically balance and share energy stores.
+pub fn resolve_power_grid(terrain: &mut TerrainGrid, width: u16, height: u16) {
+    let mut visited = HashSet::new();
+    let outpost_indices: Vec<usize> = terrain
+        .cells
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| matches!(c.terrain_type, TerrainType::Outpost))
+        .map(|(i, _)| i)
+        .collect();
+
+    for &start_idx in &outpost_indices {
+        if visited.contains(&start_idx) {
+            continue;
+        }
+
+        let mut group = Vec::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(start_idx);
+        visited.insert(start_idx);
+
+        while let Some(current) = queue.pop_front() {
+            group.push(current);
+            let cx = (current % width as usize) as i32;
+            let cy = (current / width as usize) as i32;
+
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+                    let nx = cx + dx;
+                    let ny = cy + dy;
+                    if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                        let nidx = (ny as usize * width as usize) + nx as usize;
+                        if !visited.contains(&nidx) {
+                            let cell = &terrain.cells[nidx];
+                            if matches!(
+                                cell.terrain_type,
+                                TerrainType::Outpost | TerrainType::River
+                            ) {
+                                visited.insert(nidx);
+                                queue.push_back(nidx);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let outpost_group: Vec<usize> = group
+            .into_iter()
+            .filter(|&i| matches!(terrain.cells[i].terrain_type, TerrainType::Outpost))
+            .collect();
+
+        if outpost_group.len() > 1 {
+            // Phase 63: Resource Pipelining (Energy Flow)
+            let total_energy: f32 = outpost_group
+                .iter()
+                .map(|&i| terrain.cells[i].energy_store)
+                .sum();
+            let avg_energy = total_energy / outpost_group.len() as f32;
+            for &i in &outpost_group {
+                // Flow towards equilibrium
+                let current = terrain.cells[i].energy_store;
+                let flow = (avg_energy - current) * 0.1;
+                terrain.cells[i].energy_store += flow;
+            }
+        }
+    }
+}
+
+pub fn count_outposts_by_lineage(terrain: &TerrainGrid) -> std::collections::HashMap<Uuid, usize> {
+    let mut counts = std::collections::HashMap::new();
+    for cell in &terrain.cells {
+        if cell.terrain_type == TerrainType::Outpost {
+            if let Some(id) = cell.owner_id {
+                *counts.entry(id).or_insert(0) += 1;
+            }
+        }
+    }
+    counts
+}
+
+/// Phase 63: Outpost Specialization Logic
+pub fn handle_outposts(
+    terrain: &mut TerrainGrid,
+    entities: &mut [Entity],
+    spatial_hash: &SpatialHash,
+    width: u16,
+    silo_cap: f32,
+    outpost_cap: f32,
+) {
+    let outpost_indices: Vec<usize> = terrain
+        .cells
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| matches!(c.terrain_type, TerrainType::Outpost))
+        .map(|(i, _)| i)
+        .collect();
+
+    for idx in outpost_indices {
+        let (ox, oy) = ((idx % width as usize) as f64, (idx / width as usize) as f64);
+        let owner_id = terrain.cells[idx].owner_id;
+
+        let nearby = spatial_hash.query(ox, oy, 3.0);
+        let mut stored = terrain.cells[idx].energy_store;
+
+        for e_idx in nearby {
+            let e = &mut entities[e_idx];
+            if Some(e.metabolism.lineage_id) == owner_id {
+                match terrain.cells[idx].outpost_spec {
+                    OutpostSpecialization::Silo => {
+                        // Collect more surplus
+                        if e.metabolism.energy > e.metabolism.max_energy * 0.5 {
+                            let donation = e.metabolism.energy * 0.1;
+                            e.metabolism.energy -= donation;
+                            stored += donation as f32;
+                        }
+                    }
+                    OutpostSpecialization::Nursery => {
+                        // Grants more to needy
+                        if e.metabolism.energy < e.metabolism.max_energy * 0.5 && stored > 20.0 {
+                            let grant = (e.metabolism.max_energy * 0.2).min(stored as f64);
+                            e.metabolism.energy += grant;
+                            stored -= grant as f32;
+                        }
+                    }
+                    _ => {
+                        // Default Outpost Logic
+                        if e.metabolism.energy > e.metabolism.max_energy * 0.8 {
+                            let donation = e.metabolism.energy * 0.05;
+                            e.metabolism.energy -= donation;
+                            stored += donation as f32;
+                        }
+                        if e.metabolism.energy < e.metabolism.max_energy * 0.3 && stored > 10.0 {
+                            let grant = (e.metabolism.max_energy * 0.1).min(stored as f64);
+                            e.metabolism.energy += grant;
+                            stored -= grant as f32;
+                        }
+                    }
+                }
+            }
+        }
+
+        let max_cap = match terrain.cells[idx].outpost_spec {
+            OutpostSpecialization::Silo => silo_cap,
+            _ => outpost_cap,
+        };
+        terrain.cells[idx].energy_store = stored.min(max_cap);
+    }
+}
