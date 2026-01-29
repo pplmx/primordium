@@ -51,6 +51,20 @@ fn test_energy_sharing_between_allies() {
     e1.metabolism.max_energy = 1000.0;
     e2.metabolism.energy = 10.0;
     e2.metabolism.max_energy = 1000.0;
+
+    // Force sharing behavior via brain connection
+    e1.intel
+        .genotype
+        .brain
+        .connections
+        .push(primordium_lib::model::brain::Connection {
+            from: 2, // Energy input
+            to: 33,  // Share output
+            weight: 10.0,
+            enabled: true,
+            innovation: 999,
+        });
+
     let e2_id = e2.id;
     world.entities.push(e1);
     world.entities.push(e2);
@@ -101,7 +115,7 @@ fn test_inter_tribe_predation() {
         .connections
         .push(primordium_lib::model::brain::Connection {
             from: 0,
-            to: 25,
+            to: 32, // Aggro output
             weight: 10.0,
             enabled: true,
             innovation: 9999,

@@ -90,28 +90,27 @@ pub fn handle_symbiosis(
     spatial_hash: &SpatialHash,
     config: &AppConfig,
 ) -> Option<Uuid> {
-    if outputs[8] < config.brain.activation_threshold {
-        return None;
+    if outputs[8] > 0.5 {
+        let mut partner_id = None;
+        spatial_hash.query_callback(
+            entities[idx].physics.x,
+            entities[idx].physics.y,
+            config.social.territorial_range,
+            |t_idx| {
+                if idx != t_idx && partner_id.is_none() {
+                    let target = &entities[t_idx];
+                    if target.intel.bonded_to.is_none()
+                        && are_same_tribe(&entities[idx], target, config)
+                    {
+                        partner_id = Some(target.id);
+                    }
+                }
+            },
+        );
+        partner_id
+    } else {
+        None
     }
-    let nearby = spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 2.0);
-    for &n_idx in &nearby {
-        if n_idx == idx {
-            continue;
-        }
-        if entities[n_idx].intel.bonded_to.is_none() {
-            let dist = entities[idx]
-                .intel
-                .genotype
-                .distance(&entities[n_idx].intel.genotype);
-            let bias = (entities[idx].intel.genotype.pairing_bias
-                + entities[n_idx].intel.genotype.pairing_bias)
-                / 2.0;
-            if dist < config.evolution.speciation_threshold || bias > 0.8 {
-                return Some(entities[n_idx].id);
-            }
-        }
-    }
-    None
 }
 
 pub struct ReproductionContext<'a, R: Rng> {
@@ -197,7 +196,7 @@ pub fn reproduce_asexual_parallel<R: Rng>(
             rank: 0.5,
             bonded_to: None,
             last_inputs: [0.0; 29],
-            last_activations: std::collections::HashMap::new(),
+            last_activations: primordium_data::Activations::default(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
             ancestral_traits: ctx.traits.clone(),
@@ -322,7 +321,7 @@ pub fn reproduce_sexual_parallel<R: Rng>(
             rank: 0.5,
             bonded_to: None,
             last_inputs: [0.0; 29],
-            last_activations: std::collections::HashMap::new(),
+            last_activations: primordium_data::Activations::default(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
             ancestral_traits: ctx.traits.clone(),
@@ -419,36 +418,39 @@ pub fn is_legend_worthy(entity: &Entity, tick: u64) -> bool {
 }
 
 pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut PredationContext) {
-    let targets = ctx
-        .spatial_hash
-        .query(entities[idx].physics.x, entities[idx].physics.y, 1.5);
-    for t_idx in targets {
-        let v_snap = &ctx.snapshots[t_idx];
-        if v_snap.id != entities[idx].id
-            && !ctx.killed_ids.contains(&v_snap.id)
-            && !are_same_tribe(&entities[idx], &entities[t_idx], ctx.config)
-        {
-            let gain = v_snap.energy
-                * entities[idx].metabolism.trophic_potential as f64
-                * ctx.config.ecosystem.predation_energy_gain_fraction
-                * (1.0
-                    - (ctx.pop_stats.biomass_c / ctx.config.ecosystem.predation_competition_scale))
-                    .max(ctx.config.ecosystem.predation_min_efficiency);
-            entities[idx].metabolism.energy =
-                (entities[idx].metabolism.energy + gain).min(entities[idx].metabolism.max_energy);
-            ctx.killed_ids.insert(v_snap.id);
-            ctx.lineage_consumption
-                .push((entities[idx].metabolism.lineage_id, gain));
-            ctx.events.push(LiveEvent::Death {
-                id: v_snap.id,
-                age: ctx.tick - v_snap.birth_tick,
-                offspring: v_snap.offspring_count,
-                tick: ctx.tick,
-                timestamp: Utc::now().to_rfc3339(),
-                cause: "predation".to_string(),
-            });
-        }
-    }
+    ctx.spatial_hash.query_callback(
+        entities[idx].physics.x,
+        entities[idx].physics.y,
+        1.5,
+        |t_idx| {
+            let v_snap = &ctx.snapshots[t_idx];
+            if v_snap.id != entities[idx].id
+                && !ctx.killed_ids.contains(&v_snap.id)
+                && !are_same_tribe(&entities[idx], &entities[t_idx], ctx.config)
+            {
+                let gain = v_snap.energy
+                    * entities[idx].metabolism.trophic_potential as f64
+                    * ctx.config.ecosystem.predation_energy_gain_fraction
+                    * (1.0
+                        - (ctx.pop_stats.biomass_c
+                            / ctx.config.ecosystem.predation_competition_scale))
+                        .max(ctx.config.ecosystem.predation_min_efficiency);
+                entities[idx].metabolism.energy = (entities[idx].metabolism.energy + gain)
+                    .min(entities[idx].metabolism.max_energy);
+                ctx.killed_ids.insert(v_snap.id);
+                ctx.lineage_consumption
+                    .push((entities[idx].metabolism.lineage_id, gain));
+                ctx.events.push(LiveEvent::Death {
+                    id: v_snap.id,
+                    age: ctx.tick - v_snap.birth_tick,
+                    offspring: v_snap.offspring_count,
+                    tick: ctx.tick,
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    cause: "predation".to_string(),
+                });
+            }
+        },
+    );
 }
 #[cfg(test)]
 mod tests {

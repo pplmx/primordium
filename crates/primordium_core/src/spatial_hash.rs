@@ -172,6 +172,60 @@ impl SpatialHash {
     }
 
     #[inline]
+    pub fn query_callback<F>(&self, x: f64, y: f64, radius: f64, mut f: F)
+    where
+        F: FnMut(usize),
+    {
+        let min_cx = ((x - radius) / self.cell_size).floor() as i32;
+        let max_cx = ((x + radius) / self.cell_size).floor() as i32;
+        let min_cy = ((y - radius) / self.cell_size).floor() as i32;
+        let max_cy = ((y + radius) / self.cell_size).floor() as i32;
+
+        for cy in min_cy..=max_cy {
+            if cy < 0 || cy >= self.rows as i32 {
+                continue;
+            }
+            for cx in min_cx..=max_cx {
+                if cx < 0 || cx >= self.cols as i32 {
+                    continue;
+                }
+
+                let cell_idx = (cy as usize * self.cols) + cx as usize;
+                let start = self.cell_offsets[cell_idx];
+                let end = self.cell_offsets[cell_idx + 1];
+
+                for &idx in &self.entity_indices[start..end] {
+                    f(idx);
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub fn count_nearby(&self, x: f64, y: f64, radius: f64) -> usize {
+        let mut count = 0;
+        let min_cx = ((x - radius) / self.cell_size).floor() as i32;
+        let max_cx = ((x + radius) / self.cell_size).floor() as i32;
+        let min_cy = ((y - radius) / self.cell_size).floor() as i32;
+        let max_cy = ((y + radius) / self.cell_size).floor() as i32;
+
+        for cy in min_cy..=max_cy {
+            if cy < 0 || cy >= self.rows as i32 {
+                continue;
+            }
+            for cx in min_cx..=max_cx {
+                if cx < 0 || cx >= self.cols as i32 {
+                    continue;
+                }
+
+                let cell_idx = (cy as usize * self.cols) + cx as usize;
+                count += self.cell_offsets[cell_idx + 1] - self.cell_offsets[cell_idx];
+            }
+        }
+        count
+    }
+
+    #[inline]
     pub fn query_into(&self, x: f64, y: f64, radius: f64, result: &mut Vec<usize>) {
         result.clear();
         let min_cx = ((x - radius) / self.cell_size).floor() as i32;

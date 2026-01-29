@@ -7,6 +7,7 @@ fn test_group_defense_reduces_damage() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.game_mode = GameMode::Standard;
+    config.ecosystem.predation_min_efficiency = 0.01; // Low min efficiency for defense test
     let mut world = World::new(0, config).unwrap();
     let mut env = Environment::default();
 
@@ -83,7 +84,11 @@ fn test_metabolic_cost_of_signaling() {
         width: 100,
         height: 100,
     };
-    action_system(&mut e_quiet, [0.0; 12], &mut ctx_q);
+    {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e_quiet, [0.0; 12], &mut ctx_q, &mut out);
+        out
+    };
 
     // loud: [..., signal=1.0]
     let mut ctx_l = ActionContext {
@@ -97,10 +102,12 @@ fn test_metabolic_cost_of_signaling() {
         width: 100,
         height: 100,
     };
+    let mut out_l = primordium_lib::model::systems::action::ActionOutput::default();
     action_system(
         &mut e_loud,
         [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         &mut ctx_l,
+        &mut out_l,
     );
 
     assert!(e_loud.metabolism.energy < e_quiet.metabolism.energy);

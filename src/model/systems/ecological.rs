@@ -126,11 +126,8 @@ pub fn sense_nearest_food(
     let mut dy_food = 0.0;
     let mut f_type = 0.5;
     let mut min_dist_sq = f64::MAX;
-    let nearby_food = food_hash.query(entity.physics.x, entity.physics.y, 20.0);
-    if nearby_food.is_empty() {
-        return (0.0, 0.0, 0.5);
-    }
-    for &f_idx in &nearby_food {
+
+    food_hash.query_callback(entity.physics.x, entity.physics.y, 20.0, |f_idx| {
         let f = &food[f_idx];
         let dx = f64::from(f.x) - entity.physics.x;
         let dy = f64::from(f.y) - entity.physics.y;
@@ -141,8 +138,13 @@ pub fn sense_nearest_food(
             dy_food = dy;
             f_type = f.nutrient_type;
         }
+    });
+
+    if min_dist_sq == f64::MAX {
+        (0.0, 0.0, 0.5)
+    } else {
+        (dx_food, dy_food, f_type)
     }
-    (dx_food, dy_food, f_type)
 }
 
 #[cfg(test)]

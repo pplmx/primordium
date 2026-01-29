@@ -26,7 +26,11 @@ fn test_semantic_pheromone_roundtrip() {
         width: 100,
         height: 100,
     };
-    let res = action_system(&mut e_emitter, outputs, &mut ctx);
+    let res = {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e_emitter, outputs, &mut ctx, &mut out);
+        out
+    };
     for d in res.pheromones {
         world.pheromones.deposit(d.x, d.y, d.ptype, d.amount);
     }

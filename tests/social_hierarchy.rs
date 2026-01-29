@@ -124,7 +124,7 @@ fn test_soldier_damage_bonus() {
     soldier.intel.genotype.brain.connections.clear();
     soldier.intel.genotype.brain.connections.push(Connection {
         from: 2,
-        to: 32,
+        to: 32, // Aggro
         weight: 10.0,
         enabled: true,
         innovation: 9999,

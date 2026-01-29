@@ -72,8 +72,16 @@ fn test_high_speed_metabolic_exhaustion() {
 
     let outputs = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
-    action_system(&mut e_slow, outputs, &mut ctx);
-    action_system(&mut e_fast, outputs, &mut ctx);
+    {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e_slow, outputs, &mut ctx, &mut out);
+        out
+    };
+    {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e_fast, outputs, &mut ctx, &mut out);
+        out
+    };
 
     assert!(e_fast.metabolism.energy < e_slow.metabolism.energy);
 }
@@ -109,8 +117,16 @@ fn test_inertia_responsiveness_penalty() {
     };
 
     let outputs = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-    action_system(&mut e_light, outputs, &mut ctx);
-    action_system(&mut e_heavy, outputs, &mut ctx);
+    {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e_light, outputs, &mut ctx, &mut out);
+        out
+    };
+    {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e_heavy, outputs, &mut ctx, &mut out);
+        out
+    };
 
     assert!(e_light.physics.vx > e_heavy.physics.vx);
 }

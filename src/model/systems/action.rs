@@ -18,7 +18,7 @@ pub struct ActionContext<'a> {
     pub height: u16,
 }
 
-pub struct ActionResult {
+pub struct ActionOutput {
     pub pheromones: Vec<crate::model::pheromone::PheromoneDeposit>,
     pub sounds: Vec<crate::model::sound::SoundDeposit>,
     pub pressure: Vec<crate::model::pressure::PressureDeposit>,
@@ -26,12 +26,25 @@ pub struct ActionResult {
     pub overmind_broadcast: Option<(uuid::Uuid, f32)>,
 }
 
+impl Default for ActionOutput {
+    fn default() -> Self {
+        Self {
+            pheromones: Vec::with_capacity(2),
+            sounds: Vec::with_capacity(1),
+            pressure: Vec::with_capacity(2),
+            oxygen_drain: 0.0,
+            overmind_broadcast: None,
+        }
+    }
+}
+
 /// Process brain outputs and apply movement and metabolic costs.
 pub fn action_system(
     entity: &mut Entity,
     outputs: [f32; 12],
     ctx: &mut ActionContext,
-) -> ActionResult {
+    output: &mut ActionOutput,
+) {
     let speed_cap = entity.physics.max_speed;
     let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * speed_cap;
     let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
@@ -138,25 +151,24 @@ pub fn action_system(
         let mut best_alpha_pos = None;
         let mut max_rank = entity.intel.rank;
 
-        let nearby = ctx.spatial_hash.query(
+        ctx.spatial_hash.query_callback(
             entity.physics.x,
             entity.physics.y,
             entity.physics.sensing_range,
-        );
+            |idx| {
+                let s = &ctx.snapshots[idx];
+                if s.id != entity.id && s.lineage_id == entity.metabolism.lineage_id {
+                    let dx = s.x - entity.physics.x;
+                    let dy = s.y - entity.physics.y;
+                    let dist_sq = dx * dx + dy * dy;
 
-        for idx in nearby {
-            let s = &ctx.snapshots[idx];
-            if s.id != entity.id && s.lineage_id == entity.metabolism.lineage_id {
-                let dx = s.x - entity.physics.x;
-                let dy = s.y - entity.physics.y;
-                let dist_sq = dx * dx + dy * dy;
-
-                if dist_sq < entity.physics.sensing_range.powi(2) && s.rank > max_rank + 0.1 {
-                    max_rank = s.rank;
-                    best_alpha_pos = Some((s.x, s.y));
+                    if dist_sq < entity.physics.sensing_range.powi(2) && s.rank > max_rank + 0.1 {
+                        max_rank = s.rank;
+                        best_alpha_pos = Some((s.x, s.y));
+                    }
                 }
-            }
-        }
+            },
+        );
 
         if let Some((ax, ay)) = best_alpha_pos {
             let dx = ax - entity.physics.x;
@@ -169,49 +181,54 @@ pub fn action_system(
 
     entity.metabolism.energy -= move_cost + idle_cost + signal_cost;
 
-    let mut pheromones = Vec::new();
     if outputs[6] > 0.5 {
-        pheromones.push(crate::model::pheromone::PheromoneDeposit {
-            x: entity.physics.x,
-            y: entity.physics.y,
-            ptype: crate::model::pheromone::PheromoneType::SignalA,
-            amount: 0.5,
-        });
+        output
+            .pheromones
+            .push(crate::model::pheromone::PheromoneDeposit {
+                x: entity.physics.x,
+                y: entity.physics.y,
+                ptype: crate::model::pheromone::PheromoneType::SignalA,
+                amount: 0.5,
+            });
     }
     if outputs[7] > 0.5 {
-        pheromones.push(crate::model::pheromone::PheromoneDeposit {
-            x: entity.physics.x,
-            y: entity.physics.y,
-            ptype: crate::model::pheromone::PheromoneType::SignalB,
-            amount: 0.5,
-        });
+        output
+            .pheromones
+            .push(crate::model::pheromone::PheromoneDeposit {
+                x: entity.physics.x,
+                y: entity.physics.y,
+                ptype: crate::model::pheromone::PheromoneType::SignalB,
+                amount: 0.5,
+            });
     }
 
-    let mut sounds = Vec::new();
     if entity.intel.last_vocalization > 0.1 {
-        sounds.push(crate::model::sound::SoundDeposit {
+        output.sounds.push(crate::model::sound::SoundDeposit {
             x: entity.physics.x,
             y: entity.physics.y,
             amount: entity.intel.last_vocalization,
         });
     }
 
-    let mut pressure = Vec::new();
     if outputs[9] > 0.5 {
-        pressure.push(crate::model::pressure::PressureDeposit {
-            x: entity.physics.x,
-            y: entity.physics.y,
-            ptype: crate::model::pressure::PressureType::DigDemand,
-            amount: outputs[9],
-        });
+        output
+            .pressure
+            .push(crate::model::pressure::PressureDeposit {
+                x: entity.physics.x,
+                y: entity.physics.y,
+                ptype: crate::model::pressure::PressureType::DigDemand,
+                amount: outputs[9],
+            });
     }
     if outputs[10] > 0.5 {
-        pressure.push(crate::model::pressure::PressureDeposit {
-            x: entity.physics.x,
-            y: entity.physics.y,
-            ptype: crate::model::pressure::PressureType::BuildDemand,
-            amount: outputs[10],
-        });
+        output
+            .pressure
+            .push(crate::model::pressure::PressureDeposit {
+                x: entity.physics.x,
+                y: entity.physics.y,
+                ptype: crate::model::pressure::PressureType::BuildDemand,
+                amount: outputs[10],
+            });
     }
 
     // Phase 60: Biological Irrigation (Engineer caste logic)
@@ -230,28 +247,23 @@ pub fn action_system(
             )
         {
             // Engineers near rivers deposit Dig demand to extend canals
-            pressure.push(crate::model::pressure::PressureDeposit {
-                x: entity.physics.x,
-                y: entity.physics.y,
-                ptype: crate::model::pressure::PressureType::DigDemand,
-                amount: 0.8,
-            });
+            output
+                .pressure
+                .push(crate::model::pressure::PressureDeposit {
+                    x: entity.physics.x,
+                    y: entity.physics.y,
+                    ptype: crate::model::pressure::PressureType::DigDemand,
+                    amount: 0.8,
+                });
         }
     }
 
-    let mut overmind_broadcast = None;
     if outputs[11] > 0.5 && entity.intel.rank > 0.8 {
-        overmind_broadcast = Some((entity.metabolism.lineage_id, outputs[11]));
+        output.overmind_broadcast = Some((entity.metabolism.lineage_id, outputs[11]));
     }
 
     handle_movement(entity, speed_mult, ctx.terrain, ctx.width, ctx.height);
-    ActionResult {
-        pheromones,
-        sounds,
-        pressure,
-        oxygen_drain: activity_drain,
-        overmind_broadcast,
-    }
+    output.oxygen_drain = activity_drain;
 }
 
 pub fn handle_movement(
@@ -342,7 +354,8 @@ mod tests {
             width: 20,
             height: 20,
         };
-        action_system(&mut entity, outputs, &mut ctx);
+        let mut out = ActionOutput::default();
+        action_system(&mut entity, outputs, &mut ctx, &mut out);
         assert!(entity.metabolism.energy < initial_energy);
     }
     #[test]
@@ -368,7 +381,8 @@ mod tests {
             width: 20,
             height: 20,
         };
-        action_system(&mut entity_normal, normal_outputs, &mut ctx_n);
+        let mut out_n = ActionOutput::default();
+        action_system(&mut entity_normal, normal_outputs, &mut ctx_n, &mut out_n);
         let mut ctx_p = ActionContext {
             env: &env,
             config: &config,
@@ -380,7 +394,13 @@ mod tests {
             width: 20,
             height: 20,
         };
-        action_system(&mut entity_predator, predator_outputs, &mut ctx_p);
+        let mut out_p = ActionOutput::default();
+        action_system(
+            &mut entity_predator,
+            predator_outputs,
+            &mut ctx_p,
+            &mut out_p,
+        );
         assert!(entity_predator.metabolism.energy < entity_normal.metabolism.energy);
     }
     #[test]
@@ -405,7 +425,8 @@ mod tests {
             width: 20,
             height: 20,
         };
-        action_system(&mut entity, outputs, &mut ctx);
+        let mut out = ActionOutput::default();
+        action_system(&mut entity, outputs, &mut ctx, &mut out);
         assert!(entity.physics.vx > 0.0);
         assert!(entity.physics.vy < 0.0);
     }

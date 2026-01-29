@@ -35,13 +35,21 @@ fn test_ancestral_trait_metabolism_buff() {
     };
 
     let outputs = [0.0; 12];
-    action_system(&mut e, outputs, &mut ctx);
+    {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e, outputs, &mut ctx, &mut out);
+        out
+    };
 
     let drain_with_trait = initial_energy - e.metabolism.energy;
 
     let mut e_normal = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e_normal.metabolism.energy = initial_energy;
-    action_system(&mut e_normal, outputs, &mut ctx);
+    {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e_normal, outputs, &mut ctx, &mut out);
+        out
+    };
 
     let drain_normal = initial_energy - e_normal.metabolism.energy;
 

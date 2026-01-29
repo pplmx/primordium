@@ -120,12 +120,17 @@ pub fn handle_infection<R: Rng>(
         }
     }
     if let Some(p) = entities[idx].health.pathogen.clone() {
-        for n_idx in spatial_hash.query(entities[idx].physics.x, entities[idx].physics.y, 2.0) {
-            if n_idx != idx
-                && !killed_ids.contains(&entities[n_idx].id)
-                && try_infect(&mut entities[n_idx], &p, rng)
-            {}
-        }
+        spatial_hash.query_callback(
+            entities[idx].physics.x,
+            entities[idx].physics.y,
+            2.0,
+            |n_idx| {
+                if n_idx != idx
+                    && !killed_ids.contains(&entities[n_idx].id)
+                    && try_infect(&mut entities[n_idx], &p, rng)
+                {}
+            },
+        );
     }
 }
 

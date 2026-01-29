@@ -62,7 +62,11 @@ fn test_symbiosis_spring_force() {
     e1.physics.vx = 0.0;
     e1.physics.vy = 0.0;
 
-    action_system(&mut e1, outputs, &mut ctx);
+    {
+        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        action_system(&mut e1, outputs, &mut ctx, &mut out);
+        out
+    };
 
     // Spring should pull e1 towards e2 (positive x direction)
     // e1 is at 10, e2 is at 15. Force vector is (1, 0).

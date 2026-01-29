@@ -52,7 +52,7 @@ pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) ->
             rank: 0.5,
             bonded_to: None,
             last_inputs: [0.0; 29],
-            last_activations: HashMap::new(),
+            last_activations: primordium_data::Activations::default(),
             specialization: None,
             spec_meters: HashMap::new(),
             ancestral_traits: HashSet::new(),

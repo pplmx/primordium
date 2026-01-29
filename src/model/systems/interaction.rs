@@ -30,6 +30,7 @@ pub struct InteractionContext<'a, R: Rng> {
     pub social_grid: &'a mut [u8],
     pub lineage_consumption: &'a mut Vec<(Uuid, f64)>,
     pub food: &'a mut Vec<Food>,
+    pub spatial_hash: &'a crate::model::spatial_hash::SpatialHash,
     pub rng: &'a mut R,
 }
 
@@ -88,38 +89,60 @@ pub fn process_interaction_commands<R: Rng>(
                         multiplier *= ctx.config.social.soldier_damage_mult;
                     }
 
-                    let energy_gain = target.metabolism.energy
-                        * ctx.config.ecosystem.predation_energy_gain_fraction
-                        * multiplier;
-
-                    killed_ids.insert(tid);
-                    crate::model::history::record_stat_death(
-                        ctx.pop_stats,
-                        ctx.tick - target.metabolism.birth_tick,
+                    // Phase 49: Social Defense (Group bonus)
+                    let mut allies = 0;
+                    ctx.spatial_hash.query_callback(
+                        target.physics.x,
+                        target.physics.y,
+                        2.0,
+                        |n_idx| {
+                            if n_idx != target_idx
+                                && social::are_same_tribe(target, &entities[n_idx], ctx.config)
+                            {
+                                allies += 1;
+                            }
+                        },
                     );
+                    let defense_mult = (1.0 - allies as f64 * 0.15).max(0.4);
 
-                    let ev = LiveEvent::Death {
-                        id: tid,
-                        age: ctx.tick - target.metabolism.birth_tick,
-                        offspring: target.metabolism.offspring_count,
-                        tick: ctx.tick,
-                        timestamp: Utc::now().to_rfc3339(),
-                        cause,
-                    };
-                    let _ = ctx.logger.log_event(ev.clone());
-                    events.push(ev);
+                    // Phase 49: Predation Success Check
+                    let success_chance = (multiplier * defense_mult).min(1.0);
+                    if ctx.rng.gen_bool(success_chance) {
+                        let energy_gain = target.metabolism.energy
+                            * ctx.config.ecosystem.predation_energy_gain_fraction
+                            * multiplier
+                            * defense_mult;
 
-                    ctx.lineage_consumption
-                        .push((attacker_lineage, energy_gain));
+                        killed_ids.insert(tid);
+                        crate::model::history::record_stat_death(
+                            ctx.pop_stats,
+                            ctx.tick - target.metabolism.birth_tick,
+                        );
 
-                    // Phase 60: Collective Reinforcement
-                    ctx.lineage_registry
-                        .boost_memory_value(&attacker_lineage, "goal", 0.5);
-                    ctx.lineage_registry.boost_memory_value(&tid, "threat", 1.0);
+                        let ev = LiveEvent::Death {
+                            id: tid,
+                            age: ctx.tick - target.metabolism.birth_tick,
+                            offspring: target.metabolism.offspring_count,
+                            tick: ctx.tick,
+                            timestamp: Utc::now().to_rfc3339(),
+                            cause,
+                        };
+                        let _ = ctx.logger.log_event(ev.clone());
+                        events.push(ev);
 
-                    let attacker_mut = &mut entities[attacker_idx];
-                    attacker_mut.metabolism.energy = (attacker_mut.metabolism.energy + energy_gain)
-                        .min(attacker_mut.metabolism.max_energy);
+                        ctx.lineage_consumption
+                            .push((attacker_lineage, energy_gain));
+
+                        // Phase 60: Collective Reinforcement
+                        ctx.lineage_registry
+                            .boost_memory_value(&attacker_lineage, "goal", 0.5);
+                        ctx.lineage_registry.boost_memory_value(&tid, "threat", 1.0);
+
+                        let attacker_mut = &mut entities[attacker_idx];
+                        attacker_mut.metabolism.energy = (attacker_mut.metabolism.energy
+                            + energy_gain)
+                            .min(attacker_mut.metabolism.max_energy);
+                    }
                 }
             }
             InteractionCommand::Bond {
@@ -172,31 +195,35 @@ pub fn process_interaction_commands<R: Rng>(
                 attacker_idx,
             } => {
                 if !eaten_food_indices.contains(&food_index) {
-                    eaten_food_indices.insert(food_index);
                     let e = &entities[attacker_idx];
-                    let niche_eff = 1.0
-                        - (e.intel.genotype.metabolic_niche - ctx.food[food_index].nutrient_type)
-                            .abs();
-                    let energy_gain = ctx.config.metabolism.food_value
-                        * niche_eff as f64
-                        * (1.0 - e.metabolism.trophic_potential) as f64;
+                    let trophic_eff = 1.0 - e.metabolism.trophic_potential as f64;
+                    if trophic_eff > 0.1 {
+                        eaten_food_indices.insert(food_index);
+                        let niche_eff = 1.0
+                            - (e.intel.genotype.metabolic_niche
+                                - ctx.food[food_index].nutrient_type)
+                                .abs();
+                        let energy_gain =
+                            ctx.config.metabolism.food_value * niche_eff as f64 * trophic_eff;
 
-                    let attacker_mut = &mut entities[attacker_idx];
-                    attacker_mut.metabolism.energy = (attacker_mut.metabolism.energy + energy_gain)
-                        .min(attacker_mut.metabolism.max_energy);
+                        let attacker_mut = &mut entities[attacker_idx];
+                        attacker_mut.metabolism.energy = (attacker_mut.metabolism.energy
+                            + energy_gain)
+                            .min(attacker_mut.metabolism.max_energy);
 
-                    // Phase 60: Collective Reinforcement (Food abundance)
-                    ctx.lineage_registry.boost_memory_value(
-                        &attacker_mut.metabolism.lineage_id,
-                        "goal",
-                        0.2,
-                    );
+                        // Phase 60: Collective Reinforcement (Food abundance)
+                        ctx.lineage_registry.boost_memory_value(
+                            &attacker_mut.metabolism.lineage_id,
+                            "goal",
+                            0.2,
+                        );
 
-                    ctx.terrain.deplete(
-                        attacker_mut.physics.x,
-                        attacker_mut.physics.y,
-                        ctx.config.ecosystem.soil_depletion_unit,
-                    );
+                        ctx.terrain.deplete(
+                            attacker_mut.physics.x,
+                            attacker_mut.physics.y,
+                            ctx.config.ecosystem.soil_depletion_unit,
+                        );
+                    }
                 }
             }
             InteractionCommand::TransferEnergy { target_idx, amount } => {

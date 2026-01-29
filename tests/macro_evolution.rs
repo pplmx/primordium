@@ -85,6 +85,7 @@ fn test_outpost_construction() {
         social_grid: &mut world.social_grid,
         lineage_consumption: &mut lineage_cons,
         food: &mut world.food,
+        spatial_hash: &world.spatial_hash,
         rng: &mut rng,
     };
 

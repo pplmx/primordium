@@ -27,19 +27,18 @@ fn test_larval_gating_logic() {
     // We'll give it enough energy
     larva.metabolism.energy = 100.0;
 
-    // To ensure outputs are high, we'll manually modify the connections in the brain.
-    // Connect all inputs to Dig/Build outputs with high weights.
+    // Force brain outputs: Dig (index 38), Build (index 39)
     for i in 0..26 {
         larva.intel.genotype.brain.connections.push(Connection {
             from: i,
-            to: 35,
+            to: 38,
             weight: 1.0,
             enabled: true,
             innovation: 10000 + i,
         });
         larva.intel.genotype.brain.connections.push(Connection {
             from: i,
-            to: 36,
+            to: 39,
             weight: 1.0,
             enabled: true,
             innovation: 11000 + i,
@@ -99,7 +98,7 @@ fn test_metamorphosis_transition_and_remodeling() {
         .brain
         .connections
         .iter()
-        .any(|c| c.to == 35 && c.enabled);
+        .any(|c| c.to == 38 && c.enabled);
     assert!(
         has_dig_conn,
         "Adult brain should have Dig connections after remodeling"

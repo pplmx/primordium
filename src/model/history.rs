@@ -275,6 +275,12 @@ pub fn update_population_stats(
             .insert(e.metabolism.lineage_id);
     }
     stats.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
+    if stats.biodiversity_hotspots == 0 && !entities.is_empty() {
+        println!("DEBUG: Entities count: {}", entities.len());
+        for (coord, lineages) in &sectors {
+            println!("DEBUG: Sector {:?} has {} lineages", coord, lineages.len());
+        }
+    }
 
     let mut complexity_freq = HashMap::new();
     for e in entities {

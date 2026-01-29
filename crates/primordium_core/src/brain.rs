@@ -10,7 +10,7 @@ pub trait BrainLogic {
         &self,
         inputs: [f32; 29],
         last_hidden: [f32; 6],
-    ) -> ([f32; 12], [f32; 6], HashMap<usize, f32>);
+    ) -> ([f32; 12], [f32; 6], primordium_data::Activations);
     fn learn(&mut self, inputs: [f32; 29], last_hidden: [f32; 6], reinforcement: f32);
     fn mutate_with_config<R: Rng>(
         &mut self,
@@ -40,6 +40,7 @@ pub trait GenotypeLogic {
 
 pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
     let mut nodes = Vec::new();
+
     let input_labels = [
         "FoodDX",
         "FoodDY",
@@ -71,6 +72,7 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
         "LineageEnergy",
         "Overmind",
     ];
+
     for (i, label) in input_labels.iter().enumerate() {
         nodes.push(Node {
             id: i,
@@ -106,6 +108,7 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
             label: None,
         });
     }
+
     let mut innov = 0;
     let mut connections = Vec::new();
     for i in 0..29 {
@@ -132,6 +135,7 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
             innov += 1;
         }
     }
+
     Brain {
         nodes,
         connections,
@@ -164,46 +168,55 @@ impl BrainLogic for Brain {
         let mut rng = rand::thread_rng();
         Self::new_random_with_rng(&mut rng)
     }
+
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self {
         create_brain_random_with_rng(rng)
     }
+
     fn forward(&self, inputs: [f32; 29], last_hidden: [f32; 6]) -> ([f32; 12], [f32; 6]) {
         let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
         (outputs, next_hidden)
     }
+
     fn forward_internal(
         &self,
         inputs: [f32; 29],
         _last_hidden: [f32; 6],
-    ) -> ([f32; 12], [f32; 6], HashMap<usize, f32>) {
-        let mut node_values: HashMap<usize, f32> = HashMap::new();
+    ) -> ([f32; 12], [f32; 6], primordium_data::Activations) {
+        let mut node_values = vec![0.0f32; 64];
         for (i, &val) in inputs.iter().enumerate() {
-            node_values.insert(i, val);
+            node_values[i] = val;
         }
-        let mut new_values = node_values.clone();
+
         for conn in &self.connections {
             if !conn.enabled {
                 continue;
             }
-            let val = *node_values.get(&conn.from).unwrap_or(&0.0);
-            let entry = new_values.entry(conn.to).or_insert(0.0);
-            *entry += val * conn.weight;
+            let val = node_values[conn.from];
+            node_values[conn.to] += val * conn.weight;
         }
+
         let mut outputs = [0.0; 12];
         for node in &self.nodes {
-            if let Some(val) = new_values.get_mut(&node.id) {
-                *val = val.tanh();
-            }
+            node_values[node.id] = node_values[node.id].tanh();
         }
+
         for (i, output) in outputs.iter_mut().enumerate() {
-            *output = *new_values.get(&(i + 29)).unwrap_or(&0.0);
+            *output = node_values[i + 29];
         }
+
         let mut next_hidden = [0.0; 6];
         for (i, val) in next_hidden.iter_mut().enumerate() {
-            *val = *new_values.get(&(i + 41)).unwrap_or(&0.0);
+            *val = node_values[i + 41];
         }
-        (outputs, next_hidden, new_values)
+
+        (
+            outputs,
+            next_hidden,
+            primordium_data::Activations(node_values),
+        )
     }
+
     fn learn(&mut self, inputs: [f32; 29], last_hidden: [f32; 6], reinforcement: f32) {
         if self.learning_rate.abs() < 1e-4 || reinforcement.abs() < 1e-4 {
             return;
@@ -213,8 +226,8 @@ impl BrainLogic for Brain {
             if !conn.enabled {
                 continue;
             }
-            let pre = *activations.get(&conn.from).unwrap_or(&0.0);
-            let post = *activations.get(&conn.to).unwrap_or(&0.0);
+            let pre = activations.0[conn.from];
+            let post = activations.0[conn.to];
             let delta = self.learning_rate * reinforcement * pre * post;
             conn.weight += delta;
             conn.weight = conn.weight.clamp(-5.0, 5.0);
@@ -222,6 +235,7 @@ impl BrainLogic for Brain {
             *entry = (*entry * 0.9) + delta.abs();
         }
     }
+
     fn mutate_with_config<R: Rng>(
         &mut self,
         config: &crate::config::AppConfig,
@@ -230,9 +244,11 @@ impl BrainLogic for Brain {
     ) {
         let rate = config.evolution.mutation_rate;
         let amount = config.evolution.mutation_amount;
+
         for conn in &mut self.connections {
             if rng.gen::<f32>() < rate {
                 let mut mut_amount = amount;
+
                 if let Some(spec) = specialization {
                     use primordium_data::Specialization;
                     let is_protected = match spec {
@@ -244,11 +260,14 @@ impl BrainLogic for Brain {
                         mut_amount *= 0.1;
                     }
                 }
+
                 conn.weight += rng.gen_range(-mut_amount..mut_amount);
                 conn.weight = conn.weight.clamp(-5.0, 5.0);
             }
         }
+
         let topo_rate = config.evolution.mutation_rate * 0.1;
+
         if rng.gen::<f32>() < topo_rate {
             let from_idx = rng.gen_range(0..self.nodes.len());
             let to_idx = rng.gen_range(0..self.nodes.len());
@@ -264,6 +283,7 @@ impl BrainLogic for Brain {
                 });
             }
         }
+
         if rng.gen::<f32>() < topo_rate * 0.5 && !self.connections.is_empty() {
             let idx = rng.gen_range(0..self.connections.len());
             if self.connections[idx].enabled {
@@ -293,11 +313,13 @@ impl BrainLogic for Brain {
                 });
             }
         }
+
         if rng.gen_bool(0.1) {
             self.connections
                 .retain(|c| c.weight.abs() >= config.brain.pruning_threshold || !c.enabled);
         }
     }
+
     fn genotype_distance(&self, other: &Brain) -> f32 {
         let mut weight_diff = 0.0;
         let mut matching = 0;
@@ -311,13 +333,16 @@ impl BrainLogic for Brain {
                 matching += 1;
             }
         }
+
         let lr_diff = (self.learning_rate - other.learning_rate).abs();
         let disjoint = (self.connections.len() + other.connections.len()) - (2 * matching);
         (weight_diff / matching.max(1) as f32) + (disjoint as f32 * 0.5) + lr_diff
     }
+
     fn distance(&self, other: &Brain) -> f32 {
         self.genotype_distance(other)
     }
+
     fn crossover_with_rng<R: Rng>(&self, other: &Brain, rng: &mut R) -> Brain {
         let mut child_nodes = self.nodes.clone();
         let mut child_connections = Vec::new();
@@ -325,6 +350,7 @@ impl BrainLogic for Brain {
         for c in &other.connections {
             map2.insert(c.innovation, c);
         }
+
         for c1 in &self.connections {
             if let Some(c2) = map2.get(&c1.innovation) {
                 if rng.gen_bool(0.5) {
@@ -336,9 +362,12 @@ impl BrainLogic for Brain {
                 child_connections.push(c1.clone());
             }
         }
+
         let mut existing_node_ids: std::collections::HashSet<usize> =
             child_nodes.iter().map(|n| n.id).collect();
+
         let other_node_map: HashMap<usize, &Node> = other.nodes.iter().map(|n| (n.id, n)).collect();
+
         for c in &child_connections {
             if !existing_node_ids.contains(&c.from) {
                 if let Some(&n) = other_node_map.get(&c.from) {
@@ -353,6 +382,7 @@ impl BrainLogic for Brain {
                 }
             }
         }
+
         Brain {
             nodes: child_nodes,
             connections: child_connections,
@@ -365,23 +395,28 @@ impl BrainLogic for Brain {
             weight_deltas: HashMap::new(),
         }
     }
+
     fn crossover(&self, other: &Brain) -> Brain {
         let mut rng = rand::thread_rng();
         self.crossover_with_rng(other, &mut rng)
     }
+
     fn remodel_for_adult_with_rng<R: Rng>(&mut self, rng: &mut R) {
-        let adult_outputs = [34, 35, 36];
+        let adult_outputs = [34, 35, 36, 37, 38, 39, 40];
         let hidden_nodes: Vec<usize> = self
             .nodes
             .iter()
             .filter(|n| matches!(n.node_type, NodeType::Hidden))
             .map(|n| n.id)
             .collect();
+
         if hidden_nodes.is_empty() {
             return;
         }
+
         for &out_id in &adult_outputs {
             let has_conn = self.connections.iter().any(|c| c.to == out_id && c.enabled);
+
             if !has_conn {
                 let from = hidden_nodes[rng.gen_range(0..hidden_nodes.len())];
                 self.connections.push(Connection {
@@ -402,6 +437,7 @@ impl GenotypeLogic for Genotype {
         let mut rng = rand::thread_rng();
         Self::new_random_with_rng(&mut rng)
     }
+
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self {
         let brain = Brain::new_random_with_rng(rng);
         Self {
@@ -419,8 +455,10 @@ impl GenotypeLogic for Genotype {
             specialization_bias: [0.33, 0.33, 0.34],
         }
     }
+
     fn crossover_with_rng<R: Rng>(&self, other: &Self, rng: &mut R) -> Self {
         let brain = self.brain.crossover_with_rng(&other.brain, rng);
+
         let mut child_genotype = if rng.gen_bool(0.5) {
             self.clone()
         } else {
@@ -429,21 +467,26 @@ impl GenotypeLogic for Genotype {
         child_genotype.brain = brain;
         child_genotype
     }
+
     fn crossover(&self, other: &Self) -> Self {
         let mut rng = rand::thread_rng();
         self.crossover_with_rng(other, &mut rng)
     }
+
     fn distance(&self, other: &Self) -> f32 {
         self.brain.distance(&other.brain)
     }
+
     fn relatedness(&self, other: &Self) -> f32 {
         let dist = self.distance(other);
         (1.0 - (dist / 10.0)).clamp(0.0, 1.0)
     }
+
     fn to_hex(&self) -> String {
         let bytes = serde_json::to_vec(self).unwrap_or_default();
         hex::encode(bytes)
     }
+
     fn from_hex(hex_str: &str) -> anyhow::Result<Self> {
         let bytes = hex::decode(hex_str)?;
         let genotype = serde_json::from_slice(&bytes)?;

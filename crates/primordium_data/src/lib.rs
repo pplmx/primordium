@@ -173,6 +173,15 @@ pub struct Genotype {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Activations(pub Vec<f32>);
+
+impl Default for Activations {
+    fn default() -> Self {
+        Self(vec![0.0; 64])
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Intel {
     pub genotype: Genotype,
     #[serde(skip)]
@@ -188,7 +197,7 @@ pub struct Intel {
     #[serde(skip)]
     pub last_inputs: [f32; 29],
     #[serde(skip)]
-    pub last_activations: HashMap<i32, f32>,
+    pub last_activations: Activations,
     pub specialization: Option<Specialization>,
     pub spec_meters: HashMap<Specialization, f32>,
     pub ancestral_traits: HashSet<AncestralTrait>,

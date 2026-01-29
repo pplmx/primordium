@@ -73,6 +73,8 @@ fn test_biodiversity_hotspots() {
         e.intel.genotype.lineage_id = lid;
         e.physics.vx = 0.0;
         e.physics.vy = 0.0;
+        e.physics.max_speed = 0.0; // Force them to stay put for the hotspot test
+        e.intel.genotype.max_speed = 0.0;
         e.metabolism.energy = 1000.0;
         e.metabolism.max_energy = 1000.0;
         world.entities.push(e);
