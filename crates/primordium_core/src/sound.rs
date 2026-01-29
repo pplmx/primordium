@@ -119,4 +119,12 @@ impl SoundGrid {
             0.0
         }
     }
+
+    pub fn get_cell(&self, x: u16, y: u16) -> f32 {
+        if x < self.width && y < self.height {
+            self.cells[self.index(x, y)]
+        } else {
+            0.0
+        }
+    }
 }

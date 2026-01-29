@@ -165,43 +165,14 @@ impl<'a> Widget for WorldWidget<'a> {
                             }
                         }
                         3 => {
-                            let max_rank = self
-                                .snapshot
-                                .entities
-                                .iter()
-                                .map(|e| e.rank)
-                                .fold(0.0, f32::max)
-                                .max(0.1);
-                            let mut cell_rank = 0.0;
-                            let mut count = 0;
-                            for e in &self.snapshot.entities {
-                                let dx = e.x - x as f64;
-                                let dy = e.y - y as f64;
-                                if dx * dx + dy * dy < 9.0 {
-                                    cell_rank += e.rank;
-                                    count += 1;
-                                }
-                            }
-                            let intensity = if count > 0 {
-                                ((cell_rank / count as f32) / max_rank * 255.0) as u8
-                            } else {
-                                0
-                            };
+                            let val = self.snapshot.rank_grid
+                                [(y as usize * self.snapshot.width as usize) + x as usize];
+                            let intensity = (val.min(1.0) * 255.0) as u8;
                             cell.set_bg(Color::Rgb(intensity / 2, 0, intensity));
                         }
                         4 => {
-                            let mut vocal_sum = 0.0f32;
-                            for e in &self.snapshot.entities {
-                                let dx = e.x - x as f64;
-                                let dy = e.y - y as f64;
-                                let d2 = dx * dx + dy * dy;
-                                if d2 < 25.0 {
-                                    let dist = d2.sqrt();
-                                    vocal_sum +=
-                                        e.last_vocalization * (1.0 - (dist as f32 / 5.0)).max(0.0);
-                                }
-                            }
-                            let intensity = (vocal_sum.min(1.0) * 255.0) as u8;
+                            let sound_val = self.snapshot.sound.get_cell(x, y);
+                            let intensity = (sound_val.min(1.0) * 255.0) as u8;
                             cell.set_bg(Color::Rgb(intensity, intensity, 0));
                         }
                         _ => {

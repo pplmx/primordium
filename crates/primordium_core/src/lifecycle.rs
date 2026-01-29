@@ -5,8 +5,9 @@ use uuid::Uuid;
 
 pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) -> Entity {
     let genotype = crate::brain::create_genotype_random_with_rng(rng);
-    Entity {
+    let mut entity = Entity {
         id: Uuid::new_v4(),
+        name: String::new(),
         parent_id: None,
         physics: Physics {
             x,
@@ -57,7 +58,9 @@ pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) ->
             spec_meters: HashMap::new(),
             ancestral_traits: HashSet::new(),
         },
-    }
+    };
+    entity.update_name();
+    entity
 }
 
 pub fn create_entity(x: f64, y: f64, tick: u64) -> Entity {

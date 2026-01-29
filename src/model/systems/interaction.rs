@@ -369,6 +369,8 @@ pub fn process_interaction_commands<R: Rng>(
                 e.physics.max_speed *= ctx.config.metabolism.adult_speed_multiplier;
                 e.physics.sensing_range *= ctx.config.metabolism.adult_sensing_multiplier;
 
+                e.update_name();
+
                 let ev = LiveEvent::Metamorphosis {
                     id: e.id,
                     name: e.name(),

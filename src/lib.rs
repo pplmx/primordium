@@ -94,7 +94,7 @@ impl Simulation {
                         dna,
                         energy,
                         generation,
-                        species_name: crate::model::e.name(),
+                        species_name: e.name(),
                         fingerprint: self.world.config.fingerprint(),
                         checksum,
                     });

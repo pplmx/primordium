@@ -49,6 +49,7 @@ pub struct WorldSnapshot {
     pub sound: Arc<SoundGrid>,
     pub pressure: Arc<PressureGrid>,
     pub social_grid: Arc<Vec<u8>>,
+    pub rank_grid: Arc<Vec<f32>>,
     pub width: u16,
     pub height: u16,
 }

@@ -87,6 +87,8 @@ pub struct World {
     #[serde(skip, default = "ChaCha8Rng::from_entropy")]
     pub rng: ChaCha8Rng,
     #[serde(skip, default)]
+    pub entity_map: HashMap<uuid::Uuid, hecs::Entity>,
+    #[serde(skip, default)]
     killed_ids: HashSet<uuid::Uuid>,
     #[serde(skip, default)]
     eaten_food_indices: HashSet<usize>,
@@ -94,8 +96,6 @@ pub struct World {
     new_babies: Vec<Entity>,
     #[serde(skip, default)]
     alive_entities: Vec<Entity>,
-    #[serde(skip, default)]
-    perception_buffer: Vec<[f32; 29]>,
     #[serde(skip, default)]
     decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
@@ -112,6 +112,8 @@ pub struct World {
     cached_pressure: std::sync::Arc<crate::model::pressure::PressureGrid>,
     #[serde(skip)]
     cached_social_grid: std::sync::Arc<Vec<u8>>,
+    #[serde(skip)]
+    cached_rank_grid: std::sync::Arc<Vec<f32>>,
     #[serde(skip, default)]
     food_dirty: bool,
     #[serde(skip, default)]
@@ -122,8 +124,10 @@ pub struct World {
 
 impl World {
     pub fn new(initial_population: usize, config: AppConfig) -> anyhow::Result<Self> {
-        Self::new_at(initial_population, config, "logs")
+        let log_dir = "logs".to_string();
+        Self::new_at(initial_population, config, &log_dir)
     }
+
     pub fn new_at(
         initial_population: usize,
         config: AppConfig,
@@ -168,6 +172,7 @@ impl World {
         let pressure =
             crate::model::pressure::PressureGrid::new(config.world.width, config.world.height);
         let social_grid = vec![0; config.world.width as usize * config.world.height as usize];
+        let rank_grid = vec![0.0; config.world.width as usize * config.world.height as usize];
 
         Ok(Self {
             width: config.world.width,
@@ -180,14 +185,13 @@ impl World {
             spatial_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
             food_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
             pop_stats: PopulationStats::default(),
-            hall_of_fame: HallOfFame {
-                top_living: Vec::new(),
-            },
+            hall_of_fame: HallOfFame::default(),
             cached_terrain: std::sync::Arc::new(terrain.clone()),
             cached_pheromones: std::sync::Arc::new(pheromones.clone()),
             cached_sound: std::sync::Arc::new(sound.clone()),
             cached_pressure: std::sync::Arc::new(pressure.clone()),
             cached_social_grid: std::sync::Arc::new(social_grid.clone()),
+            cached_rank_grid: std::sync::Arc::new(rank_grid),
             terrain,
             pheromones,
             sound,
@@ -205,13 +209,13 @@ impl World {
             eaten_food_indices: HashSet::new(),
             new_babies: Vec::new(),
             alive_entities: Vec::new(),
-            perception_buffer: Vec::new(),
             decision_buffer: Vec::new(),
             lineage_consumption: Vec::new(),
             entity_snapshots: Vec::new(),
             food_dirty: true,
             spatial_data_buffer: Vec::new(),
             food_positions_buffer: Vec::new(),
+            entity_map: HashMap::new(),
         })
     }
 
@@ -255,6 +259,7 @@ impl World {
                     e.metabolism.max_energy = e.intel.genotype.max_energy;
                 }
             }
+            e.update_name();
         }
     }
 
@@ -388,6 +393,7 @@ impl World {
             sound: self.cached_sound.clone(),
             pressure: self.cached_pressure.clone(),
             social_grid: self.cached_social_grid.clone(),
+            rank_grid: self.cached_rank_grid.clone(),
             width: self.width,
             height: self.height,
         }
@@ -465,7 +471,6 @@ impl World {
             self.terrain
                 .update(self.pop_stats.biomass_h, self.tick, world_seed);
 
-        // Phase 63: Ecosystem Dominance (Global Albedo Cooling)
         let total_owned_forests = self
             .terrain
             .cells
@@ -508,14 +513,14 @@ impl World {
             food_positions.extend(self.food.iter().map(|f| (f.x as f64, f.y as f64)));
             self.food_hash
                 .build_parallel(&food_positions, self.width, self.height);
-            self.sync_ecs_from_food();
             self.food_dirty = false;
             self.food_positions_buffer = food_positions;
         }
     }
 
-    fn sync_ecs_from_food(&mut self) {
+    fn sync_entities_to_ecs(&mut self) {
         self.ecs.clear();
+
         for f in &self.food {
             self.ecs.spawn((
                 Position {
@@ -525,9 +530,27 @@ impl World {
                 MetabolicNiche(f.nutrient_type),
             ));
         }
+
+        self.entity_map.clear();
+        for e in &self.entities {
+            let handle = self.ecs.spawn((
+                e.id,
+                Position {
+                    x: e.physics.x,
+                    y: e.physics.y,
+                },
+                e.physics.clone(),
+                e.metabolism.clone(),
+                e.health.clone(),
+                e.intel.clone(),
+            ));
+            self.entity_map.insert(e.id, handle);
+        }
     }
 
     fn prepare_spatial_hash(&mut self) -> HashMap<uuid::Uuid, usize> {
+        self.sync_entities_to_ecs();
+
         let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
         spatial_data.clear();
         spatial_data.extend(
@@ -539,7 +562,6 @@ impl World {
         self.spatial_hash
             .build_with_lineage(&spatial_data, self.width, self.height);
 
-        // Phase 66 Optimization: Add outposts to kin centroids for stigmergic attraction
         let mut outpost_data = Vec::new();
         let width = self.width;
         for &idx in &self.terrain.outpost_indices {
@@ -624,7 +646,6 @@ impl World {
         entity_id_map: &HashMap<uuid::Uuid, usize>,
         world_seed: u64,
     ) -> Vec<InteractionCommand> {
-        let mut perception_buffer = std::mem::take(&mut self.perception_buffer);
         let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
         let snapshots = &self.entity_snapshots;
         let food = &self.food;
@@ -635,6 +656,7 @@ impl World {
         let pressure = &self.pressure;
         let terrain = &self.terrain;
         let tick = self.tick;
+        let registry = &self.lineage_registry;
 
         self.entities
             .par_iter()
@@ -662,24 +684,19 @@ impl World {
                 }
                 let (b_press, d_press) =
                     pressure.sense(e.physics.x, e.physics.y, e.physics.sensing_range);
-                let shared_goal = self
-                    .lineage_registry
-                    .get_memory_value(&e.metabolism.lineage_id, "goal");
-                let shared_threat = self
-                    .lineage_registry
-                    .get_memory_value(&e.metabolism.lineage_id, "threat");
+                let shared_goal = registry.get_memory_value(&e.metabolism.lineage_id, "goal");
+                let shared_threat = registry.get_memory_value(&e.metabolism.lineage_id, "threat");
                 let mut lin_pop = 0.0;
                 let mut lin_energy = 0.0;
                 let mut overmind_signal = 0.0;
-                if let Some(record) = self.lineage_registry.lineages.get(&e.metabolism.lineage_id) {
+                if let Some(record) = registry.lineages.get(&e.metabolism.lineage_id) {
                     lin_pop = (record.current_population as f32 / 100.0).min(1.0);
                     lin_energy = (record.total_energy_consumed as f32 / 10000.0).min(1.0);
-                    overmind_signal = self
-                        .lineage_registry
-                        .get_memory_value(&e.metabolism.lineage_id, "overmind");
+                    overmind_signal =
+                        registry.get_memory_value(&e.metabolism.lineage_id, "overmind");
                 }
 
-                [
+                let inputs = [
                     (dx_f / 20.0) as f32,
                     (dy_f / 20.0) as f32,
                     (e.metabolism.energy / e.metabolism.max_energy.max(1.0)) as f32,
@@ -709,19 +726,13 @@ impl World {
                     lin_pop,
                     lin_energy,
                     overmind_signal,
-                ]
-            })
-            .collect_into_vec(&mut perception_buffer);
+                ];
 
-        self.entities
-            .par_iter()
-            .zip(perception_buffer.par_iter())
-            .map(|(e, inputs)| {
                 let (mut outputs, next_hidden, activations) = e
                     .intel
                     .genotype
                     .brain
-                    .forward_internal(*inputs, e.intel.last_hidden);
+                    .forward_internal(inputs, e.intel.last_hidden);
                 if let Some(ref path) = e.health.pathogen {
                     if let Some((idx, offset)) = path.behavior_manipulation {
                         let out_idx = idx.saturating_sub(22);
@@ -739,24 +750,21 @@ impl World {
             .collect_into_vec(&mut decision_buffer);
 
         let config = &self.config;
-        let lineage_registry = &self.lineage_registry;
         let entities = &self.entities;
 
         let interaction_commands: Vec<InteractionCommand> = entities
             .par_iter()
             .enumerate()
-            .flat_map(|(i, e)| {
-                let mut cmds = Vec::new();
+            .fold(Vec::new, |mut acc, (i, e)| {
                 let entity_seed = world_seed ^ tick ^ (e.id.as_u128() as u64);
                 let mut local_rng = ChaCha8Rng::seed_from_u64(entity_seed);
                 let decision = &decision_buffer[i];
                 let outputs = decision.outputs;
 
-                // Automatic feeding check
                 let (dx_f, dy_f, _) = ecological::sense_nearest_food(e, food, food_hash);
                 if dx_f.abs() < 1.5 && dy_f.abs() < 1.5 {
                     food_hash.query_callback(e.physics.x, e.physics.y, 1.5, |f_idx| {
-                        cmds.push(InteractionCommand::EatFood {
+                        acc.push(InteractionCommand::EatFood {
                             food_index: f_idx,
                             attacker_idx: i,
                         });
@@ -767,7 +775,7 @@ impl World {
                     if let Some(p_id) =
                         social::handle_symbiosis(i, entities, outputs, spatial_hash, config)
                     {
-                        cmds.push(InteractionCommand::Bond {
+                        acc.push(InteractionCommand::Bond {
                             target_idx: i,
                             partner_id: p_id,
                         });
@@ -776,7 +784,7 @@ impl World {
 
                 if let Some(p_id) = e.intel.bonded_to {
                     if outputs[8] < 0.2 {
-                        cmds.push(InteractionCommand::BondBreak { target_idx: i });
+                        acc.push(InteractionCommand::BondBreak { target_idx: i });
                     } else if let Some(&p_idx) = entity_id_map.get(&p_id) {
                         let partner = &entities[p_idx];
                         if e.is_mature(tick, config.metabolism.maturity_age)
@@ -784,7 +792,7 @@ impl World {
                             && e.metabolism.energy > config.metabolism.reproduction_threshold
                             && partner.metabolism.energy > config.metabolism.reproduction_threshold
                         {
-                            let ancestral = lineage_registry
+                            let ancestral = registry
                                 .lineages
                                 .get(&e.metabolism.lineage_id)
                                 .and_then(|r| r.max_fitness_genotype.as_ref());
@@ -792,19 +800,19 @@ impl World {
                                 tick,
                                 config,
                                 population: entities.len(),
-                                traits: lineage_registry.get_traits(&e.metabolism.lineage_id),
+                                traits: registry.get_traits(&e.metabolism.lineage_id),
                                 is_radiation_storm: env.is_radiation_storm(),
                                 rng: &mut local_rng,
                                 ancestral_genotype: ancestral,
                             };
                             let (baby, dist) =
                                 social::reproduce_sexual_parallel(e, partner, &mut repro_ctx);
-                            cmds.push(InteractionCommand::Birth {
+                            acc.push(InteractionCommand::Birth {
                                 parent_idx: i,
                                 baby: Box::new(baby),
                                 genetic_distance: dist,
                             });
-                            cmds.push(InteractionCommand::TransferEnergy {
+                            acc.push(InteractionCommand::TransferEnergy {
                                 target_idx: p_idx,
                                 amount: -(partner.metabolism.energy
                                     * partner.intel.genotype.reproductive_investment as f64),
@@ -816,11 +824,11 @@ impl World {
                             let diff = self_energy - partner_energy;
                             let amount = diff * 0.05;
                             if amount > 0.1 {
-                                cmds.push(InteractionCommand::TransferEnergy {
+                                acc.push(InteractionCommand::TransferEnergy {
                                     target_idx: p_idx,
                                     amount,
                                 });
-                                cmds.push(InteractionCommand::TransferEnergy {
+                                acc.push(InteractionCommand::TransferEnergy {
                                     target_idx: i,
                                     amount: -amount,
                                 });
@@ -832,7 +840,7 @@ impl World {
                 if outputs[3] > 0.5 {
                     spatial_hash.query_callback(e.physics.x, e.physics.y, 1.5, |t_idx| {
                         if i != t_idx && !social::are_same_tribe(e, &entities[t_idx], config) {
-                            cmds.push(InteractionCommand::Kill {
+                            acc.push(InteractionCommand::Kill {
                                 target_idx: t_idx,
                                 attacker_idx: i,
                                 attacker_lineage: e.metabolism.lineage_id,
@@ -847,11 +855,11 @@ impl World {
                         if i != t_idx && social::are_same_tribe(e, &entities[t_idx], config) {
                             let partner = &entities[t_idx];
                             if partner.metabolism.energy < partner.metabolism.max_energy * 0.5 {
-                                cmds.push(InteractionCommand::TransferEnergy {
+                                acc.push(InteractionCommand::TransferEnergy {
                                     target_idx: t_idx,
                                     amount: e.metabolism.energy * 0.1,
                                 });
-                                cmds.push(InteractionCommand::TransferEnergy {
+                                acc.push(InteractionCommand::TransferEnergy {
                                     target_idx: i,
                                     amount: -e.metabolism.energy * 0.1,
                                 });
@@ -867,16 +875,16 @@ impl World {
                         tick,
                         config,
                         population: entities.len(),
-                        traits: lineage_registry.get_traits(&e.metabolism.lineage_id),
+                        traits: registry.get_traits(&e.metabolism.lineage_id),
                         is_radiation_storm: env.is_radiation_storm(),
                         rng: &mut local_rng,
-                        ancestral_genotype: lineage_registry
+                        ancestral_genotype: registry
                             .lineages
                             .get(&e.metabolism.lineage_id)
                             .and_then(|r| r.max_fitness_genotype.as_ref()),
                     };
                     let (baby, dist) = social::reproduce_asexual_parallel(e, &mut repro_ctx);
-                    cmds.push(InteractionCommand::Birth {
+                    acc.push(InteractionCommand::Birth {
                         parent_idx: i,
                         baby: Box::new(baby),
                         genetic_distance: dist,
@@ -885,13 +893,13 @@ impl World {
 
                 if (outputs[9] > 0.5 || outputs[10] > 0.5) && e.metabolism.has_metamorphosed {
                     if outputs[9] > outputs[10] {
-                        cmds.push(InteractionCommand::Dig {
+                        acc.push(InteractionCommand::Dig {
                             x: e.physics.x,
                             y: e.physics.y,
                             attacker_idx: i,
                         });
                     } else {
-                        cmds.push(InteractionCommand::Build {
+                        acc.push(InteractionCommand::Build {
                             x: e.physics.x,
                             y: e.physics.y,
                             attacker_idx: i,
@@ -909,7 +917,7 @@ impl World {
                     config,
                     &mut local_rng,
                 ) {
-                    cmds.push(InteractionCommand::TribalSplit {
+                    acc.push(InteractionCommand::TribalSplit {
                         target_idx: i,
                         new_color,
                     });
@@ -922,16 +930,17 @@ impl World {
                             * config.metabolism.metamorphosis_trigger_maturity)
                             as u64
                 {
-                    cmds.push(InteractionCommand::Metamorphosis { target_idx: i });
+                    acc.push(InteractionCommand::Metamorphosis { target_idx: i });
                 }
 
-                cmds
+                acc
             })
-            .collect();
+            .reduce(Vec::new, |mut a, b| {
+                a.extend(b);
+                a
+            });
 
-        self.perception_buffer = perception_buffer;
         self.decision_buffer = decision_buffer;
-
         interaction_commands
     }
 
@@ -1047,9 +1056,33 @@ impl World {
         interaction_result.events
     }
 
+    fn update_rank_grid(&mut self) {
+        let mut rank_grid = vec![0.0f32; self.width as usize * self.height as usize];
+        let width = self.width as usize;
+        let height = self.height as usize;
+
+        for e in &self.entities {
+            let ex = e.physics.x as i32;
+            let ey = e.physics.y as i32;
+            let r = 3;
+            for dy in -r..=r {
+                for dx in -r..=r {
+                    let nx = ex + dx;
+                    let ny = ey + dy;
+                    if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                        let idx = (ny as usize * width) + nx as usize;
+                        let dist_sq = dx * dx + dy * dy;
+                        let weight = (1.0 - (dist_sq as f32 / (r * r) as f32).sqrt()).max(0.0);
+                        rank_grid[idx] += e.intel.rank * weight;
+                    }
+                }
+            }
+        }
+        self.cached_rank_grid = std::sync::Arc::new(rank_grid);
+    }
+
     fn finalize_tick(&mut self, env: &mut Environment, events: &mut Vec<LiveEvent>) {
         let config = &self.config;
-
         let population_count = self.entities.len();
         let mut rng_vec: Vec<_> = (0..population_count)
             .map(|i| ChaCha8Rng::seed_from_u64(self.tick ^ i as u64))
@@ -1062,7 +1095,6 @@ impl World {
                 biological::biological_system(e, population_count, config, rng);
             });
 
-        // Sequential infection spread
         for i in 0..self.entities.len() {
             biological::handle_infection(
                 i,
@@ -1074,36 +1106,35 @@ impl World {
             );
         }
 
-        let mut alive_entities = std::mem::take(&mut self.alive_entities);
         let tick = self.tick;
-
         let entities = std::mem::take(&mut self.entities);
-        for e in entities {
-            if self.killed_ids.contains(&e.id) || e.metabolism.energy <= 0.0 {
-                self.lineage_registry.record_death(e.metabolism.lineage_id);
-                if let Some(legend) = social::archive_if_legend(&e, tick, &self.logger) {
-                    history::update_best_legend(
-                        &mut self.lineage_registry,
-                        &mut self.best_legends,
-                        legend,
-                    );
-                }
-                let fertilize_amount = (e.metabolism.max_energy
-                    * self.config.ecosystem.corpse_fertility_mult as f64)
-                    as f32
-                    / 100.0;
-                self.terrain
-                    .fertilize(e.physics.x, e.physics.y, fertilize_amount);
-                self.terrain
-                    .add_biomass(e.physics.x, e.physics.y, fertilize_amount * 10.0);
-            } else {
-                alive_entities.push(e);
+        let killed_ids = &self.killed_ids;
+        let (alive, dead): (Vec<Entity>, Vec<Entity>) = entities
+            .into_par_iter()
+            .partition(|e| !killed_ids.contains(&e.id) && e.metabolism.energy > 0.0);
+
+        for e in dead {
+            self.lineage_registry.record_death(e.metabolism.lineage_id);
+            if let Some(legend) = social::archive_if_legend(&e, tick, &self.logger) {
+                history::update_best_legend(
+                    &mut self.lineage_registry,
+                    &mut self.best_legends,
+                    legend,
+                );
             }
+            let fertilize_amount = (e.metabolism.max_energy
+                * self.config.ecosystem.corpse_fertility_mult as f64)
+                as f32
+                / 100.0;
+            self.terrain
+                .fertilize(e.physics.x, e.physics.y, fertilize_amount);
+            self.terrain
+                .add_biomass(e.physics.x, e.physics.y, fertilize_amount * 10.0);
         }
 
-        self.entities.append(&mut alive_entities);
+        self.entities = alive;
         self.entities.append(&mut self.new_babies);
-        self.alive_entities = alive_entities;
+        self.alive_entities.clear();
 
         if !self.eaten_food_indices.is_empty() {
             let mut i = 0;
@@ -1202,6 +1233,10 @@ impl World {
             self.pressure.is_dirty = false;
         }
         self.cached_social_grid = std::sync::Arc::new(self.social_grid.clone());
+
+        if self.tick.is_multiple_of(10) {
+            self.update_rank_grid();
+        }
     }
 }
 

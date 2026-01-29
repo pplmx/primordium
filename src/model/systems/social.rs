@@ -151,6 +151,7 @@ pub fn reproduce_asexual_parallel<R: Rng>(
 
     let mut baby = Entity {
         id: Uuid::new_v4(),
+        name: String::new(),
         parent_id: Some(parent.id),
         physics: Physics {
             x: parent.physics.x,
@@ -217,6 +218,7 @@ pub fn reproduce_asexual_parallel<R: Rng>(
         }
     }
 
+    baby.update_name();
     (baby, dist)
 }
 
@@ -276,6 +278,7 @@ pub fn reproduce_sexual_parallel<R: Rng>(
 
     let mut baby = Entity {
         id: Uuid::new_v4(),
+        name: String::new(),
         parent_id: Some(p1.id),
         physics: Physics {
             x: p1.physics.x,
@@ -342,6 +345,7 @@ pub fn reproduce_sexual_parallel<R: Rng>(
         }
     }
 
+    baby.update_name();
     (baby, 0.1)
 }
 

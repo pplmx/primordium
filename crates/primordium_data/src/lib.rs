@@ -105,6 +105,13 @@ pub enum OutpostSpecialization {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Identity {
+    pub id: Uuid,
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
     pub x: f64,
     pub y: f64,
@@ -206,6 +213,8 @@ pub struct Intel {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
     pub id: Uuid,
+    #[serde(default)]
+    pub name: String,
     pub parent_id: Option<Uuid>,
     pub physics: Physics,
     pub metabolism: Metabolism,
@@ -215,6 +224,13 @@ pub struct Entity {
 
 impl Entity {
     pub fn name(&self) -> String {
+        if self.name.is_empty() {
+            return format!("Entity-{}", &self.id.to_string()[..4]);
+        }
+        self.name.clone()
+    }
+
+    pub fn update_name(&mut self) {
         let id_str = self.id.to_string();
         let bytes = id_str.as_bytes();
         let syllables = [
@@ -241,14 +257,14 @@ impl Entity {
         } else {
             "C-"
         };
-        format!(
+        self.name = format!(
             "{}{}{}{}-Gen{}",
             role_prefix,
             prefix[p_idx],
             syllables[s1_idx],
             syllables[s2_idx],
             self.metabolism.generation
-        )
+        );
     }
 
     pub fn status(&self, threshold: f32, current_tick: u64, maturity_age: u64) -> EntityStatus {
