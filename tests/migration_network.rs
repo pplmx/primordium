@@ -1,13 +1,12 @@
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::infra::network::{NetMessage, PeerInfo};
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::world::World;
 use sha2::Digest;
 use uuid::Uuid;
 
 #[test]
 fn test_entity_migration_via_network() {
-    let mut entity = Entity::new(50.0, 50.0, 0);
+    let mut entity = primordium_lib::model::lifecycle::create_entity(50.0, 50.0, 0);
     entity.metabolism.energy = 175.0;
     entity.metabolism.generation = 5;
 
@@ -73,7 +72,7 @@ fn test_entity_migration_via_network() {
 /// Test migration using hex-encoded brain DNA (as used in production)
 #[test]
 fn test_entity_migration_with_hex_dna() {
-    let mut entity = Entity::new(25.0, 25.0, 0);
+    let mut entity = primordium_lib::model::lifecycle::create_entity(25.0, 25.0, 0);
     entity.metabolism.energy = 200.0;
     entity.metabolism.generation = 10;
 

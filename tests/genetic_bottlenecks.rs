@@ -1,5 +1,4 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -14,7 +13,7 @@ fn test_genetic_bottleneck_increases_mutation() {
     let world = World::new(0, config).unwrap();
 
     // 1. Create a parent
-    let mut parent = Entity::new(10.0, 10.0, 0);
+    let mut parent = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     parent.metabolism.energy = 500.0;
 
     // 2. Small population (1) -> Should have high effective mutation
@@ -52,7 +51,8 @@ fn test_genetic_drift_in_small_pop() {
     // Force a small population context
     let population = 5;
 
-    let parent_genotype = primordium_lib::model::state::entity::Genotype::new_random();
+    let parent_genotype =
+        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng());
     let original_tp = parent_genotype.trophic_potential;
 
     // Run many mutations to trigger the 5% drift chance

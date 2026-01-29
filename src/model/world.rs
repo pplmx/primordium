@@ -1,29 +1,31 @@
 use crate::model::config::AppConfig;
+use crate::model::environment::Environment;
+use crate::model::food::Food;
 use crate::model::history::{
     FossilRegistry, HallOfFame, HistoryLogger, LiveEvent, PopulationStats,
 };
+use crate::model::interaction::InteractionCommand;
+use crate::model::lineage_registry::LineageRegistry;
 use crate::model::observer::WorldObserver;
-use crate::model::quadtree::SpatialHash;
-use crate::model::state::entity::Entity;
-use crate::model::state::environment::Environment;
-use crate::model::state::food::Food;
-use crate::model::state::interaction::InteractionCommand;
-use crate::model::state::lineage_registry::LineageRegistry;
-use crate::model::state::pheromone::PheromoneGrid;
-use crate::model::state::sound::SoundGrid;
-use crate::model::state::terrain::TerrainGrid;
+use crate::model::pheromone::PheromoneGrid;
+use crate::model::sound::SoundGrid;
+use crate::model::spatial_hash::SpatialHash;
+use crate::model::terrain::TerrainGrid;
 use chrono::Utc;
 use hecs;
+use primordium_data::Entity;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+use crate::model::brain::{BrainLogic, GenotypeLogic};
+use crate::model::lifecycle;
 use crate::model::systems::{
     action, biological, civilization, ecological, environment, history, interaction, social, stats,
 };
-use primordium_data::{MetabolicNiche, Position};
+use primordium_data::{GeneType, MetabolicNiche, Position};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct InternalEntitySnapshot {
@@ -38,7 +40,7 @@ pub struct InternalEntitySnapshot {
     pub g: u8,
     pub b: u8,
     pub rank: f32,
-    pub status: crate::model::state::entity::EntityStatus,
+    pub status: primordium_data::EntityStatus,
 }
 
 /// Result of a neural network forward pass for an entity.
@@ -75,13 +77,13 @@ pub struct World {
     pub terrain: TerrainGrid,
     pub pheromones: PheromoneGrid,
     pub sound: SoundGrid,
-    pub pressure: crate::model::state::pressure::PressureGrid,
+    pub pressure: crate::model::pressure::PressureGrid,
     pub social_grid: Vec<u8>,
     pub lineage_registry: LineageRegistry,
     pub fossil_registry: FossilRegistry,
     pub config: AppConfig,
     pub log_dir: String,
-    pub active_pathogens: Vec<crate::model::state::pathogen::Pathogen>,
+    pub active_pathogens: Vec<primordium_data::Pathogen>,
     #[serde(skip, default = "WorldObserver::new")]
     pub observer: WorldObserver,
     #[serde(skip, default)]
@@ -111,7 +113,7 @@ pub struct World {
     #[serde(skip)]
     cached_sound: std::sync::Arc<SoundGrid>,
     #[serde(skip)]
-    cached_pressure: std::sync::Arc<crate::model::state::pressure::PressureGrid>,
+    cached_pressure: std::sync::Arc<crate::model::pressure::PressureGrid>,
     #[serde(skip)]
     cached_social_grid: std::sync::Arc<Vec<u8>>,
     #[serde(skip, default)]
@@ -136,7 +138,7 @@ impl World {
         let logger = HistoryLogger::new_at(log_dir)?;
         let mut lineage_registry = LineageRegistry::new();
         for _ in 0..initial_population {
-            let e = Entity::new_with_rng(
+            let e = lifecycle::create_entity_with_rng(
                 rng.gen_range(1.0..config.world.width as f64 - 1.0),
                 rng.gen_range(1.0..config.world.height as f64 - 1.0),
                 0,
@@ -163,10 +165,8 @@ impl World {
         let terrain = TerrainGrid::generate(config.world.width, config.world.height, 42);
         let pheromones = PheromoneGrid::new(config.world.width, config.world.height);
         let sound = SoundGrid::new(config.world.width, config.world.height);
-        let pressure = crate::model::state::pressure::PressureGrid::new(
-            config.world.width,
-            config.world.height,
-        );
+        let pressure =
+            crate::model::pressure::PressureGrid::new(config.world.width, config.world.height);
         let social_grid = vec![0; config.world.width as usize * config.world.height as usize];
 
         Ok(Self {
@@ -179,8 +179,10 @@ impl World {
             logger,
             spatial_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
             food_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
-            pop_stats: PopulationStats::new(),
-            hall_of_fame: HallOfFame::new(),
+            pop_stats: PopulationStats::default(),
+            hall_of_fame: HallOfFame {
+                top_living: Vec::new(),
+            },
             cached_terrain: std::sync::Arc::new(terrain.clone()),
             cached_pheromones: std::sync::Arc::new(pheromones.clone()),
             cached_sound: std::sync::Arc::new(sound.clone()),
@@ -219,14 +221,8 @@ impl World {
         Ok(())
     }
 
-    pub fn apply_genetic_edit(
-        &mut self,
-        entity_id: uuid::Uuid,
-        gene: crate::app::state::GeneType,
-        delta: f32,
-    ) {
+    pub fn apply_genetic_edit(&mut self, entity_id: uuid::Uuid, gene: GeneType, delta: f32) {
         if let Some(e) = self.entities.iter_mut().find(|e| e.id == entity_id) {
-            use crate::app::state::GeneType;
             match gene {
                 GeneType::Trophic => {
                     e.intel.genotype.trophic_potential =
@@ -329,8 +325,8 @@ impl World {
     pub fn create_snapshot(
         &self,
         selected_id: Option<uuid::Uuid>,
-    ) -> crate::model::state::snapshot::WorldSnapshot {
-        use crate::model::state::snapshot::{EntitySnapshot, WorldSnapshot};
+    ) -> crate::model::snapshot::WorldSnapshot {
+        use crate::model::snapshot::{EntitySnapshot, WorldSnapshot};
         let entities = self
             .entities
             .iter()
@@ -349,7 +345,8 @@ impl World {
                 offspring: e.metabolism.offspring_count,
                 lineage_id: e.metabolism.lineage_id,
                 rank: e.intel.rank,
-                status: e.status(
+                status: lifecycle::get_entity_status(
+                    e,
                     self.config.brain.activation_threshold,
                     self.tick,
                     self.config.metabolism.maturity_age,
@@ -398,9 +395,17 @@ impl World {
 
         self.update_environment_and_resources(env, world_seed);
 
-        let entity_id_map = self.prepare_spatial_and_snapshots();
+        let tick = self.tick;
+        let config = &self.config;
+        self.entities.par_iter_mut().for_each(|e| {
+            e.intel.rank = social::calculate_social_rank(e, tick, config);
+        });
 
-        self.learn_and_rank_parallel(&entity_id_map);
+        let entity_id_map = self.prepare_spatial_hash();
+
+        self.capture_entity_snapshots();
+
+        self.learn_and_bond_check_parallel(&entity_id_map);
 
         let interaction_commands = self.perceive_and_decide(env, &entity_id_map, world_seed);
 
@@ -460,8 +465,7 @@ impl World {
             .cells
             .iter()
             .filter(|c| {
-                c.terrain_type == crate::model::state::terrain::TerrainType::Forest
-                    && c.owner_id.is_some()
+                c.terrain_type == crate::model::terrain::TerrainType::Forest && c.owner_id.is_some()
             })
             .count();
         if total_owned_forests > 100 {
@@ -493,15 +497,10 @@ impl World {
         }
 
         if self.food_dirty {
-            self.food_hash.clear();
-            self.food_hash.width = self.width;
-            self.food_hash.height = self.height;
-            self.food_hash.cols = (self.width as f64 / self.food_hash.cell_size).ceil() as usize;
-            self.food_hash.rows = (self.height as f64 / self.food_hash.cell_size).ceil() as usize;
-
-            for (i, f) in self.food.iter().enumerate() {
-                self.food_hash.insert(f.x as f64, f.y as f64, i);
-            }
+            let food_positions: Vec<(f64, f64)> =
+                self.food.iter().map(|f| (f.x as f64, f.y as f64)).collect();
+            self.food_hash
+                .build_parallel(&food_positions, self.width, self.height);
             self.sync_ecs_from_food();
             self.food_dirty = false;
         }
@@ -520,7 +519,7 @@ impl World {
         }
     }
 
-    fn prepare_spatial_and_snapshots(&mut self) -> HashMap<uuid::Uuid, usize> {
+    fn prepare_spatial_hash(&mut self) -> HashMap<uuid::Uuid, usize> {
         let spatial_data: Vec<(f64, f64, uuid::Uuid)> = self
             .entities
             .iter()
@@ -530,6 +529,14 @@ impl World {
         self.spatial_hash
             .build_with_lineage(&spatial_data, self.width, self.height);
 
+        self.entities
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (e.id, i))
+            .collect()
+    }
+
+    fn capture_entity_snapshots(&mut self) {
         let mut entity_snapshots = std::mem::take(&mut self.entity_snapshots);
         self.entities
             .par_iter()
@@ -545,7 +552,8 @@ impl World {
                 g: e.physics.g,
                 b: e.physics.b,
                 rank: e.intel.rank,
-                status: e.status(
+                status: lifecycle::get_entity_status(
+                    e,
                     self.config.brain.activation_threshold,
                     self.tick,
                     self.config.metabolism.maturity_age,
@@ -553,19 +561,10 @@ impl World {
             })
             .collect_into_vec(&mut entity_snapshots);
 
-        let entity_id_map: HashMap<uuid::Uuid, usize> = self
-            .entities
-            .iter()
-            .enumerate()
-            .map(|(i, e)| (e.id, i))
-            .collect();
-
         self.entity_snapshots = entity_snapshots;
-        entity_id_map
     }
 
-    fn learn_and_rank_parallel(&mut self, entity_id_map: &HashMap<uuid::Uuid, usize>) {
-        let tick = self.tick;
+    fn learn_and_bond_check_parallel(&mut self, entity_id_map: &HashMap<uuid::Uuid, usize>) {
         let config = &self.config;
         let snapshots = &self.entity_snapshots;
 
@@ -578,7 +577,6 @@ impl World {
                     * config.brain.learning_reinforcement,
             );
             e.metabolism.prev_energy = e.metabolism.energy;
-            e.intel.rank = social::calculate_social_rank(e, tick, config);
 
             if let Some(p_id) = e.intel.bonded_to {
                 if let Some(partner) = entity_id_map.get(&p_id).map(|&idx| &snapshots[idx]) {
@@ -1230,8 +1228,8 @@ mod tests {
         let mut world = World::new(0, config).unwrap();
         world
             .terrain
-            .set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Wall);
-        let mut entity = Entity::new(4.5, 4.5, 0);
+            .set_cell_type(5, 5, crate::model::terrain::TerrainType::Wall);
+        let mut entity = crate::model::lifecycle::create_entity(4.5, 4.5, 0);
         entity.physics.vx = 1.0;
         entity.physics.vy = 1.0;
         action::handle_movement(&mut entity, 1.0, &world.terrain, world.width, world.height);

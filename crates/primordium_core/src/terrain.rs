@@ -1,26 +1,16 @@
+pub use primordium_data::{OutpostSpecialization, TerrainType};
 use rand::Rng;
-use ratatui::style::Color;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-/// Terrain types with distinct environmental effects
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
-pub enum TerrainType {
-    #[default]
-    Plains,
-    Mountain,
-    River,
-    Oasis,
-    Barren,
-    Wall,
-    Forest,
-    Desert,
-    Nest,
-    Outpost,
+pub trait TerrainLogic {
+    fn movement_modifier(&self) -> f64;
+    fn food_spawn_modifier(&self) -> f64;
+    fn symbol(&self) -> char;
 }
 
-impl TerrainType {
-    pub fn movement_modifier(&self) -> f64 {
+impl TerrainLogic for TerrainType {
+    fn movement_modifier(&self) -> f64 {
         match self {
             TerrainType::Plains => 1.0,
             TerrainType::Mountain => 0.5,
@@ -35,7 +25,7 @@ impl TerrainType {
         }
     }
 
-    pub fn food_spawn_modifier(&self) -> f64 {
+    fn food_spawn_modifier(&self) -> f64 {
         match self {
             TerrainType::Plains => 1.0,
             TerrainType::Mountain => 0.0,
@@ -50,7 +40,7 @@ impl TerrainType {
         }
     }
 
-    pub fn symbol(&self) -> char {
+    fn symbol(&self) -> char {
         match self {
             TerrainType::Plains => ' ',
             TerrainType::Mountain => '▲',
@@ -64,29 +54,6 @@ impl TerrainType {
             TerrainType::Outpost => 'Ψ',
         }
     }
-
-    pub fn color(&self) -> Color {
-        match self {
-            TerrainType::Plains => Color::Reset,
-            TerrainType::Mountain => Color::Rgb(100, 100, 100),
-            TerrainType::River => Color::Rgb(70, 130, 180),
-            TerrainType::Oasis => Color::Rgb(50, 205, 50),
-            TerrainType::Barren => Color::Rgb(139, 69, 19),
-            TerrainType::Wall => Color::Rgb(60, 60, 60),
-            TerrainType::Forest => Color::Rgb(34, 139, 34),
-            TerrainType::Desert => Color::Rgb(210, 180, 140),
-            TerrainType::Nest => Color::Rgb(255, 215, 0),
-            TerrainType::Outpost => Color::Rgb(255, 69, 0),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
-pub enum OutpostSpecialization {
-    #[default]
-    Standard,
-    Silo,    // Higher energy storage
-    Nursery, // Birth bonus
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -137,6 +104,8 @@ pub struct TerrainGrid {
     pub dust_bowl_timer: u32,
     #[serde(skip)]
     pub is_dirty: bool,
+    #[serde(skip)]
+    pub outpost_indices: Vec<usize>,
     #[serde(skip)]
     type_buffer: Vec<TerrainType>,
     #[serde(skip)]
@@ -213,6 +182,7 @@ impl TerrainGrid {
             height,
             dust_bowl_timer: 0,
             is_dirty: true,
+            outpost_indices: Vec::new(),
             type_buffer: vec![TerrainType::Plains; width as usize * height as usize],
             hydration_buffer: vec![false; width as usize * height as usize],
             moisture_buffer: vec![0.5; width as usize * height as usize],
@@ -226,6 +196,17 @@ impl TerrainGrid {
     }
 
     pub fn update(&mut self, herbivore_biomass: f64, tick: u64, world_seed: u64) -> (f64, f64) {
+        if self.is_dirty {
+            self.outpost_indices = self
+                .cells
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| matches!(c.terrain_type, TerrainType::Outpost))
+                .map(|(i, _)| i)
+                .collect();
+            self.is_dirty = false;
+        }
+
         if self.dust_bowl_timer > 0 {
             self.dust_bowl_timer -= 1;
         }

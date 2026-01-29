@@ -1441,6 +1441,7 @@ dependencies = [
  "husky-rs",
  "js-sys",
  "petgraph",
+ "primordium_core",
  "primordium_data",
  "primordium_observer",
  "rand",
@@ -1464,10 +1465,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "primordium_core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "primordium_data",
+ "rand",
+ "rand_chacha",
+ "ratatui",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "toml",
+ "uuid",
+]
+
+[[package]]
 name = "primordium_data"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "hex",
  "serde",
+ "serde_json",
  "uuid",
 ]
 

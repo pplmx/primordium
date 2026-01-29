@@ -1,5 +1,6 @@
+use primordium_lib::model::config::AppConfig;
+use primordium_lib::model::environment::{ClimateState, Environment, Era, ResourceState};
 use primordium_lib::model::history::PopulationStats;
-use primordium_lib::model::state::environment::{ClimateState, Environment, Era, ResourceState};
 use primordium_lib::model::systems::environment as environment_system;
 
 #[test]
@@ -26,8 +27,8 @@ fn test_hardware_coupling_logic() {
 #[test]
 fn test_era_transitions() {
     let mut env = Environment::default();
-    let mut stats = PopulationStats::new();
-    let config = primordium_lib::model::config::AppConfig::default();
+    let mut stats = PopulationStats::default();
+    let config = AppConfig::default();
 
     // Start at Primordial
     assert_eq!(env.current_era, Era::Primordial);

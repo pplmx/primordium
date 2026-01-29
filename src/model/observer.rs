@@ -1,6 +1,6 @@
+use crate::model::environment::Environment;
 use crate::model::history::PopulationStats;
-use crate::model::state::environment::Environment;
-use crate::model::state::lineage_registry::LineageRegistry;
+use crate::model::lineage_registry::LineageRegistry;
 use primordium_observer::SiliconScribe;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -58,7 +58,7 @@ impl WorldObserver {
 
         if matches!(
             env.resource_state(),
-            crate::model::state::environment::ResourceState::Famine
+            crate::model::environment::ResourceState::Famine
         ) {
             self.ticks_since_famine += 1;
             if self.ticks_since_famine == 500 {

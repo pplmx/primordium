@@ -1,6 +1,7 @@
 use crate::app::state::App;
-use crate::model::state::terrain::TerrainType;
+use crate::model::lifecycle;
 use crate::model::systems::intel;
+use crate::model::terrain::TerrainType;
 use crate::ui::renderer::WorldWidget;
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use rand::Rng;
@@ -53,8 +54,12 @@ impl App {
                     .fossils
                     .get(self.selected_fossil_index)
                 {
-                    let mut e =
-                        crate::model::state::entity::Entity::new(50.0, 25.0, self.world.tick);
+                    let mut e = lifecycle::create_entity_with_rng(
+                        50.0,
+                        25.0,
+                        self.world.tick,
+                        &mut rand::thread_rng(),
+                    );
                     e.intel.genotype = fossil.genotype.clone();
                     // Sync phenotype
                     e.physics.sensing_range = e.intel.genotype.sensing_range;
@@ -220,12 +225,12 @@ impl App {
                 if self.show_brain && self.focused_gene.is_some() {
                     if let (Some(id), Some(gene)) = (self.selected_entity, self.focused_gene) {
                         let delta = match gene {
-                            crate::app::state::GeneType::Trophic => 0.05,
-                            crate::app::state::GeneType::Sensing => 0.5,
-                            crate::app::state::GeneType::Speed => 0.1,
-                            crate::app::state::GeneType::MaxEnergy => 10.0,
-                            crate::app::state::GeneType::ReproInvest => 0.05,
-                            crate::app::state::GeneType::Maturity => 0.1,
+                            primordium_data::GeneType::Trophic => 0.05,
+                            primordium_data::GeneType::Sensing => 0.5,
+                            primordium_data::GeneType::Speed => 0.1,
+                            primordium_data::GeneType::MaxEnergy => 10.0,
+                            primordium_data::GeneType::ReproInvest => 0.05,
+                            primordium_data::GeneType::Maturity => 0.1,
                         };
                         self.world.apply_genetic_edit(id, gene, delta);
                     }
@@ -237,12 +242,12 @@ impl App {
                 if self.show_brain && self.focused_gene.is_some() {
                     if let (Some(id), Some(gene)) = (self.selected_entity, self.focused_gene) {
                         let delta = match gene {
-                            crate::app::state::GeneType::Trophic => -0.05,
-                            crate::app::state::GeneType::Sensing => -0.5,
-                            crate::app::state::GeneType::Speed => -0.1,
-                            crate::app::state::GeneType::MaxEnergy => -10.0,
-                            crate::app::state::GeneType::ReproInvest => -0.05,
-                            crate::app::state::GeneType::Maturity => -0.1,
+                            primordium_data::GeneType::Trophic => -0.05,
+                            primordium_data::GeneType::Sensing => -0.5,
+                            primordium_data::GeneType::Speed => -0.1,
+                            primordium_data::GeneType::MaxEnergy => -10.0,
+                            primordium_data::GeneType::ReproInvest => -0.05,
+                            primordium_data::GeneType::Maturity => -0.1,
                         };
                         self.world.apply_genetic_edit(id, gene, delta);
                     }
@@ -301,11 +306,13 @@ impl App {
             }
             KeyCode::Char('v') | KeyCode::Char('V') => {
                 if let Ok(dna) = fs::read_to_string("dna_infuse.txt") {
-                    if let Ok(genotype) =
-                        crate::model::state::entity::Genotype::from_hex(dna.trim())
-                    {
-                        let mut e =
-                            crate::model::state::entity::Entity::new(50.0, 25.0, self.world.tick);
+                    if let Ok(genotype) = primordium_data::Genotype::from_hex(dna.trim()) {
+                        let mut e = lifecycle::create_entity_with_rng(
+                            50.0,
+                            25.0,
+                            self.world.tick,
+                            &mut rand::thread_rng(),
+                        );
                         e.intel.genotype = genotype;
                         // Sync phenotype
                         e.physics.sensing_range = e.intel.genotype.sensing_range;
@@ -399,8 +406,10 @@ impl App {
             KeyCode::Char('p') => {
                 if let Some(id) = self.selected_entity {
                     if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
-                        use crate::model::state::entity::Genotype;
-                        entity.intel.genotype = Genotype::new_random();
+                        entity.intel.genotype =
+                            crate::model::brain::create_genotype_random_with_rng(
+                                &mut rand::thread_rng(),
+                            );
                         // Sync phenotype
                         entity.physics.sensing_range = entity.intel.genotype.sensing_range;
                         entity.physics.max_speed = entity.intel.genotype.max_speed;
@@ -444,7 +453,7 @@ impl App {
                         .push_back(("God: Climate Restored".to_string(), Color::Cyan));
                 } else {
                     self.env.god_climate_override =
-                        Some(crate::model::state::environment::ClimateState::Scorching);
+                        Some(crate::model::environment::ClimateState::Scorching);
                     self.event_log
                         .push_back(("GOD MODE: HEAT WAVE INDUCED".to_string(), Color::Red));
                 }
@@ -462,7 +471,7 @@ impl App {
                 ));
             }
             KeyCode::Char('r') | KeyCode::Char('R') => {
-                use crate::model::state::food::Food;
+                use crate::model::food::Food;
                 let mut rng = rand::thread_rng();
                 for _ in 0..100 {
                     let fx = rng.gen_range(1..self.world.width - 1);
@@ -509,7 +518,7 @@ impl App {
             if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
                 let relative_y = mouse.row.saturating_sub(self.last_sidebar_rect.y + 1);
                 let offset = self.gene_editor_offset;
-                use crate::app::state::GeneType;
+                use primordium_data::GeneType;
                 self.focused_gene = if relative_y == offset {
                     Some(GeneType::Trophic)
                 } else if relative_y == offset + 1 {
@@ -580,7 +589,7 @@ impl App {
                     self.last_world_rect,
                     self.screensaver,
                 ) {
-                    use crate::model::state::food::Food;
+                    use crate::model::food::Food;
                     let n_type = rand::thread_rng().gen_range(0.0..1.0);
                     self.world
                         .food

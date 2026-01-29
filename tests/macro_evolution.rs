@@ -1,6 +1,6 @@
 use primordium_data::Specialization;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
+use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
@@ -13,7 +13,7 @@ fn test_collective_memory_reinforcement() {
     let mut _env = Environment::default();
 
     let l_id = Uuid::new_v4();
-    let mut e1 = Entity::new(10.0, 10.0, 0);
+    let mut e1 = lifecycle::create_entity(10.0, 10.0, 0);
     e1.metabolism.lineage_id = l_id;
     e1.intel.genotype.lineage_id = l_id;
     world.entities.push(e1);
@@ -39,7 +39,7 @@ fn test_engineer_biological_irrigation_pressure() {
     world.terrain.set_cell_type(10, 10, TerrainType::River);
     world.terrain.set_cell_type(11, 10, TerrainType::Plains);
 
-    let mut eng = Entity::new(11.0, 10.0, 0);
+    let mut eng = lifecycle::create_entity(11.0, 10.0, 0);
     eng.intel.specialization = Some(Specialization::Engineer);
     eng.metabolism.has_metamorphosed = true;
     world.entities.push(eng);
@@ -56,7 +56,7 @@ fn test_outpost_construction() {
     let mut world = World::new(0, config).unwrap();
     let mut env = Environment::default();
 
-    let mut alpha = Entity::new(10.0, 10.0, 0);
+    let mut alpha = lifecycle::create_entity(10.0, 10.0, 0);
     alpha.intel.rank = 0.9;
     alpha.metabolism.energy = 500.0;
     alpha.metabolism.has_metamorphosed = true;
@@ -110,7 +110,7 @@ fn test_outpost_energy_capacitor() {
     let mut _env = Environment::default();
 
     let l_id = Uuid::new_v4();
-    let mut donor = Entity::new(10.0, 10.0, 0);
+    let mut donor = lifecycle::create_entity(10.0, 10.0, 0);
     donor.metabolism.lineage_id = l_id;
     donor.metabolism.energy = 450.0;
     donor.metabolism.max_energy = 500.0;
@@ -128,7 +128,7 @@ fn test_outpost_energy_capacitor() {
         "Outpost should collect energy"
     );
 
-    let mut needy = Entity::new(11.0, 11.0, 0);
+    let mut needy = lifecycle::create_entity(11.0, 11.0, 0);
     needy.metabolism.lineage_id = l_id;
     needy.metabolism.energy = 20.0;
     needy.metabolism.max_energy = 500.0;

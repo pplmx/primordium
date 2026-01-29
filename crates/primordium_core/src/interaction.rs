@@ -1,5 +1,4 @@
-use crate::model::state::entity::Entity;
-use crate::model::state::pathogen::Pathogen;
+use primordium_data::{Entity, Pathogen};
 use uuid::Uuid;
 
 #[derive(Debug)]

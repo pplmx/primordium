@@ -113,6 +113,10 @@ Intelligence is not free. To prevent "bloat" (unnecessary complexity that doesn'
 
 This creates a natural selection pressure for efficiency, where only complexity that significantly improves survival remains in the gene pool.
 
+## Neural Pruning (Phase 66.5)
+
+To further combat topological bloat, a **Neural Pruning** mechanism has been introduced. Periodically, weak connections (weights below a configurable threshold) are removed from the brain's topology. This prevents "junk" connections from accumulating metabolic costs and degrading simulation performance during long-term evolutionary runs.
+
 ## Activation Function
 
 We use `Tanh` (Hyperbolic Tangent) for all nodes to allow negative values, mapping signals to `[-1.0, 1.0]`.

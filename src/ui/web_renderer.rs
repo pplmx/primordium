@@ -1,7 +1,8 @@
-use crate::model::state::entity::EntityStatus;
-use crate::model::state::pheromone::PheromoneType;
-use crate::model::state::terrain::TerrainType;
+use crate::model::lifecycle;
+use crate::model::pheromone::PheromoneType;
+use crate::model::terrain::TerrainType;
 use crate::model::world::World;
+use primordium_data::EntityStatus;
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
@@ -61,21 +62,21 @@ impl WebRenderer {
             );
             ctx.set_fill_style(&JsValue::from_str(&color));
             ctx.begin_path();
-            ctx.arc(
+            let _ = ctx.arc(
                 food.x as f64 * scale_x + scale_x / 2.0,
                 food.y as f64 * scale_y + scale_y / 2.0,
                 scale_x / 2.0,
                 0.0,
                 std::f64::consts::PI * 2.0,
-            )
-            .unwrap();
+            );
             ctx.fill();
         }
 
         // Draw Entities
         for entity in &world.entities {
-            let status = entity.status(
-                world.config.metabolism.reproduction_threshold,
+            let status = lifecycle::get_entity_status(
+                entity,
+                world.config.brain.activation_threshold,
                 world.tick,
                 world.config.metabolism.maturity_age,
             );
@@ -95,8 +96,7 @@ impl WebRenderer {
             let size = scale_x * 0.8; // Slightly smaller than cell
 
             ctx.begin_path();
-            ctx.arc(ex, ey, size, 0.0, std::f64::consts::PI * 2.0)
-                .unwrap();
+            let _ = ctx.arc(ex, ey, size, 0.0, std::f64::consts::PI * 2.0);
             ctx.fill();
 
             // Draw territorial range or interaction if needed? No, too cluttered.

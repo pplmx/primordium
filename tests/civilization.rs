@@ -1,6 +1,5 @@
 use primordium_data::AncestralTrait;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
@@ -13,7 +12,7 @@ fn test_ancestral_trait_metabolism_buff() {
     let env = Environment::default();
 
     let l_id = Uuid::new_v4();
-    let mut e = Entity::new(10.0, 10.0, 0);
+    let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e.metabolism.lineage_id = l_id;
     e.intel
         .ancestral_traits
@@ -40,7 +39,7 @@ fn test_ancestral_trait_metabolism_buff() {
 
     let drain_with_trait = initial_energy - e.metabolism.energy;
 
-    let mut e_normal = Entity::new(10.0, 10.0, 0);
+    let mut e_normal = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e_normal.metabolism.energy = initial_energy;
     action_system(&mut e_normal, outputs, &mut ctx);
 
@@ -62,7 +61,8 @@ fn test_global_event_radiation_surge() {
 
     assert!(env.is_radiation_storm());
 
-    let mut genotype = primordium_lib::model::state::entity::Genotype::new_random();
+    let mut genotype =
+        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng());
     let original_dna = genotype.to_hex();
 
     use primordium_lib::model::systems::intel;

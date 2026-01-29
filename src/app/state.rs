@@ -7,19 +7,10 @@ use sysinfo::System;
 use uuid::Uuid;
 
 use crate::model::config::AppConfig;
-use crate::model::state::environment::{ClimateState, Environment};
-use crate::model::state::terrain::TerrainType;
+use crate::model::environment::{ClimateState, Environment};
+use crate::model::terrain::TerrainType;
 use crate::model::world::World;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GeneType {
-    Trophic,
-    Sensing,
-    Speed,
-    ReproInvest,
-    Maturity,
-    MaxEnergy,
-}
+use primordium_data::GeneType;
 
 pub struct App {
     pub running: bool,
@@ -75,7 +66,7 @@ pub struct App {
     pub event_log: VecDeque<(String, Color)>,
 
     pub network_state: crate::model::infra::network::NetworkState, // NEW
-    pub latest_snapshot: Option<crate::model::state::snapshot::WorldSnapshot>,
+    pub latest_snapshot: Option<crate::model::snapshot::WorldSnapshot>,
     pub network: Option<crate::client::manager::NetworkManager>,
 }
 

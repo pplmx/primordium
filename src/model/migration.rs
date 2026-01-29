@@ -1,4 +1,4 @@
-use crate::model::state::entity::Entity;
+use crate::model::lifecycle;
 use crate::model::world::World;
 use rand::Rng;
 
@@ -49,11 +49,11 @@ impl World {
             )
         };
 
-        let mut entity = Entity::new_with_rng(x, y, self.tick, &mut self.rng);
+        let mut entity = lifecycle::create_entity_with_rng(x, y, self.tick, &mut self.rng);
         entity.metabolism.energy = energy as f64;
         entity.metabolism.generation = generation;
 
-        let genotype = crate::model::state::entity::Genotype::from_hex(&dna)?;
+        let genotype = primordium_data::Genotype::from_hex(&dna)?;
         entity.intel.genotype = genotype;
         // Sync phenotype
         entity.physics.sensing_range = entity.intel.genotype.sensing_range;

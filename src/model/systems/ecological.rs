@@ -1,11 +1,11 @@
 //! Ecological system - handles food spawning and consumption.
 
-use crate::model::quadtree::SpatialHash;
-use crate::model::state::entity::Entity;
-use crate::model::state::environment::Environment;
-use crate::model::state::food::Food;
-use crate::model::state::pheromone::{PheromoneGrid, PheromoneType};
-use crate::model::state::terrain::TerrainGrid;
+use crate::model::environment::Environment;
+use crate::model::food::Food;
+use crate::model::pheromone::{PheromoneGrid, PheromoneType};
+use crate::model::spatial_hash::SpatialHash;
+use crate::model::terrain::TerrainGrid;
+use primordium_data::Entity;
 use rand::Rng;
 use std::collections::HashSet;
 
@@ -42,8 +42,8 @@ pub fn spawn_food(
                 // Typed food: Mountain/River favors Blue, Plains favor Green
                 let terrain_type = terrain.get_cell(x, y).terrain_type;
                 let nutrient_type = match terrain_type {
-                    crate::model::state::terrain::TerrainType::Mountain
-                    | crate::model::state::terrain::TerrainType::River => {
+                    crate::model::terrain::TerrainType::Mountain
+                    | crate::model::terrain::TerrainType::River => {
                         rng.gen_range(0.6..1.0) // Favor Blue
                     }
                     _ => rng.gen_range(0.0..0.4), // Favor Green
@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_sense_nearest_food_empty() {
-        let entity = Entity::new(5.0, 5.0, 0);
+        let entity = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
         let food: Vec<Food> = vec![];
         let food_hash = SpatialHash::new(5.0, 100, 100);
         let (dx, dy, _) = sense_nearest_food(&entity, &food, &food_hash);

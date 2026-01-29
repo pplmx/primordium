@@ -1,6 +1,6 @@
+use primordium_data::EntityStatus;
 use primordium_lib::model::brain::Connection;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::{Entity, EntityStatus};
 use primordium_lib::model::state::environment::Environment;
 
 use primordium_lib::model::world::World;
@@ -12,7 +12,7 @@ fn test_rank_accumulation() {
     let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
 
-    let mut e = Entity::new(10.0, 10.0, 0);
+    let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e.metabolism.has_metamorphosed = true;
     e.metabolism.energy = e.metabolism.max_energy; // Max energy score (0.3)
     e.metabolism.offspring_count = 20; // Max offspring score (0.1)
@@ -45,7 +45,7 @@ fn test_rank_accumulation() {
 
 #[test]
 fn test_soldier_classification() {
-    let mut e = Entity::new(0.0, 0.0, 0);
+    let mut e = primordium_lib::model::lifecycle::create_entity(0.0, 0.0, 0);
     e.intel.rank = 0.9;
     e.intel.last_aggression = 0.8;
     e.metabolism.has_metamorphosed = true;
@@ -77,7 +77,7 @@ fn test_tribal_split_under_pressure() {
     // Create a crowded scenario
     // 20 entities in a small area
     for _ in 0..20 {
-        let mut e = Entity::new(10.0, 10.0, 0);
+        let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
         e.physics.r = 100; // Original Tribe
         e.intel.reputation = 0.0;
         e.metabolism.energy = 10.0;
@@ -116,7 +116,7 @@ fn test_soldier_damage_bonus() {
     let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
 
-    let mut soldier = Entity::new(10.0, 10.0, 0);
+    let mut soldier = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     soldier.metabolism.has_metamorphosed = true;
     world.tick = 1000; // Ensure mature
 
@@ -136,7 +136,7 @@ fn test_soldier_damage_bonus() {
     soldier.metabolism.energy = 200.0;
     soldier.metabolism.trophic_potential = 1.0; // Hunter
 
-    let mut victim = Entity::new(10.0, 10.0, 0);
+    let mut victim = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     victim.metabolism.energy = 200.0; // Strong victim
                                       // Different tribe
     soldier.physics.r = 255;

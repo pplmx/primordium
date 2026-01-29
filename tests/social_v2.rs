@@ -1,5 +1,4 @@
-use primordium_lib::model::config::{AppConfig, GameMode};
-use primordium_lib::model::state::entity::Entity;
+use primordium_core::config::{AppConfig, GameMode};
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -12,7 +11,7 @@ fn test_group_defense_reduces_damage() {
     let mut env = Environment::default();
 
     // 1. Attacker (Carnivore specialist, high energy)
-    let mut attacker = Entity::new(10.0, 10.0, 0);
+    let mut attacker = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     attacker.metabolism.trophic_potential = 1.0;
     attacker.metabolism.energy = 1000.0;
     attacker.physics.r = 255;
@@ -20,7 +19,7 @@ fn test_group_defense_reduces_damage() {
     attacker.physics.b = 0; // Distinct tribe
 
     // 2. Victim (Small energy)
-    let mut victim = Entity::new(10.5, 10.5, 0);
+    let mut victim = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
     victim.metabolism.energy = 100.0;
     victim.physics.r = 0;
     victim.physics.g = 255;
@@ -29,7 +28,11 @@ fn test_group_defense_reduces_damage() {
 
     // 3. Allies (Same lineage as victim, nearby)
     for i in 0..5 {
-        let mut ally = Entity::new(10.5 + (i as f64 * 0.1), 10.5 + (i as f64 * 0.1), 0);
+        let mut ally = primordium_lib::model::lifecycle::create_entity(
+            10.5 + (i as f64 * 0.1),
+            10.5 + (i as f64 * 0.1),
+            0,
+        );
         ally.metabolism.lineage_id = v_lineage;
         ally.metabolism.energy = 200.0;
         world.entities.push(ally);
@@ -56,11 +59,11 @@ fn test_metabolic_cost_of_signaling() {
     let env = Environment::default();
 
     // Entity A: No signal
-    let mut e_quiet = Entity::new(10.0, 10.0, 0);
+    let mut e_quiet = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e_quiet.metabolism.energy = 500.0;
 
     // Entity B: Max signal
-    let mut e_loud = Entity::new(20.0, 20.0, 0);
+    let mut e_loud = primordium_lib::model::lifecycle::create_entity(20.0, 20.0, 0);
     e_loud.metabolism.energy = 500.0;
 
     // Run action system directly with specific outputs
@@ -68,14 +71,14 @@ fn test_metabolic_cost_of_signaling() {
     let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
 
     // quiet: [x, y, speed, aggro, share, signal, emitA, emitB]
-    let pressure = primordium_lib::model::state::pressure::PressureGrid::new(100, 100);
+    let pressure = primordium_lib::model::pressure::PressureGrid::new(100, 100);
     let mut ctx_q = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        spatial_hash: &primordium_lib::model::spatial_hash::SpatialHash::new(5.0, 100, 100),
         pressure: &pressure,
         width: 100,
         height: 100,
@@ -89,7 +92,7 @@ fn test_metabolic_cost_of_signaling() {
         terrain: &terrain,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        spatial_hash: &primordium_lib::model::spatial_hash::SpatialHash::new(5.0, 100, 100),
         pressure: &pressure,
         width: 100,
         height: 100,

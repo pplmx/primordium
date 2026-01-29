@@ -1,30 +1,25 @@
-use crate::model::quadtree::SpatialHash;
-use crate::model::state::entity::Entity;
-use crate::model::state::terrain::{OutpostSpecialization, TerrainGrid, TerrainType};
-use std::collections::{HashSet, VecDeque};
+use crate::model::spatial_hash::SpatialHash;
+use crate::model::terrain::{OutpostSpecialization, TerrainGrid, TerrainType};
+use primordium_data::Entity;
+use std::collections::VecDeque;
 use uuid::Uuid;
 
 /// Phase 62: Outpost Power Grid (Civ Level 2)
 /// Connected outposts (via canals/rivers) automatically balance and share energy stores.
 pub fn resolve_power_grid(terrain: &mut TerrainGrid, width: u16, height: u16) {
-    let mut visited = HashSet::new();
-    let outpost_indices: Vec<usize> = terrain
-        .cells
-        .iter()
-        .enumerate()
-        .filter(|(_, c)| matches!(c.terrain_type, TerrainType::Outpost))
-        .map(|(i, _)| i)
-        .collect();
+    let cell_count = terrain.cells.len();
+    let mut visited = vec![false; cell_count];
+    let outpost_indices = &terrain.outpost_indices;
 
-    for &start_idx in &outpost_indices {
-        if visited.contains(&start_idx) {
+    for &start_idx in outpost_indices {
+        if visited[start_idx] {
             continue;
         }
 
         let mut group = Vec::new();
         let mut queue = VecDeque::new();
         queue.push_back(start_idx);
-        visited.insert(start_idx);
+        visited[start_idx] = true;
 
         while let Some(current) = queue.pop_front() {
             group.push(current);
@@ -40,13 +35,13 @@ pub fn resolve_power_grid(terrain: &mut TerrainGrid, width: u16, height: u16) {
                     let ny = cy + dy;
                     if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
                         let nidx = (ny as usize * width as usize) + nx as usize;
-                        if !visited.contains(&nidx) {
+                        if !visited[nidx] {
                             let cell = &terrain.cells[nidx];
                             if matches!(
                                 cell.terrain_type,
                                 TerrainType::Outpost | TerrainType::River
                             ) {
-                                visited.insert(nidx);
+                                visited[nidx] = true;
                                 queue.push_back(nidx);
                             }
                         }
@@ -98,15 +93,9 @@ pub fn handle_outposts(
     silo_cap: f32,
     outpost_cap: f32,
 ) {
-    let outpost_indices: Vec<usize> = terrain
-        .cells
-        .iter()
-        .enumerate()
-        .filter(|(_, c)| matches!(c.terrain_type, TerrainType::Outpost))
-        .map(|(i, _)| i)
-        .collect();
+    let outpost_indices = &terrain.outpost_indices;
 
-    for idx in outpost_indices {
+    for &idx in outpost_indices {
         let (ox, oy) = ((idx % width as usize) as f64, (idx / width as usize) as f64);
         let owner_id = terrain.cells[idx].owner_id;
 

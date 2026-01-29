@@ -1,11 +1,12 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
+use primordium_lib::model::history;
+use primordium_lib::model::lifecycle;
 use primordium_lib::model::world::World;
 
 #[test]
 fn test_lineage_inheritance() {
     let config = AppConfig::default();
-    let mut parent = Entity::new(10.0, 10.0, 0);
+    let mut parent = lifecycle::create_entity(10.0, 10.0, 0);
     let original_lineage = parent.metabolism.lineage_id;
 
     // Asexual reproduction
@@ -35,20 +36,21 @@ fn test_lineage_population_stats() {
     let mut world = World::new(0, config).unwrap();
 
     // Create 3 entities from 2 different lineages
-    let e1 = Entity::new(10.0, 10.0, 0);
+    let e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     let l1 = e1.metabolism.lineage_id;
 
-    let mut e2 = Entity::new(20.0, 20.0, 0);
+    let mut e2 = primordium_lib::model::lifecycle::create_entity(20.0, 20.0, 0);
     e2.metabolism.lineage_id = l1; // Same lineage as e1
 
-    let e3 = Entity::new(30.0, 30.0, 0);
+    let e3 = primordium_lib::model::lifecycle::create_entity(30.0, 30.0, 0);
     let l2 = e3.metabolism.lineage_id;
     assert_ne!(l1, l2);
 
     world.entities.extend(vec![e1, e2, e3]);
 
     // Update stats
-    world.pop_stats.update_snapshot(
+    history::update_population_stats(
+        &mut world.pop_stats,
         &world.entities,
         world.food.len(),
         0.0,
@@ -63,7 +65,7 @@ fn test_lineage_population_stats() {
 
 #[test]
 fn test_multiverse_lineage_preservation() {
-    let entity = Entity::new(5.0, 5.0, 0);
+    let entity = primordium_lib::model::lifecycle::create_entity(5.0, 5.0, 0);
     let original_lineage = entity.metabolism.lineage_id;
 
     // Export to HexDNA (now unified Genotype)

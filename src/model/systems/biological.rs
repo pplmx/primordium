@@ -2,12 +2,9 @@
 
 use crate::model::config::AppConfig;
 use crate::model::history::{LiveEvent, PopulationStats};
-use crate::model::quadtree::SpatialHash;
-use crate::model::state::entity::Entity;
-use crate::model::state::pathogen::Pathogen;
+use crate::model::spatial_hash::SpatialHash;
 use crate::model::systems::social;
-use chrono::Utc;
-use primordium_data::Specialization;
+use primordium_data::{Entity, Pathogen, Specialization};
 use rand::Rng;
 use std::collections::HashSet;
 
@@ -101,9 +98,9 @@ pub fn process_infection(entity: &mut Entity) {
 }
 
 /// Handle potential pathogen emergence (random spawn).
-pub fn handle_pathogen_emergence(active_pathogens: &mut Vec<Pathogen>, rng: &mut impl Rng) {
-    if rng.gen_bool(0.0001) {
-        active_pathogens.push(Pathogen::new_random());
+pub fn handle_pathogen_emergence(active_pathogens: &mut Vec<Pathogen>, _rng: &mut impl Rng) {
+    if rand::thread_rng().gen_bool(0.0001) {
+        active_pathogens.push(crate::model::pathogen::create_random_pathogen());
     }
 }
 
@@ -143,13 +140,13 @@ pub fn handle_death(
     logger: &mut crate::model::history::HistoryLogger,
 ) {
     let age = tick - entities[idx].metabolism.birth_tick;
-    pop_stats.record_death(age);
+    crate::model::history::record_stat_death(pop_stats, age);
     let ev = LiveEvent::Death {
         id: entities[idx].id,
         age,
         offspring: entities[idx].metabolism.offspring_count,
         tick,
-        timestamp: Utc::now().to_rfc3339(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
         cause: cause.to_string(),
     };
     let _ = logger.log_event(ev.clone());
@@ -160,11 +157,10 @@ pub fn handle_death(
 mod tests {
     use super::*;
     use crate::model::history::{HistoryLogger, PopulationStats};
-    use crate::model::state::entity::Entity;
 
     #[test]
     fn test_biological_system_processes_infection() {
-        let mut entity = Entity::new(5.0, 5.0, 0);
+        let mut entity = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
         let config = AppConfig::default();
         let mut rng = rand::thread_rng();
         // Entity without infection should only have brain metabolic cost
@@ -182,10 +178,10 @@ mod tests {
 
     #[test]
     fn test_biological_system_with_infected_entity() {
-        let mut entity = Entity::new(5.0, 5.0, 0);
+        let mut entity = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
         let config = AppConfig::default();
         let mut rng = rand::thread_rng();
-        entity.health.pathogen = Some(Pathogen::new_random());
+        entity.health.pathogen = Some(crate::model::pathogen::create_random_pathogen());
         entity.health.infection_timer = 5;
 
         let initial_timer = entity.health.infection_timer;
@@ -207,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_biological_system_genetic_drift() {
-        let mut entity = Entity::new(5.0, 5.0, 0);
+        let mut entity = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
         let mut config = AppConfig::default();
         config.evolution.drift_rate = 1.0; // Force drift
         let mut rng = rand::thread_rng();
@@ -256,8 +252,8 @@ mod tests {
 
     #[test]
     fn test_handle_death_creates_event() {
-        let entities = vec![Entity::new(5.0, 5.0, 0)];
-        let mut pop_stats = PopulationStats::new();
+        let entities = vec![crate::model::lifecycle::create_entity(5.0, 5.0, 0)];
+        let mut pop_stats = PopulationStats::default();
         let mut events = Vec::new();
         let mut logger = HistoryLogger::new().unwrap();
 
@@ -277,8 +273,8 @@ mod tests {
 
     #[test]
     fn test_handle_death_records_cause() {
-        let entities = vec![Entity::new(5.0, 5.0, 0)];
-        let mut pop_stats = PopulationStats::new();
+        let entities = vec![crate::model::lifecycle::create_entity(5.0, 5.0, 0)];
+        let mut pop_stats = PopulationStats::default();
         let mut events = Vec::new();
         let mut logger = HistoryLogger::new().unwrap();
 
@@ -301,9 +297,9 @@ mod tests {
 
     #[test]
     fn test_handle_death_updates_stats() {
-        let mut entities = vec![Entity::new(5.0, 5.0, 0)];
+        let mut entities = vec![crate::model::lifecycle::create_entity(5.0, 5.0, 0)];
         entities[0].metabolism.birth_tick = 0;
-        let mut pop_stats = PopulationStats::new();
+        let mut pop_stats = PopulationStats::default();
         let mut events = Vec::new();
         let mut logger = HistoryLogger::new().unwrap();
 
@@ -326,12 +322,14 @@ mod tests {
 
     #[test]
     fn test_handle_infection_no_pathogen_no_spread() {
-        let mut entities = vec![Entity::new(5.0, 5.0, 0), Entity::new(5.5, 5.5, 0)];
+        let mut entities = vec![
+            crate::model::lifecycle::create_entity(5.0, 5.0, 0),
+            crate::model::lifecycle::create_entity(5.5, 5.5, 0),
+        ];
         let killed_ids = HashSet::new();
         let active_pathogens: Vec<Pathogen> = vec![];
         let mut spatial_hash = SpatialHash::new(5.0, 100, 100);
-        spatial_hash.insert(5.0, 5.0, 0);
-        spatial_hash.insert(5.5, 5.5, 1);
+        spatial_hash.build_parallel(&[(5.0, 5.0), (5.5, 5.5)], 100, 100);
         let mut rng = rand::thread_rng();
 
         // Without any pathogens, neither entity should get infected

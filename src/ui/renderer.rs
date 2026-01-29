@@ -4,9 +4,9 @@ use ratatui::style::Color;
 use ratatui::widgets::{Block, Borders, Widget};
 use std::collections::HashMap;
 
-use crate::model::state::entity::EntityStatus;
-use crate::model::state::snapshot::{EntitySnapshot, WorldSnapshot};
-use crate::model::state::terrain::TerrainType;
+use crate::model::snapshot::{EntitySnapshot, WorldSnapshot};
+use crate::model::terrain::{TerrainLogic, TerrainType};
+use primordium_data::EntityStatus;
 
 pub struct WorldWidget<'a> {
     snapshot: &'a WorldSnapshot,
@@ -28,6 +28,57 @@ impl<'a> WorldWidget<'a> {
             area
         } else {
             Block::default().borders(Borders::ALL).inner(area)
+        }
+    }
+
+    pub fn color_for_status(entity: &EntitySnapshot, status: EntityStatus) -> Color {
+        match status {
+            EntityStatus::Starving => Color::Rgb(150, 50, 50),
+            EntityStatus::Infected => Color::Rgb(154, 205, 50),
+            EntityStatus::Larva => Color::Rgb(180, 180, 180),
+            EntityStatus::Juvenile => Color::Rgb(200, 200, 255),
+            EntityStatus::Sharing => Color::Rgb(100, 200, 100),
+            EntityStatus::Mating => Color::Rgb(255, 105, 180),
+            EntityStatus::Hunting => Color::Rgb(255, 69, 0),
+            EntityStatus::Foraging => Color::Rgb(entity.r, entity.g, entity.b),
+            EntityStatus::Soldier => Color::Red,
+            EntityStatus::Bonded => Color::Rgb(255, 215, 0),
+            EntityStatus::InTransit => Color::Rgb(150, 150, 150),
+        }
+    }
+
+    pub fn symbol_for_status(status: EntityStatus) -> char {
+        match status {
+            EntityStatus::Starving => '†',
+            EntityStatus::Infected => '☣',
+            EntityStatus::Larva => '⋯',
+            EntityStatus::Juvenile => '◦',
+            EntityStatus::Sharing => '♣',
+            EntityStatus::Mating => '♥',
+            EntityStatus::Hunting => '♦',
+            EntityStatus::Foraging => '●',
+            EntityStatus::Soldier => '⚔',
+            EntityStatus::Bonded => '⚭',
+            EntityStatus::InTransit => '✈',
+        }
+    }
+
+    pub fn symbol_for_terrain(t: TerrainType) -> char {
+        t.symbol()
+    }
+
+    pub fn color_for_terrain(t: TerrainType) -> Color {
+        match t {
+            TerrainType::Plains => Color::Reset,
+            TerrainType::Mountain => Color::Rgb(100, 100, 100),
+            TerrainType::River => Color::Rgb(70, 130, 180),
+            TerrainType::Oasis => Color::Rgb(50, 205, 50),
+            TerrainType::Barren => Color::Rgb(139, 69, 19),
+            TerrainType::Wall => Color::Rgb(60, 60, 60),
+            TerrainType::Forest => Color::Rgb(34, 139, 34),
+            TerrainType::Desert => Color::Rgb(210, 180, 140),
+            TerrainType::Nest => Color::Rgb(255, 215, 0),
+            TerrainType::Outpost => Color::Rgb(255, 69, 0),
         }
     }
 
@@ -62,38 +113,6 @@ impl<'a> WorldWidget<'a> {
             Some(((screen_x - inner.x) as f64, (screen_y - inner.y) as f64))
         } else {
             None
-        }
-    }
-
-    fn symbol_for_status(status: EntityStatus) -> char {
-        match status {
-            EntityStatus::Starving => '†',
-            EntityStatus::Infected => '☣',
-            EntityStatus::Larva => '⋯',
-            EntityStatus::Juvenile => '◦',
-            EntityStatus::Sharing => '♣',
-            EntityStatus::Mating => '♥',
-            EntityStatus::Hunting => '♦',
-            EntityStatus::Foraging => '●',
-            EntityStatus::Soldier => '⚔',
-            EntityStatus::Bonded => '⚭',
-            EntityStatus::InTransit => '✈',
-        }
-    }
-
-    fn color_for_status(entity: &EntitySnapshot, status: EntityStatus) -> Color {
-        match status {
-            EntityStatus::Starving => Color::Rgb(150, 50, 50),
-            EntityStatus::Infected => Color::Rgb(154, 205, 50),
-            EntityStatus::Larva => Color::Rgb(180, 180, 180),
-            EntityStatus::Juvenile => Color::Rgb(200, 200, 255),
-            EntityStatus::Sharing => Color::Rgb(100, 200, 100),
-            EntityStatus::Mating => Color::Rgb(255, 105, 180),
-            EntityStatus::Hunting => Color::Rgb(255, 69, 0),
-            EntityStatus::Foraging => Color::Rgb(entity.r, entity.g, entity.b),
-            EntityStatus::Soldier => Color::Red,
-            EntityStatus::Bonded => Color::Rgb(255, 215, 0),
-            EntityStatus::InTransit => Color::Rgb(150, 150, 150),
         }
     }
 }
@@ -196,8 +215,12 @@ impl<'a> Widget for WorldWidget<'a> {
                         }
                     }
                     if terrain.terrain_type != TerrainType::Plains {
-                        cell.set_symbol(terrain.terrain_type.symbol().to_string().as_str());
-                        cell.set_fg(terrain.terrain_type.color());
+                        cell.set_symbol(
+                            Self::symbol_for_terrain(terrain.terrain_type)
+                                .to_string()
+                                .as_str(),
+                        );
+                        cell.set_fg(Self::color_for_terrain(terrain.terrain_type));
                     }
                 }
             }

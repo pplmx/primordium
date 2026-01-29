@@ -1,5 +1,5 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
+use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -11,12 +11,12 @@ fn test_kin_recognition_influences_movement() {
     let mut env = Environment::default();
 
     // 1. Target Entity
-    let mut e_target = Entity::new(10.0, 10.0, 0);
+    let mut e_target = lifecycle::create_entity(10.0, 10.0, 0);
     let l_id = e_target.metabolism.lineage_id;
     e_target.metabolism.energy = 500.0;
 
     // 2. Nearby Kin
-    let mut e_kin = Entity::new(12.0, 10.0, 0);
+    let mut e_kin = lifecycle::create_entity(12.0, 10.0, 0);
     e_kin.metabolism.lineage_id = l_id;
 
     world.entities.push(e_target);
@@ -39,14 +39,14 @@ fn test_herding_bonus() {
     let mut env = Environment::default();
 
     // 1. Target Entity (Moving Right)
-    let mut e = Entity::new(10.0, 10.0, 0);
+    let mut e = lifecycle::create_entity(10.0, 10.0, 0);
     e.physics.vx = 1.0;
     e.physics.vy = 0.0;
     let l_id = e.metabolism.lineage_id;
     e.metabolism.energy = 100.0;
 
     // 2. Kin (To the right, also moving right)
-    let mut kin = Entity::new(11.0, 10.0, 0);
+    let mut kin = lifecycle::create_entity(11.0, 10.0, 0);
     kin.metabolism.lineage_id = l_id;
 
     world.entities.push(e);

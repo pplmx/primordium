@@ -1,5 +1,4 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 use std::fs;
@@ -9,7 +8,7 @@ fn test_lineage_registry_persistence() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
 
-    let e = Entity::new(10.0, 10.0, 0);
+    let e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     let l_id = e.metabolism.lineage_id;
 
     // 1. Record birth and consumption
@@ -45,7 +44,7 @@ fn test_world_update_tracks_lineage_metrics() {
     let mut world = World::new(0, config).unwrap();
     let mut env = Environment::default();
 
-    let mut e = Entity::new(10.0, 10.0, 0);
+    let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     let l_id = e.metabolism.lineage_id;
     e.metabolism.energy = 50.0;
     world.entities.push(e);

@@ -1,9 +1,9 @@
 //! Action system - handles movement, energy costs, and pheromone deposits.
 
 use crate::model::config::AppConfig;
-use crate::model::state::entity::Entity;
-use crate::model::state::environment::Environment;
-use crate::model::state::terrain::TerrainGrid;
+use crate::model::environment::Environment;
+use crate::model::terrain::TerrainGrid;
+use primordium_data::Entity;
 
 /// Context for action operations, reducing parameter count.
 pub struct ActionContext<'a> {
@@ -12,16 +12,16 @@ pub struct ActionContext<'a> {
     pub terrain: &'a TerrainGrid,
     pub snapshots: &'a [crate::model::world::InternalEntitySnapshot],
     pub entity_id_map: &'a std::collections::HashMap<uuid::Uuid, usize>,
-    pub spatial_hash: &'a crate::model::quadtree::SpatialHash,
-    pub pressure: &'a crate::model::state::pressure::PressureGrid,
+    pub spatial_hash: &'a crate::model::spatial_hash::SpatialHash,
+    pub pressure: &'a crate::model::pressure::PressureGrid,
     pub width: u16,
     pub height: u16,
 }
 
 pub struct ActionResult {
-    pub pheromones: Vec<crate::model::state::pheromone::PheromoneDeposit>,
-    pub sounds: Vec<crate::model::state::sound::SoundDeposit>,
-    pub pressure: Vec<crate::model::state::pressure::PressureDeposit>,
+    pub pheromones: Vec<crate::model::pheromone::PheromoneDeposit>,
+    pub sounds: Vec<crate::model::sound::SoundDeposit>,
+    pub pressure: Vec<crate::model::pressure::PressureDeposit>,
     pub oxygen_drain: f64,
     pub overmind_broadcast: Option<(uuid::Uuid, f32)>,
 }
@@ -91,10 +91,7 @@ pub fn action_system(
         .terrain
         .get(entity.physics.x, entity.physics.y)
         .terrain_type;
-    if matches!(
-        terrain_type,
-        crate::model::state::terrain::TerrainType::Nest
-    ) {
+    if matches!(terrain_type, crate::model::terrain::TerrainType::Nest) {
         base_idle *= 1.0 - ctx.config.ecosystem.corpse_fertility_mult as f64; // Using as proxy for nest bonus
     }
 
@@ -174,25 +171,25 @@ pub fn action_system(
 
     let mut pheromones = Vec::new();
     if outputs[6] > 0.5 {
-        pheromones.push(crate::model::state::pheromone::PheromoneDeposit {
+        pheromones.push(crate::model::pheromone::PheromoneDeposit {
             x: entity.physics.x,
             y: entity.physics.y,
-            ptype: crate::model::state::pheromone::PheromoneType::SignalA,
+            ptype: crate::model::pheromone::PheromoneType::SignalA,
             amount: 0.5,
         });
     }
     if outputs[7] > 0.5 {
-        pheromones.push(crate::model::state::pheromone::PheromoneDeposit {
+        pheromones.push(crate::model::pheromone::PheromoneDeposit {
             x: entity.physics.x,
             y: entity.physics.y,
-            ptype: crate::model::state::pheromone::PheromoneType::SignalB,
+            ptype: crate::model::pheromone::PheromoneType::SignalB,
             amount: 0.5,
         });
     }
 
     let mut sounds = Vec::new();
     if entity.intel.last_vocalization > 0.1 {
-        sounds.push(crate::model::state::sound::SoundDeposit {
+        sounds.push(crate::model::sound::SoundDeposit {
             x: entity.physics.x,
             y: entity.physics.y,
             amount: entity.intel.last_vocalization,
@@ -201,18 +198,18 @@ pub fn action_system(
 
     let mut pressure = Vec::new();
     if outputs[9] > 0.5 {
-        pressure.push(crate::model::state::pressure::PressureDeposit {
+        pressure.push(crate::model::pressure::PressureDeposit {
             x: entity.physics.x,
             y: entity.physics.y,
-            ptype: crate::model::state::pressure::PressureType::DigDemand,
+            ptype: crate::model::pressure::PressureType::DigDemand,
             amount: outputs[9],
         });
     }
     if outputs[10] > 0.5 {
-        pressure.push(crate::model::state::pressure::PressureDeposit {
+        pressure.push(crate::model::pressure::PressureDeposit {
             x: entity.physics.x,
             y: entity.physics.y,
-            ptype: crate::model::state::pressure::PressureType::BuildDemand,
+            ptype: crate::model::pressure::PressureType::BuildDemand,
             amount: outputs[10],
         });
     }
@@ -222,21 +219,21 @@ pub fn action_system(
         let is_near_river = ctx.terrain.has_neighbor_type(
             entity.physics.x as u16,
             entity.physics.y as u16,
-            crate::model::state::terrain::TerrainType::River,
+            crate::model::terrain::TerrainType::River,
         );
         let cell = ctx.terrain.get(entity.physics.x, entity.physics.y);
         if is_near_river
             && matches!(
                 cell.terrain_type,
-                crate::model::state::terrain::TerrainType::Plains
-                    | crate::model::state::terrain::TerrainType::Desert
+                crate::model::terrain::TerrainType::Plains
+                    | crate::model::terrain::TerrainType::Desert
             )
         {
             // Engineers near rivers deposit Dig demand to extend canals
-            pressure.push(crate::model::state::pressure::PressureDeposit {
+            pressure.push(crate::model::pressure::PressureDeposit {
                 x: entity.physics.x,
                 y: entity.physics.y,
-                ptype: crate::model::state::pressure::PressureType::DigDemand,
+                ptype: crate::model::pressure::PressureType::DigDemand,
                 amount: 0.8,
             });
         }
@@ -270,7 +267,7 @@ pub fn handle_movement(
     let next_y = entity.physics.y + entity.physics.vy * effective_speed;
 
     let cell_type = terrain.get_cell(next_x as u16, next_y as u16).terrain_type;
-    if matches!(cell_type, crate::model::state::terrain::TerrainType::Wall) {
+    if matches!(cell_type, crate::model::terrain::TerrainType::Wall) {
         entity.physics.vx *= -1.0;
         entity.physics.vy *= -1.0;
     } else {
@@ -323,24 +320,24 @@ pub fn handle_game_modes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::state::environment::Environment;
+    use crate::model::environment::Environment;
     #[test]
     fn test_action_system_energy_consumption() {
-        let mut entity = Entity::new(5.0, 5.0, 0);
+        let mut entity = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
         entity.metabolism.energy = 100.0;
         let initial_energy = entity.metabolism.energy;
         let outputs = [0.0; 12];
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
-        let pressure_grid = crate::model::state::pressure::PressureGrid::new(20, 20);
+        let pressure_grid = crate::model::pressure::PressureGrid::new(20, 20);
         let mut ctx = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
             snapshots: &[],
             entity_id_map: &std::collections::HashMap::new(),
-            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0, 20, 20),
+            spatial_hash: &crate::model::spatial_hash::SpatialHash::new(5.0, 20, 20),
             pressure: &pressure_grid,
             width: 20,
             height: 20,
@@ -350,8 +347,8 @@ mod tests {
     }
     #[test]
     fn test_action_system_predation_mode_higher_cost() {
-        let mut entity_normal = Entity::new(5.0, 5.0, 0);
-        let mut entity_predator = Entity::new(5.0, 5.0, 0);
+        let mut entity_normal = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
+        let mut entity_predator = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
         entity_normal.metabolism.energy = 100.0;
         entity_predator.metabolism.energy = 100.0;
         let normal_outputs = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
@@ -359,14 +356,14 @@ mod tests {
         let env = Environment::default();
         let config = AppConfig::default();
         let terrain = TerrainGrid::generate(20, 20, 42);
-        let pressure_grid = crate::model::state::pressure::PressureGrid::new(20, 20);
+        let pressure_grid = crate::model::pressure::PressureGrid::new(20, 20);
         let mut ctx_n = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
             snapshots: &[],
             entity_id_map: &std::collections::HashMap::new(),
-            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0, 20, 20),
+            spatial_hash: &crate::model::spatial_hash::SpatialHash::new(5.0, 20, 20),
             pressure: &pressure_grid,
             width: 20,
             height: 20,
@@ -378,7 +375,7 @@ mod tests {
             terrain: &terrain,
             snapshots: &[],
             entity_id_map: &std::collections::HashMap::new(),
-            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0, 20, 20),
+            spatial_hash: &crate::model::spatial_hash::SpatialHash::new(5.0, 20, 20),
             pressure: &pressure_grid,
             width: 20,
             height: 20,
@@ -388,22 +385,22 @@ mod tests {
     }
     #[test]
     fn test_action_system_velocity_update() {
-        let mut entity = Entity::new(5.0, 5.0, 0);
+        let mut entity = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
         entity.physics.vx = 0.0;
         entity.physics.vy = 0.0;
         let outputs = [1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
         let env = Environment::default();
         let config = AppConfig::default();
         let mut terrain = TerrainGrid::generate(20, 20, 42);
-        terrain.set_cell_type(5, 5, crate::model::state::terrain::TerrainType::Plains);
-        let pressure_grid = crate::model::state::pressure::PressureGrid::new(20, 20);
+        terrain.set_cell_type(5, 5, crate::model::terrain::TerrainType::Plains);
+        let pressure_grid = crate::model::pressure::PressureGrid::new(20, 20);
         let mut ctx = ActionContext {
             env: &env,
             config: &config,
             terrain: &terrain,
             snapshots: &[],
             entity_id_map: &std::collections::HashMap::new(),
-            spatial_hash: &crate::model::quadtree::SpatialHash::new(5.0, 20, 20),
+            spatial_hash: &crate::model::spatial_hash::SpatialHash::new(5.0, 20, 20),
             pressure: &pressure_grid,
             width: 20,
             height: 20,

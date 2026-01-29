@@ -1,5 +1,6 @@
+use primordium_lib::model::brain::Connection;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
+use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
@@ -12,7 +13,7 @@ fn test_larval_gating_logic() {
     let mut env = Environment::default();
 
     // 1. Create a larva
-    let mut larva = Entity::new(5.0, 5.0, 0);
+    let mut larva = lifecycle::create_entity(5.0, 5.0, 0);
     larva.metabolism.has_metamorphosed = false;
 
     // Force brain outputs: Dig (index 9), Build (index 10), Bond (index 8) to 1.0
@@ -29,30 +30,20 @@ fn test_larval_gating_logic() {
     // To ensure outputs are high, we'll manually modify the connections in the brain.
     // Connect all inputs to Dig/Build outputs with high weights.
     for i in 0..26 {
-        larva
-            .intel
-            .genotype
-            .brain
-            .connections
-            .push(primordium_lib::model::brain::Connection {
-                from: i,
-                to: 35,
-                weight: 1.0,
-                enabled: true,
-                innovation: 10000 + i,
-            });
-        larva
-            .intel
-            .genotype
-            .brain
-            .connections
-            .push(primordium_lib::model::brain::Connection {
-                from: i,
-                to: 36,
-                weight: 1.0,
-                enabled: true,
-                innovation: 11000 + i,
-            });
+        larva.intel.genotype.brain.connections.push(Connection {
+            from: i,
+            to: 35,
+            weight: 1.0,
+            enabled: true,
+            innovation: 10000 + i,
+        });
+        larva.intel.genotype.brain.connections.push(Connection {
+            from: i,
+            to: 36,
+            weight: 1.0,
+            enabled: true,
+            innovation: 11000 + i,
+        });
     }
 
     world.entities.push(larva);
@@ -73,7 +64,7 @@ fn test_metamorphosis_transition_and_remodeling() {
     let mut env = Environment::default();
 
     // 1. Create a larva close to maturity
-    let mut larva = Entity::new(5.0, 5.0, 0);
+    let mut larva = lifecycle::create_entity(5.0, 5.0, 0);
     larva.metabolism.has_metamorphosed = false;
     larva.metabolism.birth_tick = 0;
     larva.intel.genotype.maturity_gene = 1.0;

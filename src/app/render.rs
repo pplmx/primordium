@@ -1,5 +1,5 @@
 use crate::app::state::App;
-use crate::model::state::environment::Era;
+use crate::model::environment::Era;
 use crate::ui::renderer::WorldWidget;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
@@ -250,7 +250,7 @@ impl App {
         &self,
         f: &mut Frame,
         area: ratatui::layout::Rect,
-        snapshot: &crate::model::state::snapshot::WorldSnapshot,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
     ) {
         let tree_block = Block::default()
             .title(" 🌳 Tree of Life (Top Lineages) ")
@@ -301,7 +301,7 @@ impl App {
         &self,
         f: &mut Frame,
         area: ratatui::layout::Rect,
-        _snapshot: &crate::model::state::snapshot::WorldSnapshot,
+        _snapshot: &crate::model::snapshot::WorldSnapshot,
     ) {
         let arch_block = Block::default()
             .title(" 🏛️ Archeology ")
@@ -363,7 +363,7 @@ impl App {
         &self,
         f: &mut Frame,
         area: ratatui::layout::Rect,
-        snapshot: &crate::model::state::snapshot::WorldSnapshot,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
     ) -> u16 {
         let sidebar_layout = Layout::default()
             .direction(Direction::Vertical)
@@ -466,7 +466,7 @@ impl App {
         &self,
         f: &mut Frame,
         area: ratatui::layout::Rect,
-        snapshot: &crate::model::state::snapshot::WorldSnapshot,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
     ) {
         let research_block = Block::default()
             .title(" 🔬 Neural Research (Plasticity) ")
@@ -490,7 +490,11 @@ impl App {
                 ];
 
                 let mut deltas: Vec<_> = entity.weight_deltas.iter().collect();
-                deltas.sort_by(|a, b| b.1.abs().partial_cmp(&a.1.abs()).unwrap());
+                deltas.sort_by(|a, b| {
+                    b.1.abs()
+                        .partial_cmp(&a.1.abs())
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
 
                 for (innovation, delta) in deltas.iter().take(20) {
                     let d_abs = delta.abs();
@@ -546,7 +550,7 @@ impl App {
         &self,
         f: &mut Frame,
         area: ratatui::layout::Rect,
-        _snapshot: &crate::model::state::snapshot::WorldSnapshot,
+        _snapshot: &crate::model::snapshot::WorldSnapshot,
     ) {
         let civ_block = Block::default()
             .title(" 🏛️ Civilization Dashboard ")

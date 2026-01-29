@@ -1,6 +1,5 @@
-use primordium_lib::app::state::GeneType;
+use primordium_data::GeneType;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::world::World;
 
 #[test]
@@ -9,7 +8,7 @@ fn test_genetic_edit_application() {
     config.world.initial_population = 0;
     let mut world = World::new(0, config).unwrap();
 
-    let mut entity = Entity::new(10.0, 10.0, 0);
+    let mut entity = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     let id = entity.id;
     entity.intel.genotype.sensing_range = 10.0;
     entity.intel.genotype.max_speed = 1.0;

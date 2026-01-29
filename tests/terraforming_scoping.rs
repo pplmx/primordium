@@ -1,5 +1,4 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::pheromone::PheromoneGrid;
 use primordium_lib::model::state::terrain::{TerrainGrid, TerrainType};
@@ -15,7 +14,7 @@ fn test_terraforming_architecture_verification() {
     let _pheromones = PheromoneGrid::new(20, 20);
 
     // Set up a test entity
-    let _e = Entity::new(5.0, 5.0, 0);
+    let _e = primordium_lib::model::lifecycle::create_entity(5.0, 5.0, 0);
 
     // Check initial terrain
     let x = 5;

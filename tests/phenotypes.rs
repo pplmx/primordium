@@ -1,11 +1,10 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
 #[test]
 fn test_phenotype_inheritance_and_mutation() {
-    let mut p1 = Entity::new(10.0, 10.0, 0);
+    let mut p1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     p1.physics.sensing_range = 10.0;
     p1.physics.max_speed = 2.0;
     p1.metabolism.max_energy = 400.0;
@@ -47,13 +46,13 @@ fn test_sensing_range_affects_perception() {
     world.food.push(Food::new(22, 10, 0.0)); // Entity at (10, 10)
 
     // Entity A: Short range (5.0) - should NOT see food
-    let mut e_short = Entity::new(10.0, 10.0, 0);
+    let mut e_short = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e_short.physics.sensing_range = 5.0;
     e_short.intel.genotype.sensing_range = 5.0;
     e_short.metabolism.energy = 1000.0; // Prevent death
 
     // Entity B: Long range (15.0) - should SEE food
-    let mut e_long = Entity::new(30.0, 30.0, 0); // Move away to prevent collision/sharing
+    let mut e_long = primordium_lib::model::lifecycle::create_entity(30.0, 30.0, 0); // Move away to prevent collision/sharing
     e_long.physics.sensing_range = 15.0;
     e_long.intel.genotype.sensing_range = 15.0;
     e_long.metabolism.energy = 1000.0;
@@ -72,7 +71,7 @@ fn test_sensing_range_affects_perception() {
 
 #[test]
 fn test_hex_dna_contains_phenotype() {
-    let mut e = Entity::new(10.0, 10.0, 0);
+    let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e.intel.genotype.sensing_range = 12.34;
     e.intel.genotype.max_speed = 2.5;
 

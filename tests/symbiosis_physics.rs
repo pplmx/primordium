@@ -1,5 +1,4 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainGrid;
 use primordium_lib::model::systems::action::{action_system, ActionContext};
@@ -7,8 +6,8 @@ use primordium_lib::model::world::InternalEntitySnapshot;
 
 #[test]
 fn test_symbiosis_spring_force() {
-    let mut e1 = Entity::new(10.0, 10.0, 0);
-    let e2 = Entity::new(15.0, 10.0, 0); // 5.0 units away (Rest length is 2.0)
+    let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let e2 = primordium_lib::model::lifecycle::create_entity(15.0, 10.0, 0); // 5.0 units away (Rest length is 2.0)
 
     e1.intel.bonded_to = Some(e2.id);
 
@@ -50,8 +49,8 @@ fn test_symbiosis_spring_force() {
         terrain: &terrain,
         snapshots: &[snapshot],
         entity_id_map: &id_map,
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
-        pressure: &primordium_lib::model::state::pressure::PressureGrid::new(100, 100),
+        spatial_hash: &primordium_lib::model::spatial_hash::SpatialHash::new(5.0, 100, 100),
+        pressure: &primordium_lib::model::pressure::PressureGrid::new(100, 100),
         width: 100,
         height: 100,
     };

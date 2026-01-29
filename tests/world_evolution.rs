@@ -1,14 +1,15 @@
+use primordium_lib::model::config::AppConfig;
+use primordium_lib::model::environment::{Environment, Era};
 use primordium_lib::model::history::PopulationStats;
-use primordium_lib::model::state::environment::{Environment, Era};
 use primordium_lib::model::systems::environment as environment_system;
 
 #[test]
 fn test_era_transition_sequence() {
     let mut env = Environment::default();
-    let mut stats = PopulationStats::new();
+    let mut stats = PopulationStats::default();
 
     // 1. Initial State
-    let config = primordium_lib::model::config::AppConfig::default();
+    let config = AppConfig::default();
     assert_eq!(env.current_era, Era::Primordial);
     let primordial_mult = env.metabolism_multiplier();
 

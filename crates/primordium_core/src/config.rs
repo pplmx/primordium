@@ -65,6 +65,7 @@ pub struct BrainConfig {
     pub learning_reinforcement: f32,
     pub coupling_spring_constant: f64,
     pub alpha_following_force: f64,
+    pub pruning_threshold: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -176,6 +177,7 @@ impl Default for AppConfig {
                 learning_reinforcement: 10.0,
                 coupling_spring_constant: 0.05,
                 alpha_following_force: 0.02,
+                pruning_threshold: 0.01,
             },
             social: SocialConfig {
                 rank_weights: [0.3, 0.3, 0.1, 0.3],

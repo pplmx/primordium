@@ -1,4 +1,4 @@
-use crate::model::state::entity::Genotype;
+use primordium_data::Genotype;
 use primordium_data::{AncestralTrait, LineageGoal};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -24,10 +24,7 @@ pub struct LineageRecord {
     pub completed_goals: std::collections::HashSet<LineageGoal>,
     pub ancestral_traits: std::collections::HashSet<AncestralTrait>,
     pub civilization_level: u32,
-    #[serde(
-        skip,
-        default = "crate::model::state::lineage_registry::create_shared_memory"
-    )]
+    #[serde(skip, default = "crate::lineage_registry::create_shared_memory")]
     pub collective_memory: std::sync::Arc<std::sync::RwLock<HashMap<String, f32>>>,
 }
 

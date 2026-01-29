@@ -1,14 +1,16 @@
+use crate::model::brain::BrainLogic;
 use crate::model::config::AppConfig;
+use crate::model::environment::Environment;
+use crate::model::food::Food;
 use crate::model::history::{FossilRegistry, HistoryLogger, LiveEvent, PopulationStats};
-use crate::model::state::entity::{Entity, EntityStatus};
-use crate::model::state::environment::Environment;
-use crate::model::state::food::Food;
-use crate::model::state::interaction::InteractionCommand;
-use crate::model::state::lineage_registry::LineageRegistry;
-use crate::model::state::terrain::{TerrainGrid, TerrainType};
+use crate::model::interaction::InteractionCommand;
+use crate::model::lifecycle;
+use crate::model::lineage_registry::LineageRegistry;
 use crate::model::systems::{biological, social};
+use crate::model::terrain::{TerrainGrid, TerrainType};
 use chrono::Utc;
 use primordium_data::Specialization;
+use primordium_data::{Entity, EntityStatus};
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -67,7 +69,8 @@ pub fn process_interaction_commands<R: Rng>(
                         .consume_oxygen(ctx.config.ecosystem.oxygen_consumption_unit);
 
                     // Phase 49: Soldier damage bonus
-                    let attacker_status = attacker.status(
+                    let attacker_status = lifecycle::get_entity_status(
+                        attacker,
                         ctx.config.brain.activation_threshold,
                         ctx.tick,
                         ctx.config.metabolism.maturity_age,
@@ -90,8 +93,10 @@ pub fn process_interaction_commands<R: Rng>(
                         * multiplier;
 
                     killed_ids.insert(tid);
-                    ctx.pop_stats
-                        .record_death(ctx.tick - target.metabolism.birth_tick);
+                    crate::model::history::record_stat_death(
+                        ctx.pop_stats,
+                        ctx.tick - target.metabolism.birth_tick,
+                    );
 
                     let ev = LiveEvent::Death {
                         id: tid,
@@ -131,18 +136,18 @@ pub fn process_interaction_commands<R: Rng>(
                 mut baby,
                 genetic_distance,
             } => {
-                ctx.pop_stats.record_birth_distance(genetic_distance);
                 ctx.lineage_registry.record_birth(
                     baby.metabolism.lineage_id,
                     baby.metabolism.generation,
                     ctx.tick,
                 );
+                crate::model::history::record_stat_birth_distance(ctx.pop_stats, genetic_distance);
                 let ev = LiveEvent::Birth {
                     id: baby.id,
                     parent_id: baby.parent_id,
                     gen: baby.metabolism.generation,
                     tick: ctx.tick,
-                    timestamp: Utc::now().to_rfc3339(),
+                    timestamp: chrono::Utc::now().to_rfc3339(),
                 };
                 let _ = ctx.logger.log_event(ev.clone());
                 events.push(ev);
@@ -365,7 +370,7 @@ pub fn process_interaction_commands<R: Rng>(
                     id: e.id,
                     lineage_id: e.metabolism.lineage_id,
                     tick: ctx.tick,
-                    timestamp: Utc::now().to_rfc3339(),
+                    timestamp: chrono::Utc::now().to_rfc3339(),
                 };
                 let _ = ctx.logger.log_event(ev.clone());
                 events.push(ev);

@@ -1,6 +1,7 @@
-use primordium_lib::model::config::AppConfig;
+use primordium_data::Pathogen;
+use primordium_lib::model::config::{AppConfig, GameMode};
+use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::state::pathogen::Pathogen;
 use primordium_lib::model::world::World;
 
 #[test]
@@ -9,12 +10,12 @@ fn test_pathogen_transmission() {
     let _ = std::fs::remove_dir_all(log_dir);
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
-    config.game_mode = primordium_lib::model::config::GameMode::Cooperative; // Disable predation
+    config.game_mode = GameMode::Cooperative; // Disable predation
     let mut world = World::new_at(0, config, log_dir).expect("Failed to create world");
     let mut env = Environment::default();
 
     // 1. Setup Infected Patient Zero
-    let mut patient_zero = primordium_lib::model::state::entity::Entity::new(10.0, 10.0, 0);
+    let mut patient_zero = lifecycle::create_entity(10.0, 10.0, 0);
     patient_zero.physics.vx = 0.0;
     patient_zero.physics.vy = 0.0;
     let pathogen = Pathogen {
@@ -30,7 +31,7 @@ fn test_pathogen_transmission() {
     world.entities.push(patient_zero);
 
     // 2. Setup Victim nearby (same position to be sure)
-    let mut victim = primordium_lib::model::state::entity::Entity::new(10.0, 10.0, 0);
+    let mut victim = lifecycle::create_entity(10.0, 10.0, 0);
     victim.physics.vx = 0.0;
     victim.physics.vy = 0.0;
     victim.health.immunity = 0.0; // Ensure no immunity for deterministic test
@@ -57,7 +58,7 @@ fn test_pathogen_transmission() {
 
 #[test]
 fn test_immunity_gain() {
-    let mut entity = primordium_lib::model::state::entity::Entity::new(0.0, 0.0, 0);
+    let mut entity = lifecycle::create_entity(0.0, 0.0, 0);
     let initial_immunity = entity.health.immunity;
 
     let pathogen = Pathogen {

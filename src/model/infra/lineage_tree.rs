@@ -1,6 +1,6 @@
 use crate::model::history::Legend;
-use crate::model::state::entity::Entity;
 use petgraph::graph::{DiGraph, NodeIndex};
+use primordium_data::Entity;
 use std::collections::HashMap;
 use uuid::Uuid;
 

@@ -1,5 +1,4 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -11,7 +10,7 @@ fn test_semantic_pheromone_roundtrip() {
     let env = Environment::default();
 
     // 1. Entity A: Emits Signal A
-    let mut e_emitter = Entity::new(10.0, 10.0, 0);
+    let mut e_emitter = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     // [movX, movY, speed, aggro, share, color, emitA, emitB, bond, dig, build, overmind]
     let outputs = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
@@ -22,7 +21,7 @@ fn test_semantic_pheromone_roundtrip() {
         terrain: &world.terrain,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &primordium_lib::model::quadtree::SpatialHash::new(5.0, 100, 100),
+        spatial_hash: &primordium_lib::model::spatial_hash::SpatialHash::new(5.0, 100, 100),
         pressure: &world.pressure,
         width: 100,
         height: 100,

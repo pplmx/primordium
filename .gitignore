@@ -12,6 +12,7 @@
 # Simulation logs and legendary archives
 logs/
 logs_test_*/
+.sisyphus
 .primordium_onboarded
 
 # Local configuration overrides

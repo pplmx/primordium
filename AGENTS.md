@@ -31,7 +31,7 @@ src/
 │   ├── systems/         # 系统层 (intel, action, biological, social, ecological, environment, stats)
 │   ├── infra/           # 基础设施 (blockchain, network, lineage_tree)
 │   ├── brain.rs         # 神经网络 (29-6-12 NEAT-lite, 47 nodes)
-│   ├── quadtree.rs      # 空间索引 (实为 SpatialHash)
+│   ├── spatial_hash.rs      # 空间索引 (实为 SpatialHash)
 │   ├── world.rs         # 协调器
 │   ├── config.rs        # 配置
 │   ├── history.rs       # 事件日志
@@ -250,7 +250,7 @@ let x = X { field: val, ..X::default() };
 
 ### 文件命名注意
 
-- `quadtree.rs` 实际实现的是 **SpatialHash**,不是四叉树
+- `spatial_hash.rs` 实际实现的是 **SpatialHash**,不是四叉树
 
 ### WASM 条件编译
 

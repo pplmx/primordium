@@ -1,5 +1,5 @@
 use crate::model::history::{HallOfFame, PopulationStats};
-use crate::model::state::entity::Entity;
+use primordium_data::Entity;
 
 /// Update population statistics and Hall of Fame.
 #[allow(clippy::too_many_arguments)]
@@ -11,16 +11,17 @@ pub fn update_stats(
     mutation_scale: f32,
     pop_stats: &mut PopulationStats,
     hall_of_fame: &mut HallOfFame,
-    terrain: &crate::model::state::terrain::TerrainGrid,
+    terrain: &crate::model::terrain::TerrainGrid,
 ) {
     if tick.is_multiple_of(60) {
-        hall_of_fame.update(entities, tick);
+        crate::model::history::update_hall_of_fame(hall_of_fame, entities, tick);
         let top_fitness = hall_of_fame
             .top_living
             .first()
             .map(|(s, _)| *s)
             .unwrap_or(0.0);
-        pop_stats.update_snapshot(
+        crate::model::history::update_population_stats(
+            pop_stats,
             entities,
             food_count,
             top_fitness,

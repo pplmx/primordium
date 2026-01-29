@@ -1,5 +1,5 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
+use primordium_lib::model::lifecycle;
 
 #[test]
 fn test_r_strategy_fast_reproduction() {
@@ -7,7 +7,7 @@ fn test_r_strategy_fast_reproduction() {
     config.metabolism.maturity_age = 100;
 
     // 1. R-Strategist (Fast maturity, low investment)
-    let mut r_parent = Entity::new(10.0, 10.0, 0);
+    let mut r_parent = lifecycle::create_entity(10.0, 10.0, 0);
     r_parent.intel.genotype.maturity_gene = 0.5; // Matures at tick 50
     r_parent.intel.genotype.reproductive_investment = 0.2; // Gives 20% energy
     r_parent.metabolism.energy = 200.0;
@@ -36,7 +36,7 @@ fn test_k_strategy_slow_reproduction() {
     config.metabolism.maturity_age = 100;
 
     // 1. K-Strategist (Slow maturity, high investment)
-    let mut k_parent = Entity::new(10.0, 10.0, 0);
+    let mut k_parent = lifecycle::create_entity(10.0, 10.0, 0);
     k_parent.intel.genotype.maturity_gene = 2.0; // Matures at tick 200
     k_parent.intel.genotype.reproductive_investment = 0.8; // Gives 80% energy
     k_parent.metabolism.energy = 400.0;
@@ -65,7 +65,8 @@ fn test_k_strategy_slow_reproduction() {
 #[test]
 fn test_maturity_body_size_coupling() {
     let config = AppConfig::default();
-    let mut genotype = primordium_lib::model::state::entity::Genotype::new_random();
+    let mut genotype =
+        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng());
 
     // Strategy R
     genotype.maturity_gene = 0.5;

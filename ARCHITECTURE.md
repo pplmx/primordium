@@ -46,8 +46,8 @@
 
 这些模块位于 `src/model/` 根目录，作为支撑整个模拟运行的“物理常数”和“核心基座”：
 
-* **`brain.rs` (Intel/Will)**: 模拟实体的神经网络模型及推理引擎。采用基于图结构的 NEAT-lite 架构，支持拓扑演化与时间连贯性。
-* **`quadtree.rs` (Spatial Index)**: 高性能空间索引（Spatial Hash）。采用行分区（Row-partitioned）并行优化，为碰撞检测和感知提供物理加速。
+* **`brain.rs` (Intel/Will)**: 模拟实体的神经网络模型及推理引擎。采用基于图结构的 NEAT-lite 架构，支持拓扑演化、时间连贯性及神经网络剪枝（Neural Pruning）。
+* **`spatial_hash.rs` (Spatial Index)**: 高性能空间索引（Spatial Hash）。采用行平行化（Row-parallelized）并行优化，为碰撞检测和感知提供物理加速。
 * **`world.rs` (Coordinator)**: 整个模拟宇宙的“总线”。采用三阶段并行更新环（Snapshot -> Parallel Proposals -> Sequential Apply），通过 Rayon 实现大规模并行化。
 * **`config.rs` (Constants)**: 模拟宇宙的物理规则参数。
 * **`history.rs` (Archive)**: 模拟时空的观测记录，支持周期性状态快照与考古学回溯（Fossil Record）。
@@ -99,7 +99,7 @@ src/
 │   ├── systems/     # 【动力系统】action, social, climate, stats...
 │   ├── infra/       # 【通信/存证】blockchain, network...
 │   ├── brain.rs     # 【核心：智能】
-│   ├── quadtree.rs  # 【核心：空间】
+│   ├── spatial_hash.rs  # 【核心：空间】
 │   ├── migration.rs # 【核心：入口】
 │   ├── world.rs     # 【核心：协调】
 │   ├── config.rs    # 【核心：规则】

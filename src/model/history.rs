@@ -1,27 +1,15 @@
+use crate::model::brain::BrainLogic;
 use crate::model::infra::lineage_tree::AncestryTree;
-use crate::model::state::entity::Entity;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+pub use primordium_data::{Entity, Fossil, HallOfFame, Legend, PopulationStats};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use uuid::Uuid;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Fossil {
-    pub lineage_id: Uuid,
-    pub name: String,
-    pub color_rgb: (u8, u8, u8),
-    pub avg_lifespan: f64,
-    pub max_generation: u32,
-    pub total_offspring: u32,
-    pub extinct_tick: u64,
-    pub peak_population: usize,
-    pub genotype: crate::model::state::entity::Genotype,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct FossilRegistry {
@@ -39,7 +27,6 @@ impl FossilRegistry {
     }
 
     pub fn load(path: &str) -> anyhow::Result<Self> {
-        // Try path as given, then try with .gz suffix
         let path_gz = if path.ends_with(".gz") {
             path.to_string()
         } else {
@@ -55,15 +42,12 @@ impl FossilRegistry {
         };
 
         let file = File::open(target_path)?;
-        // Try decoding as Gzip first
         let mut decoder = GzDecoder::new(file);
         let mut decoded_data = Vec::new();
         if decoder.read_to_end(&mut decoded_data).is_ok() {
             let registry = serde_json::from_slice(&decoded_data)?;
             Ok(registry)
         } else {
-            // Fallback: Try reading as plain JSON (from the target_path)
-            // Re-open file to reset pointer
             let data = std::fs::read_to_string(target_path)?;
             let registry = serde_json::from_str(&data)?;
             Ok(registry)
@@ -96,7 +80,6 @@ pub enum LiveEvent {
         offspring: u32,
         tick: u64,
         timestamp: String,
-        #[serde(default)]
         cause: String,
     },
     Metamorphosis {
@@ -138,222 +121,6 @@ pub enum LiveEvent {
         severity: f32,
         timestamp: String,
     },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Legend {
-    pub id: Uuid,
-    pub parent_id: Option<Uuid>,
-    pub lineage_id: Uuid,
-    pub birth_tick: u64,
-    pub death_tick: u64,
-    pub lifespan: u64,
-    pub generation: u32,
-    pub offspring_count: u32,
-    pub peak_energy: f64,
-    pub birth_timestamp: String,
-    pub death_timestamp: String,
-    pub genotype: crate::model::state::entity::Genotype,
-    pub color_rgb: (u8, u8, u8),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PopulationStats {
-    pub population: usize,
-    pub avg_lifespan: f64,
-    pub avg_brain_entropy: f64,
-    pub species_count: usize,
-    pub top_fitness: f64,
-    pub biomass_h: f64,
-    pub biomass_c: f64,
-    pub food_count: usize,
-    pub lineage_counts: HashMap<Uuid, usize>,
-    pub carbon_level: f64,
-    pub biodiversity_hotspots: usize,
-    pub mutation_scale: f32,
-    pub evolutionary_velocity: f32,
-    pub global_fertility: f32, // NEW: Average fertility across the world
-    pub max_generation: u32,   // NEW: Track highest generation
-    recent_deaths: VecDeque<f64>,
-    recent_distances: VecDeque<f32>, // NEW
-}
-
-impl Default for PopulationStats {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl PopulationStats {
-    pub fn new() -> Self {
-        Self {
-            population: 0,
-            avg_lifespan: 0.0,
-            avg_brain_entropy: 0.0,
-            species_count: 0,
-            top_fitness: 0.0,
-            biomass_h: 0.0,
-            biomass_c: 0.0,
-            food_count: 0,
-            lineage_counts: HashMap::new(),
-            carbon_level: 0.0,
-            biodiversity_hotspots: 0,
-            mutation_scale: 1.0,
-            evolutionary_velocity: 0.0,
-            global_fertility: 1.0,
-            max_generation: 0,
-            recent_deaths: VecDeque::with_capacity(100),
-            recent_distances: VecDeque::with_capacity(100),
-        }
-    }
-
-    pub fn record_birth_distance(&mut self, distance: f32) {
-        self.recent_distances.push_back(distance);
-        if self.recent_distances.len() > 100 {
-            self.recent_distances.pop_front();
-        }
-        if !self.recent_distances.is_empty() {
-            self.evolutionary_velocity =
-                self.recent_distances.iter().sum::<f32>() / self.recent_distances.len() as f32;
-        }
-    }
-
-    pub fn record_death(&mut self, lifespan: u64) {
-        self.recent_deaths.push_back(lifespan as f64);
-        if self.recent_deaths.len() > 100 {
-            self.recent_deaths.pop_front();
-        }
-        self.avg_lifespan =
-            self.recent_deaths.iter().sum::<f64>() / self.recent_deaths.len() as f64;
-    }
-
-    pub fn update_snapshot(
-        &mut self,
-        entities: &[crate::model::state::entity::Entity],
-        food_count: usize,
-        top_fitness: f64,
-        carbon_level: f64,
-        mutation_scale: f32,
-        terrain: &crate::model::state::terrain::TerrainGrid,
-    ) {
-        self.population = entities.len();
-        self.food_count = food_count;
-        self.top_fitness = top_fitness;
-        self.carbon_level = carbon_level;
-        self.mutation_scale = mutation_scale;
-        self.global_fertility = terrain.average_fertility();
-        self.max_generation = entities
-            .iter()
-            .map(|e| e.metabolism.generation)
-            .max()
-            .unwrap_or(0);
-        self.lineage_counts.clear();
-        self.biomass_h = 0.0;
-        self.biomass_c = 0.0;
-        self.biodiversity_hotspots = 0;
-
-        if entities.is_empty() {
-            self.avg_brain_entropy = 0.0;
-            self.species_count = 0;
-            return;
-        }
-
-        let mut sectors: HashMap<(i32, i32), HashSet<Uuid>> = HashMap::new();
-        for e in entities {
-            *self
-                .lineage_counts
-                .entry(e.metabolism.lineage_id)
-                .or_insert(0) += 1;
-            let tp = e.metabolism.trophic_potential;
-            if tp < 0.4 {
-                self.biomass_h += e.metabolism.energy;
-            } else if tp > 0.6 {
-                self.biomass_c += e.metabolism.energy;
-            }
-            let sx = (e.physics.x / 10.0) as i32;
-            let sy = (e.physics.y / 10.0) as i32;
-            sectors
-                .entry((sx, sy))
-                .or_default()
-                .insert(e.metabolism.lineage_id);
-        }
-        self.biodiversity_hotspots = sectors
-            .values()
-            .filter(|s: &&HashSet<Uuid>| s.len() >= 5)
-            .count();
-
-        let mut complexity_freq = HashMap::new();
-        for e in entities {
-            let conn_count = e
-                .intel
-                .genotype
-                .brain
-                .connections
-                .iter()
-                .filter(|c| c.enabled)
-                .count();
-            let bucket = (conn_count / 10) * 10;
-            *complexity_freq.entry(bucket).or_insert(0.0) += 1.0;
-        }
-        let total_samples = complexity_freq.values().sum::<f64>();
-        let mut entropy = 0.0;
-        for &count in complexity_freq.values() {
-            let p = count / total_samples;
-            if p > 0.0 {
-                entropy -= p * p.log2();
-            }
-        }
-        self.avg_brain_entropy = entropy;
-
-        let mut representatives: Vec<&crate::model::brain::Brain> = Vec::new();
-        let threshold = 2.0;
-        for e in entities {
-            let mut found = false;
-            for rep in &representatives {
-                if e.intel.genotype.brain.genotype_distance(rep) < threshold {
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                representatives.push(&e.intel.genotype.brain);
-            }
-        }
-        self.species_count = representatives.len();
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct HallOfFame {
-    pub top_living: Vec<(f64, crate::model::state::entity::Entity)>,
-}
-
-impl Default for HallOfFame {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HallOfFame {
-    pub fn new() -> Self {
-        Self {
-            top_living: Vec::with_capacity(3),
-        }
-    }
-    pub fn update(&mut self, entities: &[crate::model::state::entity::Entity], tick: u64) {
-        let mut scores: Vec<(f64, crate::model::state::entity::Entity)> = entities
-            .iter()
-            .map(|e| {
-                let age = tick - e.metabolism.birth_tick;
-                let score = (age as f64 * 0.5)
-                    + (e.metabolism.offspring_count as f64 * 10.0)
-                    + (e.metabolism.peak_energy * 0.2);
-                (score, e.clone())
-            })
-            .collect();
-        scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        self.top_living = scores.into_iter().take(3).collect();
-    }
 }
 
 pub struct HistoryLogger {
@@ -453,9 +220,137 @@ impl HistoryLogger {
         let json = serde_json::to_string(legends)?;
         let mut hasher = Sha256::new();
         hasher.update(json.as_bytes());
-        let hash = hasher.finalize();
-        Ok(hex::encode(hash))
+        Ok(hex::encode(hasher.finalize()))
     }
+}
+
+pub fn update_population_stats(
+    stats: &mut PopulationStats,
+    entities: &[Entity],
+    food_count: usize,
+    top_fitness: f64,
+    carbon_level: f64,
+    mutation_scale: f32,
+    terrain: &crate::model::terrain::TerrainGrid,
+) {
+    stats.population = entities.len();
+    stats.food_count = food_count;
+    stats.top_fitness = top_fitness;
+    stats.carbon_level = carbon_level;
+    stats.mutation_scale = mutation_scale;
+    stats.global_fertility = terrain.average_fertility();
+    stats.max_generation = entities
+        .iter()
+        .map(|e| e.metabolism.generation)
+        .max()
+        .unwrap_or(0);
+    stats.lineage_counts.clear();
+    stats.biomass_h = 0.0;
+    stats.biomass_c = 0.0;
+    stats.biodiversity_hotspots = 0;
+
+    if entities.is_empty() {
+        stats.avg_brain_entropy = 0.0;
+        stats.species_count = 0;
+        return;
+    }
+
+    let mut sectors: HashMap<(i32, i32), HashSet<Uuid>> = HashMap::new();
+    for e in entities {
+        *stats
+            .lineage_counts
+            .entry(e.metabolism.lineage_id)
+            .or_insert(0) += 1;
+        let tp = e.metabolism.trophic_potential;
+        if tp < 0.4 {
+            stats.biomass_h += e.metabolism.energy;
+        } else if tp > 0.6 {
+            stats.biomass_c += e.metabolism.energy;
+        }
+        let sx = (e.physics.x / 10.0) as i32;
+        let sy = (e.physics.y / 10.0) as i32;
+        sectors
+            .entry((sx, sy))
+            .or_default()
+            .insert(e.metabolism.lineage_id);
+    }
+    stats.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
+
+    let mut complexity_freq = HashMap::new();
+    for e in entities {
+        let conn_count = e
+            .intel
+            .genotype
+            .brain
+            .connections
+            .iter()
+            .filter(|c| c.enabled)
+            .count();
+        let bucket = (conn_count / 10) * 10;
+        *complexity_freq.entry(bucket).or_insert(0.0) += 1.0;
+    }
+    let total_samples = complexity_freq.values().sum::<f64>();
+    let mut entropy = 0.0;
+    for &count in complexity_freq.values() {
+        let p = count / total_samples;
+        if p > 0.0 {
+            entropy -= p * p.log2();
+        }
+    }
+    stats.avg_brain_entropy = entropy;
+
+    let mut representatives: Vec<&primordium_data::Brain> = Vec::new();
+    let threshold = 2.0;
+    for e in entities {
+        let mut found = false;
+        for rep in &representatives {
+            if e.intel.genotype.brain.genotype_distance(rep) < threshold {
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            representatives.push(&e.intel.genotype.brain);
+        }
+    }
+    stats.species_count = representatives.len();
+}
+
+pub fn record_stat_death(stats: &mut PopulationStats, lifespan: u64) {
+    stats.recent_deaths.push_back(lifespan as f64);
+    if stats.recent_deaths.len() > 100 {
+        stats.recent_deaths.pop_front();
+    }
+    if !stats.recent_deaths.is_empty() {
+        stats.avg_lifespan =
+            stats.recent_deaths.iter().sum::<f64>() / stats.recent_deaths.len() as f64;
+    }
+}
+
+pub fn record_stat_birth_distance(stats: &mut PopulationStats, distance: f32) {
+    stats.recent_distances.push_back(distance);
+    if stats.recent_distances.len() > 100 {
+        stats.recent_distances.pop_front();
+    }
+    if !stats.recent_distances.is_empty() {
+        stats.evolutionary_velocity =
+            stats.recent_distances.iter().sum::<f32>() / stats.recent_distances.len() as f32;
+    }
+}
+
+pub fn update_hall_of_fame(hof: &mut HallOfFame, entities: &[Entity], tick: u64) {
+    let mut scores: Vec<(f64, Entity)> = entities
+        .iter()
+        .map(|e| {
+            let age = tick - e.metabolism.birth_tick;
+            let score = (age as f64 * 0.5)
+                + (e.metabolism.offspring_count as f64 * 10.0)
+                + (e.metabolism.peak_energy * 0.2);
+            (score, e.clone())
+        })
+        .collect();
+    scores.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    hof.top_living = scores.into_iter().take(3).collect();
 }
 
 impl LiveEvent {
@@ -479,25 +374,15 @@ impl LiveEvent {
                 };
                 (msg, Color::Red)
             }
-            LiveEvent::ClimateShift { from, to, .. } => {
+            LiveEvent::ClimateShift { from: _, to, .. } => {
                 let effect = match to.as_str() {
-                    "Temperate" => "☀️ Temperate - Metabolism ×1.0 (stable)",
-                    "Warm" => "🔥 Warm - Metabolism ×1.5 (faster drain)",
-                    "Hot" => "🌋 Hot - Metabolism ×2.0 (high stress)",
-                    "Scorching" => "☀️ SCORCHING - Metabolism ×3.0 (DANGER!)",
+                    "Temperate" => "☀️ Temperate - ×1.0",
+                    "Warm" => "🔥 Warm - ×1.5",
+                    "Hot" => "🌋 Hot - ×2.0",
+                    "Scorching" => "☀️ SCORCHING - ×3.0",
                     _ => to.as_str(),
                 };
-                let direction = if from == "Temperate" && to != "Temperate" {
-                    "⬆️"
-                } else if to == "Temperate" {
-                    "⬇️"
-                } else {
-                    "→"
-                };
-                (
-                    format!("{} Climate {} {}", direction, direction, effect),
-                    Color::Yellow,
-                )
+                (format!("Climate: {}", effect), Color::Yellow)
             }
             LiveEvent::Extinction { tick, .. } => {
                 (format!("Extinction at tick {}", tick), Color::Magenta)
@@ -514,16 +399,7 @@ impl LiveEvent {
                 format!("🏛️ Snapshot saved at tick {}", tick),
                 Color::DarkGray,
             ),
-            LiveEvent::Narration { text, severity, .. } => {
-                let color = if *severity > 0.8 {
-                    Color::Red
-                } else if *severity > 0.5 {
-                    Color::Yellow
-                } else {
-                    Color::Green
-                };
-                (format!("📜 {}", text), color)
-            }
+            LiveEvent::Narration { text, .. } => (format!("📜 {}", text), Color::Green),
         }
     }
 }

@@ -6,7 +6,7 @@ pub mod ui;
 #[cfg(target_arch = "wasm32")]
 use crate::client::manager::NetworkManager;
 #[cfg(target_arch = "wasm32")]
-use crate::model::state::environment::Environment;
+use crate::model::brain::{BrainLogic, GenotypeLogic};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -94,10 +94,11 @@ impl Simulation {
                         dna,
                         energy,
                         generation,
-                        species_name: e.name(),
+                        species_name: crate::model::e.name(),
                         fingerprint: self.world.config.fingerprint(),
                         checksum,
                     });
+                    migrants.push(msg);
                 }
 
                 !leaving

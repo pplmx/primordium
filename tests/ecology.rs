@@ -101,7 +101,7 @@ fn test_trophic_diet_restrictions() {
     let mut env = Environment::default();
 
     // 1. Herbivore specialist (trophic = 0.0) SHOULD eat plants
-    let mut herbivore = primordium_lib::model::state::entity::Entity::new(10.5, 10.5, 0);
+    let mut herbivore = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
     herbivore.metabolism.trophic_potential = 0.0;
     herbivore.metabolism.energy = 50.0;
     // Align niche for maximum efficiency
@@ -121,7 +121,7 @@ fn test_trophic_diet_restrictions() {
     // 2. Carnivore specialist (trophic = 1.0) should NOT eat plants
     world.entities.clear();
     world.food.clear();
-    let mut carnivore = primordium_lib::model::state::entity::Entity::new(10.5, 10.5, 0);
+    let mut carnivore = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
     carnivore.physics.vx = 0.0;
     carnivore.physics.vy = 0.0;
     carnivore.metabolism.trophic_potential = 1.0;

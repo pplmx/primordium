@@ -1,4 +1,4 @@
-use primordium_lib::model::brain::Brain;
+use primordium_lib::model::brain::{Brain, BrainLogic};
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::world::World;
 

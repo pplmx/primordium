@@ -1,6 +1,7 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
+use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
+use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::systems::environment as environment_system;
 use primordium_lib::model::world::World;
 
@@ -16,16 +17,12 @@ fn test_wall_collisions() {
     // Place a wall block to prevent tunneling
     for dx in 5..=7 {
         for dy in 5..=7 {
-            world.terrain.set_cell_type(
-                dx,
-                dy,
-                primordium_lib::model::state::terrain::TerrainType::Wall,
-            );
+            world.terrain.set_cell_type(dx, dy, TerrainType::Wall);
         }
     }
 
     // Starting at 4.5 ensuring we hit the wall block
-    let mut entity = Entity::new(4.5, 4.5, 0);
+    let mut entity = lifecycle::create_entity(4.5, 4.5, 0);
     entity.physics.vx = 1.0;
     entity.physics.vy = 1.0;
 
@@ -64,7 +61,7 @@ fn test_dust_bowl_trigger() {
 
     // Need > 300 entities for trigger
     for _ in 0..310 {
-        let mut e = Entity::new(5.0, 5.0, 0);
+        let mut e = lifecycle::create_entity(5.0, 5.0, 0);
         e.metabolism.energy = 1000.0;
         world.entities.push(e);
     }

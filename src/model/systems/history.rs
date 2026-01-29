@@ -1,5 +1,5 @@
 use crate::model::history::{Fossil, FossilRegistry, Legend};
-use crate::model::state::lineage_registry::LineageRegistry;
+use crate::model::lineage_registry::LineageRegistry;
 use std::collections::HashMap;
 use uuid::Uuid;
 

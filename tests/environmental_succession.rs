@@ -30,7 +30,7 @@ fn test_succession_and_carbon_cycle() {
     for _ in 0..100 {
         world
             .entities
-            .push(primordium_lib::model::state::entity::Entity::new(
+            .push(primordium_lib::model::lifecycle::create_entity(
                 10.0, 10.0, world.tick,
             ));
     }
@@ -67,7 +67,7 @@ fn test_biodiversity_hotspots() {
 
     // Inject 10 entities of different lineages into a small area
     for _ in 0..10 {
-        let mut e = primordium_lib::model::state::entity::Entity::new(15.0, 15.0, 0);
+        let mut e = primordium_lib::model::lifecycle::create_entity(15.0, 15.0, 0);
         let lid = uuid::Uuid::new_v4();
         e.metabolism.lineage_id = lid;
         e.intel.genotype.lineage_id = lid;

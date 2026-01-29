@@ -1,5 +1,4 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -10,8 +9,8 @@ fn test_voluntary_bond_breaking() {
     let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
 
-    let mut e1 = Entity::new(10.0, 10.0, 0);
-    let mut e2 = Entity::new(10.2, 10.2, 0);
+    let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let mut e2 = primordium_lib::model::lifecycle::create_entity(10.2, 10.2, 0);
 
     // Setup compatible genotypes for bonding
     e2.intel.genotype = e1.intel.genotype.clone();

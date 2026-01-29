@@ -1,4 +1,5 @@
-use crate::model::brain::Brain;
+use crate::model::brain::BrainLogic;
+use primordium_data::Brain;
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -20,13 +21,13 @@ pub fn mutate_brain<R: Rng>(
 }
 
 pub fn mutate_genotype<R: Rng>(
-    genotype: &mut crate::model::state::entity::Genotype,
+    genotype: &mut primordium_data::Genotype,
     config: &crate::model::config::AppConfig,
     population: usize,
     is_radiation_storm: bool,
     specialization: Option<primordium_data::Specialization>,
     rng: &mut R,
-    ancestral_genotype: Option<&crate::model::state::entity::Genotype>,
+    ancestral_genotype: Option<&primordium_data::Genotype>,
 ) {
     let mut effective_mutation_rate = config.evolution.mutation_rate;
     let mut effective_mutation_amount = config.evolution.mutation_amount;
@@ -128,13 +129,13 @@ pub fn mutate_genotype<R: Rng>(
 }
 
 pub fn crossover_genotypes<R: Rng>(
-    p1: &crate::model::state::entity::Genotype,
-    p2: &crate::model::state::entity::Genotype,
+    p1: &primordium_data::Genotype,
+    p2: &primordium_data::Genotype,
     rng: &mut R,
-) -> crate::model::state::entity::Genotype {
+) -> primordium_data::Genotype {
     let brain = crossover_brains(&p1.brain, &p2.brain, rng);
 
-    crate::model::state::entity::Genotype {
+    primordium_data::Genotype {
         brain,
         sensing_range: if rng.gen_bool(0.5) {
             p1.sensing_range
@@ -215,7 +216,7 @@ pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
         child_nodes.iter().map(|n| n.id).collect();
 
     // O(1) lookup map for p2 nodes
-    let p2_node_map: std::collections::HashMap<usize, &crate::model::brain::Node> =
+    let p2_node_map: std::collections::HashMap<usize, &primordium_data::Node> =
         p2.nodes.iter().map(|n| (n.id, n)).collect();
 
     for c in &child_connections {
@@ -250,13 +251,13 @@ pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
 mod tests {
     use super::*;
     use crate::model::config::AppConfig;
-    use crate::model::state::entity::Genotype;
+    use primordium_data::Genotype;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
     fn create_test_genotype() -> Genotype {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
-        Genotype::new_random_with_rng(&mut rng)
+        crate::model::brain::create_genotype_random_with_rng(&mut rng)
     }
 
     fn create_test_config() -> AppConfig {

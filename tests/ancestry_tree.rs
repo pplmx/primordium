@@ -1,6 +1,7 @@
+use primordium_lib::model::brain;
 use primordium_lib::model::history::Legend;
 use primordium_lib::model::infra::lineage_tree::AncestryTree;
-use primordium_lib::model::state::entity::Entity;
+use primordium_lib::model::lifecycle;
 use uuid::Uuid;
 
 #[test]
@@ -21,12 +22,12 @@ fn test_ancestry_tree_linking() {
         peak_energy: 100.0,
         birth_timestamp: "".to_string(),
         death_timestamp: "".to_string(),
-        genotype: primordium_lib::model::state::entity::Genotype::new_random(),
+        genotype: brain::create_genotype_random_with_rng(&mut rand::thread_rng()),
         color_rgb: (255, 0, 0),
     };
 
     // 2. Create a child (Living Entity)
-    let mut child = Entity::new(10.0, 10.0, 100);
+    let mut child = lifecycle::create_entity(10.0, 10.0, 100);
     child.id = c_id;
     child.parent_id = Some(p_id);
     child.metabolism.generation = 2;

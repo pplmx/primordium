@@ -1,6 +1,5 @@
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::history::{HistoryLogger, PopulationStats};
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::pheromone::PheromoneGrid;
 use primordium_lib::model::systems::social::{handle_predation, PredationContext};
@@ -25,22 +24,22 @@ fn test_overgrazing_feedback_loop() {
 #[test]
 fn test_hunter_competition_impact() {
     let config = AppConfig::default();
-    let mut pop_stats = PopulationStats::new();
+    let mut pop_stats = PopulationStats::default();
     let mut logger = HistoryLogger::new_dummy();
-    let mut spatial_hash = primordium_lib::model::quadtree::SpatialHash::new(10.0, 100, 100);
+    let mut spatial_hash = primordium_lib::model::spatial_hash::SpatialHash::new(10.0, 100, 100);
     let mut pheromones = PheromoneGrid::new(100, 100);
 
-    let mut hunter = Entity::new(10.0, 10.0, 0);
+    let mut hunter = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     hunter.metabolism.trophic_potential = 1.0;
     hunter.metabolism.energy = 100.0;
     hunter.metabolism.max_energy = 1000.0;
 
-    let mut prey = Entity::new(10.5, 10.5, 0);
+    let mut prey = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
     prey.metabolism.energy = 100.0;
     prey.metabolism.max_energy = 1000.0;
     prey.physics.r = 0;
 
-    spatial_hash.insert(10.5, 10.5, 1);
+    spatial_hash.build_parallel(&[(10.0, 10.0), (10.5, 10.5)], 100, 100);
 
     let snap = vec![
         InternalEntitySnapshot {

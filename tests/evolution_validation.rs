@@ -1,5 +1,4 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -12,13 +11,13 @@ fn test_r_vs_k_dominance_in_resource_boom() {
     let mut env = Environment::default();
 
     // Strategy R: Fast maturity (50), Low energy (100)
-    let mut r_type = Entity::new(10.0, 10.0, 0);
+    let mut r_type = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     r_type.intel.genotype.maturity_gene = 0.5;
     r_type.intel.genotype.reproductive_investment = 0.2;
     r_type.metabolism.energy = 100.0;
 
     // Strategy K: Slow maturity (200), High energy (400)
-    let mut k_type = Entity::new(20.0, 20.0, 0);
+    let mut k_type = primordium_lib::model::lifecycle::create_entity(20.0, 20.0, 0);
     k_type.intel.genotype.maturity_gene = 2.0;
     k_type.intel.genotype.reproductive_investment = 0.8;
     k_type.metabolism.energy = 400.0;

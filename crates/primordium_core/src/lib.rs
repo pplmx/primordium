@@ -1,0 +1,18 @@
+pub mod brain;
+pub mod config;
+pub mod environment;
+pub mod food;
+pub mod interaction;
+pub mod lifecycle;
+pub mod lineage_registry;
+pub mod pathogen;
+pub mod pheromone;
+pub mod pressure;
+pub mod snapshot;
+pub mod sound;
+pub mod spatial_hash;
+pub mod terrain;
+
+pub use brain::{BrainLogic, GenotypeLogic};
+pub use primordium_data::{Connection, Node, NodeType};
+pub use terrain::TerrainLogic;

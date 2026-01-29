@@ -1,14 +1,15 @@
 //! Social system - handles predation, reproduction, and symbiotic relationships.
 
+use crate::model::brain::GenotypeLogic;
 use crate::model::config::AppConfig;
 use crate::model::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
-use crate::model::quadtree::SpatialHash;
-use crate::model::state::entity::{Entity, Health, Intel, Metabolism, Physics};
-use crate::model::state::pheromone::PheromoneGrid;
+use crate::model::pheromone::PheromoneGrid;
+use crate::model::spatial_hash::SpatialHash;
 use crate::model::systems::intel;
 use crate::model::world::InternalEntitySnapshot;
 use chrono::Utc;
 use primordium_data::{AncestralTrait, Specialization};
+use primordium_data::{Entity, Health, Intel, Metabolism, Physics};
 use rand::Rng;
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -120,7 +121,7 @@ pub struct ReproductionContext<'a, R: Rng> {
     pub traits: std::collections::HashSet<AncestralTrait>,
     pub is_radiation_storm: bool,
     pub rng: &'a mut R,
-    pub ancestral_genotype: Option<&'a crate::model::state::entity::Genotype>,
+    pub ancestral_genotype: Option<&'a primordium_data::Genotype>,
 }
 
 pub fn reproduce_asexual_parallel<R: Rng>(
@@ -429,6 +430,7 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
         {
             let gain = v_snap.energy
                 * entities[idx].metabolism.trophic_potential as f64
+                * ctx.config.ecosystem.predation_energy_gain_fraction
                 * (1.0
                     - (ctx.pop_stats.biomass_c / ctx.config.ecosystem.predation_competition_scale))
                     .max(ctx.config.ecosystem.predation_min_efficiency);
@@ -448,34 +450,23 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
         }
     }
 }
-pub fn handle_sharing(_idx: usize, _entities: &mut [Entity], _ctx: &mut PredationContext) {}
-pub fn handle_reproduction(
-    _idx: usize,
-    _entities: &mut [Entity],
-    _killed_ids: &HashSet<Uuid>,
-    _sh: &SpatialHash,
-    _cfg: &AppConfig,
-    _t: u64,
-) -> Option<Entity> {
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::lifecycle;
     #[test]
     fn test_is_legend_worthy_by_lifespan() {
-        let mut entity = Entity::new(5.0, 5.0, 0);
+        let mut entity = lifecycle::create_entity(5.0, 5.0, 0);
         entity.metabolism.birth_tick = 0;
         assert!(is_legend_worthy(&entity, 1500));
     }
     #[test]
     fn test_are_same_tribe_similar_colors() {
-        let mut entity1 = Entity::new(0.0, 0.0, 0);
+        let mut entity1 = lifecycle::create_entity(0.0, 0.0, 0);
         entity1.physics.r = 100;
         entity1.physics.g = 100;
         entity1.physics.b = 100;
-        let mut entity2 = Entity::new(0.0, 0.0, 0);
+        let mut entity2 = lifecycle::create_entity(0.0, 0.0, 0);
         entity2.physics.r = 110;
         entity2.physics.g = 105;
         entity2.physics.b = 120;

@@ -1,9 +1,11 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::{Entity, Genotype};
+use primordium_lib::model::history;
+use primordium_lib::model::lifecycle;
 use primordium_lib::model::world::World;
 
 #[test]
 fn test_corrupted_dna_handling() {
+    use primordium_lib::model::state::entity::Genotype;
     // 1. Completely invalid hex
     let result = Genotype::from_hex("not_hex_at_all");
     assert!(result.is_err());
@@ -21,12 +23,13 @@ fn test_lineage_registry_cleanup_on_extinction() {
     let mut world = World::new(0, config).unwrap();
 
     // Create an entity with a specific lineage
-    let e = Entity::new(10.0, 10.0, 0);
+    let e = lifecycle::create_entity(10.0, 10.0, 0);
     let l_id = e.metabolism.lineage_id;
     world.entities.push(e);
 
     // Update stats - lineage should be there
-    world.pop_stats.update_snapshot(
+    history::update_population_stats(
+        &mut world.pop_stats,
         &world.entities,
         world.food.len(),
         0.0,
@@ -38,7 +41,8 @@ fn test_lineage_registry_cleanup_on_extinction() {
 
     // Kill the population
     world.entities.clear();
-    world.pop_stats.update_snapshot(
+    history::update_population_stats(
+        &mut world.pop_stats,
         &world.entities,
         world.food.len(),
         0.0,

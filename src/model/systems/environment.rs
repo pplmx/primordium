@@ -1,7 +1,7 @@
 use crate::model::config::AppConfig;
+use crate::model::environment::Environment;
 use crate::model::history::PopulationStats;
-use crate::model::state::environment::Environment;
-use crate::model::state::terrain::TerrainGrid;
+use crate::model::terrain::TerrainGrid;
 use rand::Rng;
 
 /// Handle global environmental disasters.
@@ -59,7 +59,7 @@ pub fn update_era(
     }
 
     // Era Transition Logic
-    use crate::model::state::environment::Era;
+    use crate::model::environment::Era;
     if env.current_era == Era::Primordial {
         // Dawn of Life: Needs either stability or a critical mass of biomass
         if (tick > 5000 && pop_stats.avg_lifespan > 200.0) || pop_stats.biomass_h > 2000.0 {

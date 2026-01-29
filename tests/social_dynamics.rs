@@ -1,5 +1,4 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::entity::Entity;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -9,8 +8,8 @@ fn test_tribe_solidarity_no_aggression() {
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
-    let mut e1 = Entity::new(10.0, 10.0, 0);
-    let mut e2 = Entity::new(10.5, 10.5, 0);
+    let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let mut e2 = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
     e1.physics.r = 100;
     e1.physics.g = 100;
     e1.physics.b = 100;
@@ -39,8 +38,8 @@ fn test_energy_sharing_between_allies() {
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
-    let mut e1 = Entity::new(10.0, 10.0, 0);
-    let mut e2 = Entity::new(10.2, 10.2, 0);
+    let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let mut e2 = primordium_lib::model::lifecycle::create_entity(10.2, 10.2, 0);
     e2.intel.genotype = e1.intel.genotype.clone();
     e1.physics.r = 200;
     e1.physics.g = 200;
@@ -83,8 +82,8 @@ fn test_inter_tribe_predation() {
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
-    let mut e1 = Entity::new(10.0, 10.0, 0);
-    let mut e2 = Entity::new(10.1, 10.1, 0);
+    let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let mut e2 = primordium_lib::model::lifecycle::create_entity(10.1, 10.1, 0);
     e1.physics.r = 255;
     e1.physics.g = 0;
     e1.physics.b = 0;
