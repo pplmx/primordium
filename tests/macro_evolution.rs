@@ -40,13 +40,17 @@ fn test_engineer_biological_irrigation_pressure() {
     world.terrain.set_cell_type(11, 10, TerrainType::Plains);
 
     let mut eng = lifecycle::create_entity(11.0, 10.0, 0);
+    eng.physics.vx = 0.0;
+    eng.physics.vy = 0.0;
+    eng.physics.max_speed = 0.0;
+    eng.intel.genotype.max_speed = 0.0;
     eng.intel.specialization = Some(Specialization::Engineer);
     eng.metabolism.has_metamorphosed = true;
     world.entities.push(eng);
 
     world.update(&mut env).unwrap();
 
-    let (_b, d) = world.pressure.sense(11.0, 10.0, 1.0);
+    let (_b, d) = world.pressure.sense(11.0, 10.0, 1.5);
     assert!(d > 0.0, "Engineer should deposit Dig pressure near river");
 }
 

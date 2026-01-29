@@ -44,7 +44,6 @@ pub struct InternalEntitySnapshot {
     pub status: primordium_data::EntityStatus,
 }
 
-/// Result of a neural network forward pass for an entity.
 #[derive(Default)]
 pub struct EntityDecision {
     pub outputs: [f32; 12],
@@ -52,7 +51,6 @@ pub struct EntityDecision {
     pub activations: primordium_data::Activations,
 }
 
-/// The main simulation universe containing all entities, terrain, and state.
 #[derive(Serialize, Deserialize)]
 pub struct World {
     pub width: u16,
@@ -87,15 +85,11 @@ pub struct World {
     #[serde(skip, default = "ChaCha8Rng::from_entropy")]
     pub rng: ChaCha8Rng,
     #[serde(skip, default)]
-    pub entity_map: HashMap<uuid::Uuid, hecs::Entity>,
-    #[serde(skip, default)]
     killed_ids: HashSet<uuid::Uuid>,
     #[serde(skip, default)]
     eaten_food_indices: HashSet<usize>,
     #[serde(skip, default)]
     new_babies: Vec<Entity>,
-    #[serde(skip, default)]
-    alive_entities: Vec<Entity>,
     #[serde(skip, default)]
     decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
@@ -114,8 +108,7 @@ pub struct World {
     cached_social_grid: std::sync::Arc<Vec<u8>>,
     #[serde(skip)]
     cached_rank_grid: std::sync::Arc<Vec<f32>>,
-    #[serde(skip, default)]
-    food_dirty: bool,
+    pub food_dirty: bool,
     #[serde(skip, default)]
     spatial_data_buffer: Vec<(f64, f64, uuid::Uuid)>,
     #[serde(skip, default)]
@@ -172,7 +165,6 @@ impl World {
         let pressure =
             crate::model::pressure::PressureGrid::new(config.world.width, config.world.height);
         let social_grid = vec![0; config.world.width as usize * config.world.height as usize];
-        let rank_grid = vec![0.0; config.world.width as usize * config.world.height as usize];
 
         Ok(Self {
             width: config.world.width,
@@ -191,7 +183,11 @@ impl World {
             cached_sound: std::sync::Arc::new(sound.clone()),
             cached_pressure: std::sync::Arc::new(pressure.clone()),
             cached_social_grid: std::sync::Arc::new(social_grid.clone()),
-            cached_rank_grid: std::sync::Arc::new(rank_grid),
+            cached_rank_grid: std::sync::Arc::new(vec![
+                0.0;
+                config.world.width as usize
+                    * config.world.height as usize
+            ]),
             terrain,
             pheromones,
             sound,
@@ -208,14 +204,12 @@ impl World {
             killed_ids: HashSet::new(),
             eaten_food_indices: HashSet::new(),
             new_babies: Vec::new(),
-            alive_entities: Vec::new(),
             decision_buffer: Vec::new(),
             lineage_consumption: Vec::new(),
             entity_snapshots: Vec::new(),
             food_dirty: true,
             spatial_data_buffer: Vec::new(),
             food_positions_buffer: Vec::new(),
-            entity_map: HashMap::new(),
         })
     }
 
@@ -354,21 +348,21 @@ impl World {
                     self.tick,
                     self.config.metabolism.maturity_age,
                 ),
-                specialization: e.intel.specialization,
                 last_vocalization: e.intel.last_vocalization,
                 bonded_to: e.intel.bonded_to,
                 trophic_potential: e.metabolism.trophic_potential,
-                last_activations: e
-                    .intel
-                    .last_activations
-                    .0
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, &v)| v.abs() > 0.001)
-                    .map(|(k, v)| (k as i32, *v))
-                    .collect(),
-                last_inputs: e.intel.last_inputs,
-                last_hidden: e.intel.last_hidden,
+                last_activations: if Some(e.id) == selected_id {
+                    e.intel
+                        .last_activations
+                        .0
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, &v)| v.abs() > 0.001)
+                        .map(|(k, v)| (k as i32, *v))
+                        .collect()
+                } else {
+                    HashMap::new()
+                },
                 weight_deltas: if Some(e.id) == selected_id {
                     e.intel.genotype.brain.weight_deltas.clone()
                 } else {
@@ -430,6 +424,10 @@ impl World {
 
         self.finalize_tick(env, &mut events);
 
+        self.pheromones.update();
+        self.sound.update();
+        self.pressure.update();
+
         if self.config.world.deterministic {
             env.tick_deterministic(self.tick);
         } else {
@@ -454,9 +452,6 @@ impl World {
             }
         }
 
-        self.pheromones.update();
-        self.sound.update();
-        self.pressure.update();
         self.lineage_registry.decay_memory(0.99);
 
         environment::handle_disasters(
@@ -531,9 +526,8 @@ impl World {
             ));
         }
 
-        self.entity_map.clear();
         for e in &self.entities {
-            let handle = self.ecs.spawn((
+            self.ecs.spawn((
                 e.id,
                 Position {
                     x: e.physics.x,
@@ -544,7 +538,6 @@ impl World {
                 e.health.clone(),
                 e.intel.clone(),
             ));
-            self.entity_map.insert(e.id, handle);
         }
     }
 
@@ -658,9 +651,12 @@ impl World {
         let tick = self.tick;
         let registry = &self.lineage_registry;
 
+        decision_buffer.resize_with(self.entities.len(), EntityDecision::default);
+
         self.entities
             .par_iter()
-            .map(|e| {
+            .zip(decision_buffer.par_iter_mut())
+            .for_each(|(e, decision)| {
                 let (dx_f, dy_f, f_type) = ecological::sense_nearest_food(e, food, food_hash);
                 let nearby_count =
                     spatial_hash.count_nearby(e.physics.x, e.physics.y, e.physics.sensing_range);
@@ -741,13 +737,12 @@ impl World {
                         }
                     }
                 }
-                EntityDecision {
+                *decision = EntityDecision {
                     outputs,
                     next_hidden,
                     activations,
-                }
-            })
-            .collect_into_vec(&mut decision_buffer);
+                };
+            });
 
         let config = &self.config;
         let entities = &self.entities;
@@ -767,6 +762,8 @@ impl World {
                         acc.push(InteractionCommand::EatFood {
                             food_index: f_idx,
                             attacker_idx: i,
+                            x: e.physics.x,
+                            y: e.physics.y,
                         });
                     });
                 }
@@ -954,10 +951,12 @@ impl World {
         let terrain = &self.terrain;
         let spatial_hash = &self.spatial_hash;
         let pressure_grid = &self.pressure;
+        let pheromones = &self.pheromones;
+        let sound = &self.sound;
         let width = self.width;
         let height = self.height;
 
-        let action_outputs: Vec<action::ActionOutput> = self
+        let (total_oxygen_drain, overmind_broadcasts): (f64, Vec<(uuid::Uuid, f32)>) = self
             .entities
             .par_iter_mut()
             .zip(self.decision_buffer.par_iter_mut())
@@ -988,27 +987,39 @@ impl World {
                     },
                     &mut output,
                 );
-                output
+
+                for p in output.pheromones {
+                    pheromones.deposit_parallel(p.x, p.y, p.ptype, p.amount);
+                }
+                for s in output.sounds {
+                    sound.deposit_parallel(s.x, s.y, s.amount);
+                }
+                for pr in output.pressure {
+                    pressure_grid.deposit_parallel(pr.x, pr.y, pr.ptype, pr.amount);
+                }
+
+                (output.oxygen_drain, output.overmind_broadcast)
             })
-            .collect();
+            .fold(
+                || (0.0, Vec::new()),
+                |mut acc, (drain, broadcast)| {
+                    acc.0 += drain;
+                    if let Some(b) = broadcast {
+                        acc.1.push(b);
+                    }
+                    acc
+                },
+            )
+            .reduce(
+                || (0.0, Vec::new()),
+                |mut a, b| {
+                    a.0 += b.0;
+                    a.1.extend(b.1);
+                    a
+                },
+            );
 
-        let mut overmind_broadcasts = Vec::new();
-        for res in action_outputs {
-            for p in res.pheromones {
-                self.pheromones.deposit(p.x, p.y, p.ptype, p.amount);
-            }
-            for s in res.sounds {
-                self.sound.deposit(s.x, s.y, s.amount);
-            }
-            for pr in res.pressure {
-                self.pressure.deposit(pr.x, pr.y, pr.ptype, pr.amount);
-            }
-            if let Some(b) = res.overmind_broadcast {
-                overmind_broadcasts.push(b);
-            }
-            env.consume_oxygen(res.oxygen_drain);
-        }
-
+        env.consume_oxygen(total_oxygen_drain);
         for (l_id, amount) in overmind_broadcasts {
             self.lineage_registry
                 .set_memory_value(&l_id, "overmind", amount);
@@ -1134,7 +1145,6 @@ impl World {
 
         self.entities = alive;
         self.entities.append(&mut self.new_babies);
-        self.alive_entities.clear();
 
         if !self.eaten_food_indices.is_empty() {
             let mut i = 0;
@@ -1146,6 +1156,10 @@ impl World {
             });
             self.food_dirty = true;
         }
+
+        self.new_babies.clear();
+        self.killed_ids.clear();
+        self.eaten_food_indices.clear();
 
         if self.tick.is_multiple_of(self.config.world.fossil_interval) {
             let outpost_counts = civilization::count_outposts_by_lineage(&self.terrain);

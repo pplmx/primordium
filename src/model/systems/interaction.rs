@@ -193,6 +193,8 @@ pub fn process_interaction_commands<R: Rng>(
             InteractionCommand::EatFood {
                 food_index,
                 attacker_idx,
+                x,
+                y,
             } => {
                 if !eaten_food_indices.contains(&food_index) {
                     let e = &entities[attacker_idx];
@@ -211,18 +213,14 @@ pub fn process_interaction_commands<R: Rng>(
                             + energy_gain)
                             .min(attacker_mut.metabolism.max_energy);
 
-                        // Phase 60: Collective Reinforcement (Food abundance)
                         ctx.lineage_registry.boost_memory_value(
                             &attacker_mut.metabolism.lineage_id,
                             "goal",
                             0.2,
                         );
 
-                        ctx.terrain.deplete(
-                            attacker_mut.physics.x,
-                            attacker_mut.physics.y,
-                            ctx.config.ecosystem.soil_depletion_unit,
-                        );
+                        ctx.terrain
+                            .deplete(x, y, ctx.config.ecosystem.soil_depletion_unit);
                     }
                 }
             }

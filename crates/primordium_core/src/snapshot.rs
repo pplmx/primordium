@@ -3,7 +3,7 @@ use crate::pheromone::PheromoneGrid;
 use crate::pressure::PressureGrid;
 use crate::sound::SoundGrid;
 use crate::terrain::TerrainGrid;
-use primordium_data::{EntityStatus, HallOfFame, PopulationStats, Specialization};
+use primordium_data::{EntityStatus, HallOfFame, PopulationStats};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -26,13 +26,10 @@ pub struct EntitySnapshot {
     pub lineage_id: Uuid,
     pub rank: f32,
     pub status: EntityStatus,
-    pub specialization: Option<Specialization>,
-    pub last_vocalization: f32,
-    pub bonded_to: Option<Uuid>,
     pub trophic_potential: f32,
+    pub bonded_to: Option<Uuid>,
+    pub last_vocalization: f32,
     pub last_activations: HashMap<i32, f32>,
-    pub last_inputs: [f32; 29],
-    pub last_hidden: [f32; 6],
     pub weight_deltas: HashMap<usize, f32>,
     pub genotype_hex: Option<String>,
 }

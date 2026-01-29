@@ -6,6 +6,7 @@ use primordium_lib::model::world::World;
 fn test_group_defense_reduces_damage() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
+    config.world.seed = Some(42);
     config.game_mode = GameMode::Standard;
     config.ecosystem.predation_min_efficiency = 0.01; // Low min efficiency for defense test
     let mut world = World::new(0, config).unwrap();

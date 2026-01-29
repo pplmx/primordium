@@ -416,10 +416,9 @@ impl App {
 
                 offset = lines.len() as u16;
 
-                lines.push(ratatui::text::Line::from(""));
                 lines.push(ratatui::text::Line::from(" Brain Activity:"));
                 let mut out_spans = vec![ratatui::text::Span::raw(" Out: ")];
-                for i in 22..33 {
+                for i in 29..41 {
                     let val = *entity.last_activations.get(&{ i }).unwrap_or(&0.0);
                     out_spans.push(ratatui::text::Span::styled(
                         format!("{:.1} ", val),

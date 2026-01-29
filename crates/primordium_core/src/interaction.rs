@@ -21,6 +21,8 @@ pub enum InteractionCommand {
     EatFood {
         food_index: usize,
         attacker_idx: usize,
+        x: f64,
+        y: f64,
     },
     Infect {
         target_idx: usize,

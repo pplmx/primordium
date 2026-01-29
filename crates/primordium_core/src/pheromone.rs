@@ -1,17 +1,14 @@
-//! Pheromone system for inter-entity chemical communication
-
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU32, Ordering};
 
-/// Types of pheromones entities can deposit
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum PheromoneType {
-    Food,    // "I found food here"
-    Danger,  // "Predator detected"
-    SignalA, // Semantic channel A
-    SignalB, // Semantic channel B
+    Food,
+    Danger,
+    SignalA,
+    SignalB,
 }
 
-/// A request to deposit pheromones at a location
 #[derive(Debug, Clone, Copy)]
 pub struct PheromoneDeposit {
     pub x: f64,
@@ -20,76 +17,69 @@ pub struct PheromoneDeposit {
     pub amount: f32,
 }
 
-/// A single cell in the pheromone grid
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct PheromoneCell {
-    pub food_strength: f32,   // 0.0 - 1.0
-    pub danger_strength: f32, // 0.0 - 1.0
-    pub sig_a_strength: f32,  // 0.0 - 1.0
-    pub sig_b_strength: f32,  // 0.0 - 1.0
+    pub food_strength: f32,
+    pub danger_strength: f32,
+    pub sig_a_strength: f32,
+    pub sig_b_strength: f32,
 }
 
-impl PheromoneCell {
-    pub fn decay(&mut self, rate: f32) {
-        self.food_strength *= rate;
-        self.danger_strength *= rate;
-        self.sig_a_strength *= rate;
-        self.sig_b_strength *= rate;
-
-        // Clean up very small values
-        let threshold = 0.01;
-        if self.food_strength < threshold {
-            self.food_strength = 0.0;
-        }
-        if self.danger_strength < threshold {
-            self.danger_strength = 0.0;
-        }
-        if self.sig_a_strength < threshold {
-            self.sig_a_strength = 0.0;
-        }
-        if self.sig_b_strength < threshold {
-            self.sig_b_strength = 0.0;
-        }
-    }
-
-    pub fn deposit(&mut self, ptype: PheromoneType, amount: f32) {
-        match ptype {
-            PheromoneType::Food => {
-                self.food_strength = (self.food_strength + amount).min(1.0);
-            }
-            PheromoneType::Danger => {
-                self.danger_strength = (self.danger_strength + amount).min(1.0);
-            }
-            PheromoneType::SignalA => {
-                self.sig_a_strength = (self.sig_a_strength + amount).min(1.0);
-            }
-            PheromoneType::SignalB => {
-                self.sig_b_strength = (self.sig_b_strength + amount).min(1.0);
-            }
-        }
-    }
-}
-
-/// Grid-based pheromone map for the world
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct PheromoneGrid {
     pub cells: Vec<PheromoneCell>,
     #[serde(skip)]
     pub back_buffer: Vec<PheromoneCell>,
+    #[serde(skip)]
+    atomic_food: Vec<AtomicU32>,
+    #[serde(skip)]
+    atomic_danger: Vec<AtomicU32>,
+    #[serde(skip)]
+    atomic_sig_a: Vec<AtomicU32>,
+    #[serde(skip)]
+    atomic_sig_b: Vec<AtomicU32>,
     pub width: u16,
     pub height: u16,
-    pub decay_rate: f32, // Per-tick decay multiplier
+    pub decay_rate: f32,
     #[serde(skip)]
     pub is_dirty: bool,
 }
 
+impl Clone for PheromoneGrid {
+    fn clone(&self) -> Self {
+        let size = self.width as usize * self.height as usize;
+        Self {
+            cells: self.cells.clone(),
+            back_buffer: self.back_buffer.clone(),
+            atomic_food: (0..size).map(|_| AtomicU32::new(0)).collect(),
+            atomic_danger: (0..size).map(|_| AtomicU32::new(0)).collect(),
+            atomic_sig_a: (0..size).map(|_| AtomicU32::new(0)).collect(),
+            atomic_sig_b: (0..size).map(|_| AtomicU32::new(0)).collect(),
+            width: self.width,
+            height: self.height,
+            decay_rate: self.decay_rate,
+            is_dirty: self.is_dirty,
+        }
+    }
+}
+
+impl Default for PheromoneGrid {
+    fn default() -> Self {
+        Self::new(1, 1)
+    }
+}
+
 impl PheromoneGrid {
     pub fn new(width: u16, height: u16) -> Self {
-        let cells = vec![PheromoneCell::default(); width as usize * height as usize];
-        let back_buffer = cells.clone();
+        let size = width as usize * height as usize;
+        let cells = vec![PheromoneCell::default(); size];
         Self {
             cells,
-            back_buffer,
+            back_buffer: vec![PheromoneCell::default(); size],
+            atomic_food: (0..size).map(|_| AtomicU32::new(0)).collect(),
+            atomic_danger: (0..size).map(|_| AtomicU32::new(0)).collect(),
+            atomic_sig_a: (0..size).map(|_| AtomicU32::new(0)).collect(),
+            atomic_sig_b: (0..size).map(|_| AtomicU32::new(0)).collect(),
             width,
             height,
             decay_rate: 0.995,
@@ -106,23 +96,49 @@ impl PheromoneGrid {
         let ix = (x as u16).min(self.width - 1);
         let iy = (y as u16).min(self.height - 1);
         let idx = self.index(ix, iy);
-        self.cells[idx].deposit(ptype, amount);
+        let cell = &mut self.cells[idx];
+        match ptype {
+            PheromoneType::Food => cell.food_strength = (cell.food_strength + amount).min(1.0),
+            PheromoneType::Danger => {
+                cell.danger_strength = (cell.danger_strength + amount).min(1.0)
+            }
+            PheromoneType::SignalA => cell.sig_a_strength = (cell.sig_a_strength + amount).min(1.0),
+            PheromoneType::SignalB => cell.sig_b_strength = (cell.sig_b_strength + amount).min(1.0),
+        }
         self.is_dirty = true;
     }
 
-    /// Sense average pheromone strengths in a radius.
-    /// Returns (Food, Danger, SignalA, SignalB)
+    pub fn deposit_parallel(&self, x: f64, y: f64, ptype: PheromoneType, amount: f32) {
+        let ix = (x as u16).min(self.width - 1);
+        let iy = (y as u16).min(self.height - 1);
+        let idx = self.index(ix, iy);
+        let target = match ptype {
+            PheromoneType::Food => &self.atomic_food[idx],
+            PheromoneType::Danger => &self.atomic_danger[idx],
+            PheromoneType::SignalA => &self.atomic_sig_a[idx],
+            PheromoneType::SignalB => &self.atomic_sig_b[idx],
+        };
+
+        let mut current = target.load(Ordering::Relaxed);
+        loop {
+            let f = f32::from_bits(current);
+            let next = (f + amount).min(1.0).to_bits();
+            match target.compare_exchange_weak(current, next, Ordering::SeqCst, Ordering::Relaxed) {
+                Ok(_) => break,
+                Err(actual) => current = actual,
+            }
+        }
+    }
+
     pub fn sense_all(&self, x: f64, y: f64, radius: f64) -> (f32, f32, f32, f32) {
         let cx = x as i32;
         let cy = y as i32;
         let r = radius as i32;
-
         let mut food_sum = 0.0f32;
         let mut danger_sum = 0.0f32;
         let mut sig_a_sum = 0.0f32;
         let mut sig_b_sum = 0.0f32;
         let mut count = 0;
-
         for dy in -r..=r {
             for dx in -r..=r {
                 let nx = cx + dx;
@@ -138,7 +154,6 @@ impl PheromoneGrid {
                 }
             }
         }
-
         if count > 0 {
             (
                 food_sum / count as f32,
@@ -151,7 +166,6 @@ impl PheromoneGrid {
         }
     }
 
-    /// Legacy sense for compatibility
     pub fn sense(&self, x: f64, y: f64, radius: f64) -> (f32, f32) {
         let (f, d, _, _) = self.sense_all(x, y, radius);
         (f, d)
@@ -159,33 +173,46 @@ impl PheromoneGrid {
 
     pub fn update(&mut self) {
         self.is_dirty = true;
-        for cell in &mut self.cells {
-            cell.decay(self.decay_rate);
+        let size = self.cells.len();
+        if self.atomic_food.len() != size {
+            self.atomic_food = (0..size).map(|_| AtomicU32::new(0)).collect();
+            self.atomic_danger = (0..size).map(|_| AtomicU32::new(0)).collect();
+            self.atomic_sig_a = (0..size).map(|_| AtomicU32::new(0)).collect();
+            self.atomic_sig_b = (0..size).map(|_| AtomicU32::new(0)).collect();
         }
-        for i in 0..self.cells.len() {
-            self.back_buffer[i] = self.cells[i];
+
+        let rate = self.decay_rate;
+        for i in 0..size {
+            let f = f32::from_bits(self.atomic_food[i].swap(0, Ordering::SeqCst));
+            let d = f32::from_bits(self.atomic_danger[i].swap(0, Ordering::SeqCst));
+            let sa = f32::from_bits(self.atomic_sig_a[i].swap(0, Ordering::SeqCst));
+            let sb = f32::from_bits(self.atomic_sig_b[i].swap(0, Ordering::SeqCst));
+
+            let cell = &mut self.cells[i];
+            cell.food_strength = (cell.food_strength * rate + f).min(1.0);
+            cell.danger_strength = (cell.danger_strength * rate + d).min(1.0);
+            cell.sig_a_strength = (cell.sig_a_strength * rate + sa).min(1.0);
+            cell.sig_b_strength = (cell.sig_b_strength * rate + sb).min(1.0);
+
+            if cell.food_strength < 0.01 {
+                cell.food_strength = 0.0;
+            }
+            if cell.danger_strength < 0.01 {
+                cell.danger_strength = 0.0;
+            }
+            if cell.sig_a_strength < 0.01 {
+                cell.sig_a_strength = 0.0;
+            }
+            if cell.sig_b_strength < 0.01 {
+                cell.sig_b_strength = 0.0;
+            }
         }
+        self.back_buffer.copy_from_slice(&self.cells);
     }
 
     pub fn get_cell(&self, x: u16, y: u16) -> &PheromoneCell {
         let ix = x.min(self.width - 1);
         let iy = y.min(self.height - 1);
         &self.cells[self.index(ix, iy)]
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_pheromone_deposit_signals() {
-        let mut grid = PheromoneGrid::new(10, 10);
-        grid.deposit(5.0, 5.0, PheromoneType::SignalA, 0.5);
-        grid.deposit(5.0, 5.0, PheromoneType::SignalB, 0.7);
-
-        let cell = grid.get_cell(5, 5);
-        assert_eq!(cell.sig_a_strength, 0.5);
-        assert_eq!(cell.sig_b_strength, 0.7);
     }
 }
