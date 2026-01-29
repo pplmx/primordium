@@ -28,25 +28,45 @@ fn test_pathogen_transmission() {
     };
     patient_zero.health.pathogen = Some(pathogen.clone());
     patient_zero.health.infection_timer = pathogen.duration;
-    world.entities.push(patient_zero);
+    world.ecs.spawn((
+        patient_zero.identity,
+        primordium_lib::model::state::Position {
+            x: patient_zero.physics.x,
+            y: patient_zero.physics.y,
+        },
+        patient_zero.physics,
+        patient_zero.metabolism,
+        patient_zero.health,
+        patient_zero.intel,
+    ));
 
     // 2. Setup Victim nearby (same position to be sure)
     let mut victim = lifecycle::create_entity(10.0, 10.0, 0);
     victim.physics.vx = 0.0;
     victim.physics.vy = 0.0;
     victim.health.immunity = 0.0; // Ensure no immunity for deterministic test
-    world.entities.push(victim);
+    world.ecs.spawn((
+        victim.identity,
+        primordium_lib::model::state::Position {
+            x: victim.physics.x,
+            y: victim.physics.y,
+        },
+        victim.physics,
+        victim.metabolism,
+        victim.health,
+        victim.intel,
+    ));
 
     // 3. Update world to spread infection
     world.update(&mut env).expect("Update failed");
 
     // 4. Verify victim is infected
-    for (i, e) in world.entities.iter().enumerate() {
+    let entities = world.get_all_entities();
+    for (i, e) in entities.iter().enumerate() {
         println!("Entity {}: Infected={}", i, e.health.pathogen.is_some());
     }
 
-    let infected_count = world
-        .entities
+    let infected_count = entities
         .iter()
         .filter(|e| e.health.pathogen.is_some())
         .count();

@@ -1,4 +1,3 @@
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -138,9 +137,11 @@ impl PressureGrid {
         }
 
         let rate = self.decay_rate;
-        self.cells.par_iter_mut().enumerate().for_each(|(i, cell)| {
-            let d = f32::from_bits(self.atomic_dig[i].swap(0, Ordering::SeqCst));
-            let b = f32::from_bits(self.atomic_build[i].swap(0, Ordering::SeqCst));
+        self.cells.iter_mut().enumerate().for_each(|(i, cell)| {
+            let d_bits = self.atomic_dig[i].swap(0, Ordering::SeqCst);
+            let d = f32::from_bits(d_bits);
+            let b_bits = self.atomic_build[i].swap(0, Ordering::SeqCst);
+            let b = f32::from_bits(b_bits);
             cell.dig_demand = (cell.dig_demand * rate + d).min(1.0);
             cell.build_demand = (cell.build_demand * rate + b).min(1.0);
             if cell.dig_demand < 0.01 {

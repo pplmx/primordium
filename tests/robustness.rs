@@ -25,12 +25,23 @@ fn test_lineage_registry_cleanup_on_extinction() {
     // Create an entity with a specific lineage
     let e = lifecycle::create_entity(10.0, 10.0, 0);
     let l_id = e.metabolism.lineage_id;
-    world.entities.push(e);
+    world.ecs.spawn((
+        e.identity,
+        primordium_lib::model::state::Position {
+            x: e.physics.x,
+            y: e.physics.y,
+        },
+        e.physics,
+        e.metabolism,
+        e.health,
+        e.intel,
+    ));
 
     // Update stats - lineage should be there
+    let entities = world.get_all_entities();
     history::update_population_stats(
         &mut world.pop_stats,
-        &world.entities,
+        &entities,
         world.food.len(),
         0.0,
         0.0,
@@ -40,10 +51,11 @@ fn test_lineage_registry_cleanup_on_extinction() {
     assert_eq!(world.pop_stats.lineage_counts.get(&l_id), Some(&1));
 
     // Kill the population
-    world.entities.clear();
+    world.ecs.clear();
+    let entities = world.get_all_entities();
     history::update_population_stats(
         &mut world.pop_stats,
-        &world.entities,
+        &entities,
         world.food.len(),
         0.0,
         0.0,
@@ -70,5 +82,5 @@ fn test_multiverse_version_compatibility_resilience() {
     let _ = world.import_migrant(partial_dna_hex, 100.0, 1, &fingerprint, "dummy_checksum");
 
     // If it didn't panic, it's successful for this robustness test
-    assert!(world.entities.len() <= 1);
+    assert!(world.get_population_count() <= 1);
 }

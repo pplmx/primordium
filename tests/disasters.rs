@@ -26,12 +26,23 @@ fn test_wall_collisions() {
     entity.physics.vx = 1.0;
     entity.physics.vy = 1.0;
 
-    world.entities.push(entity);
+    world.ecs.spawn((
+        entity.identity,
+        primordium_lib::model::state::Position {
+            x: entity.physics.x,
+            y: entity.physics.y,
+        },
+        entity.physics,
+        entity.metabolism,
+        entity.health,
+        entity.intel,
+    ));
 
     let mut env = Environment::default();
     world.update(&mut env).unwrap();
 
-    let e = &world.entities[0];
+    let entities = world.get_all_entities();
+    let e = &entities[0];
     assert!(
         e.physics.vx < 0.0,
         "vx should be reversed, got {}",
@@ -63,7 +74,17 @@ fn test_dust_bowl_trigger() {
     for _ in 0..310 {
         let mut e = lifecycle::create_entity(5.0, 5.0, 0);
         e.metabolism.energy = 1000.0;
-        world.entities.push(e);
+        world.ecs.spawn((
+            e.identity,
+            primordium_lib::model::state::Position {
+                x: e.physics.x,
+                y: e.physics.y,
+            },
+            e.physics,
+            e.metabolism,
+            e.health,
+            e.intel,
+        ));
     }
 
     let mut triggered = false;

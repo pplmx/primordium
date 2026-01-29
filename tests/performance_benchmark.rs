@@ -23,8 +23,11 @@ fn test_massive_population_performance() {
     for i in 0..100 {
         let tick_start = Instant::now();
         // Give them energy so they don't die
-        for e in &mut world.entities {
-            e.metabolism.energy = 500.0;
+        for (_handle, met) in world
+            .ecs
+            .query_mut::<&mut primordium_lib::model::state::Metabolism>()
+        {
+            met.energy = 500.0;
         }
         world.update(&mut env).unwrap();
         if i % 10 == 0 {
@@ -32,7 +35,7 @@ fn test_massive_population_performance() {
                 "Tick {}: {:?} (Pop: {})",
                 i,
                 tick_start.elapsed(),
-                world.entities.len()
+                world.get_population_count()
             );
         }
     }
@@ -41,7 +44,7 @@ fn test_massive_population_performance() {
     println!("Average time per tick: {:?}", duration / 100);
 
     assert!(
-        !world.entities.is_empty(),
+        world.get_population_count() > 0,
         "Population should survive some ticks"
     );
 }

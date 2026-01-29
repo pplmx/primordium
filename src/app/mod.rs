@@ -10,7 +10,6 @@ use anyhow::Result;
 use chrono::Utc;
 use crossterm::event::{self, Event, KeyEventKind};
 use std::time::{Duration, Instant};
-// use sysinfo::System; (removed as unused)
 
 use crate::model::history::LiveEvent;
 use crate::model::systems::environment as environment_system;
@@ -27,18 +26,15 @@ impl App {
             let effective_tick_rate =
                 Duration::from_secs_f64(tick_rate.as_secs_f64() / self.time_scale);
 
-            // 1. Draw
             tui.terminal.draw(|f| {
                 self.draw(f);
             })?;
 
-            // 2. Hardware & Stats
             self.frame_count += 1;
             if self.last_fps_update.elapsed() >= Duration::from_secs(1) {
                 self.update_hardware_metrics();
             }
 
-            // 3. Handle Events
             while event::poll(Duration::ZERO)? {
                 match event::read()? {
                     Event::Key(key) if key.kind == KeyEventKind::Press => {
@@ -51,7 +47,6 @@ impl App {
                 }
             }
 
-            // 4. Update State
             if last_tick.elapsed() >= effective_tick_rate {
                 if !self.paused {
                     self.update_world()?;
@@ -104,7 +99,8 @@ impl App {
         self.cpu_history.push_back(current_cpu as u64);
 
         self.pop_history.pop_front();
-        self.pop_history.push_back(self.world.entities.len() as u64);
+        self.pop_history
+            .push_back(self.world.get_population_count() as u64);
 
         self.o2_history.pop_front();
         self.o2_history.push_back(self.env.oxygen_level as u64);
@@ -145,9 +141,21 @@ impl App {
                         net.send(&NetMessage::MigrateAck { migration_id });
                     }
                     NetMessage::MigrateAck { migration_id } => {
-                        self.world
-                            .entities
-                            .retain(|e| e.metabolism.migration_id != Some(migration_id));
+                        let mut handles_to_despawn = Vec::new();
+                        for (handle, met) in self
+                            .world
+                            .ecs
+                            .query::<&crate::model::state::Metabolism>()
+                            .iter()
+                        {
+                            if met.migration_id == Some(migration_id) {
+                                handles_to_despawn.push(handle);
+                            }
+                        }
+                        for h in handles_to_despawn {
+                            let _ = self.world.ecs.despawn(h);
+                        }
+
                         self.event_log.push_back((
                             "MIGRATION CONFIRMED: Entity successfully reached another universe."
                                 .to_string(),
@@ -186,22 +194,32 @@ impl App {
             let height = self.world.height as f64;
             let config_fingerprint = self.world.config.fingerprint();
 
-            for e in &mut self.world.entities {
-                if e.metabolism.is_in_transit {
+            for (_handle, (identity, phys, met, intel)) in self
+                .world
+                .ecs
+                .query::<(
+                    &primordium_data::Identity,
+                    &primordium_data::Physics,
+                    &mut primordium_data::Metabolism,
+                    &primordium_data::Intel,
+                )>()
+                .iter()
+            {
+                if met.is_in_transit {
                     continue;
                 }
 
-                let leaving = e.physics.x < 1.0
-                    || e.physics.x > (width - 2.0)
-                    || e.physics.y < 1.0
-                    || e.physics.y > (height - 2.0);
+                let leaving = phys.x < 1.0
+                    || phys.x > (width - 2.0)
+                    || phys.y < 1.0
+                    || phys.y > (height - 2.0);
 
                 if leaving {
                     use crate::model::infra::network::NetMessage;
                     use sha2::{Digest, Sha256};
-                    let dna = e.intel.genotype.to_hex();
-                    let energy = e.metabolism.energy as f32;
-                    let generation = e.metabolism.generation;
+                    let dna = intel.genotype.to_hex();
+                    let energy = met.energy as f32;
+                    let generation = met.generation;
 
                     let mut hasher = Sha256::new();
                     hasher.update(dna.as_bytes());
@@ -210,15 +228,15 @@ impl App {
                     let checksum = hex::encode(hasher.finalize());
 
                     let migration_id = Uuid::new_v4();
-                    e.metabolism.is_in_transit = true;
-                    e.metabolism.migration_id = Some(migration_id);
+                    met.is_in_transit = true;
+                    met.migration_id = Some(migration_id);
 
                     migrants.push(NetMessage::MigrateEntity {
                         migration_id,
                         dna,
                         energy,
                         generation,
-                        species_name: e.name(),
+                        species_name: identity.name.clone(),
                         fingerprint: config_fingerprint.clone(),
                         checksum,
                     });
@@ -234,7 +252,7 @@ impl App {
             }
 
             if self.world.tick.is_multiple_of(300) {
-                net.announce(self.world.entities.len());
+                net.announce(self.world.get_population_count());
             }
         }
 

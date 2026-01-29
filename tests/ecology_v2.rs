@@ -74,7 +74,17 @@ fn test_nutrient_sensing_in_perception() {
     world.food.push(Food::new(12, 10, 1.0));
 
     let e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    world.entities.push(e);
+    world.ecs.spawn((
+        e.identity,
+        primordium_lib::model::state::Position {
+            x: e.physics.x,
+            y: e.physics.y,
+        },
+        e.physics,
+        e.metabolism,
+        e.health,
+        e.intel,
+    ));
 
     // Update world to trigger perception
     let mut env = primordium_lib::model::state::environment::Environment::default();
@@ -88,9 +98,10 @@ fn test_nutrient_sensing_in_perception() {
         .collect();
     world.food_hash.build_parallel(&food_positions, 100, 100);
 
+    let entities = world.get_all_entities();
     if !world.food.is_empty() {
         let (_, _, f_type) =
-            ecological::sense_nearest_food(&world.entities[0], &world.food, &world.food_hash);
+            ecological::sense_nearest_food(&entities[0], &world.food, &world.food_hash);
         assert!(f_type >= 0.0);
     }
 }

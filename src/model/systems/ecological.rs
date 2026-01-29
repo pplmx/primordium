@@ -116,9 +116,9 @@ pub fn handle_feeding_optimized(idx: usize, entities: &mut [Entity], ctx: &mut F
     }
 }
 
-/// Sense the nearest food within a radius.
-pub fn sense_nearest_food(
-    entity: &Entity,
+/// Sense the nearest food within a radius (using components).
+pub fn sense_nearest_food_components(
+    physics: &primordium_data::Physics,
     food: &[Food],
     food_hash: &SpatialHash,
 ) -> (f64, f64, f32) {
@@ -127,10 +127,10 @@ pub fn sense_nearest_food(
     let mut f_type = 0.5;
     let mut min_dist_sq = f64::MAX;
 
-    food_hash.query_callback(entity.physics.x, entity.physics.y, 20.0, |f_idx| {
+    food_hash.query_callback(physics.x, physics.y, 20.0, |f_idx| {
         let f = &food[f_idx];
-        let dx = f64::from(f.x) - entity.physics.x;
-        let dy = f64::from(f.y) - entity.physics.y;
+        let dx = f64::from(f.x) - physics.x;
+        let dy = f64::from(f.y) - physics.y;
         let dist_sq = dx * dx + dy * dy;
         if dist_sq < min_dist_sq {
             min_dist_sq = dist_sq;
@@ -145,6 +145,15 @@ pub fn sense_nearest_food(
     } else {
         (dx_food, dy_food, f_type)
     }
+}
+
+/// Sense the nearest food within a radius.
+pub fn sense_nearest_food(
+    entity: &Entity,
+    food: &[Food],
+    food_hash: &SpatialHash,
+) -> (f64, f64, f32) {
+    sense_nearest_food_components(&entity.physics, food, food_hash)
 }
 
 #[cfg(test)]

@@ -111,6 +111,19 @@ pub struct Identity {
     pub parent_id: Option<Uuid>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct LineageInfo {
+    pub lineage_id: Uuid,
+    pub generation: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct ColorRGB {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
     pub x: f64,
@@ -212,10 +225,8 @@ pub struct Intel {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
-    pub id: Uuid,
-    #[serde(default)]
-    pub name: String,
-    pub parent_id: Option<Uuid>,
+    #[serde(flatten)]
+    pub identity: Identity,
     pub physics: Physics,
     pub metabolism: Metabolism,
     pub health: Health,
@@ -223,15 +234,8 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn name(&self) -> String {
-        if self.name.is_empty() {
-            return format!("Entity-{}", &self.id.to_string()[..4]);
-        }
-        self.name.clone()
-    }
-
     pub fn update_name(&mut self) {
-        let id_str = self.id.to_string();
+        let id_str = self.identity.id.to_string();
         let bytes = id_str.as_bytes();
         let syllables = [
             "ae", "ba", "co", "da", "el", "fa", "go", "ha", "id", "jo", "ka", "lu", "ma", "na",
@@ -257,7 +261,7 @@ impl Entity {
         } else {
             "C-"
         };
-        self.name = format!(
+        self.identity.name = format!(
             "{}{}{}{}-Gen{}",
             role_prefix,
             prefix[p_idx],

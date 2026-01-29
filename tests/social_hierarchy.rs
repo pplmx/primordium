@@ -22,12 +22,23 @@ fn test_rank_accumulation() {
     // Total should be roughly 0.3 + 0.1 + 0.3 + AgeScore
     // At tick 0, age is 0.
 
-    world.entities.push(e);
+    world.ecs.spawn((
+        e.identity,
+        primordium_lib::model::state::Position {
+            x: e.physics.x,
+            y: e.physics.y,
+        },
+        e.physics,
+        e.metabolism,
+        e.health,
+        e.intel,
+    ));
 
     // Run update to trigger Pass 0 rank calc
     world.update(&mut env).expect("Update failed");
 
-    let rank = world.entities[0].intel.rank;
+    let entities = world.get_all_entities();
+    let rank = entities[0].intel.rank;
     // Energy(1.0)*0.3 + Age(0)*0.3 + Offspring(1.0)*0.1 + Rep(1.0)*0.3 = 0.7
     assert!(
         rank >= 0.69,
@@ -38,7 +49,8 @@ fn test_rank_accumulation() {
     // Now simulate aging
     world.tick = 2000;
     world.update(&mut env).expect("Update failed");
-    let rank_aged = world.entities[0].intel.rank;
+    let entities_aged = world.get_all_entities();
+    let rank_aged = entities_aged[0].intel.rank;
     // Age(2000)*0.3 = 0.3. Total ~1.0
     assert!(rank_aged > rank, "Rank should increase with age");
 }
@@ -81,7 +93,17 @@ fn test_tribal_split_under_pressure() {
         e.physics.r = 100; // Original Tribe
         e.intel.reputation = 0.0;
         e.metabolism.energy = 10.0;
-        world.entities.push(e);
+        world.ecs.spawn((
+            e.identity,
+            primordium_lib::model::state::Position {
+                x: e.physics.x,
+                y: e.physics.y,
+            },
+            e.physics,
+            e.metabolism,
+            e.health,
+            e.intel,
+        ));
     }
 
     // Run update
@@ -93,7 +115,7 @@ fn test_tribal_split_under_pressure() {
                                            // Let's check if we have DIVERSE colors now.
 
     let mut distinct_colors = std::collections::HashSet::new();
-    for e in &world.entities {
+    for e in world.get_all_entities() {
         distinct_colors.insert((e.physics.r, e.physics.g, e.physics.b));
     }
 
@@ -148,23 +170,36 @@ fn test_soldier_damage_bonus() {
     let status = soldier.status(0.5, 1000, 150);
     println!("Soldier Status: {:?}", status);
 
-    world.entities.push(soldier);
-    world.entities.push(victim);
+    world.ecs.spawn((
+        soldier.identity,
+        primordium_lib::model::state::Position {
+            x: soldier.physics.x,
+            y: soldier.physics.y,
+        },
+        soldier.physics,
+        soldier.metabolism,
+        soldier.health,
+        soldier.intel,
+    ));
+    world.ecs.spawn((
+        victim.identity,
+        primordium_lib::model::state::Position {
+            x: victim.physics.x,
+            y: victim.physics.y,
+        },
+        victim.physics,
+        victim.metabolism,
+        victim.health,
+        victim.intel,
+    ));
 
     // 1 tick might be enough if Soldier bonus applies (1.5x)
-    // Attacker Power = 200 * 1.5 = 300.
-    // Victim Resistance = 200 / 0.4 (def_mult) = 500? Wait.
-    // Default defense_mult is 1.0 if no allies?
-    // In social.rs: defense_mult = (1.0 - allies*0.15).max(0.4).
-    // If no allies, defense_mult = 1.0.
-    // So Victim Res = 200.
-    // Attacker Power = 200 (base) * 1.5 (Soldier) = 300.
-    // 300 > 200 -> Kill.
+    // ... logic explained in comments ...
 
     world.update(&mut env).expect("Update failed");
 
     assert_eq!(
-        world.entities.len(),
+        world.get_population_count(),
         1,
         "Soldier should have killed the victim due to damage bonus"
     );

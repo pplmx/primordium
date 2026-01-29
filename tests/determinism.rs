@@ -23,16 +23,22 @@ fn test_determinism_consistency() {
 
     // Verify entity counts
     assert_eq!(
-        world1.entities.len(),
-        world2.entities.len(),
+        world1.get_population_count(),
+        world2.get_population_count(),
         "Entity counts should match"
     );
 
     // Verify specific entity properties
-    for i in 0..world1.entities.len() {
-        let e1 = &world1.entities[i];
-        let e2 = &world2.entities[i];
-        assert_eq!(e1.id, e2.id, "Entity IDs should match at index {}", i);
+    let entities1 = world1.get_all_entities();
+    let entities2 = world2.get_all_entities();
+    for i in 0..entities1.len() {
+        let e1 = &entities1[i];
+        let e2 = &entities2[i];
+        assert_eq!(
+            e1.identity.id, e2.identity.id,
+            "Entity IDs should match at index {}",
+            i
+        );
         assert_eq!(
             e1.physics.x, e2.physics.x,
             "Entity X should match at index {}",

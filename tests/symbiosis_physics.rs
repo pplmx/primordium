@@ -9,10 +9,10 @@ fn test_symbiosis_spring_force() {
     let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     let e2 = primordium_lib::model::lifecycle::create_entity(15.0, 10.0, 0); // 5.0 units away (Rest length is 2.0)
 
-    e1.intel.bonded_to = Some(e2.id);
+    e1.intel.bonded_to = Some(e2.identity.id);
 
     let snapshot = InternalEntitySnapshot {
-        id: e2.id,
+        id: e2.identity.id,
         lineage_id: e2.metabolism.lineage_id,
         x: e2.physics.x,
         y: e2.physics.y,
@@ -41,7 +41,7 @@ fn test_symbiosis_spring_force() {
     );
 
     let mut id_map = std::collections::HashMap::new();
-    id_map.insert(e2.id, 0);
+    id_map.insert(e2.identity.id, 0);
 
     let mut ctx = ActionContext {
         env: &env,

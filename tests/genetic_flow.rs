@@ -26,7 +26,7 @@ fn test_entity_import_export() {
     let config = AppConfig::default();
     let mut world = World::new(1, config).expect("Failed to create world");
 
-    let original_entity = world.entities[0].clone();
+    let original_entity = world.get_all_entities()[0].clone();
     let dna = original_entity.intel.genotype.to_hex();
 
     // Manual import to world
@@ -41,8 +41,8 @@ fn test_entity_import_export() {
 
     let _ = world.import_migrant(dna.clone(), 100.0, 5, &fingerprint, &checksum);
 
-    let imported = world
-        .entities
+    let entities = world.get_all_entities();
+    let imported = entities
         .iter()
         .find(|e| e.metabolism.generation == 5)
         .expect("Imported entity not found");
@@ -59,7 +59,7 @@ fn test_genetic_surge() {
     let mut world = World::new(10, config).expect("Failed to create world");
 
     let before_surge_dnas: Vec<String> = world
-        .entities
+        .get_all_entities()
         .iter()
         .map(|e| e.intel.genotype.to_hex())
         .collect();
@@ -67,9 +67,13 @@ fn test_genetic_surge() {
     // Simulate surge (same logic as in app/input.rs)
     use primordium_lib::model::systems::intel;
     let mut rng = rand::thread_rng();
-    for entity in &mut world.entities {
+    for (_handle, (intel, _met, _phys)) in world.ecs.query_mut::<(
+        &mut primordium_lib::model::state::Intel,
+        &mut primordium_lib::model::state::Metabolism,
+        &mut primordium_lib::model::state::Physics,
+    )>() {
         intel::mutate_genotype(
-            &mut entity.intel.genotype,
+            &mut intel.genotype,
             &world.config,
             10,
             false,
@@ -80,7 +84,7 @@ fn test_genetic_surge() {
     }
 
     let after_surge_dnas: Vec<String> = world
-        .entities
+        .get_all_entities()
         .iter()
         .map(|e| e.intel.genotype.to_hex())
         .collect();

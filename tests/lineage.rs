@@ -46,12 +46,45 @@ fn test_lineage_population_stats() {
     let l2 = e3.metabolism.lineage_id;
     assert_ne!(l1, l2);
 
-    world.entities.extend(vec![e1, e2, e3]);
+    world.ecs.spawn((
+        e1.identity,
+        primordium_lib::model::state::Position {
+            x: e1.physics.x,
+            y: e1.physics.y,
+        },
+        e1.physics,
+        e1.metabolism,
+        e1.health,
+        e1.intel,
+    ));
+    world.ecs.spawn((
+        e2.identity,
+        primordium_lib::model::state::Position {
+            x: e2.physics.x,
+            y: e2.physics.y,
+        },
+        e2.physics,
+        e2.metabolism,
+        e2.health,
+        e2.intel,
+    ));
+    world.ecs.spawn((
+        e3.identity,
+        primordium_lib::model::state::Position {
+            x: e3.physics.x,
+            y: e3.physics.y,
+        },
+        e3.physics,
+        e3.metabolism,
+        e3.health,
+        e3.intel,
+    ));
 
     // Update stats
+    let entities = world.get_all_entities();
     history::update_population_stats(
         &mut world.pop_stats,
-        &world.entities,
+        &entities,
         world.food.len(),
         0.0,
         0.0,
@@ -85,8 +118,9 @@ fn test_multiverse_lineage_preservation() {
 
     let _ = world.import_migrant(dna, 100.0, 1, &fingerprint, &checksum);
 
+    let entities = world.get_all_entities();
     assert_eq!(
-        world.entities[0].metabolism.lineage_id, original_lineage,
+        entities[0].metabolism.lineage_id, original_lineage,
         "Lineage must survive multiverse migration"
     );
 }

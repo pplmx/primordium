@@ -16,7 +16,17 @@ fn test_collective_memory_reinforcement() {
     let mut e1 = lifecycle::create_entity(10.0, 10.0, 0);
     e1.metabolism.lineage_id = l_id;
     e1.intel.genotype.lineage_id = l_id;
-    world.entities.push(e1);
+    world.ecs.spawn((
+        e1.identity,
+        primordium_lib::model::state::Position {
+            x: e1.physics.x,
+            y: e1.physics.y,
+        },
+        e1.physics,
+        e1.metabolism,
+        e1.health,
+        e1.intel,
+    ));
 
     world.lineage_registry.record_birth(l_id, 0, 0);
 
@@ -46,11 +56,21 @@ fn test_engineer_biological_irrigation_pressure() {
     eng.intel.genotype.max_speed = 0.0;
     eng.intel.specialization = Some(Specialization::Engineer);
     eng.metabolism.has_metamorphosed = true;
-    world.entities.push(eng);
+    world.ecs.spawn((
+        eng.identity,
+        primordium_lib::model::state::Position {
+            x: eng.physics.x,
+            y: eng.physics.y,
+        },
+        eng.physics,
+        eng.metabolism,
+        eng.health,
+        eng.intel,
+    ));
 
     world.update(&mut env).unwrap();
 
-    let (_b, d) = world.pressure.sense(11.0, 10.0, 1.5);
+    let (d, _b) = world.pressure.sense(11.0, 10.0, 1.5);
     assert!(d > 0.0, "Engineer should deposit Dig pressure near river");
 }
 
@@ -67,7 +87,17 @@ fn test_outpost_construction() {
     let l_id = Uuid::new_v4();
     alpha.metabolism.lineage_id = l_id;
 
-    world.entities.push(alpha);
+    let handle = world.ecs.spawn((
+        alpha.identity,
+        primordium_lib::model::state::Position {
+            x: alpha.physics.x,
+            y: alpha.physics.y,
+        },
+        alpha.physics,
+        alpha.metabolism,
+        alpha.health,
+        alpha.intel,
+    ));
 
     use primordium_lib::model::state::interaction::InteractionCommand;
     use primordium_lib::model::systems::interaction;
@@ -101,7 +131,7 @@ fn test_outpost_construction() {
         is_outpost: true,
     };
 
-    interaction::process_interaction_commands(&mut world.entities, vec![cmd], &mut ctx);
+    interaction::process_interaction_commands_ecs(&mut world.ecs, &[handle], vec![cmd], &mut ctx);
 
     let cell = world.terrain.get(10.0, 10.0);
     assert_eq!(cell.terrain_type, TerrainType::Outpost);
@@ -119,7 +149,17 @@ fn test_outpost_energy_capacitor() {
     donor.metabolism.lineage_id = l_id;
     donor.metabolism.energy = 450.0;
     donor.metabolism.max_energy = 500.0;
-    world.entities.push(donor);
+    world.ecs.spawn((
+        donor.identity,
+        primordium_lib::model::state::Position {
+            x: donor.physics.x,
+            y: donor.physics.y,
+        },
+        donor.physics,
+        donor.metabolism,
+        donor.health,
+        donor.intel,
+    ));
 
     let idx = world.terrain.index(10, 10);
     world.terrain.set_cell_type(10, 10, TerrainType::Outpost);
@@ -137,16 +177,26 @@ fn test_outpost_energy_capacitor() {
     needy.metabolism.lineage_id = l_id;
     needy.metabolism.energy = 20.0;
     needy.metabolism.max_energy = 500.0;
-    world.entities.push(needy);
+    world.ecs.spawn((
+        needy.identity,
+        primordium_lib::model::state::Position {
+            x: needy.physics.x,
+            y: needy.physics.y,
+        },
+        needy.physics,
+        needy.metabolism,
+        needy.health,
+        needy.intel,
+    ));
 
     world.update(&mut _env).unwrap();
 
-    let needy_idx = world
-        .entities
+    let entities = world.get_all_entities();
+    let needy_entity = entities
         .iter()
-        .position(|e| e.metabolism.energy > 20.0 && e.id != world.entities[0].id);
+        .find(|e| e.metabolism.energy > 20.0 && e.metabolism.energy < 400.0);
     assert!(
-        needy_idx.is_some(),
+        needy_entity.is_some(),
         "Needy entity should have received energy"
     );
 }

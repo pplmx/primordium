@@ -62,8 +62,9 @@ fn test_entity_migration_via_network() {
         world
             .import_migrant(dna, energy, generation, &fingerprint, &checksum)
             .expect("Failed to import");
-        assert_eq!(world.entities.len(), 1);
-        assert_eq!(world.entities[0].metabolism.energy, 175.0);
+        assert_eq!(world.get_population_count(), 1);
+        let entities = world.get_all_entities();
+        assert_eq!(entities[0].metabolism.energy, 175.0);
     } else {
         panic!("Incorrect message variant");
     }
@@ -92,7 +93,7 @@ fn test_entity_migration_with_hex_dna() {
         dna: brain_hex.clone(),
         energy: entity.metabolism.energy as f32,
         generation: entity.metabolism.generation,
-        species_name: entity.name(),
+        species_name: entity.identity.name,
         fingerprint: config.fingerprint(),
         checksum,
     };

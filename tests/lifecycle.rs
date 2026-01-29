@@ -10,7 +10,7 @@ fn test_simulation_lifecycle() {
     let mut world = World::new(initial_pop, config).expect("Failed to create world");
     let mut env = Environment::default();
 
-    assert_eq!(world.entities.len(), initial_pop);
+    assert_eq!(world.get_population_count(), initial_pop);
 
     // 2. Run for 100 ticks
     for _ in 0..100 {
@@ -19,7 +19,10 @@ fn test_simulation_lifecycle() {
 
     // 3. Verify
     // Population should change based on birth/death
-    println!("Population after 100 ticks: {}", world.entities.len());
+    println!(
+        "Population after 100 ticks: {}",
+        world.get_population_count()
+    );
 
     // Hall of fame should be populated if there were any high performers
     // Or at least initialized
@@ -39,14 +42,17 @@ fn test_reproduction_and_genetics() {
     let mut world = World::new(10, config).expect("Failed to create world");
     let mut env = Environment::default();
 
-    // Force high energy on all entities to trigger reproduction
-    for entity in &mut world.entities {
-        entity.metabolism.energy = 200.0;
-    }
-
     // Run ticks - some should reproduce
     let mut total_births = 0;
     for _ in 0..50 {
+        // Keep energy high to trigger reproduction
+        for (_handle, met) in world
+            .ecs
+            .query_mut::<&mut primordium_lib::model::state::Metabolism>()
+        {
+            met.energy = 200.0;
+        }
+
         let events = world.update(&mut env).expect("Update failed");
         for event in events {
             if matches!(

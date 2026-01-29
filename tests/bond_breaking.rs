@@ -15,8 +15,8 @@ fn test_voluntary_bond_breaking() {
     // Setup compatible genotypes for bonding
     e2.intel.genotype = e1.intel.genotype.clone();
 
-    let e1_id = e1.id;
-    let e2_id = e2.id;
+    let e1_id = e1.identity.id;
+    let e2_id = e2.identity.id;
 
     // Manually force bond
     e1.intel.bonded_to = Some(e2_id);
@@ -53,14 +53,35 @@ fn test_voluntary_bond_breaking() {
     // Output = tanh(-1.0 * 10.0) = -1.0
     // -1.0 < 0.2 -> Should Break Bond
 
-    world.entities.push(e1);
-    world.entities.push(e2);
+    world.ecs.spawn((
+        e1.identity,
+        primordium_lib::model::state::Position {
+            x: e1.physics.x,
+            y: e1.physics.y,
+        },
+        e1.physics,
+        e1.metabolism,
+        e1.health,
+        e1.intel,
+    ));
+    world.ecs.spawn((
+        e2.identity,
+        primordium_lib::model::state::Position {
+            x: e2.physics.x,
+            y: e2.physics.y,
+        },
+        e2.physics,
+        e2.metabolism,
+        e2.health,
+        e2.intel,
+    ));
 
     // Run simulation
     world.update(&mut env).expect("Update failed");
 
     // Verify bond broken for E1
-    let e1_curr = world.entities.iter().find(|e| e.id == e1_id).unwrap();
+    let entities = world.get_all_entities();
+    let e1_curr = entities.iter().find(|e| e.identity.id == e1_id).unwrap();
     assert!(
         e1_curr.intel.bonded_to.is_none(),
         "E1 should have broken the bond voluntarily"

@@ -9,8 +9,7 @@ use crate::model::lineage_registry::LineageRegistry;
 use crate::model::systems::{biological, social};
 use crate::model::terrain::{TerrainGrid, TerrainType};
 use chrono::Utc;
-use primordium_data::Specialization;
-use primordium_data::{Entity, EntityStatus};
+use primordium_data::{Entity, EntityStatus, Health, Intel, Metabolism, Physics, Specialization};
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -41,8 +40,9 @@ pub struct InteractionResult {
     pub new_babies: Vec<Entity>,
 }
 
-pub fn process_interaction_commands<R: Rng>(
-    entities: &mut [Entity],
+pub fn process_interaction_commands_ecs<R: Rng>(
+    world: &mut hecs::World,
+    entity_handles: &[hecs::Entity],
     commands: Vec<InteractionCommand>,
     ctx: &mut InteractionContext<R>,
 ) -> InteractionResult {
@@ -59,89 +59,135 @@ pub fn process_interaction_commands<R: Rng>(
                 attacker_lineage,
                 cause,
             } => {
-                let target = &entities[target_idx];
-                let tid = target.id;
-                if !killed_ids.contains(&tid) {
+                let target_handle = entity_handles[target_idx];
+                let attacker_handle = entity_handles[attacker_idx];
+
+                let mut target_info = None;
+                if let (Ok(target_identity), Ok(target_metabolism), Ok(target_physics)) = (
+                    world.get::<&primordium_data::Identity>(target_handle),
+                    world.get::<&Metabolism>(target_handle),
+                    world.get::<&Physics>(target_handle),
+                ) {
+                    if !killed_ids.contains(&target_identity.id) {
+                        target_info = Some((
+                            target_identity.id,
+                            target_metabolism.energy,
+                            target_metabolism.birth_tick,
+                            target_metabolism.offspring_count,
+                            target_physics.x,
+                            target_physics.y,
+                        ));
+                    }
+                }
+
+                if let Some((
+                    tid,
+                    target_energy,
+                    target_birth,
+                    target_offspring,
+                    target_x,
+                    target_y,
+                )) = target_info
+                {
                     let mut multiplier = 1.0;
-                    let attacker = &entities[attacker_idx];
-
-                    // Phase 56: High-intensity activity oxygen cost
-                    ctx.env
-                        .consume_oxygen(ctx.config.ecosystem.oxygen_consumption_unit);
-
-                    // Phase 49: Soldier damage bonus
-                    let attacker_status = lifecycle::get_entity_status(
-                        attacker,
-                        ctx.config.brain.activation_threshold,
-                        ctx.tick,
-                        ctx.config.metabolism.maturity_age,
-                    );
-                    if attacker_status == EntityStatus::Soldier
-                        || attacker.intel.specialization == Some(Specialization::Soldier)
-                    {
-                        multiplier *= ctx.config.social.soldier_damage_mult;
-                    }
-
-                    // Phase 49: War Zone bonus
-                    let ix = (attacker.physics.x as usize).min(ctx.width as usize - 1);
-                    let iy = (attacker.physics.y as usize).min(ctx.height as usize - 1);
-                    if ctx.social_grid[iy * ctx.width as usize + ix] == 2 {
-                        multiplier *= ctx.config.social.soldier_damage_mult;
-                    }
-
-                    // Phase 49: Social Defense (Group bonus)
                     let mut allies = 0;
-                    ctx.spatial_hash.query_callback(
-                        target.physics.x,
-                        target.physics.y,
-                        2.0,
-                        |n_idx| {
-                            if n_idx != target_idx
-                                && social::are_same_tribe(target, &entities[n_idx], ctx.config)
-                            {
-                                allies += 1;
-                            }
-                        },
-                    );
-                    let defense_mult = (1.0 - allies as f64 * 0.15).max(0.4);
+                    let mut success = false;
+                    let mut energy_gain = 0.0;
 
-                    // Phase 49: Predation Success Check
-                    let success_chance = (multiplier * defense_mult).min(1.0);
-                    if ctx.rng.gen_bool(success_chance) {
-                        let energy_gain = target.metabolism.energy
-                            * ctx.config.ecosystem.predation_energy_gain_fraction
-                            * multiplier
-                            * defense_mult;
+                    if let (
+                        Ok(attacker_physics),
+                        Ok(attacker_intel),
+                        Ok(attacker_metabolism),
+                        Ok(attacker_health),
+                    ) = (
+                        world.get::<&Physics>(attacker_handle),
+                        world.get::<&Intel>(attacker_handle),
+                        world.get::<&Metabolism>(attacker_handle),
+                        world.get::<&Health>(attacker_handle),
+                    ) {
+                        ctx.env
+                            .consume_oxygen(ctx.config.ecosystem.oxygen_consumption_unit);
 
+                        let attacker_status = lifecycle::calculate_status(
+                            &attacker_metabolism,
+                            &attacker_health,
+                            &attacker_intel,
+                            ctx.config.brain.activation_threshold,
+                            ctx.tick,
+                            ctx.config.metabolism.maturity_age,
+                        );
+                        if attacker_status == EntityStatus::Soldier
+                            || attacker_intel.specialization == Some(Specialization::Soldier)
+                        {
+                            multiplier *= ctx.config.social.soldier_damage_mult;
+                        }
+
+                        let ix = (attacker_physics.x as usize).min(ctx.width as usize - 1);
+                        let iy = (attacker_physics.y as usize).min(ctx.height as usize - 1);
+                        if ctx.social_grid[iy * ctx.width as usize + ix] == 2 {
+                            multiplier *= ctx.config.social.soldier_damage_mult;
+                        }
+
+                        ctx.spatial_hash
+                            .query_callback(target_x, target_y, 2.0, |n_idx| {
+                                if n_idx != target_idx {
+                                    let n_handle = entity_handles[n_idx];
+                                    if let (Ok(target_phys), Ok(n_phys)) = (
+                                        world.get::<&Physics>(target_handle),
+                                        world.get::<&Physics>(n_handle),
+                                    ) {
+                                        if social::are_same_tribe_components(
+                                            &target_phys,
+                                            &n_phys,
+                                            ctx.config,
+                                        ) {
+                                            allies += 1;
+                                        }
+                                    }
+                                }
+                            });
+
+                        let defense_mult = (1.0 - allies as f64 * 0.15).max(0.4);
+                        let success_chance = (multiplier * defense_mult).min(1.0);
+                        if ctx.rng.gen_bool(success_chance) {
+                            success = true;
+                            energy_gain = target_energy
+                                * ctx.config.ecosystem.predation_energy_gain_fraction
+                                * multiplier
+                                * defense_mult;
+                        }
+                    }
+
+                    if success {
                         killed_ids.insert(tid);
                         crate::model::history::record_stat_death(
                             ctx.pop_stats,
-                            ctx.tick - target.metabolism.birth_tick,
+                            ctx.tick - target_birth,
                         );
 
                         let ev = LiveEvent::Death {
                             id: tid,
-                            age: ctx.tick - target.metabolism.birth_tick,
-                            offspring: target.metabolism.offspring_count,
+                            age: ctx.tick - target_birth,
+                            offspring: target_offspring,
                             tick: ctx.tick,
                             timestamp: Utc::now().to_rfc3339(),
-                            cause,
+                            cause: cause.clone(),
                         };
                         let _ = ctx.logger.log_event(ev.clone());
                         events.push(ev);
 
                         ctx.lineage_consumption
                             .push((attacker_lineage, energy_gain));
-
-                        // Phase 60: Collective Reinforcement
                         ctx.lineage_registry
                             .boost_memory_value(&attacker_lineage, "goal", 0.5);
                         ctx.lineage_registry.boost_memory_value(&tid, "threat", 1.0);
 
-                        let attacker_mut = &mut entities[attacker_idx];
-                        attacker_mut.metabolism.energy = (attacker_mut.metabolism.energy
-                            + energy_gain)
-                            .min(attacker_mut.metabolism.max_energy);
+                        if let Ok(mut attacker_met_mut) =
+                            world.get::<&mut Metabolism>(attacker_handle)
+                        {
+                            attacker_met_mut.energy = (attacker_met_mut.energy + energy_gain)
+                                .min(attacker_met_mut.max_energy);
+                        }
                     }
                 }
             }
@@ -149,10 +195,16 @@ pub fn process_interaction_commands<R: Rng>(
                 target_idx,
                 partner_id,
             } => {
-                entities[target_idx].intel.bonded_to = Some(partner_id);
+                let handle = entity_handles[target_idx];
+                if let Ok(mut intel) = world.get::<&mut Intel>(handle) {
+                    intel.bonded_to = Some(partner_id);
+                }
             }
             InteractionCommand::BondBreak { target_idx } => {
-                entities[target_idx].intel.bonded_to = None;
+                let handle = entity_handles[target_idx];
+                if let Ok(mut intel) = world.get::<&mut Intel>(handle) {
+                    intel.bonded_to = None;
+                }
             }
             InteractionCommand::Birth {
                 parent_idx,
@@ -166,8 +218,8 @@ pub fn process_interaction_commands<R: Rng>(
                 );
                 crate::model::history::record_stat_birth_distance(ctx.pop_stats, genetic_distance);
                 let ev = LiveEvent::Birth {
-                    id: baby.id,
-                    parent_id: baby.parent_id,
+                    id: baby.identity.id,
+                    parent_id: baby.identity.parent_id,
                     gen: baby.metabolism.generation,
                     tick: ctx.tick,
                     timestamp: chrono::Utc::now().to_rfc3339(),
@@ -175,7 +227,6 @@ pub fn process_interaction_commands<R: Rng>(
                 let _ = ctx.logger.log_event(ev.clone());
                 events.push(ev);
 
-                // Phase 52: Nest Nursery Bonus
                 let terrain_type = ctx.terrain.get(baby.physics.x, baby.physics.y).terrain_type;
                 if matches!(terrain_type, TerrainType::Nest) {
                     baby.metabolism.energy *= ctx.config.metabolism.birth_energy_multiplier;
@@ -184,11 +235,16 @@ pub fn process_interaction_commands<R: Rng>(
 
                 new_babies.push(*baby);
 
-                let parent = &mut entities[parent_idx];
-                let inv = parent.intel.genotype.reproductive_investment as f64;
-                let c_e = parent.metabolism.energy * inv;
-                parent.metabolism.energy -= c_e;
-                parent.metabolism.offspring_count += 1;
+                let parent_handle = entity_handles[parent_idx];
+                if let (Ok(mut parent_met), Ok(parent_intel)) = (
+                    world.get::<&mut Metabolism>(parent_handle),
+                    world.get::<&Intel>(parent_handle),
+                ) {
+                    let inv = parent_intel.genotype.reproductive_investment as f64;
+                    let c_e = parent_met.energy * inv;
+                    parent_met.energy -= c_e;
+                    parent_met.offspring_count += 1;
+                }
             }
             InteractionCommand::EatFood {
                 food_index,
@@ -197,55 +253,64 @@ pub fn process_interaction_commands<R: Rng>(
                 y,
             } => {
                 if !eaten_food_indices.contains(&food_index) {
-                    let e = &entities[attacker_idx];
-                    let trophic_eff = 1.0 - e.metabolism.trophic_potential as f64;
-                    if trophic_eff > 0.1 {
+                    let handle = entity_handles[attacker_idx];
+                    let mut gain_info = None;
+                    if let (Ok(met), Ok(intel)) = (
+                        world.get::<&Metabolism>(handle),
+                        world.get::<&Intel>(handle),
+                    ) {
+                        let trophic_eff = 1.0 - met.trophic_potential as f64;
+                        if trophic_eff > 0.1 {
+                            let niche_eff = 1.0
+                                - (intel.genotype.metabolic_niche
+                                    - ctx.food[food_index].nutrient_type)
+                                    .abs();
+                            let energy_gain =
+                                ctx.config.metabolism.food_value * niche_eff as f64 * trophic_eff;
+                            gain_info = Some((energy_gain, met.lineage_id, met.max_energy));
+                        }
+                    }
+
+                    if let Some((energy_gain, lid, max_e)) = gain_info {
                         eaten_food_indices.insert(food_index);
-                        let niche_eff = 1.0
-                            - (e.intel.genotype.metabolic_niche
-                                - ctx.food[food_index].nutrient_type)
-                                .abs();
-                        let energy_gain =
-                            ctx.config.metabolism.food_value * niche_eff as f64 * trophic_eff;
-
-                        let attacker_mut = &mut entities[attacker_idx];
-                        attacker_mut.metabolism.energy = (attacker_mut.metabolism.energy
-                            + energy_gain)
-                            .min(attacker_mut.metabolism.max_energy);
-
-                        ctx.lineage_registry.boost_memory_value(
-                            &attacker_mut.metabolism.lineage_id,
-                            "goal",
-                            0.2,
-                        );
-
-                        ctx.terrain
-                            .deplete(x, y, ctx.config.ecosystem.soil_depletion_unit);
+                        if let Ok(mut met_mut) = world.get::<&mut Metabolism>(handle) {
+                            met_mut.energy = (met_mut.energy + energy_gain).min(max_e);
+                            ctx.lineage_registry.boost_memory_value(&lid, "goal", 0.2);
+                            ctx.terrain
+                                .deplete(x, y, ctx.config.ecosystem.soil_depletion_unit);
+                            ctx.lineage_consumption.push((lid, energy_gain));
+                        }
                     }
                 }
             }
             InteractionCommand::TransferEnergy { target_idx, amount } => {
+                let handle = entity_handles[target_idx];
                 let mut actual_amount = amount;
                 if amount < 0.0 {
-                    let sender = &entities[target_idx];
-                    if sender.intel.specialization == Some(Specialization::Provider) {
-                        actual_amount *= ctx.config.terraform.engineer_discount;
+                    if let Ok(intel) = world.get::<&Intel>(handle) {
+                        if intel.specialization == Some(Specialization::Provider) {
+                            actual_amount *= ctx.config.terraform.engineer_discount;
+                        }
                     }
                 }
-                let target = &mut entities[target_idx];
-                target.metabolism.energy = (target.metabolism.energy + actual_amount)
-                    .clamp(0.0, target.metabolism.max_energy);
+                if let Ok(mut met) = world.get::<&mut Metabolism>(handle) {
+                    met.energy = (met.energy + actual_amount).clamp(0.0, met.max_energy);
+                }
             }
             InteractionCommand::Infect {
                 target_idx,
                 pathogen,
             } => {
-                let target = &mut entities[target_idx];
-                biological::try_infect(target, &pathogen, ctx.rng);
+                let handle = entity_handles[target_idx];
+                if let Ok(mut health) = world.get::<&mut Health>(handle) {
+                    biological::try_infect_components(&mut health, &pathogen, ctx.rng);
+                }
             }
             InteractionCommand::UpdateReputation { target_idx, delta } => {
-                let target = &mut entities[target_idx];
-                target.intel.reputation = (target.intel.reputation + delta).clamp(0.0, 1.0);
+                let handle = entity_handles[target_idx];
+                if let Ok(mut intel) = world.get::<&mut Intel>(handle) {
+                    intel.reputation = (intel.reputation + delta).clamp(0.0, 1.0);
+                }
             }
             InteractionCommand::Fertilize { x, y, amount } => {
                 ctx.terrain.fertilize(x, y, amount);
@@ -257,50 +322,52 @@ pub fn process_interaction_commands<R: Rng>(
                 ctx.social_grid[iy * ctx.width as usize + ix] = if is_war { 2 } else { 1 };
             }
             InteractionCommand::Dig { x, y, attacker_idx } => {
+                let handle = entity_handles[attacker_idx];
                 let cell = ctx.terrain.get(x, y);
-                let attacker = &mut entities[attacker_idx];
-                let mut energy_cost = ctx.config.terraform.dig_cost;
-
-                ctx.env.consume_oxygen(ctx.config.terraform.dig_oxygen_cost);
-
-                if attacker.intel.specialization == Some(Specialization::Engineer) {
-                    energy_cost *= ctx.config.terraform.engineer_discount;
-                }
-
-                if matches!(cell.terrain_type, TerrainType::Wall | TerrainType::Mountain) {
-                    if attacker.metabolism.energy > energy_cost {
-                        attacker.metabolism.energy -= energy_cost;
-                        ctx.terrain
-                            .set_cell_type(x as u16, y as u16, TerrainType::Plains);
-                        social::increment_spec_meter(
-                            attacker,
-                            Specialization::Engineer,
-                            1.0,
-                            ctx.config,
-                        );
+                if let (Ok(mut met), Ok(mut intel)) = (
+                    world.get::<&mut Metabolism>(handle),
+                    world.get::<&mut Intel>(handle),
+                ) {
+                    let mut energy_cost = ctx.config.terraform.dig_cost;
+                    ctx.env.consume_oxygen(ctx.config.terraform.dig_oxygen_cost);
+                    if intel.specialization == Some(Specialization::Engineer) {
+                        energy_cost *= ctx.config.terraform.engineer_discount;
                     }
-                } else if matches!(cell.terrain_type, TerrainType::Plains) {
-                    let eff_hydro_cost =
-                        if attacker.intel.specialization == Some(Specialization::Engineer) {
+                    if matches!(cell.terrain_type, TerrainType::Wall | TerrainType::Mountain) {
+                        if met.energy > energy_cost {
+                            met.energy -= energy_cost;
+                            ctx.terrain
+                                .set_cell_type(x as u16, y as u16, TerrainType::Plains);
+                            social::increment_spec_meter_components(
+                                &mut intel,
+                                Specialization::Engineer,
+                                1.0,
+                                ctx.config,
+                            );
+                        }
+                    } else if matches!(cell.terrain_type, TerrainType::Plains) {
+                        let eff_hydro_cost = if intel.specialization
+                            == Some(Specialization::Engineer)
+                        {
                             ctx.config.terraform.canal_cost * ctx.config.terraform.engineer_discount
                         } else {
                             ctx.config.terraform.canal_cost
                         };
-
-                    if attacker.metabolism.energy > 50.0
-                        && ctx
-                            .terrain
-                            .has_neighbor_type(x as u16, y as u16, TerrainType::River)
-                    {
-                        attacker.metabolism.energy -= eff_hydro_cost;
-                        ctx.terrain
-                            .set_cell_type(x as u16, y as u16, TerrainType::River);
-                        social::increment_spec_meter(
-                            attacker,
-                            Specialization::Engineer,
-                            2.0,
-                            ctx.config,
-                        );
+                        if met.energy > 50.0
+                            && ctx
+                                .terrain
+                                .has_neighbor_type(x as u16, y as u16, TerrainType::River)
+                        {
+                            met.energy -= eff_hydro_cost;
+                            ctx.terrain
+                                .set_cell_type(x as u16, y as u16, TerrainType::River);
+                            social::increment_spec_meter_components(
+                                &mut intel,
+                                Specialization::Engineer,
+                                2.0,
+                                ctx.config,
+                            );
+                        }
                     }
                 }
             }
@@ -311,96 +378,99 @@ pub fn process_interaction_commands<R: Rng>(
                 is_nest,
                 is_outpost,
             } => {
+                let handle = entity_handles[attacker_idx];
                 let cell = ctx.terrain.get(x, y);
-                let attacker = &mut entities[attacker_idx];
-                let mut energy_cost = if is_outpost {
-                    ctx.config.terraform.nest_energy_req * 2.0
-                } else {
-                    ctx.config.terraform.build_cost
-                };
-
-                ctx.env
-                    .consume_oxygen(ctx.config.terraform.build_oxygen_cost);
-
-                if attacker.intel.specialization == Some(Specialization::Engineer) {
-                    energy_cost *= ctx.config.terraform.engineer_discount;
-                }
-
-                if matches!(cell.terrain_type, TerrainType::Plains)
-                    && attacker.metabolism.energy > energy_cost
-                {
-                    let new_type = if is_outpost
-                        && attacker.metabolism.energy > ctx.config.terraform.nest_energy_req * 3.0
-                    {
-                        TerrainType::Outpost
-                    } else if is_nest
-                        && attacker.metabolism.energy > ctx.config.terraform.nest_energy_req
-                    {
-                        TerrainType::Nest
+                if let (Ok(mut met), Ok(mut intel)) = (
+                    world.get::<&mut Metabolism>(handle),
+                    world.get::<&mut Intel>(handle),
+                ) {
+                    let mut energy_cost = if is_outpost {
+                        ctx.config.terraform.nest_energy_req * 2.0
                     } else {
-                        TerrainType::Wall
+                        ctx.config.terraform.build_cost
                     };
-                    attacker.metabolism.energy -= energy_cost;
-                    let idx = ctx.terrain.index(x as u16, y as u16);
-                    ctx.terrain.set_cell_type(x as u16, y as u16, new_type);
-                    if let Some(c) = ctx.terrain.cells.get_mut(idx) {
-                        c.owner_id = Some(attacker.metabolism.lineage_id);
+                    ctx.env
+                        .consume_oxygen(ctx.config.terraform.build_oxygen_cost);
+                    if intel.specialization == Some(Specialization::Engineer) {
+                        energy_cost *= ctx.config.terraform.engineer_discount;
                     }
-
-                    social::increment_spec_meter(
-                        attacker,
-                        Specialization::Engineer,
-                        if is_outpost { 5.0 } else { 1.0 },
-                        ctx.config,
-                    );
+                    if matches!(cell.terrain_type, TerrainType::Plains) && met.energy > energy_cost
+                    {
+                        let new_type = if is_outpost
+                            && met.energy > ctx.config.terraform.nest_energy_req * 3.0
+                        {
+                            TerrainType::Outpost
+                        } else if is_nest && met.energy > ctx.config.terraform.nest_energy_req {
+                            TerrainType::Nest
+                        } else {
+                            TerrainType::Wall
+                        };
+                        met.energy -= energy_cost;
+                        let idx = ctx.terrain.index(x as u16, y as u16);
+                        ctx.terrain.set_cell_type(x as u16, y as u16, new_type);
+                        if let Some(c) = ctx.terrain.cells.get_mut(idx) {
+                            c.owner_id = Some(met.lineage_id);
+                        }
+                        social::increment_spec_meter_components(
+                            &mut intel,
+                            Specialization::Engineer,
+                            if is_outpost { 5.0 } else { 1.0 },
+                            ctx.config,
+                        );
+                    }
                 }
             }
             InteractionCommand::Metamorphosis { target_idx } => {
-                let e = &mut entities[target_idx];
-                e.metabolism.has_metamorphosed = true;
-                e.metabolism.max_energy *= ctx.config.metabolism.adult_energy_multiplier;
-                e.metabolism.peak_energy = e.metabolism.max_energy;
-
-                e.intel.genotype.brain.remodel_for_adult_with_rng(ctx.rng);
-
-                // Phase 58 Fix: Apply physical buffs to Physics component only to prevent genetic runaway
-                e.physics.max_speed *= ctx.config.metabolism.adult_speed_multiplier;
-                e.physics.sensing_range *= ctx.config.metabolism.adult_sensing_multiplier;
-
-                e.update_name();
-
-                let ev = LiveEvent::Metamorphosis {
-                    id: e.id,
-                    name: e.name(),
-                    tick: ctx.tick,
-                    timestamp: Utc::now().to_rfc3339(),
-                };
-                let _ = ctx.logger.log_event(ev.clone());
-                events.push(ev);
+                let handle = entity_handles[target_idx];
+                if let (Ok(mut met), Ok(mut intel), Ok(mut phys)) = (
+                    world.get::<&mut Metabolism>(handle),
+                    world.get::<&mut Intel>(handle),
+                    world.get::<&mut Physics>(handle),
+                ) {
+                    met.has_metamorphosed = true;
+                    met.max_energy *= ctx.config.metabolism.adult_energy_multiplier;
+                    met.peak_energy = met.max_energy;
+                    intel.genotype.brain.remodel_for_adult_with_rng(ctx.rng);
+                    phys.max_speed *= ctx.config.metabolism.adult_speed_multiplier;
+                    phys.sensing_range *= ctx.config.metabolism.adult_sensing_multiplier;
+                    let id = world.get::<&primordium_data::Identity>(handle).unwrap().id;
+                    let ev = LiveEvent::Metamorphosis {
+                        id,
+                        name: lifecycle::get_name_components(&id, &met),
+                        tick: ctx.tick,
+                        timestamp: Utc::now().to_rfc3339(),
+                    };
+                    let _ = ctx.logger.log_event(ev.clone());
+                    events.push(ev);
+                }
             }
             InteractionCommand::TribalSplit {
                 target_idx,
                 new_color,
             } => {
-                let e = &mut entities[target_idx];
-                e.physics.r = new_color.0;
-                e.physics.g = new_color.1;
-                e.physics.b = new_color.2;
-                e.intel.genotype.lineage_id = uuid::Uuid::new_v4();
-                e.metabolism.lineage_id = e.intel.genotype.lineage_id;
-                ctx.lineage_registry.record_birth(
-                    e.metabolism.lineage_id,
-                    e.metabolism.generation,
-                    ctx.tick,
-                );
-                let ev = LiveEvent::TribalSplit {
-                    id: e.id,
-                    lineage_id: e.metabolism.lineage_id,
-                    tick: ctx.tick,
-                    timestamp: chrono::Utc::now().to_rfc3339(),
-                };
-                let _ = ctx.logger.log_event(ev.clone());
-                events.push(ev);
+                let handle = entity_handles[target_idx];
+                if let (Ok(mut phys), Ok(mut intel), Ok(mut met)) = (
+                    world.get::<&mut Physics>(handle),
+                    world.get::<&mut Intel>(handle),
+                    world.get::<&mut Metabolism>(handle),
+                ) {
+                    phys.r = new_color.0;
+                    phys.g = new_color.1;
+                    phys.b = new_color.2;
+                    intel.genotype.lineage_id = uuid::Uuid::new_v4();
+                    met.lineage_id = intel.genotype.lineage_id;
+                    ctx.lineage_registry
+                        .record_birth(met.lineage_id, met.generation, ctx.tick);
+                    let id = world.get::<&primordium_data::Identity>(handle).unwrap().id;
+                    let ev = LiveEvent::TribalSplit {
+                        id,
+                        lineage_id: met.lineage_id,
+                        tick: ctx.tick,
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                    };
+                    let _ = ctx.logger.log_event(ev.clone());
+                    events.push(ev);
+                }
             }
         }
     }

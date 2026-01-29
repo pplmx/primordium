@@ -28,8 +28,8 @@ fn test_ancestry_tree_linking() {
 
     // 2. Create a child (Living Entity)
     let mut child = lifecycle::create_entity(10.0, 10.0, 100);
-    child.id = c_id;
-    child.parent_id = Some(p_id);
+    child.identity.id = c_id;
+    child.identity.parent_id = Some(p_id);
     child.metabolism.generation = 2;
     child.metabolism.lineage_id = p_id;
 

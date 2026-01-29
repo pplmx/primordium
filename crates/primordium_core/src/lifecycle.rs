@@ -6,9 +6,11 @@ use uuid::Uuid;
 pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) -> Entity {
     let genotype = crate::brain::create_genotype_random_with_rng(rng);
     let mut entity = Entity {
-        id: Uuid::new_v4(),
-        name: String::new(),
-        parent_id: None,
+        identity: primordium_data::Identity {
+            id: Uuid::new_v4(),
+            name: String::new(),
+            parent_id: None,
+        },
         physics: Physics {
             x,
             y,
@@ -68,38 +70,55 @@ pub fn create_entity(x: f64, y: f64, tick: u64) -> Entity {
     create_entity_with_rng(x, y, tick, &mut rng)
 }
 
+pub fn calculate_status(
+    metabolism: &Metabolism,
+    health: &Health,
+    intel: &Intel,
+    threshold: f32,
+    current_tick: u64,
+    maturity_age: u64,
+) -> EntityStatus {
+    if metabolism.is_in_transit {
+        return EntityStatus::InTransit;
+    }
+
+    let actual_maturity = (maturity_age as f32 * intel.genotype.maturity_gene) as u64;
+    if metabolism.energy / metabolism.max_energy < 0.2 {
+        EntityStatus::Starving
+    } else if health.pathogen.is_some() {
+        EntityStatus::Infected
+    } else if !metabolism.has_metamorphosed {
+        EntityStatus::Larva
+    } else if (current_tick - metabolism.birth_tick) < actual_maturity {
+        EntityStatus::Juvenile
+    } else if intel.bonded_to.is_some() {
+        EntityStatus::Bonded
+    } else if intel.last_share_intent > threshold && metabolism.energy > metabolism.max_energy * 0.7
+    {
+        EntityStatus::Sharing
+    } else if intel.rank > 0.8 && intel.last_aggression > threshold {
+        EntityStatus::Soldier
+    } else if intel.last_aggression > threshold {
+        EntityStatus::Hunting
+    } else {
+        EntityStatus::Foraging
+    }
+}
+
 pub fn get_entity_status(
     entity: &Entity,
     threshold: f32,
     current_tick: u64,
     maturity_age: u64,
 ) -> EntityStatus {
-    if entity.metabolism.is_in_transit {
-        return EntityStatus::InTransit;
-    }
-
-    let actual_maturity = (maturity_age as f32 * entity.intel.genotype.maturity_gene) as u64;
-    if entity.metabolism.energy / entity.metabolism.max_energy < 0.2 {
-        EntityStatus::Starving
-    } else if entity.health.pathogen.is_some() {
-        EntityStatus::Infected
-    } else if !entity.metabolism.has_metamorphosed {
-        EntityStatus::Larva
-    } else if (current_tick - entity.metabolism.birth_tick) < actual_maturity {
-        EntityStatus::Juvenile
-    } else if entity.intel.bonded_to.is_some() {
-        EntityStatus::Bonded
-    } else if entity.intel.last_share_intent > threshold
-        && entity.metabolism.energy > entity.metabolism.max_energy * 0.7
-    {
-        EntityStatus::Sharing
-    } else if entity.intel.rank > 0.8 && entity.intel.last_aggression > threshold {
-        EntityStatus::Soldier
-    } else if entity.intel.last_aggression > threshold {
-        EntityStatus::Hunting
-    } else {
-        EntityStatus::Foraging
-    }
+    calculate_status(
+        &entity.metabolism,
+        &entity.health,
+        &entity.intel,
+        threshold,
+        current_tick,
+        maturity_age,
+    )
 }
 
 pub fn get_symbol_for_status(status: EntityStatus) -> char {
@@ -118,13 +137,27 @@ pub fn get_symbol_for_status(status: EntityStatus) -> char {
     }
 }
 
-pub fn is_mature(entity: &Entity, current_tick: u64, maturity_age: u64) -> bool {
-    let actual_maturity = (maturity_age as f32 * entity.intel.genotype.maturity_gene) as u64;
-    (current_tick - entity.metabolism.birth_tick) >= actual_maturity
+pub fn is_mature_components(
+    metabolism: &Metabolism,
+    intel: &Intel,
+    current_tick: u64,
+    maturity_age: u64,
+) -> bool {
+    let actual_maturity = (maturity_age as f32 * intel.genotype.maturity_gene) as u64;
+    (current_tick - metabolism.birth_tick) >= actual_maturity
 }
 
-pub fn get_name(entity: &Entity) -> String {
-    let id_str = entity.id.to_string();
+pub fn is_mature(entity: &Entity, current_tick: u64, maturity_age: u64) -> bool {
+    is_mature_components(
+        &entity.metabolism,
+        &entity.intel,
+        current_tick,
+        maturity_age,
+    )
+}
+
+pub fn get_name_components(id: &Uuid, metabolism: &Metabolism) -> String {
+    let id_str = id.to_string();
     let bytes = id_str.as_bytes();
     let syllables = [
         "ae", "ba", "co", "da", "el", "fa", "go", "ha", "id", "jo", "ka", "lu", "ma", "na", "os",
@@ -138,7 +171,7 @@ pub fn get_name(entity: &Entity) -> String {
     let p_idx = (bytes[0] as usize) % prefix.len();
     let s1_idx = (bytes[1] as usize) % syllables.len();
     let s2_idx = (bytes[2] as usize) % syllables.len();
-    let tp = entity.metabolism.trophic_potential;
+    let tp = metabolism.trophic_potential;
     let role_prefix = if tp < 0.25 {
         "H-"
     } else if tp < 0.45 {
@@ -152,10 +185,10 @@ pub fn get_name(entity: &Entity) -> String {
     };
     format!(
         "{}{}{}{}-Gen{}",
-        role_prefix,
-        prefix[p_idx],
-        syllables[s1_idx],
-        syllables[s2_idx],
-        entity.metabolism.generation
+        role_prefix, prefix[p_idx], syllables[s1_idx], syllables[s2_idx], metabolism.generation
     )
+}
+
+pub fn get_name(entity: &Entity) -> String {
+    get_name_components(&entity.identity.id, &entity.metabolism)
 }

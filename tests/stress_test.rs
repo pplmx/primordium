@@ -16,8 +16,8 @@ fn test_engine_stress_high_load() {
     let mut world =
         World::new(config.world.initial_population, config).expect("Failed to create world");
 
-    println!("Initial population: {}", world.entities.len());
-    assert!(world.entities.len() >= 1000);
+    println!("Initial population: {}", world.get_population_count());
+    assert!(world.get_population_count() >= 1000);
 
     let start = Instant::now();
     let ticks = 100;
@@ -28,7 +28,7 @@ fn test_engine_stress_high_load() {
             .unwrap_or_else(|_| panic!("Engine crashed at tick {}", i));
 
         // Sanity check: Ensure at least some entities survive or life cycle continues
-        if world.entities.is_empty() {
+        if world.get_population_count() == 0 {
             println!("Extinction occurred at tick {}", i);
             break;
         }
@@ -36,7 +36,7 @@ fn test_engine_stress_high_load() {
 
     let duration = start.elapsed();
     println!("Processed {} ticks with high load in {:?}", ticks, duration);
-    println!("Final population: {}", world.entities.len());
+    println!("Final population: {}", world.get_population_count());
 
     // Success means it didn't crash and maintained performance
     assert!(

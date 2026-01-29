@@ -57,16 +57,37 @@ fn test_sensing_range_affects_perception() {
     e_long.intel.genotype.sensing_range = 15.0;
     e_long.metabolism.energy = 1000.0;
 
-    world.entities.push(e_short);
-    world.entities.push(e_long);
+    world.ecs.spawn((
+        e_short.identity,
+        primordium_lib::model::state::Position {
+            x: e_short.physics.x,
+            y: e_short.physics.y,
+        },
+        e_short.physics,
+        e_short.metabolism,
+        e_short.health,
+        e_short.intel,
+    ));
+    world.ecs.spawn((
+        e_long.identity,
+        primordium_lib::model::state::Position {
+            x: e_long.physics.x,
+            y: e_long.physics.y,
+        },
+        e_long.physics,
+        e_long.metabolism,
+        e_long.health,
+        e_long.intel,
+    ));
 
     // Update world to populate perception buffers
     world.update(&mut env).unwrap();
 
     // We can't easily check private buffers, but we can verify the sensing range was used in the loop.
     // The previous manual audit showed that nearby_indices uses sensing_range.
-    assert_eq!(world.entities[0].physics.sensing_range, 5.0);
-    assert_eq!(world.entities[1].physics.sensing_range, 15.0);
+    let entities = world.get_all_entities();
+    assert_eq!(entities[0].physics.sensing_range, 5.0);
+    assert_eq!(entities[1].physics.sensing_range, 15.0);
 }
 
 #[test]

@@ -47,7 +47,17 @@ fn test_world_update_tracks_lineage_metrics() {
     let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     let l_id = e.metabolism.lineage_id;
     e.metabolism.energy = 50.0;
-    world.entities.push(e);
+    world.ecs.spawn((
+        e.identity,
+        primordium_lib::model::state::Position {
+            x: e.physics.x,
+            y: e.physics.y,
+        },
+        e.physics,
+        e.metabolism,
+        e.health,
+        e.intel,
+    ));
 
     // Initial state seeding happened in World::new if population > 0,
     // but here we pushed manually. We should manually record birth if we push manually.

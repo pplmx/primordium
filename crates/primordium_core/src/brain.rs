@@ -335,7 +335,8 @@ impl BrainLogic for Brain {
         }
 
         let lr_diff = (self.learning_rate - other.learning_rate).abs();
-        let disjoint = (self.connections.len() + other.connections.len()) - (2 * matching);
+        let disjoint =
+            (self.connections.len() + other.connections.len()).saturating_sub(2 * matching);
         (weight_diff / matching.max(1) as f32) + (disjoint as f32 * 0.5) + lr_diff
     }
 

@@ -39,7 +39,7 @@ fn test_genetic_bottleneck_increases_mutation() {
         false,
     );
 
-    assert_ne!(child_small.id, child_large.id);
+    assert_ne!(child_small.identity.id, child_large.identity.id);
 }
 
 #[test]

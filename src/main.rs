@@ -73,7 +73,7 @@ async fn main() -> Result<()> {
                 }
                 // Periodic system poll (mocked or reduced frequency in headless)
                 // ... logic to handle headless termination etc.
-                if app.world.entities.is_empty() {
+                if app.world.get_population_count() == 0 {
                     break;
                 }
             }

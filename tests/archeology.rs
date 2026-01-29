@@ -15,34 +15,39 @@ fn test_fossilization_and_snapshots() {
     config.world.initial_food = 0;
     config.world.max_food = 0;
 
-    let mut world = World::new_at(1, config, log_dir).unwrap();
+    let mut world = World::new_at(0, config, log_dir).unwrap();
 
     let mut env = Environment::default();
 
-    let l_id = world.entities[0].metabolism.lineage_id;
-
-    // Debug: Check initial state
-    let initial_pop = world
-        .lineage_registry
-        .lineages
-        .get(&l_id)
-        .map(|r| r.current_population)
-        .unwrap_or(0);
-    assert_eq!(initial_pop, 1, "Initial population should be 1");
+    let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let l_id = e.metabolism.lineage_id;
 
     // 1. Force a "Legend" state
-    world.entities[0].metabolism.offspring_count = 100;
-    world.entities[0].metabolism.peak_energy = 500.0;
-
+    e.metabolism.offspring_count = 100;
+    e.metabolism.peak_energy = 500.0;
     // 2. Kill it through starvation
-    world.entities[0].metabolism.energy = 0.0;
+    e.metabolism.energy = 0.0;
+
+    world.ecs.spawn((
+        e.identity,
+        primordium_lib::model::state::Position {
+            x: e.physics.x,
+            y: e.physics.y,
+        },
+        e.physics,
+        e.metabolism,
+        e.health,
+        e.intel,
+    ));
+
+    world.lineage_registry.record_birth(l_id, 0, 0);
 
     // Run update
     world.update(&mut env).unwrap();
 
     // Debug: Check entity count
     assert_eq!(
-        world.entities.len(),
+        world.get_population_count(),
         0,
         "Entity should be dead after starvation"
     );

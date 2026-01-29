@@ -19,8 +19,28 @@ fn test_kin_recognition_influences_movement() {
     let mut e_kin = lifecycle::create_entity(12.0, 10.0, 0);
     e_kin.metabolism.lineage_id = l_id;
 
-    world.entities.push(e_target);
-    world.entities.push(e_kin);
+    world.ecs.spawn((
+        e_target.identity,
+        primordium_lib::model::state::Position {
+            x: e_target.physics.x,
+            y: e_target.physics.y,
+        },
+        e_target.physics,
+        e_target.metabolism,
+        e_target.health,
+        e_target.intel,
+    ));
+    world.ecs.spawn((
+        e_kin.identity,
+        primordium_lib::model::state::Position {
+            x: e_kin.physics.x,
+            y: e_kin.physics.y,
+        },
+        e_kin.physics,
+        e_kin.metabolism,
+        e_kin.health,
+        e_kin.intel,
+    ));
 
     // 3. Update World. Target should see Kin at relative X = 1.0 (clamped).
     // The decision buffer will contain the brain's reaction.
@@ -28,7 +48,7 @@ fn test_kin_recognition_influences_movement() {
 
     // We verify that the "Kin Centroid" inputs were correctly calculated.
     // (This is mostly verified by successful compilation of the new 10-sensor array).
-    assert_eq!(world.entities.len(), 2);
+    assert_eq!(world.get_population_count(), 2);
 }
 
 #[test]
@@ -49,12 +69,33 @@ fn test_herding_bonus() {
     let mut kin = lifecycle::create_entity(11.0, 10.0, 0);
     kin.metabolism.lineage_id = l_id;
 
-    world.entities.push(e);
-    world.entities.push(kin);
+    world.ecs.spawn((
+        e.identity,
+        primordium_lib::model::state::Position {
+            x: e.physics.x,
+            y: e.physics.y,
+        },
+        e.physics,
+        e.metabolism,
+        e.health,
+        e.intel,
+    ));
+    world.ecs.spawn((
+        kin.identity,
+        primordium_lib::model::state::Position {
+            x: kin.physics.x,
+            y: kin.physics.y,
+        },
+        kin.physics,
+        kin.metabolism,
+        kin.health,
+        kin.intel,
+    ));
 
     // 3. Update world.
     world.update(&mut env).unwrap();
 
     // We expect the bonus to offset some drain.
-    assert!(world.entities[0].metabolism.energy > 0.0);
+    let entities = world.get_all_entities();
+    assert!(entities[0].metabolism.energy > 0.0);
 }

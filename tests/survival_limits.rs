@@ -25,14 +25,24 @@ fn test_death_by_brain_bloat() {
         });
     }
 
-    world.entities.push(e);
+    world.ecs.spawn((
+        e.identity,
+        primordium_lib::model::state::Position {
+            x: e.physics.x,
+            y: e.physics.y,
+        },
+        e.physics,
+        e.metabolism,
+        e.health,
+        e.intel,
+    ));
 
     for _ in 0..100 {
         world.update(&mut env).unwrap();
     }
 
     assert!(
-        world.entities.is_empty(),
+        world.get_population_count() == 0,
         "Organism with bloated brain should have starved to death"
     );
 }

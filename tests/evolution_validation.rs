@@ -22,28 +22,50 @@ fn test_r_vs_k_dominance_in_resource_boom() {
     k_type.intel.genotype.reproductive_investment = 0.8;
     k_type.metabolism.energy = 400.0;
 
-    world.entities.push(r_type);
-    world.entities.push(k_type);
+    world.ecs.spawn((
+        r_type.identity,
+        primordium_lib::model::state::Position {
+            x: r_type.physics.x,
+            y: r_type.physics.y,
+        },
+        r_type.physics,
+        r_type.metabolism,
+        r_type.health,
+        r_type.intel,
+    ));
+    world.ecs.spawn((
+        k_type.identity,
+        primordium_lib::model::state::Position {
+            x: k_type.physics.x,
+            y: k_type.physics.y,
+        },
+        k_type.physics,
+        k_type.metabolism,
+        k_type.health,
+        k_type.intel,
+    ));
 
     // In a resource boom, Strategy R should multiply faster
     for _ in 0..100 {
         world.update(&mut env).unwrap();
         // Keep energy high to simulate boom
-        for e in &mut world.entities {
-            e.metabolism.energy = 500.0;
+        for (_handle, met) in world
+            .ecs
+            .query_mut::<&mut primordium_lib::model::state::Metabolism>()
+        {
+            met.energy = 500.0;
         }
-        if world.entities.len() > 100 {
+        if world.get_population_count() > 100 {
             break;
         }
     }
 
-    let r_count = world
-        .entities
+    let entities = world.get_all_entities();
+    let r_count = entities
         .iter()
         .filter(|e| e.intel.genotype.maturity_gene < 1.0)
         .count();
-    let k_count = world
-        .entities
+    let k_count = entities
         .iter()
         .filter(|e| e.intel.genotype.maturity_gene > 1.0)
         .count();

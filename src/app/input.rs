@@ -13,7 +13,6 @@ impl App {
         match key.code {
             KeyCode::Char('q') => self.running = false,
             KeyCode::Char(' ') => {
-                // Space advances onboarding, otherwise toggles pause
                 if self.onboarding_step.is_some() {
                     self.advance_onboarding();
                 } else {
@@ -61,14 +60,23 @@ impl App {
                         &mut rand::thread_rng(),
                     );
                     e.intel.genotype = fossil.genotype.clone();
-                    // Sync phenotype
                     e.physics.sensing_range = e.intel.genotype.sensing_range;
                     e.physics.max_speed = e.intel.genotype.max_speed;
                     e.metabolism.max_energy = e.intel.genotype.max_energy;
                     e.metabolism.lineage_id = e.intel.genotype.lineage_id;
-                    e.metabolism.energy = e.metabolism.max_energy; // Spawn with full energy
+                    e.metabolism.energy = e.metabolism.max_energy;
 
-                    self.world.entities.push(e);
+                    self.world.ecs.spawn((
+                        e.identity,
+                        crate::model::state::Position {
+                            x: e.physics.x,
+                            y: e.physics.y,
+                        },
+                        e.physics,
+                        e.metabolism,
+                        e.health,
+                        e.intel,
+                    ));
                     self.event_log.push_back((
                         format!("RESURRECTED: {} cloned into current world", fossil.name),
                         Color::Magenta,
@@ -76,7 +84,8 @@ impl App {
                 }
             }
             KeyCode::Char('A') => {
-                if let Ok(tree) = self.world.logger.get_ancestry_tree(&self.world.entities) {
+                let entities = self.world.get_all_entities();
+                if let Ok(tree) = self.world.logger.get_ancestry_tree(&entities) {
                     let dot = tree.to_dot();
                     let _ = fs::write("logs/tree.dot", dot);
                     self.event_log.push_back((
@@ -88,10 +97,9 @@ impl App {
             KeyCode::Char('h') => {
                 self.show_help = !self.show_help;
                 if self.show_help {
-                    self.onboarding_step = None; // Close onboarding if help opened
+                    self.onboarding_step = None;
                 }
             }
-            // View Mode Switching (only if help and onboarding closed)
             KeyCode::Char('1') if !self.show_help && self.onboarding_step.is_none() => {
                 self.view_mode = 0;
                 self.event_log
@@ -139,37 +147,27 @@ impl App {
                         .push_back(("Research deltas cleared".to_string(), Color::Cyan));
                 }
             }
-
-            // Help tab navigation (only when help is open)
             KeyCode::Char('1') if self.show_help => self.help_tab = 0,
             KeyCode::Char('2') if self.show_help => self.help_tab = 1,
             KeyCode::Char('3') if self.show_help => self.help_tab = 2,
             KeyCode::Char('4') if self.show_help => self.help_tab = 3,
             KeyCode::Char('5') if self.show_help => self.help_tab = 4,
             KeyCode::Char('6') if self.show_help => self.help_tab = 5,
-
-            // Market Actions (only in Market View)
             KeyCode::Char(c) if self.view_mode == 5 && c.is_ascii_digit() => {
                 let idx = c.to_digit(10).unwrap() as usize;
                 if let Some(offer) = self.network_state.trade_offers.get(idx).cloned() {
-                    // Logic to accept trade:
-                    // 1. Deduct our resources (request from offer)
-                    // 2. Add offered resources
-
                     self.world.apply_trade(
                         &mut self.env,
                         offer.request_resource.clone(),
                         offer.request_amount,
                         false,
                     );
-
                     self.world.apply_trade(
                         &mut self.env,
                         offer.offer_resource.clone(),
                         offer.offer_amount,
                         true,
                     );
-
                     self.event_log.push_back((
                         format!(
                             "TRADE ACCEPTED: Exchanged {:?} for {:?}",
@@ -177,12 +175,10 @@ impl App {
                         ),
                         Color::Green,
                     ));
-                    // Remove the offer locally
                     self.network_state.trade_offers.remove(idx);
                 }
             }
             KeyCode::Char('t') | KeyCode::Char('T') if self.view_mode == 5 => {
-                // Propose a random trade for testing
                 let mut rng = rand::thread_rng();
                 use crate::model::infra::network::{TradeProposal, TradeResource};
                 let offer_res = match rng.gen_range(0..4) {
@@ -212,12 +208,10 @@ impl App {
                 self.event_log
                     .push_back(("Trade offer proposed".to_string(), Color::Yellow));
             }
-            // Onboarding navigation (Enter key)
             KeyCode::Enter if self.onboarding_step.is_some() => {
                 self.advance_onboarding();
             }
             KeyCode::Esc if self.onboarding_step.is_some() => {
-                // Skip onboarding
                 let _ = fs::write(".primordium_onboarded", "1");
                 self.onboarding_step = None;
             }
@@ -256,31 +250,47 @@ impl App {
                 }
             }
             KeyCode::Char('x') | KeyCode::Char('X') => {
-                let pop = self.world.entities.len();
                 let is_storm = self.env.is_radiation_storm();
                 let mut rng = rand::thread_rng();
-                for entity in &mut self.world.entities {
+                let mut query = self.world.ecs.query::<(
+                    &mut primordium_data::Intel,
+                    &mut primordium_data::Physics,
+                    &mut primordium_data::Metabolism,
+                )>();
+                let components: Vec<_> = query.into_iter().collect();
+                let pop = components.len();
+                for (_handle, (intel, phys, met)) in components {
                     intel::mutate_genotype(
-                        &mut entity.intel.genotype,
+                        &mut intel.genotype,
                         &self.config,
                         pop,
                         is_storm,
-                        entity.intel.specialization,
+                        intel.specialization,
                         &mut rng,
                         None,
                     );
-                    // Sync phenotype
-                    entity.physics.sensing_range = entity.intel.genotype.sensing_range;
-                    entity.physics.max_speed = entity.intel.genotype.max_speed;
-                    entity.metabolism.max_energy = entity.intel.genotype.max_energy;
+                    phys.sensing_range = intel.genotype.sensing_range;
+                    phys.max_speed = intel.genotype.max_speed;
+                    met.max_energy = intel.genotype.max_energy;
                 }
                 self.event_log
                     .push_back(("GENETIC SURGE!".to_string(), Color::Red));
             }
             KeyCode::Char('c') => {
                 if let Some(id) = self.selected_entity {
-                    if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
-                        let dna = entity.intel.genotype.to_hex();
+                    let mut found_dna = None;
+                    for (_handle, (identity, intel)) in self
+                        .world
+                        .ecs
+                        .query::<(&primordium_data::Identity, &primordium_data::Intel)>()
+                        .iter()
+                    {
+                        if identity.id == id {
+                            found_dna = Some(intel.genotype.to_hex());
+                            break;
+                        }
+                    }
+                    if let Some(dna) = found_dna {
                         let _ = fs::write("exported_dna.txt", &dna);
                         self.event_log.push_back((
                             "DNA exported to exported_dna.txt".to_string(),
@@ -291,16 +301,25 @@ impl App {
             }
             KeyCode::Char('C') => {
                 if let Some(id) = self.selected_entity {
-                    if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
-                        if let Ok(json) = serde_json::to_string_pretty(&entity.intel.genotype.brain)
-                        {
-                            let filename = format!("logs/brain_{}.json", id);
-                            let _ = fs::write(&filename, json);
-                            self.event_log.push_back((
-                                format!("Brain JSON exported to {}", filename),
-                                Color::Magenta,
-                            ));
+                    let mut found_brain = None;
+                    for (_handle, (identity, intel)) in self
+                        .world
+                        .ecs
+                        .query::<(&primordium_data::Identity, &primordium_data::Intel)>()
+                        .iter()
+                    {
+                        if identity.id == id {
+                            found_brain = Some(serde_json::to_string_pretty(&intel.genotype.brain));
+                            break;
                         }
+                    }
+                    if let Some(Ok(json)) = found_brain {
+                        let filename = format!("logs/brain_{}.json", id);
+                        let _ = fs::write(&filename, json);
+                        self.event_log.push_back((
+                            format!("Brain JSON exported to {}", filename),
+                            Color::Magenta,
+                        ));
                     }
                 }
             }
@@ -314,13 +333,22 @@ impl App {
                             &mut rand::thread_rng(),
                         );
                         e.intel.genotype = genotype;
-                        // Sync phenotype
                         e.physics.sensing_range = e.intel.genotype.sensing_range;
                         e.physics.max_speed = e.intel.genotype.max_speed;
                         e.metabolism.max_energy = e.intel.genotype.max_energy;
                         e.metabolism.lineage_id = e.intel.genotype.lineage_id;
 
-                        self.world.entities.push(e);
+                        self.world.ecs.spawn((
+                            e.identity,
+                            crate::model::state::Position {
+                                x: e.physics.x,
+                                y: e.physics.y,
+                            },
+                            e.physics,
+                            e.metabolism,
+                            e.health,
+                            e.intel,
+                        ));
                         self.event_log.push_back((
                             "AVATAR INFUSED from dna_infuse.txt".to_string(),
                             Color::Green,
@@ -329,7 +357,6 @@ impl App {
                     }
                 }
             }
-            // BRUSH SELECTION
             KeyCode::Char('j') | KeyCode::Char('J') => {
                 self.is_social_brush = !self.is_social_brush;
                 self.event_log.push_back((
@@ -368,28 +395,34 @@ impl App {
             KeyCode::Char('$') => self.brush_type = TerrainType::Oasis,
             KeyCode::Char('%') => self.brush_type = TerrainType::Wall,
             KeyCode::Char('^') => self.brush_type = TerrainType::Barren,
-
-            // DIVINE INTERVENTION (Selected Entity)
             KeyCode::Char('m') => {
                 if let Some(id) = self.selected_entity {
-                    let pop = self.world.entities.len();
+                    let mut query = self.world.ecs.query::<(
+                        &mut primordium_data::Intel,
+                        &mut primordium_data::Physics,
+                        &mut primordium_data::Metabolism,
+                        &primordium_data::Identity,
+                    )>();
+                    let entities: Vec<_> = query.into_iter().collect();
+                    let pop = entities.len();
                     let is_storm = self.env.is_radiation_storm();
-                    if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
+                    if let Some((_handle, (intel, phys, met, _identity))) = entities
+                        .into_iter()
+                        .find(|(_, (_, _, _, ident))| ident.id == id)
+                    {
                         let mut rng = rand::thread_rng();
                         intel::mutate_genotype(
-                            &mut entity.intel.genotype,
+                            &mut intel.genotype,
                             &self.config,
                             pop,
                             is_storm,
-                            entity.intel.specialization,
+                            intel.specialization,
                             &mut rng,
                             None,
                         );
-                        // Sync phenotype
-
-                        entity.physics.sensing_range = entity.intel.genotype.sensing_range;
-                        entity.physics.max_speed = entity.intel.genotype.max_speed;
-                        entity.metabolism.max_energy = entity.intel.genotype.max_energy;
+                        phys.sensing_range = intel.genotype.sensing_range;
+                        phys.max_speed = intel.genotype.max_speed;
+                        met.max_energy = intel.genotype.max_energy;
                         self.event_log
                             .push_back(("Divine Mutation".to_string(), Color::Yellow));
                     }
@@ -397,32 +430,61 @@ impl App {
             }
             KeyCode::Char('k') => {
                 if let Some(id) = self.selected_entity {
-                    self.world.entities.retain(|e| e.id != id);
-                    self.selected_entity = None;
-                    self.event_log
-                        .push_back(("Divine Smite".to_string(), Color::Red));
+                    let mut handle_to_despawn = None;
+                    for (handle, identity) in
+                        self.world.ecs.query::<&primordium_data::Identity>().iter()
+                    {
+                        if identity.id == id {
+                            handle_to_despawn = Some(handle);
+                            break;
+                        }
+                    }
+                    if let Some(handle) = handle_to_despawn {
+                        let _ = self.world.ecs.despawn(handle);
+                        self.selected_entity = None;
+                        self.event_log
+                            .push_back(("Divine Smite".to_string(), Color::Red));
+                    }
                 }
             }
             KeyCode::Char('p') => {
                 if let Some(id) = self.selected_entity {
-                    if let Some(entity) = self.world.entities.iter_mut().find(|e| e.id == id) {
-                        entity.intel.genotype =
-                            crate::model::brain::create_genotype_random_with_rng(
+                    let mut query = self.world.ecs.query::<(
+                        &mut primordium_data::Intel,
+                        &mut primordium_data::Physics,
+                        &mut primordium_data::Metabolism,
+                        &primordium_data::Identity,
+                    )>();
+                    for (_handle, (intel, phys, met, identity)) in query.iter() {
+                        if identity.id == id {
+                            intel.genotype = crate::model::brain::create_genotype_random_with_rng(
                                 &mut rand::thread_rng(),
                             );
-                        // Sync phenotype
-                        entity.physics.sensing_range = entity.intel.genotype.sensing_range;
-                        entity.physics.max_speed = entity.intel.genotype.max_speed;
-                        entity.metabolism.max_energy = entity.intel.genotype.max_energy;
-                        self.event_log
-                            .push_back(("Divine Reincarnation".to_string(), Color::Magenta));
+                            phys.sensing_range = intel.genotype.sensing_range;
+                            phys.max_speed = intel.genotype.max_speed;
+                            met.max_energy = intel.genotype.max_energy;
+                            self.event_log
+                                .push_back(("Divine Reincarnation".to_string(), Color::Magenta));
+                            break;
+                        }
                     }
                 }
             }
             KeyCode::Char('f') | KeyCode::Char('F') => {
                 if let Some(id) = self.selected_entity {
-                    if let Some(entity) = self.world.entities.iter().find(|e| e.id == id) {
-                        let l_id = entity.metabolism.lineage_id;
+                    let mut found_lid = None;
+                    for (_handle, (identity, met)) in self
+                        .world
+                        .ecs
+                        .query::<(&primordium_data::Identity, &primordium_data::Metabolism)>()
+                        .iter()
+                    {
+                        if identity.id == id {
+                            found_lid = Some(met.lineage_id);
+                            break;
+                        }
+                    }
+                    if let Some(l_id) = found_lid {
                         if let Some(net) = &self.network {
                             use crate::model::infra::network::NetMessage;
                             let msg = NetMessage::Relief {
@@ -445,7 +507,6 @@ impl App {
                     }
                 }
             }
-            // GOD MODE COMMANDS
             KeyCode::Char('K') => {
                 if self.env.god_climate_override.is_some() {
                     self.env.god_climate_override = None;
@@ -459,11 +520,19 @@ impl App {
                 }
             }
             KeyCode::Char('l') | KeyCode::Char('L') => {
-                let kill_count = (self.world.entities.len() as f32 * 0.9) as usize;
-                self.world
-                    .entities
-                    .truncate(self.world.entities.len().saturating_sub(kill_count));
-                // Phase 39.5:上帝模式硬重启 - 同时清理大气碳
+                let pop = self.world.get_population_count();
+                let kill_count = (pop as f32 * 0.9) as usize;
+                let mut handles: Vec<_> = self
+                    .world
+                    .ecs
+                    .query::<&primordium_data::Physics>()
+                    .iter()
+                    .map(|(h, _)| h)
+                    .collect();
+                handles.truncate(kill_count);
+                for h in handles {
+                    let _ = self.world.ecs.despawn(h);
+                }
                 self.env.carbon_level = 300.0;
                 self.event_log.push_back((
                     "GOD MODE: MASS EXTINCTION & CARBON SCRUB".to_string(),
@@ -503,7 +572,6 @@ impl App {
     fn advance_onboarding(&mut self) {
         if let Some(ref mut step) = self.onboarding_step {
             if *step >= 2 {
-                // Complete onboarding
                 let _ = fs::write(".primordium_onboarded", "1");
                 self.onboarding_step = None;
             } else {
@@ -514,7 +582,6 @@ impl App {
 
     pub fn handle_mouse(&mut self, mouse: MouseEvent) {
         if self.show_brain && mouse.column >= self.last_sidebar_rect.x {
-            // Clicked in sidebar
             if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
                 let relative_y = mouse.row.saturating_sub(self.last_sidebar_rect.y + 1);
                 let offset = self.gene_editor_offset;
@@ -546,25 +613,30 @@ impl App {
                     self.last_world_rect,
                     self.screensaver,
                 ) {
-                    // Try to paint terrain if no entity selected or if dragging
                     let painted = if matches!(mouse.kind, MouseEventKind::Drag(MouseButton::Left)) {
                         true
                     } else {
-                        // Check for entity selection on Down
-                        let indices = self.world.spatial_hash.query(wx, wy, 2.0);
                         let mut closest_id = None;
-                        for idx in indices {
-                            if idx < self.world.entities.len() {
-                                closest_id = Some(self.world.entities[idx].id);
+                        for (_handle, (identity, pos)) in self
+                            .world
+                            .ecs
+                            .query::<(&primordium_data::Identity, &crate::model::state::Position)>()
+                            .iter()
+                        {
+                            let dx = pos.x - wx;
+                            let dy = pos.y - wy;
+                            if dx * dx + dy * dy < 4.0 {
+                                closest_id = Some(identity.id);
                                 break;
                             }
                         }
+
                         if let Some(id) = closest_id {
                             self.selected_entity = Some(id);
                             self.show_brain = true;
-                            false // Selection, not painting
+                            false
                         } else {
-                            true // Empty space, paint!
+                            true
                         }
                     };
 

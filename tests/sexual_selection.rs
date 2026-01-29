@@ -17,8 +17,28 @@ fn test_mate_preference_rejection() {
     herbivore.metabolism.trophic_potential = 0.0;
     herbivore.metabolism.energy = 500.0;
 
-    world.entities.push(selector);
-    world.entities.push(herbivore);
+    world.ecs.spawn((
+        selector.identity,
+        primordium_lib::model::state::Position {
+            x: selector.physics.x,
+            y: selector.physics.y,
+        },
+        selector.physics,
+        selector.metabolism,
+        selector.health,
+        selector.intel,
+    ));
+    world.ecs.spawn((
+        herbivore.identity,
+        primordium_lib::model::state::Position {
+            x: herbivore.physics.x,
+            y: herbivore.physics.y,
+        },
+        herbivore.physics,
+        herbivore.metabolism,
+        herbivore.health,
+        herbivore.intel,
+    ));
 
     // 3. Update world at tick 200 (Mature)
     world.tick = 200;
@@ -30,7 +50,7 @@ fn test_mate_preference_rejection() {
 
     world.update(&mut env).unwrap();
 
-    // If mating happened (sexual), the world.entities.len() would be 3 or more.
+    // If mating happened (sexual), the population would be 3 or more.
     // However, if asexual happened, it would also be 3 or more.
 
     // The real way to test rejection is to ensure the partner (herbivore)
@@ -40,7 +60,7 @@ fn test_mate_preference_rejection() {
     // For now, let's just ensure that at least the update runs without panic.
     // And if we want to be strict about "no mating", we'd need to check genotypes.
 
-    assert!(world.entities.len() >= 2);
+    assert!(world.get_population_count() >= 2);
 }
 
 #[test]
@@ -59,8 +79,28 @@ fn test_mate_preference_acceptance() {
     carnivore.metabolism.trophic_potential = 1.0;
     carnivore.metabolism.energy = 500.0;
 
-    world.entities.push(selector);
-    world.entities.push(carnivore);
+    world.ecs.spawn((
+        selector.identity,
+        primordium_lib::model::state::Position {
+            x: selector.physics.x,
+            y: selector.physics.y,
+        },
+        selector.physics,
+        selector.metabolism,
+        selector.health,
+        selector.intel,
+    ));
+    world.ecs.spawn((
+        carnivore.identity,
+        primordium_lib::model::state::Position {
+            x: carnivore.physics.x,
+            y: carnivore.physics.y,
+        },
+        carnivore.physics,
+        carnivore.metabolism,
+        carnivore.health,
+        carnivore.intel,
+    ));
 
     // 3. Update world at tick 200
     world.tick = 200;
@@ -68,7 +108,7 @@ fn test_mate_preference_acceptance() {
     world.update(&mut env).unwrap();
 
     assert!(
-        world.entities.len() > 2,
+        world.get_population_count() > 2,
         "Selector should have accepted the matching partner"
     );
 }

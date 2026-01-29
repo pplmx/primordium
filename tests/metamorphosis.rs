@@ -45,7 +45,17 @@ fn test_larval_gating_logic() {
         });
     }
 
-    world.entities.push(larva);
+    world.ecs.spawn((
+        larva.identity,
+        primordium_lib::model::state::Position {
+            x: larva.physics.x,
+            y: larva.physics.y,
+        },
+        larva.physics,
+        larva.metabolism,
+        larva.health,
+        larva.intel,
+    ));
 
     // Run one tick
     world.update(&mut env).unwrap();
@@ -73,7 +83,17 @@ fn test_metamorphosis_transition_and_remodeling() {
     let initial_max_energy = larva.metabolism.max_energy;
     let initial_speed = larva.physics.max_speed;
 
-    world.entities.push(larva);
+    world.ecs.spawn((
+        larva.identity,
+        primordium_lib::model::state::Position {
+            x: larva.physics.x,
+            y: larva.physics.y,
+        },
+        larva.physics,
+        larva.metabolism,
+        larva.health,
+        larva.intel,
+    ));
 
     world.tick = 10;
 
@@ -87,7 +107,7 @@ fn test_metamorphosis_transition_and_remodeling() {
     });
     assert!(metamorphosed, "Metamorphosis event should be triggered");
 
-    let adult = &world.entities[0];
+    let adult = &world.get_all_entities()[0];
     assert!(adult.metabolism.has_metamorphosed);
     assert!(adult.metabolism.max_energy > initial_max_energy);
     assert!(adult.physics.max_speed > initial_speed);

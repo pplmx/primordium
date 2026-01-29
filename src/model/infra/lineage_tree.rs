@@ -54,20 +54,20 @@ impl AncestryTree {
 
         // 2. Add all living entities
         for e in living {
-            if tree.id_map.contains_key(&e.id) {
+            if tree.id_map.contains_key(&e.identity.id) {
                 continue;
             } // Already in (e.g. archived while alive)
 
             let node = AncestryNode {
-                id: e.id,
-                name: e.name(),
+                id: e.identity.id,
+                name: e.identity.name.clone(),
                 generation: e.metabolism.generation,
                 trophic_potential: e.metabolism.trophic_potential,
                 offspring_count: e.metabolism.offspring_count,
                 is_alive: true,
             };
             let idx = tree.graph.add_node(node);
-            tree.id_map.insert(e.id, idx);
+            tree.id_map.insert(e.identity.id, idx);
         }
 
         // 3. Connect parents to children
@@ -84,9 +84,9 @@ impl AncestryTree {
 
         // Loop through living
         for e in living {
-            if let Some(p_id) = e.parent_id {
+            if let Some(p_id) = e.identity.parent_id {
                 if let (Some(&p_idx), Some(&c_idx)) =
-                    (tree.id_map.get(&p_id), tree.id_map.get(&e.id))
+                    (tree.id_map.get(&p_id), tree.id_map.get(&e.identity.id))
                 {
                     tree.graph.add_edge(p_idx, c_idx, ());
                 }

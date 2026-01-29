@@ -43,7 +43,7 @@ fn test_hunter_competition_impact() {
 
     let snap = vec![
         InternalEntitySnapshot {
-            id: hunter.id,
+            id: hunter.identity.id,
             lineage_id: hunter.metabolism.lineage_id,
             x: 10.0,
             y: 10.0,
@@ -57,7 +57,7 @@ fn test_hunter_competition_impact() {
             status: primordium_lib::model::state::entity::EntityStatus::Foraging,
         },
         InternalEntitySnapshot {
-            id: prey.id,
+            id: prey.identity.id,
             lineage_id: prey.metabolism.lineage_id,
             x: 10.5,
             y: 10.5,

@@ -84,6 +84,68 @@ pub fn count_outposts_by_lineage(terrain: &TerrainGrid) -> std::collections::Has
     counts
 }
 
+pub fn handle_outposts_ecs(
+    terrain: &mut TerrainGrid,
+    world: &mut hecs::World,
+    entity_handles: &[hecs::Entity],
+    spatial_hash: &SpatialHash,
+    width: u16,
+    silo_cap: f32,
+    outpost_cap: f32,
+) {
+    let outpost_indices: Vec<usize> = terrain.outpost_indices.iter().copied().collect();
+
+    for &idx in &outpost_indices {
+        let (ox, oy) = ((idx % width as usize) as f64, (idx / width as usize) as f64);
+        let owner_id = terrain.cells[idx].owner_id;
+
+        let mut stored = terrain.cells[idx].energy_store;
+        let spec = terrain.cells[idx].outpost_spec;
+
+        spatial_hash.query_callback(ox, oy, 3.0, |e_idx| {
+            let handle = entity_handles[e_idx];
+            if let Ok(mut metabolism) = world.get::<&mut primordium_data::Metabolism>(handle) {
+                if Some(metabolism.lineage_id) == owner_id {
+                    match spec {
+                        OutpostSpecialization::Silo => {
+                            if metabolism.energy > metabolism.max_energy * 0.5 {
+                                let donation = metabolism.energy * 0.1;
+                                metabolism.energy -= donation;
+                                stored += donation as f32;
+                            }
+                        }
+                        OutpostSpecialization::Nursery => {
+                            if metabolism.energy < metabolism.max_energy * 0.5 && stored > 20.0 {
+                                let grant = (metabolism.max_energy * 0.2).min(stored as f64);
+                                metabolism.energy += grant;
+                                stored -= grant as f32;
+                            }
+                        }
+                        _ => {
+                            if metabolism.energy > metabolism.max_energy * 0.8 {
+                                let donation = metabolism.energy * 0.05;
+                                metabolism.energy -= donation;
+                                stored += donation as f32;
+                            }
+                            if metabolism.energy < metabolism.max_energy * 0.3 && stored > 10.0 {
+                                let grant = (metabolism.max_energy * 0.1).min(stored as f64);
+                                metabolism.energy += grant;
+                                stored -= grant as f32;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        let max_cap = match spec {
+            OutpostSpecialization::Silo => silo_cap,
+            _ => outpost_cap,
+        };
+        terrain.cells[idx].energy_store = stored.min(max_cap);
+    }
+}
+
 /// Phase 63: Outpost Specialization Logic
 pub fn handle_outposts(
     terrain: &mut TerrainGrid,

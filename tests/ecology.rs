@@ -8,16 +8,21 @@ fn test_terrain_fertility_cycle() {
     let mut config = AppConfig::default();
     config.world.initial_food = 0;
     config.world.max_food = 0;
-    let mut world = World::new(1, config).expect("Failed to create world");
+    let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
     let ix = 10;
     let iy = 10;
-    world.entities[0].physics.x = 10.0;
-    world.entities[0].physics.y = 10.0;
-    world.entities[0].physics.vx = 0.0;
-    world.entities[0].physics.vy = 0.0;
-    world.entities[0].metabolism.trophic_potential = 0.0;
-    world.entities[0].metabolism.energy = 100.0;
+    let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    e.metabolism.trophic_potential = 0.0;
+    e.metabolism.energy = 100.0;
+    world.ecs.spawn((
+        e.identity,
+        primordium_lib::model::state::Position { x: 10.0, y: 10.0 },
+        e.physics,
+        e.metabolism,
+        e.health,
+        e.intel,
+    ));
     world.terrain.set_fertility(ix, iy, 0.5);
     world.food.clear();
     world
@@ -61,7 +66,14 @@ fn test_trophic_diet_restrictions() {
         herbivore.metabolism.trophic_potential = 0.0;
         herbivore.metabolism.energy = 50.0;
         herbivore.intel.genotype.metabolic_niche = 0.5;
-        world.entities.push(herbivore);
+        world.ecs.spawn((
+            herbivore.identity,
+            primordium_lib::model::state::Position { x: 10.0, y: 10.0 },
+            herbivore.physics,
+            herbivore.metabolism,
+            herbivore.health,
+            herbivore.intel,
+        ));
         world
             .food
             .push(primordium_lib::model::state::food::Food::new(10, 10, 0.5));
@@ -77,7 +89,14 @@ fn test_trophic_diet_restrictions() {
         let mut carnivore = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
         carnivore.metabolism.trophic_potential = 1.0;
         carnivore.metabolism.energy = 50.0;
-        world.entities.push(carnivore);
+        world.ecs.spawn((
+            carnivore.identity,
+            primordium_lib::model::state::Position { x: 10.0, y: 10.0 },
+            carnivore.physics,
+            carnivore.metabolism,
+            carnivore.health,
+            carnivore.intel,
+        ));
         world
             .food
             .push(primordium_lib::model::state::food::Food::new(10, 10, 0.0));

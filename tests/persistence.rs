@@ -11,7 +11,8 @@ fn test_world_persistence_cycle() {
     world.update(&mut env).expect("Failed to update world");
 
     println!("Testing Entity serialization...");
-    if let Some(e) = world.entities.first() {
+    let entities = world.get_all_entities();
+    if let Some(e) = entities.first() {
         let _ = serde_json::to_string(e).expect("Failed to serialize Entity");
         println!("Entity OK");
     }

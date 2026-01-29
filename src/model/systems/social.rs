@@ -8,8 +8,7 @@ use crate::model::spatial_hash::SpatialHash;
 use crate::model::systems::intel;
 use crate::model::world::InternalEntitySnapshot;
 use chrono::Utc;
-use primordium_data::{AncestralTrait, Specialization};
-use primordium_data::{Entity, Health, Intel, Metabolism, Physics};
+use primordium_data::{AncestralTrait, Entity, Health, Intel, Metabolism, Physics, Specialization};
 use rand::Rng;
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -39,28 +38,37 @@ pub fn soldier_territorial_bonus(entity: &Entity, config: &AppConfig) -> f64 {
     }
 }
 
-pub fn calculate_social_rank(entity: &Entity, tick: u64, config: &AppConfig) -> f32 {
-    let energy_score =
-        (entity.metabolism.energy / entity.metabolism.max_energy).clamp(0.0, 1.0) as f32;
-    let age = tick - entity.metabolism.birth_tick;
+pub fn calculate_social_rank_components(
+    metabolism: &Metabolism,
+    intel: &Intel,
+    tick: u64,
+    config: &AppConfig,
+) -> f32 {
+    let energy_score = (metabolism.energy / metabolism.max_energy).clamp(0.0, 1.0) as f32;
+    let age = tick - metabolism.birth_tick;
     let age_score = (age as f32 / config.social.age_rank_normalization).min(1.0);
-    let offspring_score = (entity.metabolism.offspring_count as f32
-        / config.social.offspring_rank_normalization)
-        .min(1.0);
-    let rep_score = entity.intel.reputation.clamp(0.0, 1.0);
+    let offspring_score =
+        (metabolism.offspring_count as f32 / config.social.offspring_rank_normalization).min(1.0);
+    let rep_score = intel.reputation.clamp(0.0, 1.0);
 
     let w = config.social.rank_weights;
     w[0] * energy_score + w[1] * age_score + w[2] * offspring_score + w[3] * rep_score
 }
 
-pub fn start_tribal_split<R: Rng>(
-    entity: &Entity,
+pub fn calculate_social_rank(entity: &Entity, tick: u64, config: &AppConfig) -> f32 {
+    calculate_social_rank_components(&entity.metabolism, &entity.intel, tick, config)
+}
+
+pub fn start_tribal_split_components<R: Rng>(
+    _phys: &Physics,
+    _met: &Metabolism,
+    intel: &Intel,
     crowding: f32,
     config: &AppConfig,
     rng: &mut R,
 ) -> Option<(u8, u8, u8)> {
     if crowding > config.evolution.crowding_threshold
-        && entity.intel.rank < config.social.sharing_threshold * 0.4
+        && intel.rank < config.social.sharing_threshold * 0.4
     {
         Some((
             rng.gen_range(0..255),
@@ -72,15 +80,80 @@ pub fn start_tribal_split<R: Rng>(
     }
 }
 
-pub fn are_same_tribe(e1: &Entity, e2: &Entity, config: &AppConfig) -> bool {
-    let dist = (e1.physics.r as i32 - e2.physics.r as i32).abs()
-        + (e1.physics.g as i32 - e2.physics.g as i32).abs()
-        + (e1.physics.b as i32 - e2.physics.b as i32).abs();
+pub fn start_tribal_split<R: Rng>(
+    entity: &Entity,
+    crowding: f32,
+    config: &AppConfig,
+    rng: &mut R,
+) -> Option<(u8, u8, u8)> {
+    start_tribal_split_components(
+        &entity.physics,
+        &entity.metabolism,
+        &entity.intel,
+        crowding,
+        config,
+        rng,
+    )
+}
+
+pub fn are_same_tribe_components(phys1: &Physics, phys2: &Physics, config: &AppConfig) -> bool {
+    let dist = (phys1.r as i32 - phys2.r as i32).abs()
+        + (phys1.g as i32 - phys2.g as i32).abs()
+        + (phys1.b as i32 - phys2.b as i32).abs();
     dist < config.social.tribe_color_threshold
+}
+
+pub fn are_same_tribe(e1: &Entity, e2: &Entity, config: &AppConfig) -> bool {
+    are_same_tribe_components(&e1.physics, &e2.physics, config)
 }
 
 pub fn can_share(entity: &Entity, config: &AppConfig) -> bool {
     entity.metabolism.energy > entity.metabolism.max_energy * config.social.sharing_threshold as f64
+}
+
+type EntityComponents<'a> = (
+    hecs::Entity,
+    (
+        &'a primordium_data::Identity,
+        &'a Physics,
+        &'a Metabolism,
+        &'a mut Intel,
+        &'a Health,
+    ),
+);
+
+pub fn handle_symbiosis_components(
+    idx: usize,
+    components: &[EntityComponents],
+    outputs: [f32; 12],
+    spatial_hash: &SpatialHash,
+    config: &AppConfig,
+) -> Option<Uuid> {
+    if outputs[8] > 0.5 {
+        let mut partner_id = None;
+        let self_phys = components[idx].1 .1;
+
+        spatial_hash.query_callback(
+            self_phys.x,
+            self_phys.y,
+            config.social.territorial_range,
+            |t_idx| {
+                if idx != t_idx && partner_id.is_none() {
+                    let target_identity = components[t_idx].1 .0;
+                    let target_phys = components[t_idx].1 .1;
+                    let target_intel = &components[t_idx].1 .3;
+                    if target_intel.bonded_to.is_none()
+                        && are_same_tribe_components(self_phys, target_phys, config)
+                    {
+                        partner_id = Some(target_identity.id);
+                    }
+                }
+            },
+        );
+        partner_id
+    } else {
+        None
+    }
 }
 
 pub fn handle_symbiosis(
@@ -102,7 +175,7 @@ pub fn handle_symbiosis(
                     if target.intel.bonded_to.is_none()
                         && are_same_tribe(&entities[idx], target, config)
                     {
-                        partner_id = Some(target.id);
+                        partner_id = Some(target.identity.id);
                     }
                 }
             },
@@ -123,47 +196,51 @@ pub struct ReproductionContext<'a, R: Rng> {
     pub ancestral_genotype: Option<&'a primordium_data::Genotype>,
 }
 
-pub fn reproduce_asexual_parallel<R: Rng>(
-    parent: &Entity,
+pub fn reproduce_asexual_parallel_components<R: Rng>(
+    phys: &Physics,
+    met: &Metabolism,
+    intel: &Intel,
     ctx: &mut ReproductionContext<R>,
 ) -> (Entity, f32) {
-    let investment = parent.intel.genotype.reproductive_investment as f64;
-    let child_energy = parent.metabolism.energy * investment;
+    let investment = intel.genotype.reproductive_investment as f64;
+    let child_energy = met.energy * investment;
 
-    let mut child_genotype = parent.intel.genotype.clone();
+    let mut child_genotype = intel.genotype.clone();
     intel::mutate_genotype(
         &mut child_genotype,
         ctx.config,
         ctx.population,
         ctx.is_radiation_storm,
-        parent.intel.specialization,
+        intel.specialization,
         ctx.rng,
         ctx.ancestral_genotype,
     );
-    let dist = parent.intel.genotype.distance(&child_genotype);
+    let dist = intel.genotype.distance(&child_genotype);
     if dist > ctx.config.evolution.speciation_threshold {
         child_genotype.lineage_id = Uuid::new_v4();
     }
 
-    let r = (parent.physics.r as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
-    let g = (parent.physics.g as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
-    let b = (parent.physics.b as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
+    let r = (phys.r as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
+    let g = (phys.g as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
+    let b = (phys.b as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
 
     let mut baby = Entity {
-        id: Uuid::new_v4(),
-        name: String::new(),
-        parent_id: Some(parent.id),
+        identity: primordium_data::Identity {
+            id: Uuid::new_v4(),
+            name: String::new(),
+            parent_id: None,
+        },
         physics: Physics {
-            x: parent.physics.x,
-            y: parent.physics.y,
-            vx: parent.physics.vx,
-            vy: parent.physics.vy,
+            x: phys.x,
+            y: phys.y,
+            vx: phys.vx,
+            vy: phys.vy,
             r,
             g,
             b,
             symbol: '●',
-            home_x: parent.physics.x,
-            home_y: parent.physics.y,
+            home_x: phys.x,
+            home_y: phys.y,
             sensing_range: child_genotype.sensing_range,
             max_speed: child_genotype.max_speed,
         },
@@ -174,7 +251,7 @@ pub fn reproduce_asexual_parallel<R: Rng>(
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: ctx.tick,
-            generation: parent.metabolism.generation + 1,
+            generation: met.generation + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
             has_metamorphosed: false,
@@ -184,7 +261,7 @@ pub fn reproduce_asexual_parallel<R: Rng>(
         health: Health {
             pathogen: None,
             infection_timer: 0,
-            immunity: (parent.health.immunity + ctx.rng.gen_range(-0.05..0.05)).clamp(0.0, 1.0),
+            immunity: 0.0,
         },
         intel: Intel {
             genotype: child_genotype,
@@ -204,9 +281,7 @@ pub fn reproduce_asexual_parallel<R: Rng>(
         },
     };
 
-    // Apply traits to phenotype
     for trait_item in &ctx.traits {
-        use primordium_data::AncestralTrait;
         match trait_item {
             AncestralTrait::AcuteSenses => {
                 baby.physics.sensing_range *= 1.2;
@@ -222,43 +297,35 @@ pub fn reproduce_asexual_parallel<R: Rng>(
     (baby, dist)
 }
 
-pub fn reproduce_asexual(
-    parent: &mut Entity,
-    tick: u64,
-    config: &crate::model::config::AppConfig,
-    population: usize,
-    traits: std::collections::HashSet<AncestralTrait>,
-    is_radiation_storm: bool,
-) -> Entity {
-    let mut rng = rand::thread_rng();
-    let investment = parent.intel.genotype.reproductive_investment as f64;
-    let mut ctx = ReproductionContext {
-        tick,
-        config,
-        population,
-        traits,
-        is_radiation_storm,
-        rng: &mut rng,
-        ancestral_genotype: None,
-    };
-    let (baby, _) = reproduce_asexual_parallel(parent, &mut ctx);
-    parent.metabolism.energy *= 1.0 - investment;
-    parent.metabolism.offspring_count += 1;
-    baby
-}
-
-pub fn reproduce_sexual_parallel<R: Rng>(
-    p1: &Entity,
-    p2: &Entity,
+pub fn reproduce_asexual_parallel<R: Rng>(
+    parent: &Entity,
     ctx: &mut ReproductionContext<R>,
 ) -> (Entity, f32) {
-    let investment = p1.intel.genotype.reproductive_investment as f64;
-    let child_energy = (p1.metabolism.energy + p2.metabolism.energy) * investment / 2.0;
+    let (mut baby, dist) = reproduce_asexual_parallel_components(
+        &parent.physics,
+        &parent.metabolism,
+        &parent.intel,
+        ctx,
+    );
+    baby.identity.parent_id = Some(parent.identity.id);
+    (baby, dist)
+}
 
-    let mut child_genotype = p1
-        .intel
+pub fn reproduce_sexual_parallel_components<R: Rng>(
+    p1_phys: &Physics,
+    p1_met: &Metabolism,
+    p1_intel: &Intel,
+    p2_phys: &Physics,
+    p2_met: &Metabolism,
+    p2_intel: &Intel,
+    ctx: &mut ReproductionContext<R>,
+) -> (Entity, f32) {
+    let investment = p1_intel.genotype.reproductive_investment as f64;
+    let child_energy = (p1_met.energy + p2_met.energy) * investment / 2.0;
+
+    let mut child_genotype = p1_intel
         .genotype
-        .crossover_with_rng(&p2.intel.genotype, ctx.rng);
+        .crossover_with_rng(&p2_intel.genotype, ctx.rng);
     intel::mutate_genotype(
         &mut child_genotype,
         ctx.config,
@@ -269,28 +336,30 @@ pub fn reproduce_sexual_parallel<R: Rng>(
         ctx.ancestral_genotype,
     );
 
-    let r_mut = ((p1.physics.r as i16 + p2.physics.r as i16) / 2 + ctx.rng.gen_range(-10..=10))
+    let r_mut = ((p1_phys.r as i16 + p2_phys.r as i16) / 2 + ctx.rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
-    let g_mut = ((p1.physics.g as i16 + p2.physics.g as i16) / 2 + ctx.rng.gen_range(-10..=10))
+    let g_mut = ((p1_phys.g as i16 + p2_phys.g as i16) / 2 + ctx.rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
-    let b_mut = ((p1.physics.b as i16 + p2.physics.b as i16) / 2 + ctx.rng.gen_range(-10..=10))
+    let b_mut = ((p1_phys.b as i16 + p2_phys.b as i16) / 2 + ctx.rng.gen_range(-10..=10))
         .clamp(0, 255) as u8;
 
     let mut baby = Entity {
-        id: Uuid::new_v4(),
-        name: String::new(),
-        parent_id: Some(p1.id),
+        identity: primordium_data::Identity {
+            id: Uuid::new_v4(),
+            name: String::new(),
+            parent_id: None,
+        },
         physics: Physics {
-            x: p1.physics.x,
-            y: p1.physics.y,
-            vx: p1.physics.vx,
-            vy: p1.physics.vy,
+            x: p1_phys.x,
+            y: p1_phys.y,
+            vx: p1_phys.vx,
+            vy: p1_phys.vy,
             r: r_mut,
             g: g_mut,
             b: b_mut,
             symbol: '●',
-            home_x: p1.physics.x,
-            home_y: p1.physics.y,
+            home_x: p1_phys.x,
+            home_y: p1_phys.y,
             sensing_range: child_genotype.sensing_range,
             max_speed: child_genotype.max_speed,
         },
@@ -301,7 +370,7 @@ pub fn reproduce_sexual_parallel<R: Rng>(
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: ctx.tick,
-            generation: p1.metabolism.generation.max(p2.metabolism.generation) + 1,
+            generation: p1_met.generation.max(p2_met.generation) + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
             has_metamorphosed: false,
@@ -311,7 +380,7 @@ pub fn reproduce_sexual_parallel<R: Rng>(
         health: Health {
             pathogen: None,
             infection_timer: 0,
-            immunity: (p1.health.immunity + p2.health.immunity) / 2.0,
+            immunity: (p1_met.energy + p2_met.energy) as f32 / 200.0, // Placeholder
         },
         intel: Intel {
             genotype: child_genotype,
@@ -331,9 +400,7 @@ pub fn reproduce_sexual_parallel<R: Rng>(
         },
     };
 
-    // Apply traits to phenotype
     for trait_item in &ctx.traits {
-        use primordium_data::AncestralTrait;
         match trait_item {
             AncestralTrait::AcuteSenses => {
                 baby.physics.sensing_range *= 1.2;
@@ -349,24 +416,58 @@ pub fn reproduce_sexual_parallel<R: Rng>(
     (baby, 0.1)
 }
 
+pub fn reproduce_asexual(
+    parent: &mut Entity,
+    tick: u64,
+    config: &AppConfig,
+    population: usize,
+    traits: std::collections::HashSet<AncestralTrait>,
+    is_radiation_storm: bool,
+) -> Entity {
+    let mut rng = rand::thread_rng();
+    let mut ctx = ReproductionContext {
+        tick,
+        config,
+        population,
+        traits,
+        is_radiation_storm,
+        rng: &mut rng,
+        ancestral_genotype: None,
+    };
+    let (baby, _) = reproduce_asexual_parallel(parent, &mut ctx);
+    let investment = parent.intel.genotype.reproductive_investment as f64;
+    parent.metabolism.energy *= 1.0 - investment;
+    parent.metabolism.offspring_count += 1;
+    baby
+}
+
+pub fn increment_spec_meter_components(
+    intel: &mut Intel,
+    spec: Specialization,
+    amount: f32,
+    config: &AppConfig,
+) {
+    if intel.specialization.is_none() {
+        let bias_idx = match spec {
+            Specialization::Soldier => 0,
+            Specialization::Engineer => 1,
+            Specialization::Provider => 2,
+        };
+        let meter = intel.spec_meters.entry(spec).or_insert(0.0);
+        *meter += amount * (1.0 + intel.genotype.specialization_bias[bias_idx]);
+        if *meter >= config.social.specialization_threshold {
+            intel.specialization = Some(spec);
+        }
+    }
+}
+
 pub fn increment_spec_meter(
     entity: &mut Entity,
     spec: Specialization,
     amount: f32,
     config: &AppConfig,
 ) {
-    if entity.intel.specialization.is_none() {
-        let bias_idx = match spec {
-            Specialization::Soldier => 0,
-            Specialization::Engineer => 1,
-            Specialization::Provider => 2,
-        };
-        let meter = entity.intel.spec_meters.entry(spec).or_insert(0.0);
-        *meter += amount * (1.0 + entity.intel.genotype.specialization_bias[bias_idx]);
-        if *meter >= config.social.specialization_threshold {
-            entity.intel.specialization = Some(spec);
-        }
-    }
+    increment_spec_meter_components(&mut entity.intel, spec, amount, config);
 }
 
 pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) -> Option<Legend> {
@@ -376,8 +477,8 @@ pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) -> 
         || entity.metabolism.peak_energy > 300.0
     {
         let legend = Legend {
-            id: entity.id,
-            parent_id: entity.parent_id,
+            id: entity.identity.id,
+            parent_id: entity.identity.parent_id,
             lineage_id: entity.metabolism.lineage_id,
             birth_tick: entity.metabolism.birth_tick,
             death_tick: tick,
@@ -428,7 +529,7 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
         1.5,
         |t_idx| {
             let v_snap = &ctx.snapshots[t_idx];
-            if v_snap.id != entities[idx].id
+            if v_snap.id != entities[idx].identity.id
                 && !ctx.killed_ids.contains(&v_snap.id)
                 && !are_same_tribe(&entities[idx], &entities[t_idx], ctx.config)
             {
@@ -455,28 +556,4 @@ pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut Predation
             }
         },
     );
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::lifecycle;
-    #[test]
-    fn test_is_legend_worthy_by_lifespan() {
-        let mut entity = lifecycle::create_entity(5.0, 5.0, 0);
-        entity.metabolism.birth_tick = 0;
-        assert!(is_legend_worthy(&entity, 1500));
-    }
-    #[test]
-    fn test_are_same_tribe_similar_colors() {
-        let mut entity1 = lifecycle::create_entity(0.0, 0.0, 0);
-        entity1.physics.r = 100;
-        entity1.physics.g = 100;
-        entity1.physics.b = 100;
-        let mut entity2 = lifecycle::create_entity(0.0, 0.0, 0);
-        entity2.physics.r = 110;
-        entity2.physics.g = 105;
-        entity2.physics.b = 120;
-        let config = AppConfig::default();
-        assert!(are_same_tribe(&entity1, &entity2, &config));
-    }
 }

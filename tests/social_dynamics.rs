@@ -24,12 +24,35 @@ fn test_tribe_solidarity_no_aggression() {
     e2.metabolism.max_energy = 10000.0;
     e1.intel.genotype.max_energy = 10000.0;
     e2.intel.genotype.max_energy = 10000.0;
-    world.entities.push(e1);
-    world.entities.push(e2);
+    world.ecs.spawn((
+        e1.identity,
+        primordium_lib::model::state::Position {
+            x: e1.physics.x,
+            y: e1.physics.y,
+        },
+        e1.physics,
+        e1.metabolism,
+        e1.health,
+        e1.intel,
+    ));
+    world.ecs.spawn((
+        e2.identity,
+        primordium_lib::model::state::Position {
+            x: e2.physics.x,
+            y: e2.physics.y,
+        },
+        e2.physics,
+        e2.metabolism,
+        e2.health,
+        e2.intel,
+    ));
     for _ in 0..50 {
         world.update(&mut env).expect("Update failed");
     }
-    assert!(world.entities.len() >= 2, "Hunter attacked its own tribe!");
+    assert!(
+        world.get_population_count() >= 2,
+        "Hunter attacked its own tribe!"
+    );
 }
 
 #[test]
@@ -65,26 +88,50 @@ fn test_energy_sharing_between_allies() {
             innovation: 999,
         });
 
-    let e2_id = e2.id;
-    world.entities.push(e1);
-    world.entities.push(e2);
+    let e2_id = e2.identity.id;
+    world.ecs.spawn((
+        e1.identity,
+        primordium_lib::model::state::Position {
+            x: e1.physics.x,
+            y: e1.physics.y,
+        },
+        e1.physics,
+        e1.metabolism,
+        e1.health,
+        e1.intel,
+    ));
+    world.ecs.spawn((
+        e2.identity,
+        primordium_lib::model::state::Position {
+            x: e2.physics.x,
+            y: e2.physics.y,
+        },
+        e2.physics,
+        e2.metabolism,
+        e2.health,
+        e2.intel,
+    ));
     let mut shared = false;
     for _ in 0..100 {
         world.update(&mut env).expect("Update failed");
-        if let Some(e2_curr) = world.entities.iter().find(|e| e.id == e2_id) {
+        let entities = world.get_all_entities();
+        if let Some(e2_curr) = entities.iter().find(|e| e.identity.id == e2_id) {
             if e2_curr.metabolism.energy > 15.0 {
                 shared = true;
                 break;
             }
         }
         // Keep E1 energy high and force share intent
-        if let Some(e1_curr) = world
-            .entities
-            .iter_mut()
-            .find(|e| e.physics.r == 200 && e.id != e2_id)
-        {
-            e1_curr.metabolism.energy = 800.0;
-            e1_curr.intel.last_share_intent = 1.0;
+        for (_handle, (phys, met, intel, ident)) in world.ecs.query_mut::<(
+            &mut primordium_lib::model::state::Physics,
+            &mut primordium_lib::model::state::Metabolism,
+            &mut primordium_lib::model::state::Intel,
+            &primordium_lib::model::state::Identity,
+        )>() {
+            if phys.r == 200 && ident.id != e2_id {
+                met.energy = 800.0;
+                intel.last_share_intent = 1.0;
+            }
         }
     }
     assert!(shared, "Energy sharing did not occur between allies");
@@ -120,11 +167,31 @@ fn test_inter_tribe_predation() {
             enabled: true,
             innovation: 9999,
         });
-    world.entities.push(e1);
-    world.entities.push(e2);
+    world.ecs.spawn((
+        e1.identity,
+        primordium_lib::model::state::Position {
+            x: e1.physics.x,
+            y: e1.physics.y,
+        },
+        e1.physics,
+        e1.metabolism,
+        e1.health,
+        e1.intel,
+    ));
+    world.ecs.spawn((
+        e2.identity,
+        primordium_lib::model::state::Position {
+            x: e2.physics.x,
+            y: e2.physics.y,
+        },
+        e2.physics,
+        e2.metabolism,
+        e2.health,
+        e2.intel,
+    ));
     for _ in 0..200 {
         world.update(&mut env).expect("Update failed");
-        if world.entities.len() == 1 {
+        if world.get_population_count() == 1 {
             break;
         }
     }

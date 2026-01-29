@@ -224,6 +224,49 @@ impl HistoryLogger {
     }
 }
 
+pub fn update_population_stats_snapshots(
+    stats: &mut PopulationStats,
+    entities: &[crate::model::snapshot::EntitySnapshot],
+    food_count: usize,
+    top_fitness: f64,
+    carbon_level: f64,
+    mutation_scale: f32,
+    terrain: &crate::model::terrain::TerrainGrid,
+) {
+    stats.population = entities.len();
+    stats.food_count = food_count;
+    stats.top_fitness = top_fitness;
+    stats.carbon_level = carbon_level;
+    stats.mutation_scale = mutation_scale;
+    stats.global_fertility = terrain.average_fertility();
+    stats.max_generation = entities.iter().map(|e| e.generation).max().unwrap_or(0);
+    stats.lineage_counts.clear();
+    stats.biomass_h = 0.0;
+    stats.biomass_c = 0.0;
+    stats.biodiversity_hotspots = 0;
+
+    if entities.is_empty() {
+        stats.avg_brain_entropy = 0.0;
+        stats.species_count = 0;
+        return;
+    }
+
+    let mut sectors: HashMap<(i32, i32), HashSet<Uuid>> = HashMap::new();
+    for e in entities {
+        *stats.lineage_counts.entry(e.lineage_id).or_insert(0) += 1;
+        let tp = e.trophic_potential;
+        if tp < 0.4 {
+            stats.biomass_h += e.energy;
+        } else if tp > 0.6 {
+            stats.biomass_c += e.energy;
+        }
+        let sx = (e.x / 10.0) as i32;
+        let sy = (e.y / 10.0) as i32;
+        sectors.entry((sx, sy)).or_default().insert(e.lineage_id);
+    }
+    stats.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
+}
+
 pub fn update_population_stats(
     stats: &mut PopulationStats,
     entities: &[Entity],
