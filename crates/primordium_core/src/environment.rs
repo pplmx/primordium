@@ -173,6 +173,13 @@ impl Environment {
         self.oxygen_level = (self.oxygen_level * 0.9 + 21.0 * 0.1).clamp(5.0, 50.0);
     }
 
+    pub fn tick_deterministic(&mut self, tick: u64) {
+        self.tick();
+        let t = tick as f32 * 0.01;
+        self.cpu_usage = 50.0 + (t.sin() * 20.0);
+        self.ram_usage_percent = 60.0 + (t.cos() * 10.0);
+    }
+
     pub fn add_carbon(&mut self, amount: f64) {
         self.carbon_level = (self.carbon_level + amount).min(2000.0);
         // Carbon displaces Oxygen slightly

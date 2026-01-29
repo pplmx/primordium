@@ -155,6 +155,37 @@ impl SpatialHash {
         })
     }
 
+    pub fn add_centroid_data(&mut self, data: &[(f64, f64, uuid::Uuid)]) {
+        let extra_centroids = data
+            .par_iter()
+            .fold(
+                HashMap::new,
+                |mut acc: HashMap<uuid::Uuid, (f64, f64, usize)>, &(x, y, lid)| {
+                    let entry = acc.entry(lid).or_insert((0.0, 0.0, 0));
+                    entry.0 += x;
+                    entry.1 += y;
+                    entry.2 += 1;
+                    acc
+                },
+            )
+            .reduce(HashMap::new, |mut a, b| {
+                for (lid, (sx, sy, count)) in b {
+                    let entry = a.entry(lid).or_insert((0.0, 0.0, 0));
+                    entry.0 += sx;
+                    entry.1 += sy;
+                    entry.2 += count;
+                }
+                a
+            });
+
+        for (lid, (sx, sy, count)) in extra_centroids {
+            let entry = self.lineage_centroids.entry(lid).or_insert((0.0, 0.0, 0));
+            entry.0 += sx;
+            entry.1 += sy;
+            entry.2 += count;
+        }
+    }
+
     pub fn sense_kin(&self, x: f64, y: f64, range: f64, lid: uuid::Uuid) -> (f64, f64) {
         if let Some((cx, cy)) = self.get_lineage_centroid(&lid) {
             let dx = (cx - x) / range;

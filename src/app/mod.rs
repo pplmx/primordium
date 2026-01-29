@@ -65,12 +65,15 @@ impl App {
     fn update_hardware_metrics(&mut self) {
         self.fps = self.frame_count as f64;
         self.frame_count = 0;
-        self.sys.refresh_cpu();
-        self.sys.refresh_memory();
-        let cpu_usage = self.sys.global_cpu_info().cpu_usage();
-        self.env.cpu_usage = cpu_usage;
-        self.env.ram_usage_percent =
-            (self.sys.used_memory() as f32 / self.sys.total_memory() as f32) * 100.0;
+
+        if !self.config.world.deterministic {
+            self.sys.refresh_cpu();
+            self.sys.refresh_memory();
+            let cpu_usage = self.sys.global_cpu_info().cpu_usage();
+            self.env.cpu_usage = cpu_usage;
+            self.env.ram_usage_percent =
+                (self.sys.used_memory() as f32 / self.sys.total_memory() as f32) * 100.0;
+        }
 
         environment_system::update_era(
             &mut self.env,
@@ -96,8 +99,9 @@ impl App {
         self.last_climate = Some(current_climate);
         environment_system::update_events(&mut self.env, &self.config);
 
+        let current_cpu = self.env.cpu_usage;
         self.cpu_history.pop_front();
-        self.cpu_history.push_back(cpu_usage as u64);
+        self.cpu_history.push_back(current_cpu as u64);
 
         self.pop_history.pop_front();
         self.pop_history.push_back(self.world.entities.len() as u64);

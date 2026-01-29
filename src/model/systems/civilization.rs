@@ -9,9 +9,9 @@ use uuid::Uuid;
 pub fn resolve_power_grid(terrain: &mut TerrainGrid, width: u16, height: u16) {
     let cell_count = terrain.cells.len();
     let mut visited = vec![false; cell_count];
-    let outpost_indices = &terrain.outpost_indices;
+    let outpost_indices: Vec<usize> = terrain.outpost_indices.iter().copied().collect();
 
-    for &start_idx in outpost_indices {
+    for &start_idx in &outpost_indices {
         if visited[start_idx] {
             continue;
         }
@@ -74,11 +74,11 @@ pub fn resolve_power_grid(terrain: &mut TerrainGrid, width: u16, height: u16) {
 
 pub fn count_outposts_by_lineage(terrain: &TerrainGrid) -> std::collections::HashMap<Uuid, usize> {
     let mut counts = std::collections::HashMap::new();
-    for cell in &terrain.cells {
-        if cell.terrain_type == TerrainType::Outpost {
-            if let Some(id) = cell.owner_id {
-                *counts.entry(id).or_insert(0) += 1;
-            }
+    let outpost_indices = &terrain.outpost_indices;
+    for &idx in outpost_indices {
+        let cell = &terrain.cells[idx];
+        if let Some(id) = cell.owner_id {
+            *counts.entry(id).or_insert(0) += 1;
         }
     }
     counts
@@ -93,19 +93,19 @@ pub fn handle_outposts(
     silo_cap: f32,
     outpost_cap: f32,
 ) {
-    let outpost_indices = &terrain.outpost_indices;
+    let outpost_indices: Vec<usize> = terrain.outpost_indices.iter().copied().collect();
 
-    for &idx in outpost_indices {
+    for &idx in &outpost_indices {
         let (ox, oy) = ((idx % width as usize) as f64, (idx / width as usize) as f64);
         let owner_id = terrain.cells[idx].owner_id;
 
-        let nearby = spatial_hash.query(ox, oy, 3.0);
         let mut stored = terrain.cells[idx].energy_store;
+        let spec = terrain.cells[idx].outpost_spec;
 
-        for e_idx in nearby {
+        spatial_hash.query_callback(ox, oy, 3.0, |e_idx| {
             let e = &mut entities[e_idx];
             if Some(e.metabolism.lineage_id) == owner_id {
-                match terrain.cells[idx].outpost_spec {
+                match spec {
                     OutpostSpecialization::Silo => {
                         // Collect more surplus
                         if e.metabolism.energy > e.metabolism.max_energy * 0.5 {
@@ -137,9 +137,9 @@ pub fn handle_outposts(
                     }
                 }
             }
-        }
+        });
 
-        let max_cap = match terrain.cells[idx].outpost_spec {
+        let max_cap = match spec {
             OutpostSpecialization::Silo => silo_cap,
             _ => outpost_cap,
         };

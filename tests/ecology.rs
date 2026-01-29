@@ -153,8 +153,8 @@ fn test_light_dependent_food_growth() {
     {
         let mut world = World::new(0, config.clone()).expect("Failed to create world");
         let mut env = Environment::default();
-        env.world_time = env.day_cycle_ticks / 4;
         for _ in 0..1000 {
+            env.world_time = env.day_cycle_ticks / 4; // Midday
             world.update(&mut env).expect("Update failed");
             day_food_count += world.food.len();
             world.food.clear();
@@ -166,8 +166,8 @@ fn test_light_dependent_food_growth() {
     {
         let mut world = World::new(0, config).expect("Failed to create world");
         let mut env = Environment::default();
-        env.world_time = env.day_cycle_ticks / 2 + 100; // Night
         for _ in 0..1000 {
+            env.world_time = env.day_cycle_ticks / 2 + 100; // Night
             world.update(&mut env).expect("Update failed");
             night_food_count += world.food.len();
             world.food.clear();

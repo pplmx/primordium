@@ -3,6 +3,8 @@ use rand::Rng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use std::collections::HashSet;
+
 pub trait TerrainLogic {
     fn movement_modifier(&self) -> f64;
     fn food_spawn_modifier(&self) -> f64;
@@ -105,7 +107,7 @@ pub struct TerrainGrid {
     #[serde(skip)]
     pub is_dirty: bool,
     #[serde(skip)]
-    pub outpost_indices: Vec<usize>,
+    pub outpost_indices: HashSet<usize>,
     #[serde(skip)]
     type_buffer: Vec<TerrainType>,
     #[serde(skip)]
@@ -182,7 +184,7 @@ impl TerrainGrid {
             height,
             dust_bowl_timer: 0,
             is_dirty: true,
-            outpost_indices: Vec::new(),
+            outpost_indices: HashSet::new(),
             type_buffer: vec![TerrainType::Plains; width as usize * height as usize],
             hydration_buffer: vec![false; width as usize * height as usize],
             moisture_buffer: vec![0.5; width as usize * height as usize],
@@ -197,13 +199,12 @@ impl TerrainGrid {
 
     pub fn update(&mut self, herbivore_biomass: f64, tick: u64, world_seed: u64) -> (f64, f64) {
         if self.is_dirty {
-            self.outpost_indices = self
-                .cells
-                .iter()
-                .enumerate()
-                .filter(|(_, c)| matches!(c.terrain_type, TerrainType::Outpost))
-                .map(|(i, _)| i)
-                .collect();
+            self.outpost_indices.clear();
+            for (i, c) in self.cells.iter().enumerate() {
+                if matches!(c.terrain_type, TerrainType::Outpost) {
+                    self.outpost_indices.insert(i);
+                }
+            }
             self.is_dirty = false;
         }
 
@@ -636,6 +637,14 @@ impl TerrainGrid {
         let ix = x.min(self.width - 1);
         let iy = y.min(self.height - 1);
         let idx = self.index(ix, iy);
+
+        if self.cells[idx].terrain_type == TerrainType::Outpost {
+            self.outpost_indices.remove(&idx);
+        }
+        if t == TerrainType::Outpost {
+            self.outpost_indices.insert(idx);
+        }
+
         self.cells[idx].terrain_type = t;
         self.is_dirty = true;
     }

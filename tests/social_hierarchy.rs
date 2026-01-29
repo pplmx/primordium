@@ -138,7 +138,9 @@ fn test_soldier_damage_bonus() {
 
     let mut victim = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     victim.metabolism.energy = 200.0; // Strong victim
-                                      // Different tribe
+                                      // Ensure victim doesn't attack back
+    victim.intel.genotype.brain.connections.clear();
+    // Different tribe
     soldier.physics.r = 255;
     victim.physics.r = 0;
 

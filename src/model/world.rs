@@ -424,6 +424,12 @@ impl World {
 
         self.finalize_tick(env, &mut events);
 
+        if self.config.world.deterministic {
+            env.tick_deterministic(self.tick);
+        } else {
+            env.tick();
+        }
+
         Ok(events)
     }
 
@@ -532,6 +538,19 @@ impl World {
 
         self.spatial_hash
             .build_with_lineage(&spatial_data, self.width, self.height);
+
+        // Phase 66 Optimization: Add outposts to kin centroids for stigmergic attraction
+        let mut outpost_data = Vec::new();
+        let width = self.width;
+        for &idx in &self.terrain.outpost_indices {
+            let cell = &self.terrain.cells[idx];
+            if let Some(lid) = cell.owner_id {
+                let ox = (idx % width as usize) as f64;
+                let oy = (idx / width as usize) as f64;
+                outpost_data.push((ox, oy, lid));
+            }
+        }
+        self.spatial_hash.add_centroid_data(&outpost_data);
 
         let entity_id_map: HashMap<uuid::Uuid, usize> = self
             .entities
