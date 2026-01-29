@@ -406,6 +406,35 @@ pub struct MetabolicNiche(pub f32);
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Energy(pub f64);
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Food {
+    pub x: u16,
+    pub y: u16,
+    pub value: f64,
+    pub symbol: char,
+    pub color_rgb: (u8, u8, u8),
+    pub nutrient_type: f32,
+}
+
+impl Food {
+    pub fn new(x: u16, y: u16, nutrient_type: f32) -> Self {
+        let color = if nutrient_type < 0.5 {
+            (0, 255, 0)
+        } else {
+            (0, 100, 255)
+        };
+
+        Self {
+            x,
+            y,
+            value: 50.0,
+            symbol: '*',
+            color_rgb: color,
+            nutrient_type,
+        }
+    }
+}
+
 impl Brain {
     pub fn to_hex(&self) -> String {
         let bytes = serde_json::to_vec(self).unwrap_or_default();

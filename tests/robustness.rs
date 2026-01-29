@@ -39,10 +39,11 @@ fn test_lineage_registry_cleanup_on_extinction() {
 
     // Update stats - lineage should be there
     let entities = world.get_all_entities();
+    let food_count = world.get_food_count();
     history::update_population_stats(
         &mut world.pop_stats,
         &entities,
-        world.food.len(),
+        food_count,
         0.0,
         0.0,
         0.1,
@@ -53,10 +54,11 @@ fn test_lineage_registry_cleanup_on_extinction() {
     // Kill the population
     world.ecs.clear();
     let entities = world.get_all_entities();
+    let food_count = world.get_food_count();
     history::update_population_stats(
         &mut world.pop_stats,
         &entities,
-        world.food.len(),
+        food_count,
         0.0,
         0.0,
         0.1,

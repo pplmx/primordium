@@ -217,7 +217,7 @@ pub fn reproduce_asexual_parallel_components<R: Rng>(
     );
     let dist = intel.genotype.distance(&child_genotype);
     if dist > ctx.config.evolution.speciation_threshold {
-        child_genotype.lineage_id = Uuid::new_v4();
+        child_genotype.lineage_id = Uuid::from_u128(ctx.rng.gen());
     }
 
     let r = (phys.r as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
@@ -226,7 +226,7 @@ pub fn reproduce_asexual_parallel_components<R: Rng>(
 
     let mut baby = Entity {
         identity: primordium_data::Identity {
-            id: Uuid::new_v4(),
+            id: Uuid::from_u128(ctx.rng.gen()),
             name: String::new(),
             parent_id: None,
         },
@@ -345,7 +345,7 @@ pub fn reproduce_sexual_parallel_components<R: Rng>(
 
     let mut baby = Entity {
         identity: primordium_data::Identity {
-            id: Uuid::new_v4(),
+            id: Uuid::from_u128(ctx.rng.gen()),
             name: String::new(),
             parent_id: None,
         },

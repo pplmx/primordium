@@ -1,6 +1,5 @@
 use crate::model::config::AppConfig;
 use crate::model::environment::Environment;
-use crate::model::food::Food;
 use crate::model::history::{
     FossilRegistry, HallOfFame, HistoryLogger, LiveEvent, PopulationStats,
 };
@@ -13,7 +12,7 @@ use crate::model::spatial_hash::SpatialHash;
 use crate::model::terrain::TerrainGrid;
 use chrono::Utc;
 use hecs;
-use primordium_data::Entity;
+use primordium_data::{Entity, Food};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
@@ -56,10 +55,12 @@ pub struct EntityDecision {
 pub struct World {
     pub width: u16,
     pub height: u16,
-    pub food: Vec<Food>,
     pub tick: u64,
     #[serde(skip, default = "hecs::World::new")]
     pub ecs: hecs::World,
+
+    pub entities_persist: Vec<primordium_data::Entity>,
+    pub food_persist: Vec<primordium_data::Food>,
 
     #[serde(skip, default = "HistoryLogger::new_dummy")]
     pub logger: HistoryLogger,
@@ -155,18 +156,17 @@ impl World {
                 e.intel,
             ));
         }
-        let mut food = Vec::new();
         for _ in 0..config.world.initial_food {
             let fx = rng.gen_range(1..config.world.width - 1);
             let fy = rng.gen_range(1..config.world.height - 1);
             let n_type = rng.gen_range(0.0..1.0);
-            food.push(Food::new(fx, fy, n_type));
             ecs.spawn((
                 Position {
                     x: fx as f64,
                     y: fy as f64,
                 },
                 MetabolicNiche(n_type),
+                Food::new(fx, fy, n_type),
             ));
         }
         let terrain = TerrainGrid::generate(config.world.width, config.world.height, 42);
@@ -179,9 +179,10 @@ impl World {
         Ok(Self {
             width: config.world.width,
             height: config.world.height,
-            food,
             tick: 0,
             ecs,
+            entities_persist: Vec::new(),
+            food_persist: Vec::new(),
             logger,
             spatial_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
             food_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
@@ -227,6 +228,42 @@ impl World {
         self.fossil_registry =
             FossilRegistry::load(&format!("{}/fossils.json.gz", self.log_dir)).unwrap_or_default();
         Ok(())
+    }
+
+    pub fn prepare_for_save(&mut self) {
+        self.entities_persist = self.get_all_entities();
+        self.food_persist.clear();
+        for (_handle, f) in self.ecs.query::<&Food>().iter() {
+            self.food_persist.push(f.clone());
+        }
+    }
+
+    pub fn post_load(&mut self) {
+        self.ecs = hecs::World::new();
+        for e in std::mem::take(&mut self.entities_persist) {
+            self.ecs.spawn((
+                e.identity,
+                Position {
+                    x: e.physics.x,
+                    y: e.physics.y,
+                },
+                e.physics,
+                e.metabolism,
+                e.health,
+                e.intel,
+            ));
+        }
+        for f in std::mem::take(&mut self.food_persist) {
+            self.ecs.spawn((
+                Position {
+                    x: f.x as f64,
+                    y: f.y as f64,
+                },
+                MetabolicNiche(f.nutrient_type),
+                f,
+            ));
+        }
+        self.food_dirty = true;
     }
 
     pub fn apply_genetic_edit(&mut self, entity_id: uuid::Uuid, gene: GeneType, delta: f32) {
@@ -305,18 +342,23 @@ impl World {
                         let fx = rng.gen_range(1..self.width - 1);
                         let fy = rng.gen_range(1..self.height - 1);
                         let n_type = rng.gen_range(0.0..1.0);
-                        self.food.push(Food::new(fx, fy, n_type));
                         self.ecs.spawn((
                             Position {
                                 x: fx as f64,
                                 y: fy as f64,
                             },
                             MetabolicNiche(n_type),
+                            Food::new(fx, fy, n_type),
                         ));
                     }
                 } else {
-                    self.food
-                        .truncate(self.food.len().saturating_sub(amount as usize));
+                    let mut food_entities = Vec::new();
+                    for (handle, _) in self.ecs.query::<&Food>().iter() {
+                        food_entities.push(handle);
+                    }
+                    for &handle in food_entities.iter().take(amount as usize) {
+                        let _ = self.ecs.despawn(handle);
+                    }
                 }
                 self.food_dirty = true;
             }
@@ -422,10 +464,15 @@ impl World {
             });
         }
 
+        let mut food = Vec::new();
+        for (_handle, f) in self.ecs.query::<&Food>().iter() {
+            food.push(f.clone());
+        }
+
         WorldSnapshot {
             tick: self.tick,
             entities,
-            food: self.food.clone(),
+            food,
             stats: self.pop_stats.clone(),
             hall_of_fame: self.hall_of_fame.clone(),
             terrain: self.cached_terrain.clone(),
@@ -460,19 +507,21 @@ impl World {
                 });
         }
 
-        let (id_map, handles) = self.prepare_spatial_hash();
+        let (id_map, handles, food_handles) = self.prepare_spatial_hash();
 
         self.capture_entity_snapshots();
 
         self.learn_and_bond_check_parallel(&id_map);
 
-        let interaction_commands = self.perceive_and_decide(env, &id_map, world_seed);
+        let interaction_commands =
+            self.perceive_and_decide(env, &id_map, &food_handles, world_seed);
 
         let snapshots = std::mem::take(&mut self.entity_snapshots);
         self.execute_actions(env, &snapshots, &id_map);
         self.entity_snapshots = snapshots;
 
-        let interaction_res = self.execute_interactions(env, interaction_commands, &handles);
+        let interaction_res =
+            self.execute_interactions(env, interaction_commands, &handles, &food_handles);
         let (mut interaction_events, new_babies) = interaction_res;
         events.append(&mut interaction_events);
 
@@ -540,9 +589,8 @@ impl World {
 
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut self.rng);
 
-        let old_food_len = self.food.len();
-        ecological::spawn_food(
-            &mut self.food,
+        ecological::spawn_food_ecs(
+            &mut self.ecs,
             env,
             &self.terrain,
             &self.config,
@@ -551,14 +599,16 @@ impl World {
             &mut self.rng,
         );
 
-        if self.food.len() != old_food_len {
-            self.food_dirty = true;
-        }
-
         if self.food_dirty {
             let mut food_positions = std::mem::take(&mut self.food_positions_buffer);
             food_positions.clear();
-            food_positions.extend(self.food.iter().map(|f| (f.x as f64, f.y as f64)));
+            for (_handle, (pos, _)) in self
+                .ecs
+                .query::<(&Position, &crate::model::food::Food)>()
+                .iter()
+            {
+                food_positions.push((pos.x, pos.y));
+            }
             self.food_hash
                 .build_parallel(&food_positions, self.width, self.height);
             self.food_dirty = false;
@@ -566,7 +616,13 @@ impl World {
         }
     }
 
-    fn prepare_spatial_hash(&mut self) -> (HashMap<uuid::Uuid, usize>, Vec<hecs::Entity>) {
+    fn prepare_spatial_hash(
+        &mut self,
+    ) -> (
+        HashMap<uuid::Uuid, usize>,
+        Vec<hecs::Entity>,
+        Vec<hecs::Entity>,
+    ) {
         let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
         spatial_data.clear();
 
@@ -591,6 +647,16 @@ impl World {
         self.spatial_hash
             .build_with_lineage(&spatial_data, self.width, self.height);
 
+        let mut food_handles = Vec::new();
+        let mut food_positions = Vec::new();
+        for (handle, (pos, _)) in self.ecs.query::<(&Position, &Food)>().iter() {
+            food_handles.push(handle);
+            food_positions.push((pos.x, pos.y));
+        }
+
+        self.food_hash
+            .build_parallel(&food_positions, self.width, self.height);
+
         let mut outpost_data = Vec::new();
         let width = self.width;
         for &idx in &self.terrain.outpost_indices {
@@ -604,7 +670,7 @@ impl World {
         self.spatial_hash.add_centroid_data(&outpost_data);
 
         self.spatial_data_buffer = spatial_data;
-        (entity_id_map, entity_handles)
+        (entity_id_map, entity_handles, food_handles)
     }
 
     fn capture_entity_snapshots(&mut self) {
@@ -694,11 +760,12 @@ impl World {
         &mut self,
         env: &Environment,
         entity_id_map: &HashMap<uuid::Uuid, usize>,
+        food_handles: &[hecs::Entity],
         world_seed: u64,
     ) -> Vec<InteractionCommand> {
         let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
         let snapshots = &self.entity_snapshots;
-        let food = &self.food;
+        let ecs = &self.ecs;
         let food_hash = &self.food_hash;
         let spatial_hash = &self.spatial_hash;
         let pheromones = &self.pheromones;
@@ -725,7 +792,7 @@ impl World {
             .for_each(
                 |((_handle, (_identity, phys, met, intel, health)), decision)| {
                     let (dx_f, dy_f, f_type) =
-                        ecological::sense_nearest_food_components(phys, food, food_hash);
+                        ecological::sense_nearest_food_ecs(phys, ecs, food_hash, food_handles);
                     let nearby_count =
                         spatial_hash.count_nearby(phys.x, phys.y, phys.sensing_range);
                     let (ph_f, tribe_d, sa, sb) =
@@ -820,7 +887,7 @@ impl World {
                     let outputs = decision.outputs;
 
                     let (dx_f, dy_f, _) =
-                        ecological::sense_nearest_food_components(phys, food, food_hash);
+                        ecological::sense_nearest_food_ecs(phys, ecs, food_hash, food_handles);
                     if dx_f.abs() < 1.5 && dy_f.abs() < 1.5 {
                         food_hash.query_callback(phys.x, phys.y, 1.5, |f_idx| {
                             acc.push(InteractionCommand::EatFood {
@@ -1141,6 +1208,7 @@ impl World {
         env: &mut Environment,
         interaction_commands: Vec<InteractionCommand>,
         entity_handles: &[hecs::Entity],
+        food_handles: &[hecs::Entity],
     ) -> (Vec<LiveEvent>, Vec<Entity>) {
         let mut interaction_ctx = interaction::InteractionContext {
             terrain: &mut self.terrain,
@@ -1155,7 +1223,7 @@ impl World {
             height: self.height,
             social_grid: &mut self.social_grid,
             lineage_consumption: &mut self.lineage_consumption,
-            food: &mut self.food,
+            food_handles,
             spatial_hash: &self.spatial_hash,
             rng: &mut self.rng,
         };
@@ -1313,13 +1381,6 @@ impl World {
         }
 
         if !self.eaten_food_indices.is_empty() {
-            let eaten = &self.eaten_food_indices;
-            let mut i = 0;
-            self.food.retain(|_| {
-                let k = !eaten.contains(&i);
-                i += 1;
-                k
-            });
             self.food_dirty = true;
         }
 
@@ -1377,7 +1438,7 @@ impl World {
         stats::update_stats(
             self.tick,
             &snapshot.entities,
-            self.food.len(),
+            snapshot.food.len(),
             env.carbon_level,
             self.config.evolution.mutation_rate,
             &mut self.pop_stats,
@@ -1425,6 +1486,10 @@ impl World {
             .query::<&primordium_data::Identity>()
             .iter()
             .count()
+    }
+
+    pub fn get_food_count(&self) -> usize {
+        self.ecs.query::<&Food>().iter().count()
     }
 
     pub fn get_all_entities(&self) -> Vec<primordium_data::Entity> {

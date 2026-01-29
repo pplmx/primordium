@@ -24,10 +24,14 @@ fn test_terrain_fertility_cycle() {
         e.intel,
     ));
     world.terrain.set_fertility(ix, iy, 0.5);
-    world.food.clear();
-    world
-        .food
-        .push(primordium_lib::model::state::food::Food::new(ix, iy, 0.0));
+    world.ecs.spawn((
+        primordium_lib::model::state::food::Food::new(ix, iy, 0.0),
+        primordium_lib::model::state::Position {
+            x: ix as f64,
+            y: iy as f64,
+        },
+        primordium_lib::model::state::MetabolicNiche(0.0),
+    ));
     world.food_dirty = true;
     world.config.ecosystem.soil_depletion_unit = 0.5;
     world.update(&mut env).expect("Update failed");
@@ -74,14 +78,16 @@ fn test_trophic_diet_restrictions() {
             herbivore.health,
             herbivore.intel,
         ));
-        world
-            .food
-            .push(primordium_lib::model::state::food::Food::new(10, 10, 0.5));
+        world.ecs.spawn((
+            primordium_lib::model::state::food::Food::new(10, 10, 0.5),
+            primordium_lib::model::state::Position { x: 10.0, y: 10.0 },
+            primordium_lib::model::state::MetabolicNiche(0.5),
+        ));
         world.food_dirty = true;
         world.config.ecosystem.soil_depletion_unit = 0.5;
         world.update(&mut env).expect("Update failed");
 
-        assert_eq!(world.food.len(), 0);
+        assert_eq!(world.get_food_count(), 0);
     }
 
     {
@@ -97,14 +103,16 @@ fn test_trophic_diet_restrictions() {
             carnivore.health,
             carnivore.intel,
         ));
-        world
-            .food
-            .push(primordium_lib::model::state::food::Food::new(10, 10, 0.0));
+        world.ecs.spawn((
+            primordium_lib::model::state::food::Food::new(10, 10, 0.0),
+            primordium_lib::model::state::Position { x: 10.0, y: 10.0 },
+            primordium_lib::model::state::MetabolicNiche(0.0),
+        ));
         world.food_dirty = true;
         for _ in 0..10 {
             world.update(&mut env).expect("Update failed");
         }
-        assert_eq!(world.food.len(), 1);
+        assert_eq!(world.get_food_count(), 1);
     }
 }
 
@@ -120,8 +128,18 @@ fn test_light_dependent_food_growth() {
         for _ in 0..1000 {
             env.world_time = env.day_cycle_ticks / 4;
             world.update(&mut env).expect("Update failed");
-            day_food_count += world.food.len();
-            world.food.clear();
+            day_food_count += world.get_food_count();
+            let mut food_handles = Vec::new();
+            for (h, _) in world
+                .ecs
+                .query::<&primordium_lib::model::state::Food>()
+                .iter()
+            {
+                food_handles.push(h);
+            }
+            for h in food_handles {
+                let _ = world.ecs.despawn(h);
+            }
         }
     }
     let mut night_food_count = 0;
@@ -131,8 +149,18 @@ fn test_light_dependent_food_growth() {
         for _ in 0..1000 {
             env.world_time = env.day_cycle_ticks / 2 + 100;
             world.update(&mut env).expect("Update failed");
-            night_food_count += world.food.len();
-            world.food.clear();
+            night_food_count += world.get_food_count();
+            let mut food_handles = Vec::new();
+            for (h, _) in world
+                .ecs
+                .query::<&primordium_lib::model::state::Food>()
+                .iter()
+            {
+                food_handles.push(h);
+            }
+            for h in food_handles {
+                let _ = world.ecs.despawn(h);
+            }
         }
     }
     assert!(day_food_count > night_food_count);

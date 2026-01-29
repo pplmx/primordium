@@ -58,12 +58,24 @@ fn test_determinism_consistency() {
 
     // Verify food
     assert_eq!(
-        world1.food.len(),
-        world2.food.len(),
+        world1.get_food_count(),
+        world2.get_food_count(),
         "Food counts should match"
     );
-    for i in 0..world1.food.len() {
-        assert_eq!(world1.food[i].x, world2.food[i].x);
-        assert_eq!(world1.food[i].y, world2.food[i].y);
+    let food1: Vec<_> = world1
+        .ecs
+        .query::<&primordium_lib::model::state::Food>()
+        .iter()
+        .map(|(_, f)| f.clone())
+        .collect();
+    let food2: Vec<_> = world2
+        .ecs
+        .query::<&primordium_lib::model::state::Food>()
+        .iter()
+        .map(|(_, f)| f.clone())
+        .collect();
+    for i in 0..food1.len() {
+        assert_eq!(food1[i].x, food2[i].x);
+        assert_eq!(food1[i].y, food2[i].y);
     }
 }

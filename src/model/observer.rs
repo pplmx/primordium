@@ -19,6 +19,8 @@ pub struct WorldObserver {
     pub scribe: SiliconScribe,
     last_population: usize,
     ticks_since_famine: u64,
+    last_climate: Option<crate::model::environment::ClimateState>,
+    last_era: Option<crate::model::environment::Era>,
 }
 
 impl Default for WorldObserver {
@@ -35,6 +37,8 @@ impl WorldObserver {
             scribe: SiliconScribe::new(),
             last_population: 0,
             ticks_since_famine: 0,
+            last_climate: None,
+            last_era: None,
         }
     }
 
@@ -46,6 +50,8 @@ impl WorldObserver {
         env: &Environment,
     ) {
         let current_pop = stats.population;
+        let current_climate = env.climate();
+        let current_era = env.current_era;
 
         if self.last_population > 100 && current_pop < self.last_population / 2 {
             self.record_event(
@@ -55,6 +61,30 @@ impl WorldObserver {
                 0.9,
             );
         }
+
+        if let Some(last) = self.last_climate {
+            if last != current_climate {
+                self.record_event(
+                    tick,
+                    "ClimateShift",
+                    &format!("Climate shifted from {:?} to {:?}", last, current_climate),
+                    0.6,
+                );
+            }
+        }
+        self.last_climate = Some(current_climate);
+
+        if let Some(last) = self.last_era {
+            if last != current_era {
+                self.record_event(
+                    tick,
+                    "NewEra",
+                    &format!("The world has entered a new era: {:?}", current_era),
+                    0.7,
+                );
+            }
+        }
+        self.last_era = Some(current_era);
 
         if matches!(
             env.resource_state(),

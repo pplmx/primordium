@@ -540,14 +540,23 @@ impl App {
                 ));
             }
             KeyCode::Char('r') | KeyCode::Char('R') => {
-                use crate::model::food::Food;
+                use crate::model::state::{MetabolicNiche, Position};
+                use primordium_data::Food;
                 let mut rng = rand::thread_rng();
                 for _ in 0..100 {
                     let fx = rng.gen_range(1..self.world.width - 1);
                     let fy = rng.gen_range(1..self.world.height - 1);
                     let n_type = rng.gen_range(0.0..1.0);
-                    self.world.food.push(Food::new(fx, fy, n_type));
+                    self.world.ecs.spawn((
+                        Food::new(fx, fy, n_type),
+                        Position {
+                            x: fx as f64,
+                            y: fy as f64,
+                        },
+                        MetabolicNiche(n_type),
+                    ));
                 }
+                self.world.food_dirty = true;
                 self.event_log
                     .push_back(("GOD MODE: RESOURCE BOOM!".to_string(), Color::Green));
             }
@@ -661,11 +670,15 @@ impl App {
                     self.last_world_rect,
                     self.screensaver,
                 ) {
-                    use crate::model::food::Food;
+                    use crate::model::state::{MetabolicNiche, Position};
+                    use primordium_data::Food;
                     let n_type = rand::thread_rng().gen_range(0.0..1.0);
-                    self.world
-                        .food
-                        .push(Food::new(wx as u16, wy as u16, n_type));
+                    self.world.ecs.spawn((
+                        Food::new(wx as u16, wy as u16, n_type),
+                        Position { x: wx, y: wy },
+                        MetabolicNiche(n_type),
+                    ));
+                    self.world.food_dirty = true;
                     self.event_log
                         .push_back(("Divine Food Injected".to_string(), Color::Green));
                 }

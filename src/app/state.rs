@@ -78,7 +78,8 @@ impl App {
 
         let world = if std::path::Path::new("save.json").exists() {
             if let Ok(data) = std::fs::read_to_string("save.json") {
-                if let Ok(w) = serde_json::from_str::<World>(&data) {
+                if let Ok(mut w) = serde_json::from_str::<World>(&data) {
+                    w.post_load();
                     w
                 } else {
                     World::new(config.world.initial_population, config.clone())?
@@ -145,7 +146,8 @@ impl App {
         self.network = Some(crate::client::manager::NetworkManager::new(url));
     }
 
-    pub fn save_state(&self) -> Result<()> {
+    pub fn save_state(&mut self) -> Result<()> {
+        self.world.prepare_for_save();
         let data = serde_json::to_string_pretty(&self.world)?;
         std::fs::write("save.json", data)?;
         Ok(())
@@ -153,7 +155,8 @@ impl App {
 
     pub fn load_state(&mut self) -> Result<()> {
         let data = std::fs::read_to_string("save.json")?;
-        let world: World = serde_json::from_str(&data)?;
+        let mut world: World = serde_json::from_str(&data)?;
+        world.post_load();
         self.world = world;
         self.tick_count = self.world.tick;
         Ok(())

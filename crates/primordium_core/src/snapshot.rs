@@ -1,8 +1,8 @@
-use crate::food::Food;
 use crate::pheromone::PheromoneGrid;
 use crate::pressure::PressureGrid;
 use crate::sound::SoundGrid;
 use crate::terrain::TerrainGrid;
+use primordium_data::Food;
 use primordium_data::{EntityStatus, HallOfFame, PopulationStats};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

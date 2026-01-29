@@ -18,7 +18,13 @@ fn test_world_persistence_cycle() {
     }
 
     println!("Testing Food serialization...");
-    if let Some(f) = world.food.first() {
+    let food_list: Vec<_> = world
+        .ecs
+        .query::<&primordium_lib::model::state::Food>()
+        .iter()
+        .map(|(_, f)| f.clone())
+        .collect();
+    if let Some(f) = food_list.first() {
         let _ = serde_json::to_string(f).expect("Failed to serialize Food");
         println!("Food OK");
     }

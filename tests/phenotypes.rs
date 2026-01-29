@@ -41,9 +41,13 @@ fn test_sensing_range_affects_perception() {
     let mut env = Environment::default();
 
     // Clear existing food and place one food far away (distance 12.0)
-    world.food.clear();
+    world.ecs.clear();
     use primordium_lib::model::state::food::Food;
-    world.food.push(Food::new(22, 10, 0.0)); // Entity at (10, 10)
+    world.ecs.spawn((
+        Food::new(22, 10, 0.0),
+        primordium_lib::model::state::Position { x: 22.0, y: 10.0 },
+        primordium_lib::model::state::MetabolicNiche(0.0),
+    )); // Entity at (10, 10)
 
     // Entity A: Short range (5.0) - should NOT see food
     let mut e_short = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);

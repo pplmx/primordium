@@ -21,7 +21,7 @@ pub mod environment {
     pub use primordium_core::environment::*;
 }
 pub mod food {
-    pub use primordium_core::food::*;
+    pub use primordium_data::Food;
 }
 pub mod pheromone {
     pub use primordium_core::pheromone::*;

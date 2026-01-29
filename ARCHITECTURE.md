@@ -149,4 +149,8 @@ src/
     * **Protected Modules**: 在特化阶级（战士/工程师）中引入了**受保护神经簇**，具备极高的变异抗性，确保在环境剧变下文明核心技能的存续。
     * **P2P Altruism**: 实现了跨 Universe 的利他救济协议，支持繁荣文明对异域同族的远程能量支援。
 * **Phase 64**: **Genetic Memory & Atavistic Recall**。引入了谱系级遗传记忆系统。每个谱系自动归档其"历史最优"基因型。挣扎中的个体有 1% 的概率回归祖先成功的神经架构（返祖回溯）。
-* **Phase 66**: **Determinism & Reproducibility**。实现了完全确定性的模拟引擎。当 `config.world.deterministic = true` 时，使用模拟硬件指标（sin/cos 波形）替代真实系统监控。引入 `ChaCha8Rng` 种子化随机数生成器，支持跨平台可重现仿真。
+* **Phase 66 Step 2**: **Entity ECS Migration & Persistence Bridge**.
+    * **Data Consolidation**: 移除了冗余的 `World.food` 向量，将食物实体完全迁移至 `hecs` ECS 系统，实现单一数据源（Single Source of Truth）。
+    * **Persistence Bridge**: 解决了 `hecs::World` 默认无法序列化的限制。引入了持久化桥接机制，通过在保存前提取组件快照并在加载后重建 ECS 实体，确保了生物与食物的持久化支持。
+    * **Simulation Determinism**: 修复了非确定性的 UUID 生成逻辑。所有实体与谱系 ID 现由种子化 RNG 生成，确保了仿真在确定性模式下的完全可重现性。
+    * **Observability**: 增强了 Silicon Scribe (LLM 观察者) 的启发式叙事逻辑，引入了气候突变与时代更迭的宏观事件检测。

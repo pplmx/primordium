@@ -9,7 +9,18 @@ fn test_death_by_brain_bloat() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config.clone()).unwrap();
-    world.food.clear();
+    let mut food_handles = Vec::new();
+    for (h, _) in world
+        .ecs
+        .query::<&primordium_lib::model::state::Food>()
+        .iter()
+    {
+        food_handles.push(h);
+    }
+    for h in food_handles {
+        let _ = world.ecs.despawn(h);
+    }
+
     let mut env = Environment::default();
 
     let mut e = lifecycle::create_entity(10.0, 10.0, 0);
@@ -85,13 +96,11 @@ fn test_high_speed_metabolic_exhaustion() {
     {
         let mut out = primordium_lib::model::systems::action::ActionOutput::default();
         action_system(&mut e_slow, outputs, &mut ctx, &mut out);
-        out
-    };
+    }
     {
         let mut out = primordium_lib::model::systems::action::ActionOutput::default();
         action_system(&mut e_fast, outputs, &mut ctx, &mut out);
-        out
-    };
+    }
 
     assert!(e_fast.metabolism.energy < e_slow.metabolism.energy);
 }
@@ -130,13 +139,11 @@ fn test_inertia_responsiveness_penalty() {
     {
         let mut out = primordium_lib::model::systems::action::ActionOutput::default();
         action_system(&mut e_light, outputs, &mut ctx, &mut out);
-        out
-    };
+    }
     {
         let mut out = primordium_lib::model::systems::action::ActionOutput::default();
         action_system(&mut e_heavy, outputs, &mut ctx, &mut out);
-        out
-    };
+    }
 
     assert!(e_light.physics.vx > e_heavy.physics.vx);
 }

@@ -5,9 +5,10 @@ use uuid::Uuid;
 
 pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) -> Entity {
     let genotype = crate::brain::create_genotype_random_with_rng(rng);
+    let id_u128 = rng.gen::<u128>();
     let mut entity = Entity {
         identity: primordium_data::Identity {
-            id: Uuid::new_v4(),
+            id: Uuid::from_u128(id_u128),
             name: String::new(),
             parent_id: None,
         },

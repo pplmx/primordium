@@ -71,7 +71,11 @@ fn test_nutrient_sensing_in_perception() {
     let mut world = World::new(0, config).unwrap();
 
     // Nearest food is Blue (1.0)
-    world.food.push(Food::new(12, 10, 1.0));
+    world.ecs.spawn((
+        Food::new(12, 10, 1.0),
+        primordium_lib::model::state::Position { x: 12.0, y: 10.0 },
+        primordium_lib::model::state::MetabolicNiche(1.0),
+    ));
 
     let e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     world.ecs.spawn((
@@ -91,17 +95,18 @@ fn test_nutrient_sensing_in_perception() {
     world.update(&mut env).unwrap();
 
     // Rebuild hash to ensure manual sense_nearest_food call is accurate
-    let food_positions: Vec<(f64, f64)> = world
-        .food
-        .iter()
-        .map(|f| (f.x as f64, f.y as f64))
-        .collect();
+    let mut food_positions = Vec::new();
+    let mut food_data = Vec::new();
+    for (_handle, f) in world.ecs.query::<&Food>().iter() {
+        food_positions.push((f.x as f64, f.y as f64));
+        food_data.push(f.clone());
+    }
     world.food_hash.build_parallel(&food_positions, 100, 100);
 
     let entities = world.get_all_entities();
-    if !world.food.is_empty() {
+    if !food_data.is_empty() {
         let (_, _, f_type) =
-            ecological::sense_nearest_food(&entities[0], &world.food, &world.food_hash);
+            ecological::sense_nearest_food(&entities[0], &food_data, &world.food_hash);
         assert!(f_type >= 0.0);
     }
 }
@@ -114,8 +119,16 @@ fn test_niche_partitioning_coexistence() {
     let mut world = World::new(0, config).unwrap();
 
     // 1. Two different food sources
-    world.food.push(Food::new(10, 10, 0.0)); // Green
-    world.food.push(Food::new(15, 15, 1.0)); // Blue
+    world.ecs.spawn((
+        Food::new(10, 10, 0.0),
+        primordium_lib::model::state::Position { x: 10.0, y: 10.0 },
+        primordium_lib::model::state::MetabolicNiche(0.0),
+    )); // Green
+    world.ecs.spawn((
+        Food::new(15, 15, 1.0),
+        primordium_lib::model::state::Position { x: 15.0, y: 15.0 },
+        primordium_lib::model::state::MetabolicNiche(1.0),
+    )); // Blue
 
     // 2. Two specialized entities
     let mut green_spec = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
@@ -135,15 +148,16 @@ fn test_niche_partitioning_coexistence() {
     let mut entities = vec![green_spec, blue_spec];
 
     // Update food hash manually
-    let food_positions: Vec<(f64, f64)> = world
-        .food
-        .iter()
-        .map(|f| (f.x as f64, f.y as f64))
-        .collect();
+    let mut food_positions = Vec::new();
+    let mut food_data = Vec::new();
+    for (_handle, f) in world.ecs.query::<&Food>().iter() {
+        food_positions.push((f.x as f64, f.y as f64));
+        food_data.push(f.clone());
+    }
     world.food_hash.build_parallel(&food_positions, 100, 100);
 
     let mut ctx = ecological::FeedingContext {
-        food: &world.food,
+        food: &food_data,
         food_hash: &world.food_hash,
         eaten_indices: &mut eaten_indices,
         terrain: &mut world.terrain,
