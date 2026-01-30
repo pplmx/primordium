@@ -46,39 +46,9 @@ fn test_lineage_population_stats() {
     let l2 = e3.metabolism.lineage_id;
     assert_ne!(l1, l2);
 
-    world.ecs.spawn((
-        e1.identity,
-        primordium_lib::model::state::Position {
-            x: e1.physics.x,
-            y: e1.physics.y,
-        },
-        e1.physics,
-        e1.metabolism,
-        e1.health,
-        e1.intel,
-    ));
-    world.ecs.spawn((
-        e2.identity,
-        primordium_lib::model::state::Position {
-            x: e2.physics.x,
-            y: e2.physics.y,
-        },
-        e2.physics,
-        e2.metabolism,
-        e2.health,
-        e2.intel,
-    ));
-    world.ecs.spawn((
-        e3.identity,
-        primordium_lib::model::state::Position {
-            x: e3.physics.x,
-            y: e3.physics.y,
-        },
-        e3.physics,
-        e3.metabolism,
-        e3.health,
-        e3.intel,
-    ));
+    world.spawn_entity(e1);
+    world.spawn_entity(e2);
+    world.spawn_entity(e3);
 
     // Update stats
     let entities = world.get_all_entities();

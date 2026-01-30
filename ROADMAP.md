@@ -30,7 +30,8 @@ These tasks are the critical path to the next major version of Primordium.
 4.  **T2: Engineering Excellence (CI/CD + Determinism)** - *Safety Net* ✅ (CI + Release workflows, Zero-Allocation Core, Parallel Scaling verified)
 5.  **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement* ✅ (Foundation - Heuristic narration via primordium_observer)
 6.  **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth* ✅
-7.  **Phase 66 Step 2: Entity ECS Migration** - *Performance* - Next priority
+7.  **Phase 66.7: Neural & Social Correction** - *CRITICAL FIX* ✅ (Deterministic Innovation IDs, Parallel Interaction Application, Intelligent Terraforming)
+8.  **Phase 66 Step 2: Entity ECS Migration** - *Performance* - (In progress - Food migrated, secondary components remaining)
 8.  **Phase 67: The Creator's Interface (Plugin Architecture)** - *Extensibility*
 8.  **Phase 68: The Song of Entropy (Audio)** - *Immersion*
 9.  **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*

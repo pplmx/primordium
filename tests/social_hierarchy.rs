@@ -22,17 +22,7 @@ fn test_rank_accumulation() {
     // Total should be roughly 0.3 + 0.1 + 0.3 + AgeScore
     // At tick 0, age is 0.
 
-    world.ecs.spawn((
-        e.identity,
-        primordium_lib::model::state::Position {
-            x: e.physics.x,
-            y: e.physics.y,
-        },
-        e.physics,
-        e.metabolism,
-        e.health,
-        e.intel,
-    ));
+    world.spawn_entity(e);
 
     // Run update to trigger Pass 0 rank calc
     world.update(&mut env).expect("Update failed");
@@ -93,17 +83,7 @@ fn test_tribal_split_under_pressure() {
         e.physics.r = 100; // Original Tribe
         e.intel.reputation = 0.0;
         e.metabolism.energy = 10.0;
-        world.ecs.spawn((
-            e.identity,
-            primordium_lib::model::state::Position {
-                x: e.physics.x,
-                y: e.physics.y,
-            },
-            e.physics,
-            e.metabolism,
-            e.health,
-            e.intel,
-        ));
+        world.spawn_entity(e);
     }
 
     // Run update
@@ -170,28 +150,8 @@ fn test_soldier_damage_bonus() {
     let status = soldier.status(0.5, 1000, 150);
     println!("Soldier Status: {:?}", status);
 
-    world.ecs.spawn((
-        soldier.identity,
-        primordium_lib::model::state::Position {
-            x: soldier.physics.x,
-            y: soldier.physics.y,
-        },
-        soldier.physics,
-        soldier.metabolism,
-        soldier.health,
-        soldier.intel,
-    ));
-    world.ecs.spawn((
-        victim.identity,
-        primordium_lib::model::state::Position {
-            x: victim.physics.x,
-            y: victim.physics.y,
-        },
-        victim.physics,
-        victim.metabolism,
-        victim.health,
-        victim.intel,
-    ));
+    world.spawn_entity(soldier);
+    world.spawn_entity(victim);
 
     // 1 tick might be enough if Soldier bonus applies (1.5x)
     // ... logic explained in comments ...

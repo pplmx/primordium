@@ -109,7 +109,6 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
         });
     }
 
-    let mut innov = 0;
     let mut connections = Vec::new();
     for i in 0..29 {
         for h in 41..47 {
@@ -118,9 +117,8 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
                 to: h,
                 weight: rng.gen_range(-1.0..1.0),
                 enabled: true,
-                innovation: innov,
+                innovation: get_innovation_id(i, h),
             });
-            innov += 1;
         }
     }
     for h in 41..47 {
@@ -130,9 +128,8 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
                 to: o,
                 weight: rng.gen_range(-1.0..1.0),
                 enabled: true,
-                innovation: innov,
+                innovation: get_innovation_id(h, o),
             });
-            innov += 1;
         }
     }
 
@@ -143,6 +140,31 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
         learning_rate: 0.0,
         weight_deltas: HashMap::new(),
     }
+}
+
+/// Deterministic Innovation ID based on connection topology.
+/// Essential for NEAT crossover to align matching genes across different organisms.
+fn get_innovation_id(from: usize, to: usize) -> usize {
+    let h = (from as u64) << 32 | (to as u64);
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in h.to_le_bytes() {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3u64);
+    }
+    (hash as usize) & 0x7FFFFFFF
+}
+
+/// Deterministic Node ID for splitting a connection.
+/// Ensures that splitting the same connection (A -> B) always produces a node with the same ID.
+fn get_split_node_id(from: usize, to: usize) -> usize {
+    let h = (from as u64) << 32 | (to as u64);
+    let mut hash = 0x84222325cbf29ce4u64; // Different seed
+    for byte in h.to_le_bytes() {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3u64);
+    }
+    // Reserve low IDs for original inputs/outputs/hidden (0..1000)
+    (hash as usize % 1_000_000) + 1000
 }
 
 pub fn create_genotype_random_with_rng<R: Rng>(rng: &mut R) -> Genotype {
@@ -183,7 +205,8 @@ impl BrainLogic for Brain {
         inputs: [f32; 29],
         _last_hidden: [f32; 6],
     ) -> ([f32; 12], [f32; 6], primordium_data::Activations) {
-        let mut node_values = vec![0.0f32; 64];
+        let max_id = self.nodes.iter().map(|n| n.id).max().unwrap_or(63);
+        let mut node_values = vec![0.0f32; (max_id + 1).max(64)];
         for (i, &val) in inputs.iter().enumerate() {
             node_values[i] = val;
         }
@@ -274,13 +297,17 @@ impl BrainLogic for Brain {
             let from = self.nodes[from_idx].id;
             let to_node = &self.nodes[to_idx];
             if !matches!(to_node.node_type, NodeType::Input) {
-                self.connections.push(Connection {
-                    from,
-                    to: to_node.id,
-                    weight: rng.gen_range(-1.0..1.0),
-                    enabled: true,
-                    innovation: self.connections.len(),
-                });
+                let innovation = get_innovation_id(from, to_node.id);
+                // Only add if it doesn't already exist
+                if !self.connections.iter().any(|c| c.innovation == innovation) {
+                    self.connections.push(Connection {
+                        from,
+                        to: to_node.id,
+                        weight: rng.gen_range(-1.0..1.0),
+                        enabled: true,
+                        innovation,
+                    });
+                }
             }
         }
 
@@ -290,26 +317,30 @@ impl BrainLogic for Brain {
                 self.connections[idx].enabled = false;
                 let from = self.connections[idx].from;
                 let to = self.connections[idx].to;
-                let new_id = self.next_node_id;
-                self.next_node_id += 1;
-                self.nodes.push(Node {
-                    id: new_id,
-                    node_type: NodeType::Hidden,
-                    label: None,
-                });
+                let new_id = get_split_node_id(from, to);
+
+                // Check if node already exists in this brain
+                if !self.nodes.iter().any(|n| n.id == new_id) {
+                    self.nodes.push(Node {
+                        id: new_id,
+                        node_type: NodeType::Hidden,
+                        label: None,
+                    });
+                }
+
                 self.connections.push(Connection {
                     from,
                     to: new_id,
                     weight: 1.0,
                     enabled: true,
-                    innovation: self.connections.len(),
+                    innovation: get_innovation_id(from, new_id),
                 });
                 self.connections.push(Connection {
                     from: new_id,
                     to,
                     weight: self.connections[idx].weight,
                     enabled: true,
-                    innovation: self.connections.len(),
+                    innovation: get_innovation_id(new_id, to),
                 });
             }
         }
@@ -420,13 +451,16 @@ impl BrainLogic for Brain {
 
             if !has_conn {
                 let from = hidden_nodes[rng.gen_range(0..hidden_nodes.len())];
-                self.connections.push(Connection {
-                    from,
-                    to: out_id,
-                    weight: rng.gen_range(-1.0..1.0),
-                    enabled: true,
-                    innovation: self.connections.len() + 1_000_000,
-                });
+                let innovation = get_innovation_id(from, out_id);
+                if !self.connections.iter().any(|c| c.innovation == innovation) {
+                    self.connections.push(Connection {
+                        from,
+                        to: out_id,
+                        weight: rng.gen_range(-1.0..1.0),
+                        enabled: true,
+                        innovation,
+                    });
+                }
             }
         }
         self.learning_rate = (self.learning_rate + 0.05).clamp(0.0, 0.5);
@@ -492,5 +526,58 @@ impl GenotypeLogic for Genotype {
         let bytes = hex::decode(hex_str)?;
         let genotype = serde_json::from_slice(&bytes)?;
         Ok(genotype)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    #[test]
+    fn test_innovation_id_determinism() {
+        let id1 = get_innovation_id(10, 20);
+        let id2 = get_innovation_id(10, 20);
+        let id3 = get_innovation_id(20, 10);
+        assert_eq!(id1, id2);
+        assert_ne!(id1, id3);
+    }
+
+    #[test]
+    fn test_split_node_id_determinism() {
+        let id1 = get_split_node_id(5, 15);
+        let id2 = get_split_node_id(5, 15);
+        let id3 = get_split_node_id(15, 5);
+        assert_eq!(id1, id2);
+        assert_ne!(id1, id3);
+        assert!(id1 >= 1000);
+    }
+
+    #[test]
+    fn test_crossover_brains_preserves_innovation_alignment() {
+        let mut rng = ChaCha8Rng::seed_from_u64(456);
+        let p1 = Brain::new_random_with_rng(&mut rng);
+        let mut rng = ChaCha8Rng::seed_from_u64(789);
+        let p2 = Brain::new_random_with_rng(&mut rng);
+
+        let mut rng = ChaCha8Rng::seed_from_u64(111);
+        let child = p1.crossover_with_rng(&p2, &mut rng);
+
+        assert!(!child.nodes.is_empty());
+
+        for conn in &child.connections {
+            assert!(
+                child.nodes.iter().any(|n| n.id == conn.from),
+                "Connection from {} has no source node",
+                conn.from
+            );
+            assert!(
+                child.nodes.iter().any(|n| n.id == conn.to),
+                "Connection to {} has no target node",
+                conn.to
+            );
+        }
     }
 }

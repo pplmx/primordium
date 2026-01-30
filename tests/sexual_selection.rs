@@ -17,28 +17,8 @@ fn test_mate_preference_rejection() {
     herbivore.metabolism.trophic_potential = 0.0;
     herbivore.metabolism.energy = 500.0;
 
-    world.ecs.spawn((
-        selector.identity,
-        primordium_lib::model::state::Position {
-            x: selector.physics.x,
-            y: selector.physics.y,
-        },
-        selector.physics,
-        selector.metabolism,
-        selector.health,
-        selector.intel,
-    ));
-    world.ecs.spawn((
-        herbivore.identity,
-        primordium_lib::model::state::Position {
-            x: herbivore.physics.x,
-            y: herbivore.physics.y,
-        },
-        herbivore.physics,
-        herbivore.metabolism,
-        herbivore.health,
-        herbivore.intel,
-    ));
+    world.spawn_entity(selector);
+    world.spawn_entity(herbivore);
 
     // 3. Update world at tick 200 (Mature)
     world.tick = 200;
@@ -79,28 +59,8 @@ fn test_mate_preference_acceptance() {
     carnivore.metabolism.trophic_potential = 1.0;
     carnivore.metabolism.energy = 500.0;
 
-    world.ecs.spawn((
-        selector.identity,
-        primordium_lib::model::state::Position {
-            x: selector.physics.x,
-            y: selector.physics.y,
-        },
-        selector.physics,
-        selector.metabolism,
-        selector.health,
-        selector.intel,
-    ));
-    world.ecs.spawn((
-        carnivore.identity,
-        primordium_lib::model::state::Position {
-            x: carnivore.physics.x,
-            y: carnivore.physics.y,
-        },
-        carnivore.physics,
-        carnivore.metabolism,
-        carnivore.health,
-        carnivore.intel,
-    ));
+    world.spawn_entity(selector);
+    world.spawn_entity(carnivore);
 
     // 3. Update world at tick 200
     world.tick = 200;

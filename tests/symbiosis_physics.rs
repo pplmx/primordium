@@ -14,8 +14,8 @@ fn test_symbiosis_spring_force() {
     let snapshot = InternalEntitySnapshot {
         id: e2.identity.id,
         lineage_id: e2.metabolism.lineage_id,
-        x: e2.physics.x,
-        y: e2.physics.y,
+        x: e2.position.x,
+        y: e2.position.y,
         energy: 100.0,
         birth_tick: 0,
         offspring_count: 0,
@@ -59,8 +59,8 @@ fn test_symbiosis_spring_force() {
     // outputs[0] (dx) = 0.0 -> target vx 0.0
     let outputs = [0.0; 12];
 
-    e1.physics.vx = 0.0;
-    e1.physics.vy = 0.0;
+    e1.velocity.vx = 0.0;
+    e1.velocity.vy = 0.0;
 
     {
         let mut out = primordium_lib::model::systems::action::ActionOutput::default();
@@ -71,8 +71,8 @@ fn test_symbiosis_spring_force() {
     // Spring should pull e1 towards e2 (positive x direction)
     // e1 is at 10, e2 is at 15. Force vector is (1, 0).
     assert!(
-        e1.physics.vx > 0.001,
+        e1.velocity.vx > 0.001,
         "Spring force should pull entity towards partner. VX: {}",
-        e1.physics.vx
+        e1.velocity.vx
     );
 }

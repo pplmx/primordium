@@ -37,41 +37,11 @@ fn test_group_defense_reduces_damage() {
         );
         ally.metabolism.lineage_id = v_lineage;
         ally.metabolism.energy = 200.0;
-        world.ecs.spawn((
-            ally.identity,
-            primordium_lib::model::state::Position {
-                x: ally.physics.x,
-                y: ally.physics.y,
-            },
-            ally.physics,
-            ally.metabolism,
-            ally.health,
-            ally.intel,
-        ));
+        world.spawn_entity(ally);
     }
 
-    world.ecs.spawn((
-        attacker.identity,
-        primordium_lib::model::state::Position {
-            x: attacker.physics.x,
-            y: attacker.physics.y,
-        },
-        attacker.physics,
-        attacker.metabolism,
-        attacker.health,
-        attacker.intel,
-    ));
-    world.ecs.spawn((
-        victim.identity,
-        primordium_lib::model::state::Position {
-            x: victim.physics.x,
-            y: victim.physics.y,
-        },
-        victim.physics,
-        victim.metabolism,
-        victim.health,
-        victim.intel,
-    ));
+    world.spawn_entity(attacker);
+    world.spawn_entity(victim);
 
     // Run world update.
     world.update(&mut env).unwrap();

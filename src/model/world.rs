@@ -146,10 +146,9 @@ impl World {
             lineage_registry.record_birth(e.metabolism.lineage_id, 1, 0);
             ecs.spawn((
                 e.identity,
-                Position {
-                    x: e.physics.x,
-                    y: e.physics.y,
-                },
+                e.position,
+                e.velocity,
+                e.appearance,
                 e.physics,
                 e.metabolism,
                 e.health,
@@ -243,10 +242,9 @@ impl World {
         for e in std::mem::take(&mut self.entities_persist) {
             self.ecs.spawn((
                 e.identity,
-                Position {
-                    x: e.physics.x,
-                    y: e.physics.y,
-                },
+                e.position,
+                e.velocity,
+                e.appearance,
                 e.physics,
                 e.metabolism,
                 e.health,
@@ -264,6 +262,19 @@ impl World {
             ));
         }
         self.food_dirty = true;
+    }
+
+    pub fn spawn_entity(&mut self, e: Entity) -> hecs::Entity {
+        self.ecs.spawn((
+            e.identity,
+            e.position,
+            e.velocity,
+            e.appearance,
+            e.physics,
+            e.metabolism,
+            e.health,
+            e.intel,
+        ))
     }
 
     pub fn apply_genetic_edit(&mut self, entity_id: uuid::Uuid, gene: GeneType, delta: f32) {
@@ -367,7 +378,7 @@ impl World {
 
     pub fn apply_relief(&mut self, lineage_id: uuid::Uuid, amount: f32) {
         let mut members = Vec::new();
-        for (handle, met) in self.ecs.query_mut::<&mut Metabolism>() {
+        for (handle, met) in self.ecs.query::<&Metabolism>().iter() {
             if met.lineage_id == lineage_id {
                 members.push(handle);
             }
@@ -629,11 +640,11 @@ impl World {
         let mut entity_handles = Vec::new();
         let mut entity_id_map = HashMap::new();
 
-        for (handle, (identity, physics, metabolism)) in self
+        for (handle, (identity, position, metabolism)) in self
             .ecs
             .query::<(
                 &primordium_data::Identity,
-                &primordium_data::Physics,
+                &primordium_data::Position,
                 &primordium_data::Metabolism,
             )>()
             .iter()
@@ -641,7 +652,7 @@ impl World {
             let idx = entity_handles.len();
             entity_id_map.insert(identity.id, idx);
             entity_handles.push(handle);
-            spatial_data.push((physics.x, physics.y, metabolism.lineage_id));
+            spatial_data.push((position.x, position.y, metabolism.lineage_id));
         }
 
         self.spatial_hash
@@ -657,103 +668,63 @@ impl World {
         self.food_hash
             .build_parallel(&food_positions, self.width, self.height);
 
-        let mut outpost_data = Vec::new();
-        let width = self.width;
-        for &idx in &self.terrain.outpost_indices {
-            let cell = &self.terrain.cells[idx];
-            if let Some(lid) = cell.owner_id {
-                let ox = (idx % width as usize) as f64;
-                let oy = (idx / width as usize) as f64;
-                outpost_data.push((ox, oy, lid));
-            }
-        }
-        self.spatial_hash.add_centroid_data(&outpost_data);
-
-        self.spatial_data_buffer = spatial_data;
         (entity_id_map, entity_handles, food_handles)
     }
 
     fn capture_entity_snapshots(&mut self) {
-        let mut entity_snapshots = std::mem::take(&mut self.entity_snapshots);
-        entity_snapshots.clear();
-
-        let mut query = self.ecs.query::<(
-            &primordium_data::Identity,
-            &primordium_data::Metabolism,
-            &primordium_data::Physics,
-            &primordium_data::Intel,
-            &primordium_data::Health,
-        )>();
-        let components: Vec<_> = query.iter().collect();
-
-        let threshold = self.config.brain.activation_threshold;
-        let tick = self.tick;
-        let maturity_age = self.config.metabolism.maturity_age;
-
-        components
-            .into_par_iter()
-            .map(
-                |(_handle, (identity, met, phys, intel, health))| InternalEntitySnapshot {
-                    id: identity.id,
-                    lineage_id: met.lineage_id,
-                    x: phys.x,
-                    y: phys.y,
-                    energy: met.energy,
-                    birth_tick: met.birth_tick,
-                    offspring_count: met.offspring_count,
-                    r: phys.r,
-                    g: phys.g,
-                    b: phys.b,
-                    rank: intel.rank,
-                    status: lifecycle::calculate_status(
-                        met,
-                        health,
-                        intel,
-                        threshold,
-                        tick,
-                        maturity_age,
-                    ),
-                },
-            )
-            .collect_into_vec(&mut entity_snapshots);
-
-        self.entity_snapshots = entity_snapshots;
+        self.entity_snapshots.clear();
+        for (_handle, (identity, physics, metabolism, intel, health)) in self
+            .ecs
+            .query::<(
+                &primordium_data::Identity,
+                &primordium_data::Physics,
+                &primordium_data::Metabolism,
+                &primordium_data::Intel,
+                &primordium_data::Health,
+            )>()
+            .iter()
+        {
+            self.entity_snapshots.push(InternalEntitySnapshot {
+                id: identity.id,
+                lineage_id: metabolism.lineage_id,
+                x: physics.x,
+                y: physics.y,
+                energy: metabolism.energy,
+                birth_tick: metabolism.birth_tick,
+                offspring_count: metabolism.offspring_count,
+                r: physics.r,
+                g: physics.g,
+                b: physics.b,
+                rank: intel.rank,
+                status: lifecycle::calculate_status(
+                    metabolism,
+                    health,
+                    intel,
+                    self.config.brain.activation_threshold,
+                    self.tick,
+                    self.config.metabolism.maturity_age,
+                ),
+            });
+        }
     }
 
-    fn learn_and_bond_check_parallel(&mut self, entity_id_map: &HashMap<uuid::Uuid, usize>) {
-        let config = &self.config;
-        let snapshots = &self.entity_snapshots;
-
-        let mut query = self.ecs.query::<(
-            &mut primordium_data::Intel,
-            &mut primordium_data::Metabolism,
-            &primordium_data::Physics,
-        )>();
-        let components: Vec<_> = query.iter().collect();
-
-        components
-            .into_par_iter()
-            .for_each(|(_handle, (intel, met, phys))| {
-                intel.genotype.brain.learn(
-                    intel.last_inputs,
-                    intel.last_hidden,
-                    ((met.energy - met.prev_energy) / met.max_energy.max(1.0)) as f32
-                        * config.brain.learning_reinforcement,
-                );
-                met.prev_energy = met.energy;
-
-                if let Some(p_id) = intel.bonded_to {
-                    if let Some(partner) = entity_id_map.get(&p_id).map(|&idx| &snapshots[idx]) {
-                        let dx = partner.x - phys.x;
-                        let dy = partner.y - phys.y;
-                        if (dx * dx + dy * dy) > config.social.bond_break_dist.powi(2) {
-                            intel.bonded_to = None;
-                        }
-                    } else {
-                        intel.bonded_to = None;
-                    }
-                }
-            });
+    fn learn_and_bond_check_parallel(&mut self, _id_map: &HashMap<uuid::Uuid, usize>) {
+        let _tick = self.tick;
+        let _config = &self.config;
+        for (_handle, (intel, metabolism)) in self
+            .ecs
+            .query_mut::<(&mut primordium_data::Intel, &primordium_data::Metabolism)>()
+        {
+            let reinforcement = if metabolism.energy > metabolism.prev_energy {
+                0.1
+            } else {
+                -0.05
+            };
+            intel
+                .genotype
+                .brain
+                .learn(intel.last_inputs, intel.last_hidden, reinforcement as f32);
+        }
     }
 
     fn perceive_and_decide(
@@ -777,6 +748,8 @@ impl World {
 
         let mut query = self.ecs.query::<(
             &primordium_data::Identity,
+            &primordium_data::Position,
+            &primordium_data::Velocity,
             &primordium_data::Physics,
             &primordium_data::Metabolism,
             &mut primordium_data::Intel,
@@ -790,18 +763,22 @@ impl World {
             .par_iter_mut()
             .zip(decision_buffer.par_iter_mut())
             .for_each(
-                |((_handle, (_identity, phys, met, intel, health)), decision)| {
-                    let (dx_f, dy_f, f_type) =
-                        ecological::sense_nearest_food_ecs(phys, ecs, food_hash, food_handles);
-                    let nearby_count =
-                        spatial_hash.count_nearby(phys.x, phys.y, phys.sensing_range);
+                |((_handle, (_identity, pos, _vel, phys, met, intel, health)), decision)| {
+                    let (dx_f, dy_f, f_type) = ecological::sense_nearest_food_ecs_decomposed(
+                        pos,
+                        phys,
+                        ecs,
+                        food_hash,
+                        food_handles,
+                    );
+                    let nearby_count = spatial_hash.count_nearby(pos.x, pos.y, phys.sensing_range);
                     let (ph_f, tribe_d, sa, sb) =
-                        pheromones.sense_all(phys.x, phys.y, phys.sensing_range / 2.0);
+                        pheromones.sense_all(pos.x, pos.y, phys.sensing_range / 2.0);
                     let (kx, ky) =
-                        spatial_hash.sense_kin(phys.x, phys.y, phys.sensing_range, met.lineage_id);
-                    let wall_dist = terrain.sense_wall(phys.x, phys.y, 5.0);
+                        spatial_hash.sense_kin(pos.x, pos.y, phys.sensing_range, met.lineage_id);
+                    let wall_dist = terrain.sense_wall(pos.x, pos.y, 5.0);
                     let age_ratio = (tick - met.birth_tick) as f32 / 2000.0;
-                    let sound_sense = sound.sense(phys.x, phys.y, phys.sensing_range);
+                    let sound_sense = sound.sense(pos.x, pos.y, phys.sensing_range);
                     let mut partner_energy = 0.0;
                     if let Some(p_id) = intel.bonded_to {
                         if let Some(&p_idx) = entity_id_map.get(&p_id) {
@@ -809,7 +786,7 @@ impl World {
                                 (snapshots[p_idx].energy / met.max_energy.max(1.0)) as f32;
                         }
                     }
-                    let (d_press, b_press) = pressure.sense(phys.x, phys.y, phys.sensing_range);
+                    let (d_press, b_press) = pressure.sense(pos.x, pos.y, phys.sensing_range);
                     let shared_goal = registry.get_memory_value(&met.lineage_id, "goal");
                     let shared_threat = registry.get_memory_value(&met.lineage_id, "threat");
                     let mut lin_pop = 0.0;
@@ -880,22 +857,44 @@ impl World {
             .enumerate()
             .fold(
                 Vec::new,
-                |mut acc, (i, (_handle, (identity, phys, met, intel, _health)))| {
+                |mut acc, (i, (_handle, (identity, pos, _vel, phys, met, intel, health)))| {
                     let entity_seed = world_seed ^ tick ^ (identity.id.as_u128() as u64);
                     let mut local_rng = ChaCha8Rng::seed_from_u64(entity_seed);
                     let decision = &decision_buffer[i];
                     let outputs = decision.outputs;
 
-                    let (dx_f, dy_f, _) =
-                        ecological::sense_nearest_food_ecs(phys, ecs, food_hash, food_handles);
+                    let (dx_f, dy_f, _) = ecological::sense_nearest_food_ecs_decomposed(
+                        pos,
+                        phys,
+                        ecs,
+                        food_hash,
+                        food_handles,
+                    );
                     if dx_f.abs() < 1.5 && dy_f.abs() < 1.5 {
-                        food_hash.query_callback(phys.x, phys.y, 1.5, |f_idx| {
-                            acc.push(InteractionCommand::EatFood {
-                                food_index: f_idx,
-                                attacker_idx: i,
-                                x: phys.x,
-                                y: phys.y,
-                            });
+                        food_hash.query_callback(pos.x, pos.y, 1.5, |f_idx| {
+                            let food_handle = food_handles[f_idx];
+                            let mut energy_gain = 0.0;
+                            if let Ok(food_data) = ecs.get::<&Food>(food_handle) {
+                                let trophic_eff = 1.0 - met.trophic_potential as f64;
+                                if trophic_eff > 0.1 {
+                                    let niche_eff = 1.0
+                                        - (intel.genotype.metabolic_niche
+                                            - food_data.nutrient_type)
+                                            .abs();
+                                    energy_gain = config.metabolism.food_value
+                                        * niche_eff as f64
+                                        * trophic_eff;
+                                }
+                            }
+                            if energy_gain > 0.0 {
+                                acc.push(InteractionCommand::EatFood {
+                                    food_index: f_idx,
+                                    attacker_idx: i,
+                                    x: pos.x,
+                                    y: pos.y,
+                                    precalculated_energy_gain: energy_gain,
+                                });
+                            }
                         });
                     }
 
@@ -918,8 +917,9 @@ impl World {
                         if outputs[8] < 0.2 {
                             acc.push(InteractionCommand::BondBreak { target_idx: i });
                         } else if let Some(&p_idx) = entity_id_map.get(&p_id) {
-                            let partner_met = components[p_idx].1 .2;
-                            let partner_intel = &components[p_idx].1 .3;
+                            let partner_pos = components[p_idx].1 .1;
+                            let partner_met = components[p_idx].1 .4;
+                            let partner_intel = &components[p_idx].1 .5;
                             if lifecycle::is_mature_components(
                                 met,
                                 intel,
@@ -946,15 +946,16 @@ impl World {
                                     rng: &mut local_rng,
                                     ancestral_genotype: ancestral,
                                 };
-                                let (baby, dist) = social::reproduce_sexual_parallel_components(
-                                    phys,
-                                    met,
-                                    intel,
-                                    components[p_idx].1 .1,
-                                    partner_met,
-                                    partner_intel,
-                                    &mut repro_ctx,
-                                );
+                                let (baby, dist) =
+                                    social::reproduce_sexual_parallel_components_decomposed(
+                                        pos,
+                                        met,
+                                        intel,
+                                        partner_pos,
+                                        partner_met,
+                                        partner_intel,
+                                        &mut repro_ctx,
+                                    );
                                 acc.push(InteractionCommand::Birth {
                                     parent_idx: i,
                                     baby: Box::new(baby),
@@ -985,29 +986,13 @@ impl World {
                         }
                     }
 
-                    if outputs[3] > 0.5 {
-                        spatial_hash.query_callback(phys.x, phys.y, 1.5, |t_idx| {
-                            let target_phys = components[t_idx].1 .1;
-                            if i != t_idx
-                                && !social::are_same_tribe_components(phys, target_phys, config)
-                            {
-                                acc.push(InteractionCommand::Kill {
-                                    target_idx: t_idx,
-                                    attacker_idx: i,
-                                    attacker_lineage: met.lineage_id,
-                                    cause: "predation".to_string(),
-                                });
-                            }
-                        });
-                    }
-
                     if outputs[4] > 0.5 && met.energy > met.max_energy * 0.7 {
-                        spatial_hash.query_callback(phys.x, phys.y, 3.0, |t_idx| {
-                            let target_phys = components[t_idx].1 .1;
+                        spatial_hash.query_callback(pos.x, pos.y, 3.0, |t_idx| {
+                            let target_phys = components[t_idx].1 .3;
                             if i != t_idx
                                 && social::are_same_tribe_components(phys, target_phys, config)
                             {
-                                let target_met = components[t_idx].1 .2;
+                                let target_met = components[t_idx].1 .4;
                                 if target_met.energy < target_met.max_energy * 0.5 {
                                     acc.push(InteractionCommand::TransferEnergy {
                                         target_idx: t_idx,
@@ -1016,6 +1001,75 @@ impl World {
                                     acc.push(InteractionCommand::TransferEnergy {
                                         target_idx: i,
                                         amount: -met.energy * 0.1,
+                                    });
+                                }
+                            }
+                        });
+                    }
+
+                    if outputs[3] > 0.5 {
+                        spatial_hash.query_callback(pos.x, pos.y, 1.5, |t_idx| {
+                            if i != t_idx {
+                                let target_snap = &snapshots[t_idx];
+                                let color_dist = (phys.r as i32 - target_snap.r as i32).abs()
+                                    + (phys.g as i32 - target_snap.g as i32).abs()
+                                    + (phys.b as i32 - target_snap.b as i32).abs();
+
+                                if color_dist >= config.social.tribe_color_threshold {
+                                    let mut multiplier = 1.0;
+                                    let attacker_status = lifecycle::calculate_status(
+                                        met,
+                                        health,
+                                        intel,
+                                        config.brain.activation_threshold,
+                                        tick,
+                                        config.metabolism.maturity_age,
+                                    );
+                                    if attacker_status == primordium_data::EntityStatus::Soldier
+                                        || intel.specialization
+                                            == Some(primordium_data::Specialization::Soldier)
+                                    {
+                                        multiplier *= config.social.soldier_damage_mult;
+                                    }
+
+                                    let mut allies = 0;
+                                    spatial_hash.query_callback(
+                                        target_snap.x,
+                                        target_snap.y,
+                                        2.0,
+                                        |n_idx| {
+                                            if n_idx != t_idx {
+                                                let n_snap = &snapshots[n_idx];
+                                                let n_color_dist =
+                                                    (target_snap.r as i32 - n_snap.r as i32).abs()
+                                                        + (target_snap.g as i32 - n_snap.g as i32)
+                                                            .abs()
+                                                        + (target_snap.b as i32 - n_snap.b as i32)
+                                                            .abs();
+                                                if n_color_dist
+                                                    < config.social.tribe_color_threshold
+                                                {
+                                                    allies += 1;
+                                                }
+                                            }
+                                        },
+                                    );
+
+                                    let defense_mult = (1.0 - allies as f64 * 0.15).max(0.4);
+                                    let success_chance =
+                                        (multiplier * defense_mult).min(1.0) as f32;
+                                    let energy_gain = target_snap.energy
+                                        * config.ecosystem.predation_energy_gain_fraction
+                                        * multiplier
+                                        * defense_mult;
+
+                                    acc.push(InteractionCommand::Kill {
+                                        target_idx: t_idx,
+                                        attacker_idx: i,
+                                        attacker_lineage: met.lineage_id,
+                                        cause: "Predation".to_string(),
+                                        precalculated_energy_gain: energy_gain,
+                                        success_chance,
                                     });
                                 }
                             }
@@ -1041,8 +1095,8 @@ impl World {
                                 .get(&met.lineage_id)
                                 .and_then(|r| r.max_fitness_genotype.as_ref()),
                         };
-                        let (baby, dist) = social::reproduce_asexual_parallel_components(
-                            phys,
+                        let (baby, dist) = social::reproduce_asexual_parallel_components_decomposed(
+                            pos,
                             met,
                             intel,
                             &mut repro_ctx,
@@ -1125,7 +1179,9 @@ impl World {
 
         let mut query = self.ecs.query::<(
             &primordium_data::Identity,
-            &mut primordium_data::Physics,
+            &mut primordium_data::Position,
+            &mut primordium_data::Velocity,
+            &primordium_data::Physics,
             &mut primordium_data::Metabolism,
             &mut primordium_data::Intel,
         )>();
@@ -1134,49 +1190,53 @@ impl World {
         let (total_oxygen_drain, overmind_broadcasts): (f64, Vec<(uuid::Uuid, f32)>) = components
             .par_iter_mut()
             .zip(self.decision_buffer.par_iter_mut())
-            .map(|((_handle, (identity, phys, met, intel)), decision)| {
-                let EntityDecision {
-                    outputs,
-                    next_hidden,
-                    activations,
-                } = std::mem::take(decision);
-                intel.last_hidden = next_hidden;
-                intel.last_activations = activations;
-                intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
+            .map(
+                |((_handle, (identity, pos, velocity, phys, met, intel)), decision)| {
+                    let EntityDecision {
+                        outputs,
+                        next_hidden,
+                        activations,
+                    } = std::mem::take(decision);
+                    intel.last_hidden = next_hidden;
+                    intel.last_activations = activations;
+                    intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
 
-                let mut output = action::ActionOutput::default();
-                action::action_system_components(
-                    &identity.id,
-                    phys,
-                    met,
-                    intel,
-                    outputs,
-                    &mut action::ActionContext {
-                        env,
-                        config,
-                        terrain,
-                        snapshots: entity_snapshots,
-                        entity_id_map,
-                        spatial_hash,
-                        pressure: pressure_grid,
-                        width,
-                        height,
-                    },
-                    &mut output,
-                );
+                    let mut output = action::ActionOutput::default();
+                    action::action_system_components(
+                        &identity.id,
+                        pos,
+                        velocity,
+                        phys,
+                        met,
+                        intel,
+                        outputs,
+                        &mut action::ActionContext {
+                            env,
+                            config,
+                            terrain,
+                            snapshots: entity_snapshots,
+                            entity_id_map,
+                            spatial_hash,
+                            pressure: pressure_grid,
+                            width,
+                            height,
+                        },
+                        &mut output,
+                    );
 
-                for p in output.pheromones {
-                    pheromones.deposit_parallel(p.x, p.y, p.ptype, p.amount);
-                }
-                for s in output.sounds {
-                    sound.deposit_parallel(s.x, s.y, s.amount);
-                }
-                for pr in output.pressure {
-                    pressure_grid.deposit_parallel(pr.x, pr.y, pr.ptype, pr.amount);
-                }
+                    for p in output.pheromones {
+                        pheromones.deposit_parallel(p.x, p.y, p.ptype, p.amount);
+                    }
+                    for s in output.sounds {
+                        sound.deposit_parallel(s.x, s.y, s.amount);
+                    }
+                    for pr in output.pressure {
+                        pressure_grid.deposit_parallel(pr.x, pr.y, pr.ptype, pr.amount);
+                    }
 
-                (output.oxygen_drain, output.overmind_broadcast)
-            })
+                    (output.oxygen_drain, output.overmind_broadcast)
+                },
+            )
             .fold(
                 || (0.0, Vec::new()),
                 |mut acc, (drain, broadcast)| {
@@ -1333,35 +1393,48 @@ impl World {
         }
 
         for handle in dead_handles {
-            if let (Ok(met), Ok(phys), Ok(intel), Ok(identity), Ok(health)) = (
-                self.ecs.get::<&Metabolism>(handle),
-                self.ecs.get::<&Physics>(handle),
-                self.ecs.get::<&Intel>(handle),
-                self.ecs.get::<&primordium_data::Identity>(handle),
-                self.ecs.get::<&Health>(handle),
-            ) {
-                let e_for_legend = Entity {
-                    identity: identity.deref().clone(),
-                    physics: phys.deref().clone(),
-                    metabolism: met.deref().clone(),
-                    health: health.deref().clone(),
-                    intel: intel.deref().clone(),
-                };
+            let met = self.ecs.get::<&Metabolism>(handle);
+            let identity = self.ecs.get::<&primordium_data::Identity>(handle);
 
+            if let (Ok(met), Ok(identity)) = (met, identity) {
                 self.lineage_registry.record_death(met.lineage_id);
-                if let Some(legend) = social::archive_if_legend(&e_for_legend, tick, &self.logger) {
-                    history::update_best_legend(
-                        &mut self.lineage_registry,
-                        &mut self.best_legends,
-                        legend,
-                    );
-                }
-                let fertilize_amount =
-                    (met.max_energy * self.config.ecosystem.corpse_fertility_mult as f64) as f32
+
+                if let (Ok(phys), Ok(intel), Ok(health), Ok(pos), Ok(vel), Ok(app)) = (
+                    self.ecs.get::<&Physics>(handle),
+                    self.ecs.get::<&Intel>(handle),
+                    self.ecs.get::<&Health>(handle),
+                    self.ecs.get::<&primordium_data::Position>(handle),
+                    self.ecs.get::<&primordium_data::Velocity>(handle),
+                    self.ecs.get::<&primordium_data::Appearance>(handle),
+                ) {
+                    let e_for_legend = Entity {
+                        identity: identity.deref().clone(),
+                        position: *pos.deref(),
+                        velocity: vel.deref().clone(),
+                        appearance: app.deref().clone(),
+                        physics: phys.deref().clone(),
+                        metabolism: met.deref().clone(),
+                        health: health.deref().clone(),
+                        intel: intel.deref().clone(),
+                    };
+
+                    if let Some(legend) =
+                        social::archive_if_legend(&e_for_legend, tick, &self.logger)
+                    {
+                        history::update_best_legend(
+                            &mut self.lineage_registry,
+                            &mut self.best_legends,
+                            legend,
+                        );
+                    }
+                    let fertilize_amount = (met.max_energy
+                        * self.config.ecosystem.corpse_fertility_mult as f64)
+                        as f32
                         / 100.0;
-                self.terrain.fertilize(phys.x, phys.y, fertilize_amount);
-                self.terrain
-                    .add_biomass(phys.x, phys.y, fertilize_amount * 10.0);
+                    self.terrain.fertilize(phys.x, phys.y, fertilize_amount);
+                    self.terrain
+                        .add_biomass(phys.x, phys.y, fertilize_amount * 10.0);
+                }
             }
             let _ = self.ecs.despawn(handle);
         }
@@ -1369,10 +1442,9 @@ impl World {
         for baby in new_babies {
             self.ecs.spawn((
                 baby.identity,
-                Position {
-                    x: baby.physics.x,
-                    y: baby.physics.y,
-                },
+                baby.position,
+                baby.velocity,
+                baby.appearance,
                 baby.physics,
                 baby.metabolism,
                 baby.health,
@@ -1423,6 +1495,7 @@ impl World {
             &mut self.ecs,
             entity_handles,
             &self.spatial_hash,
+            &self.entity_snapshots,
             self.width,
             self.config.social.silo_energy_capacity,
             self.config.social.outpost_energy_capacity,
@@ -1494,10 +1567,16 @@ impl World {
 
     pub fn get_all_entities(&self) -> Vec<primordium_data::Entity> {
         let mut entities = Vec::new();
-        for (_handle, (identity, phys, met, health, intel)) in self
+        for (
+            _handle,
+            (identity, position, velocity, appearance, physics, metabolism, health, intel),
+        ) in self
             .ecs
             .query::<(
                 &primordium_data::Identity,
+                &primordium_data::Position,
+                &primordium_data::Velocity,
+                &primordium_data::Appearance,
                 &primordium_data::Physics,
                 &primordium_data::Metabolism,
                 &primordium_data::Health,
@@ -1507,8 +1586,11 @@ impl World {
         {
             entities.push(primordium_data::Entity {
                 identity: identity.clone(),
-                physics: phys.clone(),
-                metabolism: met.clone(),
+                position: *position,
+                velocity: velocity.clone(),
+                appearance: appearance.clone(),
+                physics: physics.clone(),
+                metabolism: metabolism.clone(),
                 health: health.clone(),
                 intel: intel.clone(),
             });
@@ -1530,9 +1612,9 @@ mod tests {
             .terrain
             .set_cell_type(5, 5, crate::model::terrain::TerrainType::Wall);
         let mut entity = crate::model::lifecycle::create_entity(4.5, 4.5, 0);
-        entity.physics.vx = 1.0;
-        entity.physics.vy = 1.0;
+        entity.velocity.vx = 1.0;
+        entity.velocity.vy = 1.0;
         action::handle_movement(&mut entity, 1.0, &world.terrain, world.width, world.height);
-        assert!(entity.physics.vx < 0.0);
+        assert!(entity.velocity.vx < 0.0);
     }
 }

@@ -8,6 +8,8 @@ pub enum InteractionCommand {
         attacker_idx: usize,
         attacker_lineage: Uuid,
         cause: String,
+        precalculated_energy_gain: f64,
+        success_chance: f32,
     },
     TransferEnergy {
         target_idx: usize,
@@ -23,6 +25,7 @@ pub enum InteractionCommand {
         attacker_idx: usize,
         x: f64,
         y: f64,
+        precalculated_energy_gain: f64,
     },
     Infect {
         target_idx: usize,

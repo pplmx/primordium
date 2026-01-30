@@ -29,17 +29,7 @@ fn test_succession_and_carbon_cycle() {
     // Force many entities to increase carbon
     for _ in 0..100 {
         let e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, world.tick);
-        world.ecs.spawn((
-            e.identity,
-            primordium_lib::model::state::Position {
-                x: e.physics.x,
-                y: e.physics.y,
-            },
-            e.physics,
-            e.metabolism,
-            e.health,
-            e.intel,
-        ));
+        world.spawn_entity(e);
     }
 
     let carbon_before_boom = env.carbon_level;
@@ -84,17 +74,7 @@ fn test_biodiversity_hotspots() {
         e.intel.genotype.max_speed = 0.0;
         e.metabolism.energy = 1000.0;
         e.metabolism.max_energy = 1000.0;
-        world.ecs.spawn((
-            e.identity,
-            primordium_lib::model::state::Position {
-                x: e.physics.x,
-                y: e.physics.y,
-            },
-            e.physics,
-            e.metabolism,
-            e.health,
-            e.intel,
-        ));
+        world.spawn_entity(e);
     }
 
     for y in 10..20 {

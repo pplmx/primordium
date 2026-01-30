@@ -53,28 +53,8 @@ fn test_voluntary_bond_breaking() {
     // Output = tanh(-1.0 * 10.0) = -1.0
     // -1.0 < 0.2 -> Should Break Bond
 
-    world.ecs.spawn((
-        e1.identity,
-        primordium_lib::model::state::Position {
-            x: e1.physics.x,
-            y: e1.physics.y,
-        },
-        e1.physics,
-        e1.metabolism,
-        e1.health,
-        e1.intel,
-    ));
-    world.ecs.spawn((
-        e2.identity,
-        primordium_lib::model::state::Position {
-            x: e2.physics.x,
-            y: e2.physics.y,
-        },
-        e2.physics,
-        e2.metabolism,
-        e2.health,
-        e2.intel,
-    ));
+    world.spawn_entity(e1);
+    world.spawn_entity(e2);
 
     // Run simulation
     world.update(&mut env).expect("Update failed");

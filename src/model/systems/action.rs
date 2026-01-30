@@ -41,7 +41,9 @@ impl Default for ActionOutput {
 
 pub fn action_system_components(
     id: &uuid::Uuid,
-    physics: &mut Physics,
+    position: &mut primordium_data::Position,
+    velocity: &mut primordium_data::Velocity,
+    physics: &Physics,
     metabolism: &mut Metabolism,
     intel: &mut Intel,
     outputs: [f32; 12],
@@ -59,8 +61,8 @@ pub fn action_system_components(
 
     let stomach_penalty = (metabolism.max_energy - 200.0).max(0.0) / 1000.0;
     let inertia = (0.8 + stomach_penalty).clamp(0.4, 0.95);
-    physics.vx = physics.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
-    physics.vy = physics.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
+    velocity.vx = velocity.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
+    velocity.vy = velocity.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
 
     let metabolism_mult = ctx.env.metabolism_multiplier();
     let oxygen_factor = (ctx.env.oxygen_level / 21.0).max(0.1);
@@ -68,7 +70,7 @@ pub fn action_system_components(
 
     let activity_drain = (speed_mult - 1.0).max(0.0) * 0.01;
 
-    let cell = ctx.terrain.get(physics.x, physics.y);
+    let cell = ctx.terrain.get(position.x, position.y);
     let local_cooling = cell.local_cooling;
 
     let effective_metabolism_mult = if metabolism_mult > 1.0 {
@@ -120,8 +122,8 @@ pub fn action_system_components(
             .get(&partner_id)
             .map(|&idx| &ctx.snapshots[idx])
         {
-            let dx = partner.x - physics.x;
-            let dy = partner.y - physics.y;
+            let dx = partner.x - position.x;
+            let dy = partner.y - position.y;
             let dist = (dx * dx + dy * dy).sqrt();
 
             let k = ctx.config.brain.coupling_spring_constant;
@@ -132,8 +134,8 @@ pub fn action_system_components(
                 let fx = (dx / dist) * force;
                 let fy = (dy / dist) * force;
 
-                physics.vx += fx;
-                physics.vy += fy;
+                velocity.vx += fx;
+                velocity.vy += fy;
             }
         }
     }
@@ -143,11 +145,11 @@ pub fn action_system_components(
         let mut max_rank = intel.rank;
 
         ctx.spatial_hash
-            .query_callback(physics.x, physics.y, physics.sensing_range, |idx| {
+            .query_callback(position.x, position.y, physics.sensing_range, |idx| {
                 let s = &ctx.snapshots[idx];
                 if s.id != *id && s.lineage_id == metabolism.lineage_id {
-                    let dx = s.x - physics.x;
-                    let dy = s.y - physics.y;
+                    let dx = s.x - position.x;
+                    let dy = s.y - position.y;
                     let dist_sq = dx * dx + dy * dy;
 
                     if dist_sq < physics.sensing_range.powi(2) && s.rank > max_rank + 0.1 {
@@ -158,11 +160,11 @@ pub fn action_system_components(
             });
 
         if let Some((ax, ay)) = best_alpha_pos {
-            let dx = ax - physics.x;
-            let dy = ay - physics.y;
+            let dx = ax - position.x;
+            let dy = ay - position.y;
             let dist = (dx * dx + dy * dy).sqrt().max(1.0);
-            physics.vx += (dx / dist) * ctx.config.brain.alpha_following_force;
-            physics.vy += (dy / dist) * ctx.config.brain.alpha_following_force;
+            velocity.vx += (dx / dist) * ctx.config.brain.alpha_following_force;
+            velocity.vy += (dy / dist) * ctx.config.brain.alpha_following_force;
         }
     }
 
@@ -172,8 +174,8 @@ pub fn action_system_components(
         output
             .pheromones
             .push(crate::model::pheromone::PheromoneDeposit {
-                x: physics.x,
-                y: physics.y,
+                x: position.x,
+                y: position.y,
                 ptype: crate::model::pheromone::PheromoneType::SignalA,
                 amount: 0.5,
             });
@@ -182,8 +184,8 @@ pub fn action_system_components(
         output
             .pheromones
             .push(crate::model::pheromone::PheromoneDeposit {
-                x: physics.x,
-                y: physics.y,
+                x: position.x,
+                y: position.y,
                 ptype: crate::model::pheromone::PheromoneType::SignalB,
                 amount: 0.5,
             });
@@ -191,8 +193,8 @@ pub fn action_system_components(
 
     if intel.last_vocalization > 0.1 {
         output.sounds.push(crate::model::sound::SoundDeposit {
-            x: physics.x,
-            y: physics.y,
+            x: position.x,
+            y: position.y,
             amount: intel.last_vocalization,
         });
     }
@@ -201,8 +203,8 @@ pub fn action_system_components(
         output
             .pressure
             .push(crate::model::pressure::PressureDeposit {
-                x: physics.x,
-                y: physics.y,
+                x: position.x,
+                y: position.y,
                 ptype: crate::model::pressure::PressureType::DigDemand,
                 amount: outputs[9],
             });
@@ -211,8 +213,8 @@ pub fn action_system_components(
         output
             .pressure
             .push(crate::model::pressure::PressureDeposit {
-                x: physics.x,
-                y: physics.y,
+                x: position.x,
+                y: position.y,
                 ptype: crate::model::pressure::PressureType::BuildDemand,
                 amount: outputs[10],
             });
@@ -221,10 +223,24 @@ pub fn action_system_components(
     if let Some(spec) = intel.specialization {
         if spec == primordium_data::Specialization::Engineer {
             let is_near_river = ctx.terrain.has_neighbor_type(
-                physics.x as u16,
-                physics.y as u16,
+                position.x as u16,
+                position.y as u16,
                 crate::model::terrain::TerrainType::River,
             );
+
+            let (tx, ty, max_press) =
+                ctx.pressure
+                    .find_highest_in_range(position.x, position.y, physics.sensing_range);
+
+            if max_press > 0.2 {
+                let dx = tx - position.x;
+                let dy = ty - position.y;
+                let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+                let attr_force = if is_near_river { 0.3 } else { 0.15 };
+                velocity.vx += (dx / dist) * attr_force;
+                velocity.vy += (dy / dist) * attr_force;
+            }
+
             if is_near_river
                 && matches!(
                     cell.terrain_type,
@@ -232,15 +248,11 @@ pub fn action_system_components(
                         | crate::model::terrain::TerrainType::Desert
                 )
             {
-                println!(
-                    "DEBUG: Entity at ({}, {}) depositing DigDemand",
-                    physics.x, physics.y
-                );
                 output
                     .pressure
                     .push(crate::model::pressure::PressureDeposit {
-                        x: physics.x,
-                        y: physics.y,
+                        x: position.x,
+                        y: position.y,
                         ptype: crate::model::pressure::PressureType::DigDemand,
                         amount: 0.8,
                     });
@@ -252,7 +264,15 @@ pub fn action_system_components(
         output.overmind_broadcast = Some((metabolism.lineage_id, outputs[11]));
     }
 
-    handle_movement_components(physics, speed_mult, ctx.terrain, ctx.width, ctx.height);
+    handle_movement_components(
+        position,
+        velocity,
+        physics,
+        speed_mult,
+        ctx.terrain,
+        ctx.width,
+        ctx.height,
+    );
     output.oxygen_drain = activity_drain;
 }
 
@@ -264,7 +284,9 @@ pub fn action_system(
 ) {
     action_system_components(
         &entity.identity.id,
-        &mut entity.physics,
+        &mut entity.position,
+        &mut entity.velocity,
+        &entity.physics,
         &mut entity.metabolism,
         &mut entity.intel,
         outputs,
@@ -274,39 +296,41 @@ pub fn action_system(
 }
 
 pub fn handle_movement_components(
-    physics: &mut Physics,
+    position: &mut primordium_data::Position,
+    velocity: &mut primordium_data::Velocity,
+    _physics: &Physics,
     speed: f64,
     terrain: &TerrainGrid,
     width: u16,
     height: u16,
 ) {
-    let terrain_mod = terrain.movement_modifier(physics.x, physics.y);
+    let terrain_mod = terrain.movement_modifier(position.x, position.y);
     let effective_speed = speed * terrain_mod;
-    let next_x = physics.x + physics.vx * effective_speed;
-    let next_y = physics.y + physics.vy * effective_speed;
+    let next_x = position.x + velocity.vx * effective_speed;
+    let next_y = position.y + velocity.vy * effective_speed;
 
     let cell_type = terrain.get_cell(next_x as u16, next_y as u16).terrain_type;
     if matches!(cell_type, crate::model::terrain::TerrainType::Wall) {
-        physics.vx *= -1.0;
-        physics.vy *= -1.0;
+        velocity.vx *= -1.0;
+        velocity.vy *= -1.0;
     } else {
-        physics.x = next_x;
-        physics.y = next_y;
+        position.x = next_x;
+        position.y = next_y;
     }
 
-    if physics.x < 0.0 {
-        physics.x = 0.0;
-        physics.vx *= -1.0;
-    } else if physics.x >= f64::from(width) {
-        physics.x = f64::from(width) - 1.0;
-        physics.vx *= -1.0;
+    if position.x < 0.0 {
+        position.x = 0.0;
+        velocity.vx *= -1.0;
+    } else if position.x >= f64::from(width) {
+        position.x = f64::from(width) - 1.0;
+        velocity.vx *= -1.0;
     }
-    if physics.y < 0.0 {
-        physics.y = 0.0;
-        physics.vy *= -1.0;
-    } else if physics.y >= f64::from(height) {
-        physics.y = f64::from(height) - 1.0;
-        physics.vy *= -1.0;
+    if position.y < 0.0 {
+        position.y = 0.0;
+        velocity.vy *= -1.0;
+    } else if position.y >= f64::from(height) {
+        position.y = f64::from(height) - 1.0;
+        velocity.vy *= -1.0;
     }
 }
 
@@ -317,7 +341,15 @@ pub fn handle_movement(
     width: u16,
     height: u16,
 ) {
-    handle_movement_components(&mut entity.physics, speed, terrain, width, height);
+    handle_movement_components(
+        &mut entity.position,
+        &mut entity.velocity,
+        &entity.physics,
+        speed,
+        terrain,
+        width,
+        height,
+    );
 }
 
 pub fn handle_game_modes_ecs(
@@ -336,9 +368,11 @@ pub fn handle_game_modes_ecs(
         let center_x = f32::from(width) / 2.0;
         let center_y = f32::from(height) / 2.0;
 
-        for (_handle, (phys, met)) in world.query_mut::<(&Physics, &mut Metabolism)>() {
-            let dx = (phys.x as f32 - center_x).abs();
-            let dy = (phys.y as f32 - center_y).abs();
+        for (_handle, (pos, met)) in
+            world.query_mut::<(&primordium_data::Position, &mut Metabolism)>()
+        {
+            let dx = (pos.x as f32 - center_x).abs();
+            let dy = (pos.y as f32 - center_y).abs();
             if dx > danger_radius_x || dy > danger_radius_y {
                 met.energy -= 5.0;
             }
@@ -363,8 +397,8 @@ pub fn handle_game_modes(
         let center_y = f32::from(height) / 2.0;
 
         for e in entities {
-            let dx = (e.physics.x as f32 - center_x).abs();
-            let dy = (e.physics.y as f32 - center_y).abs();
+            let dx = (e.position.x as f32 - center_x).abs();
+            let dy = (e.position.y as f32 - center_y).abs();
             if dx > danger_radius_x || dy > danger_radius_y {
                 e.metabolism.energy -= 5.0;
             }
@@ -470,7 +504,7 @@ mod tests {
         };
         let mut out = ActionOutput::default();
         action_system(&mut entity, outputs, &mut ctx, &mut out);
-        assert!(entity.physics.vx > 0.0);
-        assert!(entity.physics.vy < 0.0);
+        assert!(entity.velocity.vx > 0.0);
+        assert!(entity.velocity.vy < 0.0);
     }
 }

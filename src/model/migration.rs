@@ -67,17 +67,7 @@ impl World {
             self.tick,
         );
 
-        self.ecs.spawn((
-            entity.identity,
-            primordium_data::Position {
-                x: entity.physics.x,
-                y: entity.physics.y,
-            },
-            entity.physics,
-            entity.metabolism,
-            entity.health,
-            entity.intel,
-        ));
+        self.spawn_entity(entity);
         Ok(())
     }
 }

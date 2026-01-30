@@ -124,8 +124,35 @@ pub struct ColorRGB {
     pub b: u8,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct Velocity {
+    pub vx: f64,
+    pub vy: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Appearance {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub symbol: char,
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
+        Self {
+            r: 255,
+            g: 255,
+            b: 255,
+            symbol: '●',
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
+    pub home_x: f64,
+    pub home_y: f64,
     pub x: f64,
     pub y: f64,
     pub vx: f64,
@@ -134,8 +161,6 @@ pub struct Physics {
     pub g: u8,
     pub b: u8,
     pub symbol: char,
-    pub home_x: f64,
-    pub home_y: f64,
     pub sensing_range: f64,
     pub max_speed: f64,
 }
@@ -227,6 +252,9 @@ pub struct Intel {
 pub struct Entity {
     #[serde(flatten)]
     pub identity: Identity,
+    pub position: Position,
+    pub velocity: Velocity,
+    pub appearance: Appearance,
     pub physics: Physics,
     pub metabolism: Metabolism,
     pub health: Health,

@@ -16,17 +16,7 @@ fn test_collective_memory_reinforcement() {
     let mut e1 = lifecycle::create_entity(10.0, 10.0, 0);
     e1.metabolism.lineage_id = l_id;
     e1.intel.genotype.lineage_id = l_id;
-    world.ecs.spawn((
-        e1.identity,
-        primordium_lib::model::state::Position {
-            x: e1.physics.x,
-            y: e1.physics.y,
-        },
-        e1.physics,
-        e1.metabolism,
-        e1.health,
-        e1.intel,
-    ));
+    world.spawn_entity(e1);
 
     world.lineage_registry.record_birth(l_id, 0, 0);
 
@@ -50,23 +40,13 @@ fn test_engineer_biological_irrigation_pressure() {
     world.terrain.set_cell_type(11, 10, TerrainType::Plains);
 
     let mut eng = lifecycle::create_entity(11.0, 10.0, 0);
-    eng.physics.vx = 0.0;
-    eng.physics.vy = 0.0;
+    eng.velocity.vx = 0.0;
+    eng.velocity.vy = 0.0;
     eng.physics.max_speed = 0.0;
     eng.intel.genotype.max_speed = 0.0;
     eng.intel.specialization = Some(Specialization::Engineer);
     eng.metabolism.has_metamorphosed = true;
-    world.ecs.spawn((
-        eng.identity,
-        primordium_lib::model::state::Position {
-            x: eng.physics.x,
-            y: eng.physics.y,
-        },
-        eng.physics,
-        eng.metabolism,
-        eng.health,
-        eng.intel,
-    ));
+    world.spawn_entity(eng);
 
     world.update(&mut env).unwrap();
 
@@ -87,17 +67,7 @@ fn test_outpost_construction() {
     let l_id = Uuid::new_v4();
     alpha.metabolism.lineage_id = l_id;
 
-    let handle = world.ecs.spawn((
-        alpha.identity,
-        primordium_lib::model::state::Position {
-            x: alpha.physics.x,
-            y: alpha.physics.y,
-        },
-        alpha.physics,
-        alpha.metabolism,
-        alpha.health,
-        alpha.intel,
-    ));
+    let handle = world.spawn_entity(alpha);
 
     use primordium_lib::model::state::interaction::InteractionCommand;
     use primordium_lib::model::systems::interaction;
@@ -149,17 +119,7 @@ fn test_outpost_energy_capacitor() {
     donor.metabolism.lineage_id = l_id;
     donor.metabolism.energy = 450.0;
     donor.metabolism.max_energy = 500.0;
-    world.ecs.spawn((
-        donor.identity,
-        primordium_lib::model::state::Position {
-            x: donor.physics.x,
-            y: donor.physics.y,
-        },
-        donor.physics,
-        donor.metabolism,
-        donor.health,
-        donor.intel,
-    ));
+    world.spawn_entity(donor);
 
     let idx = world.terrain.index(10, 10);
     world.terrain.set_cell_type(10, 10, TerrainType::Outpost);
@@ -177,17 +137,7 @@ fn test_outpost_energy_capacitor() {
     needy.metabolism.lineage_id = l_id;
     needy.metabolism.energy = 20.0;
     needy.metabolism.max_energy = 500.0;
-    world.ecs.spawn((
-        needy.identity,
-        primordium_lib::model::state::Position {
-            x: needy.physics.x,
-            y: needy.physics.y,
-        },
-        needy.physics,
-        needy.metabolism,
-        needy.health,
-        needy.intel,
-    ));
+    world.spawn_entity(needy);
 
     world.update(&mut _env).unwrap();
 

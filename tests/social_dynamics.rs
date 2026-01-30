@@ -24,28 +24,8 @@ fn test_tribe_solidarity_no_aggression() {
     e2.metabolism.max_energy = 10000.0;
     e1.intel.genotype.max_energy = 10000.0;
     e2.intel.genotype.max_energy = 10000.0;
-    world.ecs.spawn((
-        e1.identity,
-        primordium_lib::model::state::Position {
-            x: e1.physics.x,
-            y: e1.physics.y,
-        },
-        e1.physics,
-        e1.metabolism,
-        e1.health,
-        e1.intel,
-    ));
-    world.ecs.spawn((
-        e2.identity,
-        primordium_lib::model::state::Position {
-            x: e2.physics.x,
-            y: e2.physics.y,
-        },
-        e2.physics,
-        e2.metabolism,
-        e2.health,
-        e2.intel,
-    ));
+    world.spawn_entity(e1);
+    world.spawn_entity(e2);
     for _ in 0..50 {
         world.update(&mut env).expect("Update failed");
     }
@@ -89,28 +69,8 @@ fn test_energy_sharing_between_allies() {
         });
 
     let e2_id = e2.identity.id;
-    world.ecs.spawn((
-        e1.identity,
-        primordium_lib::model::state::Position {
-            x: e1.physics.x,
-            y: e1.physics.y,
-        },
-        e1.physics,
-        e1.metabolism,
-        e1.health,
-        e1.intel,
-    ));
-    world.ecs.spawn((
-        e2.identity,
-        primordium_lib::model::state::Position {
-            x: e2.physics.x,
-            y: e2.physics.y,
-        },
-        e2.physics,
-        e2.metabolism,
-        e2.health,
-        e2.intel,
-    ));
+    world.spawn_entity(e1);
+    world.spawn_entity(e2);
     let mut shared = false;
     for _ in 0..100 {
         world.update(&mut env).expect("Update failed");
@@ -167,28 +127,8 @@ fn test_inter_tribe_predation() {
             enabled: true,
             innovation: 9999,
         });
-    world.ecs.spawn((
-        e1.identity,
-        primordium_lib::model::state::Position {
-            x: e1.physics.x,
-            y: e1.physics.y,
-        },
-        e1.physics,
-        e1.metabolism,
-        e1.health,
-        e1.intel,
-    ));
-    world.ecs.spawn((
-        e2.identity,
-        primordium_lib::model::state::Position {
-            x: e2.physics.x,
-            y: e2.physics.y,
-        },
-        e2.physics,
-        e2.metabolism,
-        e2.health,
-        e2.intel,
-    ));
+    world.spawn_entity(e1);
+    world.spawn_entity(e2);
     for _ in 0..200 {
         world.update(&mut env).expect("Update failed");
         if world.get_population_count() == 1 {

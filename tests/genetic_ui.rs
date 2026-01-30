@@ -14,17 +14,7 @@ fn test_genetic_edit_application() {
     entity.intel.genotype.max_speed = 1.0;
     entity.intel.genotype.trophic_potential = 0.0;
 
-    world.ecs.spawn((
-        entity.identity,
-        primordium_lib::model::state::Position {
-            x: entity.physics.x,
-            y: entity.physics.y,
-        },
-        entity.physics,
-        entity.metabolism,
-        entity.health,
-        entity.intel,
-    ));
+    world.spawn_entity(entity);
 
     // 1. Edit Sensing
     world.apply_genetic_edit(id, GeneType::Sensing, 5.0);

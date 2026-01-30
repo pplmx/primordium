@@ -61,28 +61,8 @@ fn test_sensing_range_affects_perception() {
     e_long.intel.genotype.sensing_range = 15.0;
     e_long.metabolism.energy = 1000.0;
 
-    world.ecs.spawn((
-        e_short.identity,
-        primordium_lib::model::state::Position {
-            x: e_short.physics.x,
-            y: e_short.physics.y,
-        },
-        e_short.physics,
-        e_short.metabolism,
-        e_short.health,
-        e_short.intel,
-    ));
-    world.ecs.spawn((
-        e_long.identity,
-        primordium_lib::model::state::Position {
-            x: e_long.physics.x,
-            y: e_long.physics.y,
-        },
-        e_long.physics,
-        e_long.metabolism,
-        e_long.health,
-        e_long.intel,
-    ));
+    world.spawn_entity(e_short);
+    world.spawn_entity(e_long);
 
     // Update world to populate perception buffers
     world.update(&mut env).unwrap();

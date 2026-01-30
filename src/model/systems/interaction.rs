@@ -8,9 +8,7 @@ use crate::model::lineage_registry::LineageRegistry;
 use crate::model::systems::{biological, social};
 use crate::model::terrain::{TerrainGrid, TerrainType};
 use chrono::Utc;
-use primordium_data::{
-    Entity, EntityStatus, Food, Health, Intel, Metabolism, Physics, Specialization,
-};
+use primordium_data::{Entity, Health, Intel, Metabolism, Physics, Specialization};
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -59,107 +57,28 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                 attacker_idx,
                 attacker_lineage,
                 cause,
+                precalculated_energy_gain,
+                success_chance,
             } => {
                 let target_handle = entity_handles[target_idx];
                 let attacker_handle = entity_handles[attacker_idx];
 
                 let mut target_info = None;
-                if let (Ok(target_identity), Ok(target_metabolism), Ok(target_physics)) = (
+                if let (Ok(target_identity), Ok(target_metabolism)) = (
                     world.get::<&primordium_data::Identity>(target_handle),
                     world.get::<&Metabolism>(target_handle),
-                    world.get::<&Physics>(target_handle),
                 ) {
                     if !killed_ids.contains(&target_identity.id) {
                         target_info = Some((
                             target_identity.id,
-                            target_metabolism.energy,
                             target_metabolism.birth_tick,
                             target_metabolism.offspring_count,
-                            target_physics.x,
-                            target_physics.y,
                         ));
                     }
                 }
 
-                if let Some((
-                    tid,
-                    target_energy,
-                    target_birth,
-                    target_offspring,
-                    target_x,
-                    target_y,
-                )) = target_info
-                {
-                    let mut multiplier = 1.0;
-                    let mut allies = 0;
-                    let mut success = false;
-                    let mut energy_gain = 0.0;
-
-                    if let (
-                        Ok(attacker_physics),
-                        Ok(attacker_intel),
-                        Ok(attacker_metabolism),
-                        Ok(attacker_health),
-                    ) = (
-                        world.get::<&Physics>(attacker_handle),
-                        world.get::<&Intel>(attacker_handle),
-                        world.get::<&Metabolism>(attacker_handle),
-                        world.get::<&Health>(attacker_handle),
-                    ) {
-                        ctx.env
-                            .consume_oxygen(ctx.config.ecosystem.oxygen_consumption_unit);
-
-                        let attacker_status = lifecycle::calculate_status(
-                            &attacker_metabolism,
-                            &attacker_health,
-                            &attacker_intel,
-                            ctx.config.brain.activation_threshold,
-                            ctx.tick,
-                            ctx.config.metabolism.maturity_age,
-                        );
-                        if attacker_status == EntityStatus::Soldier
-                            || attacker_intel.specialization == Some(Specialization::Soldier)
-                        {
-                            multiplier *= ctx.config.social.soldier_damage_mult;
-                        }
-
-                        let ix = (attacker_physics.x as usize).min(ctx.width as usize - 1);
-                        let iy = (attacker_physics.y as usize).min(ctx.height as usize - 1);
-                        if ctx.social_grid[iy * ctx.width as usize + ix] == 2 {
-                            multiplier *= ctx.config.social.soldier_damage_mult;
-                        }
-
-                        ctx.spatial_hash
-                            .query_callback(target_x, target_y, 2.0, |n_idx| {
-                                if n_idx != target_idx {
-                                    let n_handle = entity_handles[n_idx];
-                                    if let (Ok(target_phys), Ok(n_phys)) = (
-                                        world.get::<&Physics>(target_handle),
-                                        world.get::<&Physics>(n_handle),
-                                    ) {
-                                        if social::are_same_tribe_components(
-                                            &target_phys,
-                                            &n_phys,
-                                            ctx.config,
-                                        ) {
-                                            allies += 1;
-                                        }
-                                    }
-                                }
-                            });
-
-                        let defense_mult = (1.0 - allies as f64 * 0.15).max(0.4);
-                        let success_chance = (multiplier * defense_mult).min(1.0);
-                        if ctx.rng.gen_bool(success_chance) {
-                            success = true;
-                            energy_gain = target_energy
-                                * ctx.config.ecosystem.predation_energy_gain_fraction
-                                * multiplier
-                                * defense_mult;
-                        }
-                    }
-
-                    if success {
+                if let Some((tid, target_birth, target_offspring)) = target_info {
+                    if ctx.rng.gen_bool(success_chance as f64) {
                         killed_ids.insert(tid);
                         crate::model::history::record_stat_death(
                             ctx.pop_stats,
@@ -178,7 +97,7 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                         events.push(ev);
 
                         ctx.lineage_consumption
-                            .push((attacker_lineage, energy_gain));
+                            .push((attacker_lineage, precalculated_energy_gain));
                         ctx.lineage_registry
                             .boost_memory_value(&attacker_lineage, "goal", 0.5);
                         ctx.lineage_registry.boost_memory_value(&tid, "threat", 1.0);
@@ -186,7 +105,8 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                         if let Ok(mut attacker_met_mut) =
                             world.get::<&mut Metabolism>(attacker_handle)
                         {
-                            attacker_met_mut.energy = (attacker_met_mut.energy + energy_gain)
+                            attacker_met_mut.energy = (attacker_met_mut.energy
+                                + precalculated_energy_gain)
                                 .min(attacker_met_mut.max_energy);
                         }
                     }
@@ -252,36 +172,23 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                 attacker_idx,
                 x,
                 y,
+                precalculated_energy_gain,
             } => {
                 if !eaten_food_indices.contains(&food_index) {
                     let food_handle = ctx.food_handles[food_index];
                     let handle = entity_handles[attacker_idx];
-                    let mut gain_info = None;
-                    if let (Ok(met), Ok(intel), Ok(food_data)) = (
-                        world.get::<&Metabolism>(handle),
-                        world.get::<&Intel>(handle),
-                        world.get::<&Food>(food_handle),
-                    ) {
-                        let trophic_eff = 1.0 - met.trophic_potential as f64;
-                        if trophic_eff > 0.1 {
-                            let niche_eff = 1.0
-                                - (intel.genotype.metabolic_niche - food_data.nutrient_type).abs();
-                            let energy_gain =
-                                ctx.config.metabolism.food_value * niche_eff as f64 * trophic_eff;
-                            gain_info = Some((energy_gain, met.lineage_id, met.max_energy));
-                        }
-                    }
 
-                    if let Some((energy_gain, lid, max_e)) = gain_info {
-                        eaten_food_indices.insert(food_index);
-                        let _ = world.despawn(food_handle);
-                        if let Ok(mut met_mut) = world.get::<&mut Metabolism>(handle) {
-                            met_mut.energy = (met_mut.energy + energy_gain).min(max_e);
-                            ctx.lineage_registry.boost_memory_value(&lid, "goal", 0.2);
-                            ctx.terrain
-                                .deplete(x, y, ctx.config.ecosystem.soil_depletion_unit);
-                            ctx.lineage_consumption.push((lid, energy_gain));
-                        }
+                    eaten_food_indices.insert(food_index);
+                    let _ = world.despawn(food_handle);
+                    if let Ok(mut met_mut) = world.get::<&mut Metabolism>(handle) {
+                        met_mut.energy =
+                            (met_mut.energy + precalculated_energy_gain).min(met_mut.max_energy);
+                        let lid = met_mut.lineage_id;
+                        ctx.lineage_registry.boost_memory_value(&lid, "goal", 0.2);
+                        ctx.terrain
+                            .deplete(x, y, ctx.config.ecosystem.soil_depletion_unit);
+                        ctx.lineage_consumption
+                            .push((lid, precalculated_energy_gain));
                     }
                 }
             }

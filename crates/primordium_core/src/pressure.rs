@@ -178,4 +178,30 @@ impl PressureGrid {
             (0.0, 0.0)
         }
     }
+
+    /// Find the coordinates of the highest total pressure within a range.
+    /// Used for intelligent attraction (e.g., Engineers moving to work sites).
+    pub fn find_highest_in_range(&self, x: f64, y: f64, range: f64) -> (f64, f64, f32) {
+        let cx = x as i32;
+        let cy = y as i32;
+        let r = range as i32;
+        let mut max_p = 0.0;
+        let mut best_pos = (x, y);
+
+        for dy in -r..=r {
+            for dx in -r..=r {
+                let nx = cx + dx;
+                let ny = cy + dy;
+                if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
+                    let idx = self.index(nx as u16, ny as u16);
+                    let p = self.cells[idx].dig_demand + self.cells[idx].build_demand;
+                    if p > max_p {
+                        max_p = p;
+                        best_pos = (nx as f64, ny as f64);
+                    }
+                }
+            }
+        }
+        (best_pos.0, best_pos.1, max_p)
+    }
 }

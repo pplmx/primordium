@@ -36,17 +36,7 @@ fn test_death_by_brain_bloat() {
         });
     }
 
-    world.ecs.spawn((
-        e.identity,
-        primordium_lib::model::state::Position {
-            x: e.physics.x,
-            y: e.physics.y,
-        },
-        e.physics,
-        e.metabolism,
-        e.health,
-        e.intel,
-    ));
+    world.spawn_entity(e);
 
     for _ in 0..100 {
         world.update(&mut env).unwrap();
@@ -114,12 +104,12 @@ fn test_inertia_responsiveness_penalty() {
     let mut e_light = lifecycle::create_entity(10.0, 10.0, 0);
     e_light.metabolism.max_energy = 100.0;
     e_light.intel.genotype.max_energy = 100.0;
-    e_light.physics.vx = 0.0;
+    e_light.velocity.vx = 0.0;
 
     let mut e_heavy = lifecycle::create_entity(20.0, 20.0, 0);
     e_heavy.metabolism.max_energy = 500.0;
     e_heavy.intel.genotype.max_energy = 500.0;
-    e_heavy.physics.vx = 0.0;
+    e_heavy.velocity.vx = 0.0;
 
     use primordium_lib::model::systems::action::{action_system, ActionContext};
     let pressure = primordium_lib::model::pressure::PressureGrid::new(100, 100);
@@ -145,5 +135,5 @@ fn test_inertia_responsiveness_penalty() {
         action_system(&mut e_heavy, outputs, &mut ctx, &mut out);
     }
 
-    assert!(e_light.physics.vx > e_heavy.physics.vx);
+    assert!(e_light.velocity.vx > e_heavy.velocity.vx);
 }

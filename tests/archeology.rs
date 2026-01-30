@@ -28,19 +28,9 @@ fn test_fossilization_and_snapshots() {
     // 2. Kill it through starvation
     e.metabolism.energy = 0.0;
 
-    world.ecs.spawn((
-        e.identity,
-        primordium_lib::model::state::Position {
-            x: e.physics.x,
-            y: e.physics.y,
-        },
-        e.physics,
-        e.metabolism,
-        e.health,
-        e.intel,
-    ));
+    world.spawn_entity(e);
 
-    world.lineage_registry.record_birth(l_id, 0, 0);
+    world.lineage_registry.record_birth(l_id, 1, 0);
 
     // Run update
     world.update(&mut env).unwrap();

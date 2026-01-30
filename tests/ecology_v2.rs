@@ -78,17 +78,7 @@ fn test_nutrient_sensing_in_perception() {
     ));
 
     let e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    world.ecs.spawn((
-        e.identity,
-        primordium_lib::model::state::Position {
-            x: e.physics.x,
-            y: e.physics.y,
-        },
-        e.physics,
-        e.metabolism,
-        e.health,
-        e.intel,
-    ));
+    world.spawn_entity(e);
 
     // Update world to trigger perception
     let mut env = primordium_lib::model::state::environment::Environment::default();

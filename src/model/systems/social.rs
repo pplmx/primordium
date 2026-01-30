@@ -115,6 +115,8 @@ type EntityComponents<'a> = (
     hecs::Entity,
     (
         &'a primordium_data::Identity,
+        &'a primordium_data::Position,
+        &'a primordium_data::Velocity,
         &'a Physics,
         &'a Metabolism,
         &'a mut Intel,
@@ -131,17 +133,18 @@ pub fn handle_symbiosis_components(
 ) -> Option<Uuid> {
     if outputs[8] > 0.5 {
         let mut partner_id = None;
-        let self_phys = components[idx].1 .1;
+        let self_pos = components[idx].1 .1;
+        let self_phys = components[idx].1 .3;
 
         spatial_hash.query_callback(
-            self_phys.x,
-            self_phys.y,
+            self_pos.x,
+            self_pos.y,
             config.social.territorial_range,
             |t_idx| {
                 if idx != t_idx && partner_id.is_none() {
                     let target_identity = components[t_idx].1 .0;
-                    let target_phys = components[t_idx].1 .1;
-                    let target_intel = &components[t_idx].1 .3;
+                    let target_phys = components[t_idx].1 .3;
+                    let target_intel = &components[t_idx].1 .5;
                     if target_intel.bonded_to.is_none()
                         && are_same_tribe_components(self_phys, target_phys, config)
                     {
@@ -196,8 +199,8 @@ pub struct ReproductionContext<'a, R: Rng> {
     pub ancestral_genotype: Option<&'a primordium_data::Genotype>,
 }
 
-pub fn reproduce_asexual_parallel_components<R: Rng>(
-    phys: &Physics,
+pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
+    pos: &primordium_data::Position,
     met: &Metabolism,
     intel: &Intel,
     ctx: &mut ReproductionContext<R>,
@@ -220,27 +223,31 @@ pub fn reproduce_asexual_parallel_components<R: Rng>(
         child_genotype.lineage_id = Uuid::from_u128(ctx.rng.gen());
     }
 
-    let r = (phys.r as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
-    let g = (phys.g as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
-    let b = (phys.b as i16 + ctx.rng.gen_range(-15..=15)).clamp(0, 255) as u8;
-
     let mut baby = Entity {
         identity: primordium_data::Identity {
             id: Uuid::from_u128(ctx.rng.gen()),
             name: String::new(),
             parent_id: None,
         },
-        physics: Physics {
-            x: phys.x,
-            y: phys.y,
-            vx: phys.vx,
-            vy: phys.vy,
-            r,
-            g,
-            b,
+        position: primordium_data::Position { x: pos.x, y: pos.y },
+        velocity: primordium_data::Velocity::default(),
+        appearance: primordium_data::Appearance {
+            r: 100,
+            g: 200,
+            b: 100,
             symbol: '●',
-            home_x: phys.x,
-            home_y: phys.y,
+        },
+        physics: Physics {
+            home_x: pos.x,
+            home_y: pos.y,
+            x: pos.x,
+            y: pos.y,
+            vx: 0.0,
+            vy: 0.0,
+            r: 100,
+            g: 200,
+            b: 100,
+            symbol: '●',
             sensing_range: child_genotype.sensing_range,
             max_speed: child_genotype.max_speed,
         },
@@ -297,25 +304,11 @@ pub fn reproduce_asexual_parallel_components<R: Rng>(
     (baby, dist)
 }
 
-pub fn reproduce_asexual_parallel<R: Rng>(
-    parent: &Entity,
-    ctx: &mut ReproductionContext<R>,
-) -> (Entity, f32) {
-    let (mut baby, dist) = reproduce_asexual_parallel_components(
-        &parent.physics,
-        &parent.metabolism,
-        &parent.intel,
-        ctx,
-    );
-    baby.identity.parent_id = Some(parent.identity.id);
-    (baby, dist)
-}
-
-pub fn reproduce_sexual_parallel_components<R: Rng>(
-    p1_phys: &Physics,
+pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
+    p1_pos: &primordium_data::Position,
     p1_met: &Metabolism,
     p1_intel: &Intel,
-    p2_phys: &Physics,
+    _p2_pos: &primordium_data::Position,
     p2_met: &Metabolism,
     p2_intel: &Intel,
     ctx: &mut ReproductionContext<R>,
@@ -336,30 +329,29 @@ pub fn reproduce_sexual_parallel_components<R: Rng>(
         ctx.ancestral_genotype,
     );
 
-    let r_mut = ((p1_phys.r as i16 + p2_phys.r as i16) / 2 + ctx.rng.gen_range(-10..=10))
-        .clamp(0, 255) as u8;
-    let g_mut = ((p1_phys.g as i16 + p2_phys.g as i16) / 2 + ctx.rng.gen_range(-10..=10))
-        .clamp(0, 255) as u8;
-    let b_mut = ((p1_phys.b as i16 + p2_phys.b as i16) / 2 + ctx.rng.gen_range(-10..=10))
-        .clamp(0, 255) as u8;
-
     let mut baby = Entity {
         identity: primordium_data::Identity {
             id: Uuid::from_u128(ctx.rng.gen()),
             name: String::new(),
             parent_id: None,
         },
+        position: primordium_data::Position {
+            x: p1_pos.x,
+            y: p1_pos.y,
+        },
+        velocity: primordium_data::Velocity::default(),
+        appearance: primordium_data::Appearance::default(), // Will be updated by update_name or similar
         physics: Physics {
-            x: p1_phys.x,
-            y: p1_phys.y,
-            vx: p1_phys.vx,
-            vy: p1_phys.vy,
-            r: r_mut,
-            g: g_mut,
-            b: b_mut,
+            x: p1_pos.x,
+            y: p1_pos.y,
+            vx: 0.0,
+            vy: 0.0,
+            r: 100,
+            g: 200,
+            b: 100,
             symbol: '●',
-            home_x: p1_phys.x,
-            home_y: p1_phys.y,
+            home_x: p1_pos.x,
+            home_y: p1_pos.y,
             sensing_range: child_genotype.sensing_range,
             max_speed: child_genotype.max_speed,
         },
@@ -380,7 +372,7 @@ pub fn reproduce_sexual_parallel_components<R: Rng>(
         health: Health {
             pathogen: None,
             infection_timer: 0,
-            immunity: (p1_met.energy + p2_met.energy) as f32 / 200.0, // Placeholder
+            immunity: (p1_met.energy + p2_met.energy) as f32 / 200.0,
         },
         intel: Intel {
             genotype: child_genotype,
@@ -434,7 +426,12 @@ pub fn reproduce_asexual(
         rng: &mut rng,
         ancestral_genotype: None,
     };
-    let (baby, _) = reproduce_asexual_parallel(parent, &mut ctx);
+    let (baby, _) = reproduce_asexual_parallel_components_decomposed(
+        &parent.position,
+        &parent.metabolism,
+        &parent.intel,
+        &mut ctx,
+    );
     let investment = parent.intel.genotype.reproductive_investment as f64;
     parent.metabolism.energy *= 1.0 - investment;
     parent.metabolism.offspring_count += 1;

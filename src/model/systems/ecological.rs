@@ -160,8 +160,9 @@ pub fn handle_feeding_optimized(idx: usize, entities: &mut [Entity], ctx: &mut F
     }
 }
 
-pub fn sense_nearest_food_ecs(
-    physics: &primordium_data::Physics,
+pub fn sense_nearest_food_ecs_decomposed(
+    position: &primordium_data::Position,
+    _physics: &primordium_data::Physics,
     world: &hecs::World,
     food_hash: &SpatialHash,
     food_handles: &[hecs::Entity],
@@ -171,11 +172,11 @@ pub fn sense_nearest_food_ecs(
     let mut f_type = 0.5;
     let mut min_dist_sq = f64::MAX;
 
-    food_hash.query_callback(physics.x, physics.y, 20.0, |f_idx| {
+    food_hash.query_callback(position.x, position.y, 20.0, |f_idx| {
         let handle = food_handles[f_idx];
         if let Ok(f) = world.get::<&Food>(handle) {
-            let dx = f64::from(f.x) - physics.x;
-            let dy = f64::from(f.y) - physics.y;
+            let dx = f64::from(f.x) - position.x;
+            let dy = f64::from(f.y) - position.y;
             let dist_sq = dx * dx + dy * dy;
             if dist_sq < min_dist_sq {
                 min_dist_sq = dist_sq;

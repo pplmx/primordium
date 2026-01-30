@@ -45,17 +45,7 @@ fn test_larval_gating_logic() {
         });
     }
 
-    world.ecs.spawn((
-        larva.identity,
-        primordium_lib::model::state::Position {
-            x: larva.physics.x,
-            y: larva.physics.y,
-        },
-        larva.physics,
-        larva.metabolism,
-        larva.health,
-        larva.intel,
-    ));
+    world.spawn_entity(larva);
 
     // Run one tick
     world.update(&mut env).unwrap();
@@ -83,17 +73,7 @@ fn test_metamorphosis_transition_and_remodeling() {
     let initial_max_energy = larva.metabolism.max_energy;
     let initial_speed = larva.physics.max_speed;
 
-    world.ecs.spawn((
-        larva.identity,
-        primordium_lib::model::state::Position {
-            x: larva.physics.x,
-            y: larva.physics.y,
-        },
-        larva.physics,
-        larva.metabolism,
-        larva.health,
-        larva.intel,
-    ));
+    world.spawn_entity(larva);
 
     world.tick = 10;
 

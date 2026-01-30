@@ -19,28 +19,8 @@ fn test_kin_recognition_influences_movement() {
     let mut e_kin = lifecycle::create_entity(12.0, 10.0, 0);
     e_kin.metabolism.lineage_id = l_id;
 
-    world.ecs.spawn((
-        e_target.identity,
-        primordium_lib::model::state::Position {
-            x: e_target.physics.x,
-            y: e_target.physics.y,
-        },
-        e_target.physics,
-        e_target.metabolism,
-        e_target.health,
-        e_target.intel,
-    ));
-    world.ecs.spawn((
-        e_kin.identity,
-        primordium_lib::model::state::Position {
-            x: e_kin.physics.x,
-            y: e_kin.physics.y,
-        },
-        e_kin.physics,
-        e_kin.metabolism,
-        e_kin.health,
-        e_kin.intel,
-    ));
+    world.spawn_entity(e_target);
+    world.spawn_entity(e_kin);
 
     // 3. Update World. Target should see Kin at relative X = 1.0 (clamped).
     // The decision buffer will contain the brain's reaction.
@@ -60,8 +40,8 @@ fn test_herding_bonus() {
 
     // 1. Target Entity (Moving Right)
     let mut e = lifecycle::create_entity(10.0, 10.0, 0);
-    e.physics.vx = 1.0;
-    e.physics.vy = 0.0;
+    e.velocity.vx = 1.0;
+    e.velocity.vy = 0.0;
     let l_id = e.metabolism.lineage_id;
     e.metabolism.energy = 100.0;
 
@@ -69,28 +49,8 @@ fn test_herding_bonus() {
     let mut kin = lifecycle::create_entity(11.0, 10.0, 0);
     kin.metabolism.lineage_id = l_id;
 
-    world.ecs.spawn((
-        e.identity,
-        primordium_lib::model::state::Position {
-            x: e.physics.x,
-            y: e.physics.y,
-        },
-        e.physics,
-        e.metabolism,
-        e.health,
-        e.intel,
-    ));
-    world.ecs.spawn((
-        kin.identity,
-        primordium_lib::model::state::Position {
-            x: kin.physics.x,
-            y: kin.physics.y,
-        },
-        kin.physics,
-        kin.metabolism,
-        kin.health,
-        kin.intel,
-    ));
+    world.spawn_entity(e);
+    world.spawn_entity(kin);
 
     // 3. Update world.
     world.update(&mut env).unwrap();

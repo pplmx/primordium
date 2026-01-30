@@ -22,28 +22,8 @@ fn test_r_vs_k_dominance_in_resource_boom() {
     k_type.intel.genotype.reproductive_investment = 0.8;
     k_type.metabolism.energy = 400.0;
 
-    world.ecs.spawn((
-        r_type.identity,
-        primordium_lib::model::state::Position {
-            x: r_type.physics.x,
-            y: r_type.physics.y,
-        },
-        r_type.physics,
-        r_type.metabolism,
-        r_type.health,
-        r_type.intel,
-    ));
-    world.ecs.spawn((
-        k_type.identity,
-        primordium_lib::model::state::Position {
-            x: k_type.physics.x,
-            y: k_type.physics.y,
-        },
-        k_type.physics,
-        k_type.metabolism,
-        k_type.health,
-        k_type.intel,
-    ));
+    world.spawn_entity(r_type);
+    world.spawn_entity(k_type);
 
     // In a resource boom, Strategy R should multiply faster
     for _ in 0..100 {
