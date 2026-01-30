@@ -1,10 +1,6 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::history::{HistoryLogger, PopulationStats};
 use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::state::pheromone::PheromoneGrid;
-use primordium_lib::model::systems::social::{handle_predation, PredationContext};
-use primordium_lib::model::world::{InternalEntitySnapshot, World};
-use std::collections::HashSet;
+use primordium_lib::model::world::World;
 
 #[test]
 fn test_overgrazing_feedback_loop() {
@@ -23,95 +19,55 @@ fn test_overgrazing_feedback_loop() {
 
 #[test]
 fn test_hunter_competition_impact() {
-    let config = AppConfig::default();
-    let mut pop_stats = PopulationStats::default();
-    let mut logger = HistoryLogger::new_dummy();
-    let mut spatial_hash = primordium_lib::model::spatial_hash::SpatialHash::new(10.0, 100, 100);
-    let mut pheromones = PheromoneGrid::new(100, 100);
+    let mut config = AppConfig::default();
+    config.world.initial_population = 0;
+    let log_dir = "logs_test_stability";
+    let _ = std::fs::remove_dir_all(log_dir);
+    let mut world = World::new_at(0, config.clone(), log_dir).expect("Failed to create world");
+    let mut env = Environment::default();
 
     let mut hunter = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     hunter.metabolism.trophic_potential = 1.0;
-    hunter.metabolism.energy = 100.0;
+    hunter.metabolism.energy = 500.0;
     hunter.metabolism.max_energy = 1000.0;
+    // Force aggression
+    hunter
+        .intel
+        .genotype
+        .brain
+        .connections
+        .push(primordium_lib::model::brain::Connection {
+            from: 2,
+            to: 32,
+            weight: 10.0,
+            enabled: true,
+            innovation: 999,
+        });
 
     let mut prey = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
-    prey.metabolism.energy = 100.0;
+    prey.metabolism.energy = 500.0;
     prey.metabolism.max_energy = 1000.0;
     prey.physics.r = 0;
 
-    spatial_hash.build_parallel(&[(10.0, 10.0), (10.5, 10.5)], 100, 100);
+    world.spawn_entity(hunter.clone());
+    world.spawn_entity(prey.clone());
 
-    let snap = vec![
-        InternalEntitySnapshot {
-            id: hunter.identity.id,
-            lineage_id: hunter.metabolism.lineage_id,
-            x: 10.0,
-            y: 10.0,
-            energy: 100.0,
-            birth_tick: 0,
-            offspring_count: 0,
-            r: 255,
-            g: 255,
-            b: 255,
-            rank: 0.5,
-            status: primordium_lib::model::state::entity::EntityStatus::Foraging,
-        },
-        InternalEntitySnapshot {
-            id: prey.identity.id,
-            lineage_id: prey.metabolism.lineage_id,
-            x: 10.5,
-            y: 10.5,
-            energy: 100.0,
-            birth_tick: 0,
-            offspring_count: 0,
-            r: 0,
-            g: 0,
-            b: 0,
-            rank: 0.5,
-            status: primordium_lib::model::state::entity::EntityStatus::Foraging,
-        },
-    ];
+    world.pop_stats.biomass_c = 0.0;
+    world.update(&mut env).unwrap();
+    let energy1 = world.get_all_entities()[0].metabolism.energy;
 
-    pop_stats.biomass_c = 0.0;
-    let mut entities_1 = vec![hunter.clone(), prey.clone()];
-    let mut killed_1 = HashSet::new();
-    let mut ctx1 = PredationContext {
-        snapshots: &snap,
-        killed_ids: &mut killed_1,
-        events: &mut vec![],
-        config: &config,
-        spatial_hash: &spatial_hash,
-        pheromones: &mut pheromones,
-        pop_stats: &mut pop_stats,
-        logger: &mut logger,
-        tick: 0,
-        energy_transfers: &mut vec![],
-        lineage_consumption: &mut vec![],
-    };
-    handle_predation(0, &mut entities_1, &mut ctx1);
-    let energy1 = entities_1[0].metabolism.energy;
+    let mut world2 = World::new_at(0, config, log_dir).expect("Failed to create world");
+    world2.spawn_entity(hunter);
+    world2.spawn_entity(prey);
 
-    pop_stats.biomass_c = 20000.0;
-    let mut entities_2 = vec![hunter.clone(), prey.clone()];
-    let mut killed_2 = HashSet::new();
-    let mut ctx2 = PredationContext {
-        snapshots: &snap,
-        killed_ids: &mut killed_2,
-        events: &mut vec![],
-        config: &config,
-        spatial_hash: &spatial_hash,
-        pheromones: &mut pheromones,
-        pop_stats: &mut pop_stats,
-        logger: &mut logger,
-        tick: 0,
-        energy_transfers: &mut vec![],
-        lineage_consumption: &mut vec![],
-    };
-    handle_predation(0, &mut entities_2, &mut ctx2);
-    let energy2 = entities_2[0].metabolism.energy;
+    world2.pop_stats.biomass_c = 20000.0;
+    world2.update(&mut env).unwrap();
+    let energy2 = world2.get_all_entities()[0].metabolism.energy;
 
     assert!(
         energy2 < energy1,
-        "High competition should reduce energy gain from kill"
+        "High competition should reduce energy gain from kill. Energy1: {}, Energy2: {}",
+        energy1,
+        energy2
     );
 }

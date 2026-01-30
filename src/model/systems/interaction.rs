@@ -286,6 +286,7 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                 attacker_idx,
                 is_nest,
                 is_outpost,
+                outpost_spec,
             } => {
                 let handle = entity_handles[attacker_idx];
                 let cell = ctx.terrain.get(x, y);
@@ -319,6 +320,11 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                         ctx.terrain.set_cell_type(x as u16, y as u16, new_type);
                         if let Some(c) = ctx.terrain.cells.get_mut(idx) {
                             c.owner_id = Some(met.lineage_id);
+                            if is_outpost {
+                                if let Some(s) = outpost_spec {
+                                    c.outpost_spec = s;
+                                }
+                            }
                         }
                         social::increment_spec_meter_components(
                             &mut intel,

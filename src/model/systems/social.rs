@@ -27,17 +27,6 @@ pub struct PredationContext<'a> {
     pub lineage_consumption: &'a mut Vec<(Uuid, f64)>,
 }
 
-pub fn soldier_territorial_bonus(entity: &Entity, config: &AppConfig) -> f64 {
-    let dist = ((entity.physics.x - entity.physics.home_x).powi(2)
-        + (entity.physics.y - entity.physics.home_y).powi(2))
-    .sqrt();
-    if dist < config.social.territorial_range {
-        config.social.soldier_damage_mult
-    } else {
-        1.0
-    }
-}
-
 pub fn calculate_social_rank_components(
     metabolism: &Metabolism,
     intel: &Intel,
@@ -53,10 +42,6 @@ pub fn calculate_social_rank_components(
 
     let w = config.social.rank_weights;
     w[0] * energy_score + w[1] * age_score + w[2] * offspring_score + w[3] * rep_score
-}
-
-pub fn calculate_social_rank(entity: &Entity, tick: u64, config: &AppConfig) -> f32 {
-    calculate_social_rank_components(&entity.metabolism, &entity.intel, tick, config)
 }
 
 pub fn start_tribal_split_components<R: Rng>(
@@ -80,35 +65,11 @@ pub fn start_tribal_split_components<R: Rng>(
     }
 }
 
-pub fn start_tribal_split<R: Rng>(
-    entity: &Entity,
-    crowding: f32,
-    config: &AppConfig,
-    rng: &mut R,
-) -> Option<(u8, u8, u8)> {
-    start_tribal_split_components(
-        &entity.physics,
-        &entity.metabolism,
-        &entity.intel,
-        crowding,
-        config,
-        rng,
-    )
-}
-
 pub fn are_same_tribe_components(phys1: &Physics, phys2: &Physics, config: &AppConfig) -> bool {
     let dist = (phys1.r as i32 - phys2.r as i32).abs()
         + (phys1.g as i32 - phys2.g as i32).abs()
         + (phys1.b as i32 - phys2.b as i32).abs();
     dist < config.social.tribe_color_threshold
-}
-
-pub fn are_same_tribe(e1: &Entity, e2: &Entity, config: &AppConfig) -> bool {
-    are_same_tribe_components(&e1.physics, &e2.physics, config)
-}
-
-pub fn can_share(entity: &Entity, config: &AppConfig) -> bool {
-    entity.metabolism.energy > entity.metabolism.max_energy * config.social.sharing_threshold as f64
 }
 
 type EntityComponents<'a> = (
@@ -149,36 +110,6 @@ pub fn handle_symbiosis_components(
                         && are_same_tribe_components(self_phys, target_phys, config)
                     {
                         partner_id = Some(target_identity.id);
-                    }
-                }
-            },
-        );
-        partner_id
-    } else {
-        None
-    }
-}
-
-pub fn handle_symbiosis(
-    idx: usize,
-    entities: &[Entity],
-    outputs: [f32; 12],
-    spatial_hash: &SpatialHash,
-    config: &AppConfig,
-) -> Option<Uuid> {
-    if outputs[8] > 0.5 {
-        let mut partner_id = None;
-        spatial_hash.query_callback(
-            entities[idx].physics.x,
-            entities[idx].physics.y,
-            config.social.territorial_range,
-            |t_idx| {
-                if idx != t_idx && partner_id.is_none() {
-                    let target = &entities[t_idx];
-                    if target.intel.bonded_to.is_none()
-                        && are_same_tribe(&entities[idx], target, config)
-                    {
-                        partner_id = Some(target.identity.id);
                     }
                 }
             },
@@ -408,36 +339,6 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
     (baby, 0.1)
 }
 
-pub fn reproduce_asexual(
-    parent: &mut Entity,
-    tick: u64,
-    config: &AppConfig,
-    population: usize,
-    traits: std::collections::HashSet<AncestralTrait>,
-    is_radiation_storm: bool,
-) -> Entity {
-    let mut rng = rand::thread_rng();
-    let mut ctx = ReproductionContext {
-        tick,
-        config,
-        population,
-        traits,
-        is_radiation_storm,
-        rng: &mut rng,
-        ancestral_genotype: None,
-    };
-    let (baby, _) = reproduce_asexual_parallel_components_decomposed(
-        &parent.position,
-        &parent.metabolism,
-        &parent.intel,
-        &mut ctx,
-    );
-    let investment = parent.intel.genotype.reproductive_investment as f64;
-    parent.metabolism.energy *= 1.0 - investment;
-    parent.metabolism.offspring_count += 1;
-    baby
-}
-
 pub fn increment_spec_meter_components(
     intel: &mut Intel,
     spec: Specialization,
@@ -458,35 +359,30 @@ pub fn increment_spec_meter_components(
     }
 }
 
-pub fn increment_spec_meter(
-    entity: &mut Entity,
-    spec: Specialization,
-    amount: f32,
-    config: &AppConfig,
-) {
-    increment_spec_meter_components(&mut entity.intel, spec, amount, config);
-}
-
-pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) -> Option<Legend> {
-    let lifespan = tick - entity.metabolism.birth_tick;
-    if lifespan > 1000
-        || entity.metabolism.offspring_count > 10
-        || entity.metabolism.peak_energy > 300.0
-    {
+pub fn archive_if_legend_components(
+    identity: &primordium_data::Identity,
+    metabolism: &Metabolism,
+    intel: &Intel,
+    physics: &Physics,
+    tick: u64,
+    logger: &HistoryLogger,
+) -> Option<Legend> {
+    let lifespan = tick - metabolism.birth_tick;
+    if lifespan > 1000 || metabolism.offspring_count > 10 || metabolism.peak_energy > 300.0 {
         let legend = Legend {
-            id: entity.identity.id,
-            parent_id: entity.identity.parent_id,
-            lineage_id: entity.metabolism.lineage_id,
-            birth_tick: entity.metabolism.birth_tick,
+            id: identity.id,
+            parent_id: identity.parent_id,
+            lineage_id: metabolism.lineage_id,
+            birth_tick: metabolism.birth_tick,
             death_tick: tick,
             lifespan,
-            generation: entity.metabolism.generation,
-            offspring_count: entity.metabolism.offspring_count,
-            peak_energy: entity.metabolism.peak_energy,
+            generation: metabolism.generation,
+            offspring_count: metabolism.offspring_count,
+            peak_energy: metabolism.peak_energy,
             birth_timestamp: "".to_string(),
             death_timestamp: Utc::now().to_rfc3339(),
-            genotype: entity.intel.genotype.clone(),
-            color_rgb: (entity.physics.r, entity.physics.g, entity.physics.b),
+            genotype: intel.genotype.clone(),
+            color_rgb: (physics.r, physics.g, physics.b),
         };
         let _ = logger.archive_legend(legend.clone());
         Some(legend)
@@ -495,62 +391,7 @@ pub fn archive_if_legend(entity: &Entity, tick: u64, logger: &HistoryLogger) -> 
     }
 }
 
-pub fn handle_extinction(
-    entities: &[Entity],
-    tick: u64,
-    events: &mut Vec<LiveEvent>,
-    logger: &mut HistoryLogger,
-) {
-    if entities.is_empty() && tick > 0 {
-        let ev = LiveEvent::Extinction {
-            population: 0,
-            tick,
-            timestamp: Utc::now().to_rfc3339(),
-        };
-        let _ = logger.log_event(ev.clone());
-        events.push(ev);
-    }
-}
-
-pub fn is_legend_worthy(entity: &Entity, tick: u64) -> bool {
-    let lifespan = tick - entity.metabolism.birth_tick;
-    lifespan > 1000
-        || entity.metabolism.offspring_count > 10
-        || entity.metabolism.peak_energy > 300.0
-}
-
-pub fn handle_predation(idx: usize, entities: &mut [Entity], ctx: &mut PredationContext) {
-    ctx.spatial_hash.query_callback(
-        entities[idx].physics.x,
-        entities[idx].physics.y,
-        1.5,
-        |t_idx| {
-            let v_snap = &ctx.snapshots[t_idx];
-            if v_snap.id != entities[idx].identity.id
-                && !ctx.killed_ids.contains(&v_snap.id)
-                && !are_same_tribe(&entities[idx], &entities[t_idx], ctx.config)
-            {
-                let gain = v_snap.energy
-                    * entities[idx].metabolism.trophic_potential as f64
-                    * ctx.config.ecosystem.predation_energy_gain_fraction
-                    * (1.0
-                        - (ctx.pop_stats.biomass_c
-                            / ctx.config.ecosystem.predation_competition_scale))
-                        .max(ctx.config.ecosystem.predation_min_efficiency);
-                entities[idx].metabolism.energy = (entities[idx].metabolism.energy + gain)
-                    .min(entities[idx].metabolism.max_energy);
-                ctx.killed_ids.insert(v_snap.id);
-                ctx.lineage_consumption
-                    .push((entities[idx].metabolism.lineage_id, gain));
-                ctx.events.push(LiveEvent::Death {
-                    id: v_snap.id,
-                    age: ctx.tick - v_snap.birth_tick,
-                    offspring: v_snap.offspring_count,
-                    tick: ctx.tick,
-                    timestamp: chrono::Utc::now().to_rfc3339(),
-                    cause: "predation".to_string(),
-                });
-            }
-        },
-    );
+pub fn is_legend_worthy_components(metabolism: &Metabolism, tick: u64) -> bool {
+    let lifespan = tick - metabolism.birth_tick;
+    lifespan > 1000 || metabolism.offspring_count > 10 || metabolism.peak_energy > 300.0
 }

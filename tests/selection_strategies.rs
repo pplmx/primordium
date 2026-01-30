@@ -16,14 +16,24 @@ fn test_r_strategy_fast_reproduction() {
     assert!(r_parent.is_mature(60, config.metabolism.maturity_age));
 
     // Reproduce
-    let child = primordium_lib::model::systems::social::reproduce_asexual(
-        &mut r_parent,
-        60,
-        &config,
-        1,
-        std::collections::HashSet::new(),
-        false,
-    );
+    let mut rng = rand::thread_rng();
+    let mut ctx = primordium_lib::model::systems::social::ReproductionContext {
+        tick: 60,
+        config: &config,
+        population: 1,
+        traits: std::collections::HashSet::new(),
+        is_radiation_storm: false,
+        rng: &mut rng,
+        ancestral_genotype: None,
+    };
+    let (child, _) =
+        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
+            &r_parent.position,
+            &r_parent.metabolism,
+            &r_parent.intel,
+            &mut ctx,
+        );
+    r_parent.metabolism.energy *= 1.0 - r_parent.intel.genotype.reproductive_investment as f64;
 
     // Child should have 20% of 200 = 40 energy
     assert!(child.metabolism.energy < 50.0);
@@ -48,14 +58,24 @@ fn test_k_strategy_slow_reproduction() {
     assert!(k_parent.is_mature(250, config.metabolism.maturity_age));
 
     // Reproduce
-    let child = primordium_lib::model::systems::social::reproduce_asexual(
-        &mut k_parent,
-        250,
-        &config,
-        1,
-        std::collections::HashSet::new(),
-        false,
-    );
+    let mut rng = rand::thread_rng();
+    let mut ctx = primordium_lib::model::systems::social::ReproductionContext {
+        tick: 250,
+        config: &config,
+        population: 1,
+        traits: std::collections::HashSet::new(),
+        is_radiation_storm: false,
+        rng: &mut rng,
+        ancestral_genotype: None,
+    };
+    let (child, _) =
+        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
+            &k_parent.position,
+            &k_parent.metabolism,
+            &k_parent.intel,
+            &mut ctx,
+        );
+    k_parent.metabolism.energy *= 1.0 - k_parent.intel.genotype.reproductive_investment as f64;
 
     // Child should have 80% of 400 = 320 energy
     assert!(child.metabolism.energy > 300.0);

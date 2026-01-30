@@ -20,24 +20,42 @@ fn test_genetic_bottleneck_increases_mutation() {
     // We can't easily measure effective_mutation_rate directly as it's internal to mutate_genotype,
     // but we can check if it results in higher genetic variance over multiple trials.
     // However, for a unit test, we just verify it doesn't crash and follows the logic.
-    let child_small = primordium_lib::model::systems::social::reproduce_asexual(
-        &mut parent,
-        1,
-        &world.config,
-        1,
-        std::collections::HashSet::new(),
-        false,
-    );
+    let mut rng = rand::thread_rng();
+    let mut ctx_small = primordium_lib::model::systems::social::ReproductionContext {
+        tick: 1,
+        config: &world.config,
+        population: 1,
+        traits: std::collections::HashSet::new(),
+        is_radiation_storm: false,
+        rng: &mut rng,
+        ancestral_genotype: None,
+    };
+    let (child_small, _) =
+        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
+            &parent.position,
+            &parent.metabolism,
+            &parent.intel,
+            &mut ctx_small,
+        );
 
     // 3. Large population (100) -> Should have base mutation
-    let child_large = primordium_lib::model::systems::social::reproduce_asexual(
-        &mut parent,
-        2,
-        &world.config,
-        100,
-        std::collections::HashSet::new(),
-        false,
-    );
+    let mut rng = rand::thread_rng();
+    let mut ctx_large = primordium_lib::model::systems::social::ReproductionContext {
+        tick: 2,
+        config: &world.config,
+        population: 100,
+        traits: std::collections::HashSet::new(),
+        is_radiation_storm: false,
+        rng: &mut rng,
+        ancestral_genotype: None,
+    };
+    let (child_large, _) =
+        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
+            &parent.position,
+            &parent.metabolism,
+            &parent.intel,
+            &mut ctx_large,
+        );
 
     assert_ne!(child_small.identity.id, child_large.identity.id);
 }

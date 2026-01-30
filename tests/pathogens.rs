@@ -73,8 +73,8 @@ fn test_immunity_gain() {
     entity.health.infection_timer = 1;
 
     use primordium_lib::model::systems::biological;
-    biological::process_infection(&mut entity); // timer -> 0
-    biological::process_infection(&mut entity); // recovered
+    biological::process_infection_components(&mut entity.health, &mut entity.metabolism); // timer -> 0
+    biological::process_infection_components(&mut entity.health, &mut entity.metabolism); // recovered
 
     assert!(entity.health.pathogen.is_none());
     assert!(

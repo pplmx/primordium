@@ -26,7 +26,6 @@ use crate::model::systems::{
 };
 use primordium_data::{GeneType, Health, Intel, MetabolicNiche, Metabolism, Physics, Position};
 use social::ReproductionContext;
-use std::ops::Deref;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct InternalEntitySnapshot {
@@ -235,6 +234,7 @@ impl World {
         for (_handle, f) in self.ecs.query::<&Food>().iter() {
             self.food_persist.push(f.clone());
         }
+        self.food_persist.sort_by_key(|f| (f.x, f.y));
     }
 
     pub fn post_load(&mut self) {
@@ -474,11 +474,13 @@ impl World {
                 },
             });
         }
+        entities.sort_by_key(|e| e.id);
 
         let mut food = Vec::new();
         for (_handle, f) in self.ecs.query::<&Food>().iter() {
             food.push(f.clone());
         }
+        food.sort_by_key(|f| (f.x, f.y));
 
         WorldSnapshot {
             tick: self.tick,
@@ -627,20 +629,14 @@ impl World {
         }
     }
 
-    fn prepare_spatial_hash(
+    pub fn prepare_spatial_hash(
         &mut self,
     ) -> (
         HashMap<uuid::Uuid, usize>,
         Vec<hecs::Entity>,
         Vec<hecs::Entity>,
     ) {
-        let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
-        spatial_data.clear();
-
-        let mut entity_handles = Vec::new();
-        let mut entity_id_map = HashMap::new();
-
-        for (handle, (identity, position, metabolism)) in self
+        let mut entity_data: Vec<_> = self
             .ecs
             .query::<(
                 &primordium_data::Identity,
@@ -648,11 +644,21 @@ impl World {
                 &primordium_data::Metabolism,
             )>()
             .iter()
-        {
+            .map(|(h, (i, p, m))| (i.id, h, p.x, p.y, m.lineage_id))
+            .collect();
+        entity_data.sort_by_key(|d| d.0);
+
+        let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
+        spatial_data.clear();
+
+        let mut entity_handles = Vec::new();
+        let mut entity_id_map = HashMap::new();
+
+        for (id, handle, x, y, lid) in entity_data {
             let idx = entity_handles.len();
-            entity_id_map.insert(identity.id, idx);
+            entity_id_map.insert(id, idx);
             entity_handles.push(handle);
-            spatial_data.push((position.x, position.y, metabolism.lineage_id));
+            spatial_data.push((x, y, lid));
         }
 
         self.spatial_hash
@@ -668,10 +674,11 @@ impl World {
         self.food_hash
             .build_parallel(&food_positions, self.width, self.height);
 
+        self.spatial_data_buffer = spatial_data; // Restore buffer
         (entity_id_map, entity_handles, food_handles)
     }
 
-    fn capture_entity_snapshots(&mut self) {
+    pub fn capture_entity_snapshots(&mut self) {
         self.entity_snapshots.clear();
         for (_handle, (identity, physics, metabolism, intel, health)) in self
             .ecs
@@ -706,6 +713,7 @@ impl World {
                 ),
             });
         }
+        self.entity_snapshots.sort_by_key(|s| s.id);
     }
 
     fn learn_and_bond_check_parallel(&mut self, _id_map: &HashMap<uuid::Uuid, usize>) {
@@ -756,6 +764,7 @@ impl World {
             &primordium_data::Health,
         )>();
         let mut components: Vec<_> = query.iter().collect();
+        components.sort_by_key(|(_h, (i, _p, _v, _ph, _m, _it, _hl))| i.id);
 
         decision_buffer.resize_with(components.len(), EntityDecision::default);
 
@@ -1058,10 +1067,17 @@ impl World {
                                     let defense_mult = (1.0 - allies as f64 * 0.15).max(0.4);
                                     let success_chance =
                                         (multiplier * defense_mult).min(1.0) as f32;
+
+                                    let competition_mult = (1.0
+                                        - (self.pop_stats.biomass_c
+                                            / config.ecosystem.predation_competition_scale))
+                                        .max(config.ecosystem.predation_min_efficiency);
+
                                     let energy_gain = target_snap.energy
                                         * config.ecosystem.predation_energy_gain_fraction
                                         * multiplier
-                                        * defense_mult;
+                                        * defense_mult
+                                        * competition_mult;
 
                                     acc.push(InteractionCommand::Kill {
                                         target_idx: t_idx,
@@ -1116,12 +1132,21 @@ impl World {
                                 attacker_idx: i,
                             });
                         } else {
+                            let build_val = outputs[10];
+                            let spec = if build_val > 0.9 {
+                                Some(primordium_data::OutpostSpecialization::Nursery)
+                            } else if build_val > 0.8 {
+                                Some(primordium_data::OutpostSpecialization::Silo)
+                            } else {
+                                Some(primordium_data::OutpostSpecialization::Standard)
+                            };
                             acc.push(InteractionCommand::Build {
                                 x: phys.x,
                                 y: phys.y,
                                 attacker_idx: i,
                                 is_nest: true,
-                                is_outpost: outputs[10] > 0.8,
+                                is_outpost: build_val > 0.8,
+                                outpost_spec: spec,
                             });
                         }
                     }
@@ -1270,6 +1295,16 @@ impl World {
         entity_handles: &[hecs::Entity],
         food_handles: &[hecs::Entity],
     ) -> (Vec<LiveEvent>, Vec<Entity>) {
+        let (state_cmds, struct_cmds): (Vec<_>, Vec<_>) =
+            interaction_commands.into_iter().partition(|cmd| {
+                matches!(
+                    cmd,
+                    InteractionCommand::TransferEnergy { .. }
+                        | InteractionCommand::UpdateReputation { .. }
+                        | InteractionCommand::Fertilize { .. }
+                )
+            });
+
         let mut interaction_ctx = interaction::InteractionContext {
             terrain: &mut self.terrain,
             env,
@@ -1288,10 +1323,17 @@ impl World {
             rng: &mut self.rng,
         };
 
+        interaction::process_interaction_commands_ecs(
+            &mut self.ecs,
+            entity_handles,
+            state_cmds,
+            &mut interaction_ctx,
+        );
+
         let interaction_result = interaction::process_interaction_commands_ecs(
             &mut self.ecs,
             entity_handles,
-            interaction_commands,
+            struct_cmds,
             &mut interaction_ctx,
         );
 
@@ -1399,28 +1441,19 @@ impl World {
             if let (Ok(met), Ok(identity)) = (met, identity) {
                 self.lineage_registry.record_death(met.lineage_id);
 
-                if let (Ok(phys), Ok(intel), Ok(health), Ok(pos), Ok(vel), Ok(app)) = (
+                if let (Ok(phys), Ok(intel), Ok(_health)) = (
                     self.ecs.get::<&Physics>(handle),
                     self.ecs.get::<&Intel>(handle),
                     self.ecs.get::<&Health>(handle),
-                    self.ecs.get::<&primordium_data::Position>(handle),
-                    self.ecs.get::<&primordium_data::Velocity>(handle),
-                    self.ecs.get::<&primordium_data::Appearance>(handle),
                 ) {
-                    let e_for_legend = Entity {
-                        identity: identity.deref().clone(),
-                        position: *pos.deref(),
-                        velocity: vel.deref().clone(),
-                        appearance: app.deref().clone(),
-                        physics: phys.deref().clone(),
-                        metabolism: met.deref().clone(),
-                        health: health.deref().clone(),
-                        intel: intel.deref().clone(),
-                    };
-
-                    if let Some(legend) =
-                        social::archive_if_legend(&e_for_legend, tick, &self.logger)
-                    {
+                    if let Some(legend) = social::archive_if_legend_components(
+                        &identity,
+                        &met,
+                        &intel,
+                        &phys,
+                        tick,
+                        &self.logger,
+                    ) {
                         history::update_best_legend(
                             &mut self.lineage_registry,
                             &mut self.best_legends,
@@ -1500,11 +1533,35 @@ impl World {
             self.config.social.silo_energy_capacity,
             self.config.social.outpost_energy_capacity,
         );
+
+        // Phase 66: Resolve contested ownership and specialization upgrades
+        civilization::resolve_contested_ownership(
+            &mut self.terrain,
+            self.width,
+            self.height,
+            &self.spatial_hash,
+            &self.entity_snapshots,
+            &self.lineage_registry,
+        );
+        civilization::resolve_outpost_upgrades(
+            &mut self.terrain,
+            self.width,
+            self.height,
+            &self.spatial_hash,
+            &self.entity_snapshots,
+            &self.lineage_registry,
+        );
+
         if self
             .tick
             .is_multiple_of(self.config.world.power_grid_interval)
         {
-            civilization::resolve_power_grid(&mut self.terrain, self.width, self.height);
+            civilization::resolve_power_grid(
+                &mut self.terrain,
+                self.width,
+                self.height,
+                &self.lineage_registry,
+            );
         }
 
         let snapshot = self.create_snapshot(None);
@@ -1595,6 +1652,7 @@ impl World {
                 intel: intel.clone(),
             });
         }
+        entities.sort_by_key(|e| e.identity.id);
         entities
     }
 }

@@ -17,14 +17,23 @@ fn test_phenotype_inheritance_and_mutation() {
     let config = AppConfig::default();
 
     // Test Asexual Reproduction (Mutation)
-    let child = primordium_lib::model::systems::social::reproduce_asexual(
-        &mut p1,
-        100,
-        &config,
-        1,
-        std::collections::HashSet::new(),
-        false,
-    );
+    let mut rng = rand::thread_rng();
+    let mut ctx = primordium_lib::model::systems::social::ReproductionContext {
+        tick: 100,
+        config: &config,
+        population: 1,
+        traits: std::collections::HashSet::new(),
+        is_radiation_storm: false,
+        rng: &mut rng,
+        ancestral_genotype: None,
+    };
+    let (child, _) =
+        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
+            &p1.position,
+            &p1.metabolism,
+            &p1.intel,
+            &mut ctx,
+        );
 
     // Phenotype fields in Physics/Metabolism should have been synced during reproduction
     assert!(child.physics.sensing_range >= 3.0 && child.physics.sensing_range <= 15.0);

@@ -213,7 +213,11 @@ impl LineageRegistry {
             if !record.is_extinct {
                 // Civilization Leveling
                 let outposts = *outpost_counts.get(&record.id).unwrap_or(&0);
-                if outposts >= 5 {
+                if outposts >= 20 && record.civilization_level >= 2 {
+                    record.civilization_level = 3;
+                } else if outposts >= 10 && record.total_energy_consumed > 10000.0 {
+                    record.civilization_level = 2;
+                } else if outposts >= 5 {
                     record.civilization_level = 1;
                 }
 

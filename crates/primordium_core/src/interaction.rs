@@ -67,6 +67,7 @@ pub enum InteractionCommand {
         attacker_idx: usize,
         is_nest: bool,
         is_outpost: bool,
+        outpost_spec: Option<primordium_data::OutpostSpecialization>,
     },
     Metamorphosis {
         target_idx: usize,

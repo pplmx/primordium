@@ -99,6 +99,7 @@ fn test_outpost_construction() {
         attacker_idx: 0,
         is_nest: false,
         is_outpost: true,
+        outpost_spec: Some(primordium_data::OutpostSpecialization::Standard),
     };
 
     interaction::process_interaction_commands_ecs(&mut world.ecs, &[handle], vec![cmd], &mut ctx);

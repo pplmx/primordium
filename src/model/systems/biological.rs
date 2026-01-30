@@ -1,10 +1,9 @@
 //! Biological system - handles infection, pathogen emergence, and death processing.
 
 use crate::model::config::AppConfig;
-use crate::model::history::{LiveEvent, PopulationStats};
 use crate::model::spatial_hash::SpatialHash;
 use crate::model::systems::social;
-use primordium_data::{Entity, Health, Intel, Metabolism, Pathogen, Physics, Specialization};
+use primordium_data::{Health, Intel, Metabolism, Pathogen, Physics, Specialization};
 use rand::Rng;
 use std::collections::HashSet;
 
@@ -62,23 +61,6 @@ pub fn biological_system_components<R: Rng>(
     metabolism.energy -= brain_maintenance;
 }
 
-pub fn biological_system<R: Rng>(
-    entity: &mut Entity,
-    population_count: usize,
-    config: &AppConfig,
-    rng: &mut R,
-) {
-    biological_system_components(
-        &mut entity.metabolism,
-        &mut entity.intel,
-        &mut entity.health,
-        &entity.physics,
-        population_count,
-        config,
-        rng,
-    );
-}
-
 pub fn try_infect_components<R: Rng>(
     health: &mut Health,
     pathogen: &Pathogen,
@@ -96,10 +78,6 @@ pub fn try_infect_components<R: Rng>(
     false
 }
 
-pub fn try_infect<R: Rng>(entity: &mut Entity, pathogen: &Pathogen, rng: &mut R) -> bool {
-    try_infect_components(&mut entity.health, pathogen, rng)
-}
-
 pub fn process_infection_components(health: &mut Health, metabolism: &mut Metabolism) {
     if let Some(p) = &health.pathogen {
         metabolism.energy -= p.lethality as f64;
@@ -110,10 +88,6 @@ pub fn process_infection_components(health: &mut Health, metabolism: &mut Metabo
             health.immunity = (health.immunity + 0.1).min(1.0);
         }
     }
-}
-
-pub fn process_infection(entity: &mut Entity) {
-    process_infection_components(&mut entity.health, &mut entity.metabolism);
 }
 
 pub fn handle_pathogen_emergence(active_pathogens: &mut Vec<Pathogen>, _rng: &mut impl Rng) {
@@ -171,56 +145,4 @@ pub fn handle_infection_ecs<R: Rng>(
             }
         });
     }
-}
-
-pub fn handle_infection<R: Rng>(
-    idx: usize,
-    entities: &mut [Entity],
-    killed_ids: &HashSet<uuid::Uuid>,
-    active_pathogens: &[Pathogen],
-    spatial_hash: &SpatialHash,
-    rng: &mut R,
-) {
-    process_infection(&mut entities[idx]);
-    for p in active_pathogens {
-        if rng.gen_bool(0.005) {
-            try_infect(&mut entities[idx], p, rng);
-        }
-    }
-    if let Some(p) = entities[idx].health.pathogen.clone() {
-        spatial_hash.query_callback(
-            entities[idx].physics.x,
-            entities[idx].physics.y,
-            2.0,
-            |n_idx| {
-                if n_idx != idx
-                    && !killed_ids.contains(&entities[n_idx].identity.id)
-                    && try_infect(&mut entities[n_idx], &p, rng)
-                {}
-            },
-        );
-    }
-}
-
-pub fn handle_death(
-    idx: usize,
-    entities: &[Entity],
-    tick: u64,
-    cause: &str,
-    pop_stats: &mut PopulationStats,
-    events: &mut Vec<LiveEvent>,
-    logger: &mut crate::model::history::HistoryLogger,
-) {
-    let age = tick - entities[idx].metabolism.birth_tick;
-    crate::model::history::record_stat_death(pop_stats, age);
-    let ev = LiveEvent::Death {
-        id: entities[idx].identity.id,
-        age,
-        offspring: entities[idx].metabolism.offspring_count,
-        tick,
-        timestamp: chrono::Utc::now().to_rfc3339(),
-        cause: cause.to_string(),
-    };
-    let _ = logger.log_event(ev.clone());
-    events.push(ev);
 }
