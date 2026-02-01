@@ -348,15 +348,17 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                     intel.genotype.brain.remodel_for_adult_with_rng(ctx.rng);
                     phys.max_speed *= ctx.config.metabolism.adult_speed_multiplier;
                     phys.sensing_range *= ctx.config.metabolism.adult_sensing_multiplier;
-                    let id = world.get::<&primordium_data::Identity>(handle).unwrap().id;
-                    let ev = LiveEvent::Metamorphosis {
-                        id,
-                        name: lifecycle::get_name_components(&id, &met),
-                        tick: ctx.tick,
-                        timestamp: Utc::now().to_rfc3339(),
-                    };
-                    let _ = ctx.logger.log_event(ev.clone());
-                    events.push(ev);
+                    if let Ok(identity) = world.get::<&primordium_data::Identity>(handle) {
+                        let id = identity.id;
+                        let ev = LiveEvent::Metamorphosis {
+                            id,
+                            name: lifecycle::get_name_components(&id, &met),
+                            tick: ctx.tick,
+                            timestamp: Utc::now().to_rfc3339(),
+                        };
+                        let _ = ctx.logger.log_event(ev.clone());
+                        events.push(ev);
+                    }
                 }
             }
             InteractionCommand::TribalSplit {
@@ -377,15 +379,17 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                     met.lineage_id = intel.genotype.lineage_id;
                     ctx.lineage_registry
                         .record_birth(met.lineage_id, met.generation, ctx.tick);
-                    let id = world.get::<&primordium_data::Identity>(handle).unwrap().id;
-                    let ev = LiveEvent::TribalSplit {
-                        id,
-                        lineage_id: met.lineage_id,
-                        tick: ctx.tick,
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                    };
-                    let _ = ctx.logger.log_event(ev.clone());
-                    events.push(ev);
+                    if let Ok(identity) = world.get::<&primordium_data::Identity>(handle) {
+                        let id = identity.id;
+                        let ev = LiveEvent::TribalSplit {
+                            id,
+                            lineage_id: met.lineage_id,
+                            tick: ctx.tick,
+                            timestamp: chrono::Utc::now().to_rfc3339(),
+                        };
+                        let _ = ctx.logger.log_event(ev.clone());
+                        events.push(ev);
+                    }
                 }
             }
         }

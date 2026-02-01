@@ -13,7 +13,12 @@ fn test_r_strategy_fast_reproduction() {
     r_parent.metabolism.energy = 200.0;
 
     // Check maturity at tick 60
-    assert!(r_parent.is_mature(60, config.metabolism.maturity_age));
+    assert!(lifecycle::is_mature_components(
+        &r_parent.metabolism,
+        &r_parent.intel,
+        60,
+        config.metabolism.maturity_age
+    ));
 
     // Reproduce
     let mut rng = rand::thread_rng();
@@ -29,8 +34,10 @@ fn test_r_strategy_fast_reproduction() {
     let (child, _) =
         primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
             &r_parent.position,
-            &r_parent.metabolism,
-            &r_parent.intel,
+            r_parent.metabolism.energy,
+            r_parent.metabolism.generation,
+            &r_parent.intel.genotype,
+            r_parent.intel.specialization,
             &mut ctx,
         );
     r_parent.metabolism.energy *= 1.0 - r_parent.intel.genotype.reproductive_investment as f64;
@@ -52,10 +59,20 @@ fn test_k_strategy_slow_reproduction() {
     k_parent.metabolism.energy = 400.0;
 
     // Check maturity at tick 150 - should NOT be mature
-    assert!(!k_parent.is_mature(150, config.metabolism.maturity_age));
+    assert!(!lifecycle::is_mature_components(
+        &k_parent.metabolism,
+        &k_parent.intel,
+        150,
+        config.metabolism.maturity_age
+    ));
 
     // Check at 250 - should be mature
-    assert!(k_parent.is_mature(250, config.metabolism.maturity_age));
+    assert!(lifecycle::is_mature_components(
+        &k_parent.metabolism,
+        &k_parent.intel,
+        250,
+        config.metabolism.maturity_age
+    ));
 
     // Reproduce
     let mut rng = rand::thread_rng();
@@ -71,8 +88,10 @@ fn test_k_strategy_slow_reproduction() {
     let (child, _) =
         primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
             &k_parent.position,
-            &k_parent.metabolism,
-            &k_parent.intel,
+            k_parent.metabolism.energy,
+            k_parent.metabolism.generation,
+            &k_parent.intel.genotype,
+            k_parent.intel.specialization,
             &mut ctx,
         );
     k_parent.metabolism.energy *= 1.0 - k_parent.intel.genotype.reproductive_investment as f64;

@@ -19,11 +19,14 @@ fn test_symbiosis_spring_force() {
         energy: 100.0,
         birth_tick: 0,
         offspring_count: 0,
+        generation: e2.metabolism.generation,
+        max_energy: e2.metabolism.max_energy,
         r: 0,
         g: 0,
         b: 0,
         rank: 0.5,
         status: primordium_lib::model::state::entity::EntityStatus::Bonded,
+        genotype: Some(std::sync::Arc::new(e2.intel.genotype.clone())),
     };
 
     let env = Environment::default();

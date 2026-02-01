@@ -3,6 +3,7 @@
 use crate::model::brain::GenotypeLogic;
 use crate::model::config::AppConfig;
 use crate::model::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
+use crate::model::lifecycle;
 use crate::model::pheromone::PheromoneGrid;
 use crate::model::spatial_hash::SpatialHash;
 use crate::model::systems::intel;
@@ -72,44 +73,32 @@ pub fn are_same_tribe_components(phys1: &Physics, phys2: &Physics, config: &AppC
     dist < config.social.tribe_color_threshold
 }
 
-type EntityComponents<'a> = (
-    hecs::Entity,
-    (
-        &'a primordium_data::Identity,
-        &'a primordium_data::Position,
-        &'a primordium_data::Velocity,
-        &'a Physics,
-        &'a Metabolism,
-        &'a mut Intel,
-        &'a Health,
-    ),
-);
-
 pub fn handle_symbiosis_components(
     idx: usize,
-    components: &[EntityComponents],
+    snapshots: &[InternalEntitySnapshot],
     outputs: [f32; 12],
     spatial_hash: &SpatialHash,
     config: &AppConfig,
 ) -> Option<Uuid> {
     if outputs[8] > 0.5 {
         let mut partner_id = None;
-        let self_pos = components[idx].1 .1;
-        let self_phys = components[idx].1 .3;
+        let self_snap = &snapshots[idx];
 
         spatial_hash.query_callback(
-            self_pos.x,
-            self_pos.y,
+            self_snap.x,
+            self_snap.y,
             config.social.territorial_range,
             |t_idx| {
                 if idx != t_idx && partner_id.is_none() {
-                    let target_identity = components[t_idx].1 .0;
-                    let target_phys = components[t_idx].1 .3;
-                    let target_intel = &components[t_idx].1 .5;
-                    if target_intel.bonded_to.is_none()
-                        && are_same_tribe_components(self_phys, target_phys, config)
+                    let target_snap = &snapshots[t_idx];
+                    let color_dist = (self_snap.r as i32 - target_snap.r as i32).abs()
+                        + (self_snap.g as i32 - target_snap.g as i32).abs()
+                        + (self_snap.b as i32 - target_snap.b as i32).abs();
+
+                    if color_dist < config.social.tribe_color_threshold
+                        && target_snap.status != primordium_data::EntityStatus::Bonded
                     {
-                        partner_id = Some(target_identity.id);
+                        partner_id = Some(target_snap.id);
                     }
                 }
             },
@@ -132,24 +121,26 @@ pub struct ReproductionContext<'a, R: Rng> {
 
 pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
     pos: &primordium_data::Position,
-    met: &Metabolism,
-    intel: &Intel,
+    energy: f64,
+    generation: u32,
+    genotype: &primordium_data::Genotype,
+    specialization: Option<Specialization>,
     ctx: &mut ReproductionContext<R>,
 ) -> (Entity, f32) {
-    let investment = intel.genotype.reproductive_investment as f64;
-    let child_energy = met.energy * investment;
+    let investment = genotype.reproductive_investment as f64;
+    let child_energy = energy * investment;
 
-    let mut child_genotype = intel.genotype.clone();
+    let mut child_genotype = genotype.clone();
     intel::mutate_genotype(
         &mut child_genotype,
         ctx.config,
         ctx.population,
         ctx.is_radiation_storm,
-        intel.specialization,
+        specialization,
         ctx.rng,
         ctx.ancestral_genotype,
     );
-    let dist = intel.genotype.distance(&child_genotype);
+    let dist = genotype.distance(&child_genotype);
     if dist > ctx.config.evolution.speciation_threshold {
         child_genotype.lineage_id = Uuid::from_u128(ctx.rng.gen());
     }
@@ -189,7 +180,7 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: ctx.tick,
-            generation: met.generation + 1,
+            generation: generation + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
             has_metamorphosed: false,
@@ -231,25 +222,25 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
         }
     }
 
-    baby.update_name();
+    baby.identity.name = lifecycle::get_name_components(&baby.identity.id, &baby.metabolism);
     (baby, dist)
 }
 
 pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
     p1_pos: &primordium_data::Position,
-    p1_met: &Metabolism,
-    p1_intel: &Intel,
+    p1_energy: f64,
+    p1_generation: u32,
+    p1_genotype: &primordium_data::Genotype,
     _p2_pos: &primordium_data::Position,
-    p2_met: &Metabolism,
-    p2_intel: &Intel,
+    p2_energy: f64,
+    p2_generation: u32,
+    p2_genotype: &primordium_data::Genotype,
     ctx: &mut ReproductionContext<R>,
 ) -> (Entity, f32) {
-    let investment = p1_intel.genotype.reproductive_investment as f64;
-    let child_energy = (p1_met.energy + p2_met.energy) * investment / 2.0;
+    let investment = p1_genotype.reproductive_investment as f64;
+    let child_energy = (p1_energy + p2_energy) * investment / 2.0;
 
-    let mut child_genotype = p1_intel
-        .genotype
-        .crossover_with_rng(&p2_intel.genotype, ctx.rng);
+    let mut child_genotype = p1_genotype.crossover_with_rng(p2_genotype, ctx.rng);
     intel::mutate_genotype(
         &mut child_genotype,
         ctx.config,
@@ -293,7 +284,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: ctx.tick,
-            generation: p1_met.generation.max(p2_met.generation) + 1,
+            generation: p1_generation.max(p2_generation) + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
             has_metamorphosed: false,
@@ -303,7 +294,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
         health: Health {
             pathogen: None,
             infection_timer: 0,
-            immunity: (p1_met.energy + p2_met.energy) as f32 / 200.0,
+            immunity: (p1_energy + p2_energy) as f32 / 200.0,
         },
         intel: Intel {
             genotype: child_genotype,
@@ -335,7 +326,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
         }
     }
 
-    baby.update_name();
+    baby.identity.name = lifecycle::get_name_components(&baby.identity.id, &baby.metabolism);
     (baby, 0.1)
 }
 

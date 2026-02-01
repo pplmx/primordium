@@ -23,8 +23,10 @@ fn test_lineage_inheritance() {
     let (child, _) =
         primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
             &parent.position,
-            &parent.metabolism,
-            &parent.intel,
+            parent.metabolism.energy,
+            parent.metabolism.generation,
+            &parent.intel.genotype,
+            parent.intel.specialization,
             &mut ctx,
         );
 

@@ -30,8 +30,10 @@ fn test_phenotype_inheritance_and_mutation() {
     let (child, _) =
         primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
             &p1.position,
-            &p1.metabolism,
-            &p1.intel,
+            p1.metabolism.energy,
+            p1.metabolism.generation,
+            &p1.intel.genotype,
+            p1.intel.specialization,
             &mut ctx,
         );
 
@@ -78,7 +80,14 @@ fn test_sensing_range_affects_perception() {
 
     // We can't easily check private buffers, but we can verify the sensing range was used in the loop.
     // The previous manual audit showed that nearby_indices uses sensing_range.
-    let entities = world.get_all_entities();
+    let mut entities = world.get_all_entities();
+    entities.sort_by(|a, b| {
+        a.physics
+            .sensing_range
+            .partial_cmp(&b.physics.sensing_range)
+            .unwrap()
+    });
+
     assert_eq!(entities[0].physics.sensing_range, 5.0);
     assert_eq!(entities[1].physics.sensing_range, 15.0);
 }

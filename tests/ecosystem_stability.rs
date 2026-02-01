@@ -54,7 +54,12 @@ fn test_hunter_competition_impact() {
 
     world.pop_stats.biomass_c = 0.0;
     world.update(&mut env).unwrap();
-    let energy1 = world.get_all_entities()[0].metabolism.energy;
+    let entities1 = world.get_all_entities();
+    let hunter_after1 = entities1
+        .iter()
+        .find(|e| e.metabolism.trophic_potential > 0.9)
+        .expect("Hunter missing");
+    let energy1 = hunter_after1.metabolism.energy;
 
     let mut world2 = World::new_at(0, config, log_dir).expect("Failed to create world");
     world2.spawn_entity(hunter);
@@ -62,7 +67,12 @@ fn test_hunter_competition_impact() {
 
     world2.pop_stats.biomass_c = 20000.0;
     world2.update(&mut env).unwrap();
-    let energy2 = world2.get_all_entities()[0].metabolism.energy;
+    let entities2 = world2.get_all_entities();
+    let hunter_after2 = entities2
+        .iter()
+        .find(|e| e.metabolism.trophic_potential > 0.9)
+        .expect("Hunter missing");
+    let energy2 = hunter_after2.metabolism.energy;
 
     assert!(
         energy2 < energy1,

@@ -3,12 +3,50 @@ use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
+pub fn get_name_components(id: &Uuid, metabolism: &Metabolism) -> String {
+    let id_str = id.to_string();
+    let bytes = id_str.as_bytes();
+    let syllables = [
+        "ae", "ba", "co", "da", "el", "fa", "go", "ha", "id", "jo", "ka", "lu", "ma", "na", "os",
+        "pe", "qu", "ri", "sa", "tu", "vi", "wu", "xi", "yo", "ze",
+    ];
+    let prefix = [
+        "Aethel", "Bel", "Cor", "Dag", "Eld", "Fin", "Grom", "Had", "Ith", "Jor", "Kael", "Luv",
+        "Mor", "Nar", "Oth", "Pyr", "Quas", "Rhun", "Syl", "Tor", "Val", "Wun", "Xer", "Yor",
+        "Zan",
+    ];
+    let p_idx = (bytes[0] as usize) % prefix.len();
+    let s1_idx = (bytes[1] as usize) % syllables.len();
+    let s2_idx = (bytes[2] as usize) % syllables.len();
+    let tp = metabolism.trophic_potential;
+    let role_prefix = if tp < 0.25 {
+        "H-"
+    } else if tp < 0.45 {
+        "hO-"
+    } else if tp < 0.55 {
+        "O-"
+    } else if tp < 0.75 {
+        "cO-"
+    } else {
+        "C-"
+    };
+    format!(
+        "{}{}{}{}-Gen{}",
+        role_prefix, prefix[p_idx], syllables[s1_idx], syllables[s2_idx], metabolism.generation
+    )
+}
+
+pub fn get_name(entity: &Entity) -> String {
+    get_name_components(&entity.identity.id, &entity.metabolism)
+}
+
 pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) -> Entity {
     let genotype = crate::brain::create_genotype_random_with_rng(rng);
     let id_u128 = rng.gen::<u128>();
+    let id = Uuid::from_u128(id_u128);
     let mut entity = Entity {
         identity: primordium_data::Identity {
-            id: Uuid::from_u128(id_u128),
+            id,
             name: String::new(),
             parent_id: None,
         },
@@ -70,7 +108,7 @@ pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) ->
             ancestral_traits: HashSet::new(),
         },
     };
-    entity.update_name();
+    entity.identity.name = get_name_components(&entity.identity.id, &entity.metabolism);
     entity
 }
 
@@ -163,41 +201,4 @@ pub fn is_mature(entity: &Entity, current_tick: u64, maturity_age: u64) -> bool 
         current_tick,
         maturity_age,
     )
-}
-
-pub fn get_name_components(id: &Uuid, metabolism: &Metabolism) -> String {
-    let id_str = id.to_string();
-    let bytes = id_str.as_bytes();
-    let syllables = [
-        "ae", "ba", "co", "da", "el", "fa", "go", "ha", "id", "jo", "ka", "lu", "ma", "na", "os",
-        "pe", "qu", "ri", "sa", "tu", "vi", "wu", "xi", "yo", "ze",
-    ];
-    let prefix = [
-        "Aethel", "Bel", "Cor", "Dag", "Eld", "Fin", "Grom", "Had", "Ith", "Jor", "Kael", "Luv",
-        "Mor", "Nar", "Oth", "Pyr", "Quas", "Rhun", "Syl", "Tor", "Val", "Wun", "Xer", "Yor",
-        "Zan",
-    ];
-    let p_idx = (bytes[0] as usize) % prefix.len();
-    let s1_idx = (bytes[1] as usize) % syllables.len();
-    let s2_idx = (bytes[2] as usize) % syllables.len();
-    let tp = metabolism.trophic_potential;
-    let role_prefix = if tp < 0.25 {
-        "H-"
-    } else if tp < 0.45 {
-        "hO-"
-    } else if tp < 0.55 {
-        "O-"
-    } else if tp < 0.75 {
-        "cO-"
-    } else {
-        "C-"
-    };
-    format!(
-        "{}{}{}{}-Gen{}",
-        role_prefix, prefix[p_idx], syllables[s1_idx], syllables[s2_idx], metabolism.generation
-    )
-}
-
-pub fn get_name(entity: &Entity) -> String {
-    get_name_components(&entity.identity.id, &entity.metabolism)
 }

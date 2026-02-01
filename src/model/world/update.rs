@@ -1,0 +1,578 @@
+use crate::model::environment::Environment;
+use crate::model::history::LiveEvent;
+use crate::model::interaction::InteractionCommand;
+use chrono::Utc;
+use hecs;
+use primordium_data::{Entity, Food, Health, Identity, Intel, Metabolism, Physics, Position};
+use rand::SeedableRng;
+use rayon::prelude::*;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use crate::model::brain::BrainLogic;
+use crate::model::lifecycle;
+use crate::model::systems::{
+    action, biological, civilization, ecological, environment, history, interaction, social, stats,
+};
+use crate::model::world::{
+    systems, EntityComponents, InternalEntitySnapshot, SystemContext, World,
+};
+
+impl World {
+    pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
+        let mut events = Vec::new();
+        self.tick += 1;
+
+        let world_seed = self.config.world.seed.unwrap_or(0);
+
+        self.update_environment_and_resources(env, world_seed);
+
+        let tick = self.tick;
+        let config = &self.config;
+
+        let interaction_commands;
+        let id_map: HashMap<uuid::Uuid, usize>;
+        let handles: Vec<hecs::Entity>;
+
+        {
+            let mut query = self.ecs.query::<EntityComponents>();
+            let mut entity_data: Vec<_> = query.iter().collect();
+            entity_data.sort_by_key(|(_h, (i, ..))| i.id);
+
+            handles = entity_data.iter().map(|(h, ..)| *h).collect();
+
+            id_map = entity_data
+                .iter()
+                .enumerate()
+                .map(|(idx, (_, (i, ..)))| (i.id, idx))
+                .collect();
+
+            entity_data.par_iter_mut().for_each(
+                |(_handle, (_id, _pos, _vel, _phys, met, intel, _health))| {
+                    intel.rank = social::calculate_social_rank_components(met, intel, tick, config);
+                },
+            );
+
+            let spatial_data: Vec<_> = entity_data
+                .iter()
+                .map(|(_h, (_i, p, _v, _ph, m, _it, _hl))| (p.x, p.y, m.lineage_id))
+                .collect();
+            self.spatial_hash
+                .build_with_lineage(&spatial_data, self.width, self.height);
+
+            let mut food_positions = Vec::new();
+            let mut food_handles = Vec::new();
+            for (handle, (pos, _)) in self.ecs.query::<(&Position, &Food)>().iter() {
+                food_handles.push(handle);
+                food_positions.push((pos.x, pos.y));
+            }
+            self.food_hash
+                .build_parallel(&food_positions, self.width, self.height);
+
+            self.entity_snapshots.clear();
+            for (_h, (identity, pos, _vel, physics, metabolism, intel, health)) in &entity_data {
+                self.entity_snapshots.push(InternalEntitySnapshot {
+                    id: identity.id,
+                    lineage_id: metabolism.lineage_id,
+                    x: pos.x,
+                    y: pos.y,
+                    energy: metabolism.energy,
+                    birth_tick: metabolism.birth_tick,
+                    offspring_count: metabolism.offspring_count,
+                    generation: metabolism.generation,
+                    max_energy: metabolism.max_energy,
+                    r: physics.r,
+                    g: physics.g,
+                    b: physics.b,
+                    rank: intel.rank,
+                    status: lifecycle::calculate_status(
+                        metabolism,
+                        health,
+                        intel,
+                        self.config.brain.activation_threshold,
+                        self.tick,
+                        self.config.metabolism.maturity_age,
+                    ),
+                    genotype: Some(Arc::new(intel.genotype.clone())),
+                });
+            }
+
+            self.learn_and_bond_check_parallel_internal(&mut entity_data);
+
+            let system_ctx = SystemContext {
+                config: &self.config,
+                ecs: &self.ecs,
+                food_hash: &self.food_hash,
+                spatial_hash: &self.spatial_hash,
+                pheromones: &self.pheromones,
+                sound: &self.sound,
+                pressure: &self.pressure,
+                terrain: &self.terrain,
+                tick: self.tick,
+                registry: &self.lineage_registry,
+                snapshots: &self.entity_snapshots,
+                food_handles: &food_handles,
+                world_seed,
+            };
+
+            let (cmds, mut decs) = systems::perceive_and_decide_internal(
+                &system_ctx,
+                env,
+                self.pop_stats.biomass_c,
+                &mut entity_data,
+                &id_map,
+            );
+            interaction_commands = cmds;
+
+            let overmind_broadcasts = systems::execute_actions_internal(
+                &system_ctx,
+                env,
+                &id_map,
+                &mut entity_data,
+                &mut decs,
+            );
+            self.decision_buffer = decs;
+
+            for (l_id, amount) in overmind_broadcasts {
+                self.lineage_registry
+                    .set_memory_value(&l_id, "overmind", amount);
+            }
+        }
+
+        let snapshots = std::mem::take(&mut self.entity_snapshots);
+        self.entity_snapshots = snapshots;
+
+        let food_handles = {
+            let mut food_handles = Vec::new();
+            for (handle, _) in self.ecs.query::<&Food>().iter() {
+                food_handles.push(handle);
+            }
+            food_handles
+        };
+
+        let (mut interaction_events, new_babies) =
+            self.execute_interactions(env, interaction_commands, &handles, &food_handles);
+        events.append(&mut interaction_events);
+
+        self.finalize_tick(env, &mut events, &handles, new_babies);
+
+        self.pheromones.update();
+        self.sound.update();
+        self.pressure.update();
+
+        if self.config.world.deterministic {
+            env.tick_deterministic(self.tick);
+        } else {
+            env.tick();
+        }
+
+        Ok(events)
+    }
+
+    fn update_environment_and_resources(&mut self, env: &mut Environment, world_seed: u64) {
+        action::handle_game_modes_ecs(
+            &mut self.ecs,
+            &self.config,
+            self.tick,
+            self.width,
+            self.height,
+        );
+
+        if self.tick.is_multiple_of(50) {
+            for val in &mut self.social_grid {
+                *val = 0;
+            }
+        }
+
+        self.lineage_registry.decay_memory(0.99);
+
+        let pop_count = self.get_population_count();
+        environment::handle_disasters(
+            env,
+            pop_count,
+            &mut self.terrain,
+            &mut self.rng,
+            &self.config,
+        );
+
+        let (_total_plant_biomass, total_sequestration) =
+            self.terrain
+                .update(self.pop_stats.biomass_h, self.tick, world_seed);
+
+        let total_owned_forests = self
+            .terrain
+            .cells
+            .iter()
+            .filter(|c| {
+                c.terrain_type == crate::model::terrain::TerrainType::Forest && c.owner_id.is_some()
+            })
+            .count();
+        if total_owned_forests > 100 {
+            env.carbon_level = (env.carbon_level - 0.5).max(100.0);
+        }
+
+        env.sequestrate_carbon(total_sequestration * self.config.ecosystem.sequestration_rate);
+        env.add_carbon(pop_count as f64 * self.config.ecosystem.carbon_emission_rate);
+        env.consume_oxygen(pop_count as f64 * self.config.metabolism.oxygen_consumption_rate);
+        env.tick();
+
+        biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut self.rng);
+
+        ecological::spawn_food_ecs(
+            &mut self.ecs,
+            env,
+            &self.terrain,
+            &self.config,
+            self.width,
+            self.height,
+            &mut self.rng,
+        );
+
+        if self.food_dirty {
+            let mut food_positions = std::mem::take(&mut self.food_positions_buffer);
+            food_positions.clear();
+            for (_handle, (pos, _)) in self
+                .ecs
+                .query::<(&Position, &crate::model::food::Food)>()
+                .iter()
+            {
+                food_positions.push((pos.x, pos.y));
+            }
+            self.food_hash
+                .build_parallel(&food_positions, self.width, self.height);
+            self.food_dirty = false;
+            self.food_positions_buffer = food_positions;
+        }
+    }
+
+    fn learn_and_bond_check_parallel_internal(
+        &self,
+        entity_data: &mut [(hecs::Entity, EntityComponents)],
+    ) {
+        entity_data.par_iter_mut().for_each(
+            |(_handle, (_id, _pos, _vel, _phys, met, intel, _health))| {
+                let reinforcement = if met.energy > met.prev_energy {
+                    0.1
+                } else {
+                    -0.05
+                };
+                intel.genotype.brain.learn(
+                    intel.last_inputs,
+                    intel.last_hidden,
+                    reinforcement as f32,
+                );
+            },
+        );
+    }
+
+    fn execute_interactions(
+        &mut self,
+        env: &mut Environment,
+        interaction_commands: Vec<InteractionCommand>,
+        entity_handles: &[hecs::Entity],
+        food_handles: &[hecs::Entity],
+    ) -> (Vec<LiveEvent>, Vec<Entity>) {
+        let (state_cmds, struct_cmds): (Vec<_>, Vec<_>) =
+            interaction_commands.into_iter().partition(|cmd| {
+                matches!(
+                    cmd,
+                    InteractionCommand::TransferEnergy { .. }
+                        | InteractionCommand::UpdateReputation { .. }
+                        | InteractionCommand::Fertilize { .. }
+                )
+            });
+
+        let mut interaction_ctx = interaction::InteractionContext {
+            terrain: &mut self.terrain,
+            env,
+            pop_stats: &mut self.pop_stats,
+            lineage_registry: &mut self.lineage_registry,
+            fossil_registry: &mut self.fossil_registry,
+            logger: &mut self.logger,
+            config: &self.config,
+            tick: self.tick,
+            width: self.width,
+            height: self.height,
+            social_grid: &mut self.social_grid,
+            lineage_consumption: &mut self.lineage_consumption,
+            food_handles,
+            spatial_hash: &self.spatial_hash,
+            rng: &mut self.rng,
+        };
+
+        interaction::process_interaction_commands_ecs(
+            &mut self.ecs,
+            entity_handles,
+            state_cmds,
+            &mut interaction_ctx,
+        );
+
+        let interaction_result = interaction::process_interaction_commands_ecs(
+            &mut self.ecs,
+            entity_handles,
+            struct_cmds,
+            &mut interaction_ctx,
+        );
+
+        for (l_id, amount) in &self.lineage_consumption {
+            self.lineage_registry.record_consumption(*l_id, *amount);
+        }
+        self.lineage_consumption.clear();
+
+        self.killed_ids = interaction_result.killed_ids;
+        self.eaten_food_indices = interaction_result.eaten_food_indices;
+
+        (interaction_result.events, interaction_result.new_babies)
+    }
+
+    fn update_rank_grid(&mut self) {
+        let mut rank_grid = vec![0.0f32; self.width as usize * self.height as usize];
+        let width = self.width as usize;
+        let height = self.height as usize;
+
+        for (_handle, (phys, intel)) in self.ecs.query::<(&Physics, &Intel)>().iter() {
+            let ex = phys.x as i32;
+            let ey = phys.y as i32;
+            let r = 3;
+            for dy in -r..=r {
+                for dx in -r..=r {
+                    let nx = ex + dx;
+                    let ny = ey + dy;
+                    if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                        let idx = (ny as usize * width) + nx as usize;
+                        let dist_sq = dx * dx + dy * dy;
+                        let weight = (1.0 - (dist_sq as f32 / (r * r) as f32).sqrt()).max(0.0);
+                        rank_grid[idx] += intel.rank * weight;
+                    }
+                }
+            }
+        }
+        self.cached_rank_grid = Arc::new(rank_grid);
+    }
+
+    fn finalize_tick(
+        &mut self,
+        env: &mut Environment,
+        events: &mut Vec<LiveEvent>,
+        entity_handles: &[hecs::Entity],
+        new_babies: Vec<Entity>,
+    ) {
+        let config = &self.config;
+        let tick = self.tick;
+
+        {
+            let mut query = self.ecs.query::<(
+                &Identity,
+                &mut Metabolism,
+                &mut Intel,
+                &mut Health,
+                &Physics,
+            )>();
+            let mut components: Vec<_> = query.iter().collect();
+            let population_count = components.len();
+
+            components.par_iter_mut().for_each(
+                |(_handle, (identity, met, intel, health, phys))| {
+                    let mut rng =
+                        rand_chacha::ChaCha8Rng::seed_from_u64(tick ^ identity.id.as_u128() as u64);
+                    biological::biological_system_components(
+                        met,
+                        intel,
+                        health,
+                        phys,
+                        population_count,
+                        config,
+                        &mut rng,
+                    );
+                },
+            );
+        }
+
+        for &handle in entity_handles {
+            biological::handle_infection_ecs(
+                handle,
+                &mut self.ecs,
+                entity_handles,
+                &self.killed_ids,
+                &self.active_pathogens,
+                &self.spatial_hash,
+                &mut self.rng,
+            );
+        }
+
+        let mut dead_handles = Vec::new();
+        for &handle in entity_handles {
+            let is_dead = if let (Ok(identity), Ok(metabolism)) = (
+                self.ecs.get::<&Identity>(handle),
+                self.ecs.get::<&Metabolism>(handle),
+            ) {
+                self.killed_ids.contains(&identity.id) || metabolism.energy <= 0.0
+            } else {
+                false
+            };
+
+            if is_dead {
+                dead_handles.push(handle);
+            }
+        }
+
+        for handle in dead_handles {
+            let met = self.ecs.get::<&Metabolism>(handle);
+            let identity = self.ecs.get::<&Identity>(handle);
+
+            if let (Ok(met), Ok(identity)) = (met, identity) {
+                self.lineage_registry.record_death(met.lineage_id);
+
+                if let (Ok(phys), Ok(intel), Ok(_health)) = (
+                    self.ecs.get::<&Physics>(handle),
+                    self.ecs.get::<&Intel>(handle),
+                    self.ecs.get::<&Health>(handle),
+                ) {
+                    if let Some(legend) = social::archive_if_legend_components(
+                        &identity,
+                        &met,
+                        &intel,
+                        &phys,
+                        tick,
+                        &self.logger,
+                    ) {
+                        history::update_best_legend(
+                            &mut self.lineage_registry,
+                            &mut self.best_legends,
+                            legend,
+                        );
+                    }
+                    let fertilize_amount = (met.max_energy
+                        * self.config.ecosystem.corpse_fertility_mult as f64)
+                        as f32
+                        / 100.0;
+                    self.terrain.fertilize(phys.x, phys.y, fertilize_amount);
+                    self.terrain
+                        .add_biomass(phys.x, phys.y, fertilize_amount * 10.0);
+                }
+            }
+            let _ = self.ecs.despawn(handle);
+        }
+
+        for baby in new_babies {
+            self.ecs.spawn((
+                baby.identity,
+                baby.position,
+                baby.velocity,
+                baby.appearance,
+                baby.physics,
+                baby.metabolism,
+                baby.health,
+                baby.intel,
+            ));
+        }
+
+        if !self.eaten_food_indices.is_empty() {
+            self.food_dirty = true;
+        }
+
+        self.killed_ids.clear();
+        self.eaten_food_indices.clear();
+
+        if self.tick.is_multiple_of(self.config.world.fossil_interval) {
+            let outpost_counts = civilization::count_outposts_by_lineage(&self.terrain);
+            self.lineage_registry.check_goals(
+                self.tick,
+                &self.social_grid,
+                self.width,
+                self.height,
+                &outpost_counts,
+            );
+            let _ = self
+                .lineage_registry
+                .save(format!("{}/lineages.json", self.log_dir));
+            let _ = self
+                .fossil_registry
+                .save(&format!("{}/fossils.json.gz", self.log_dir));
+            let snap_ev = LiveEvent::Snapshot {
+                tick: self.tick,
+                stats: self.pop_stats.clone(),
+                timestamp: Utc::now().to_rfc3339(),
+            };
+            let _ = self.logger.log_event(snap_ev.clone());
+            events.push(snap_ev);
+            history::handle_fossilization(
+                &self.lineage_registry,
+                &mut self.fossil_registry,
+                &mut self.best_legends,
+                self.tick,
+            );
+            self.lineage_registry.prune();
+        }
+
+        civilization::handle_outposts_ecs(
+            &mut self.terrain,
+            &mut self.ecs,
+            entity_handles,
+            &self.spatial_hash,
+            &self.entity_snapshots,
+            self.width,
+            self.config.social.silo_energy_capacity,
+            self.config.social.outpost_energy_capacity,
+        );
+
+        civilization::resolve_contested_ownership(
+            &mut self.terrain,
+            self.width,
+            self.height,
+            &self.spatial_hash,
+            &self.entity_snapshots,
+            &self.lineage_registry,
+        );
+        civilization::resolve_outpost_upgrades(
+            &mut self.terrain,
+            self.width,
+            self.height,
+            &self.spatial_hash,
+            &self.entity_snapshots,
+            &self.lineage_registry,
+        );
+
+        if self
+            .tick
+            .is_multiple_of(self.config.world.power_grid_interval)
+        {
+            civilization::resolve_power_grid(
+                &mut self.terrain,
+                self.width,
+                self.height,
+                &self.lineage_registry,
+            );
+        }
+
+        let snapshot = self.create_snapshot(None);
+        self.cached_terrain = snapshot.terrain;
+        self.cached_pheromones = snapshot.pheromones;
+        self.cached_sound = snapshot.sound;
+        self.cached_pressure = snapshot.pressure;
+        self.cached_social_grid = snapshot.social_grid;
+        self.cached_rank_grid = snapshot.rank_grid;
+
+        stats::update_stats(
+            tick,
+            &snapshot.entities,
+            snapshot.food.len(),
+            env.carbon_level,
+            1.0,
+            &mut self.pop_stats,
+            &mut self.hall_of_fame,
+            &self.terrain,
+        );
+
+        history::handle_fossilization(
+            &self.lineage_registry,
+            &mut self.fossil_registry,
+            &mut self.best_legends,
+            tick,
+        );
+
+        if tick.is_multiple_of(10) {
+            self.update_rank_grid();
+        }
+    }
+}

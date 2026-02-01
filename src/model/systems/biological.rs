@@ -17,11 +17,24 @@ pub fn biological_system_components<R: Rng>(
     rng: &mut R,
 ) {
     process_infection_components(health, metabolism);
+    update_reputation_progress(intel);
+    apply_genetic_drift(intel, population_count, config, rng);
+    update_specialization_progress(intel, config);
+    apply_metabolic_maintenance(metabolism, intel, config);
+}
 
+fn update_reputation_progress(intel: &mut Intel) {
     if intel.reputation < 1.0 {
         intel.reputation = (intel.reputation + 0.001).min(1.0);
     }
+}
 
+fn apply_genetic_drift<R: Rng>(
+    intel: &mut Intel,
+    population_count: usize,
+    config: &AppConfig,
+    rng: &mut R,
+) {
     if population_count > 0
         && population_count < 10
         && rng.gen_bool(config.evolution.drift_rate as f64)
@@ -33,7 +46,9 @@ pub fn biological_system_components<R: Rng>(
             _ => intel.genotype.max_energy = rng.gen_range(50.0..150.0),
         }
     }
+}
 
+fn update_specialization_progress(intel: &mut Intel, config: &AppConfig) {
     if intel.specialization.is_none() {
         let progress = 0.01;
         if intel.last_aggression > 0.8 {
@@ -53,7 +68,9 @@ pub fn biological_system_components<R: Rng>(
             );
         }
     }
+}
 
+fn apply_metabolic_maintenance(metabolism: &mut Metabolism, intel: &Intel, config: &AppConfig) {
     let brain_maintenance = (intel.genotype.brain.nodes.len() as f64
         * config.brain.hidden_node_cost)
         + (intel.genotype.brain.connections.len() as f64 * config.brain.connection_cost);

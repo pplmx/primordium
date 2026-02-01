@@ -1,6 +1,7 @@
 use primordium_data::EntityStatus;
 use primordium_lib::model::brain::Connection;
 use primordium_lib::model::config::AppConfig;
+use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 
 use primordium_lib::model::world::World;
@@ -53,7 +54,7 @@ fn test_soldier_classification() {
     e.metabolism.has_metamorphosed = true;
 
     // Tick=200 > Maturity=100 -> Mature
-    let status = e.status(0.5, 200, 100);
+    let status = lifecycle::calculate_status(&e.metabolism, &e.health, &e.intel, 0.5, 200, 100);
     assert_eq!(
         status,
         EntityStatus::Soldier,
@@ -61,7 +62,7 @@ fn test_soldier_classification() {
     );
 
     e.intel.last_aggression = 0.1;
-    let status2 = e.status(0.5, 0, 100);
+    let status2 = lifecycle::calculate_status(&e.metabolism, &e.health, &e.intel, 0.5, 0, 100);
     assert_ne!(
         status2,
         EntityStatus::Soldier,
@@ -147,7 +148,14 @@ fn test_soldier_damage_bonus() {
     victim.physics.r = 0;
 
     // Verify status manually
-    let status = soldier.status(0.5, 1000, 150);
+    let status = lifecycle::calculate_status(
+        &soldier.metabolism,
+        &soldier.health,
+        &soldier.intel,
+        0.5,
+        1000,
+        150,
+    );
     println!("Soldier Status: {:?}", status);
 
     world.spawn_entity(soldier);
