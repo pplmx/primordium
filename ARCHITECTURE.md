@@ -30,7 +30,8 @@
     * **`environment.rs`**: 环境演替、生物群落（Biomes）转换、碳循环及时代（Era）更替逻辑。
     * **`social.rs`**: 社交行为、捕食者-猎物动态、群体防御（Group Defense）、共生系统（Symbiosis）及跨物种杂交。
     * **`stats.rs`**: 宏观指标计算与多样性热点（Biodiversity Hotspots）探测。
-    * **`intel.rs` / `biological.rs`**: 神经决策推理、代谢生命史策略及职业特化（Caste Specialization）逻辑。
+    * **`influence.rs`**: 实现谱系势力范围（Projection of Power）热图，模拟软性领土主权。
+    * **`intel.rs` / `biological.rs`**: 神经决策推理、基因调控网络 (GRNs) 及代谢生命史策略逻辑。
 
 ### C. 基础设施层 (Model::Infra)
 

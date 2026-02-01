@@ -48,6 +48,7 @@ fn test_sensing_range_affects_perception() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.initial_food = 1;
+    config.evolution.drift_rate = 0.0;
     let mut world = World::new(0, config).unwrap();
     let mut env = Environment::default();
 

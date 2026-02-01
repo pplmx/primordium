@@ -28,10 +28,11 @@ pub struct SystemContext<'a> {
     pub pheromones: &'a PheromoneGrid,
     pub sound: &'a SoundGrid,
     pub pressure: &'a crate::model::pressure::PressureGrid,
+    pub influence: &'a crate::model::influence::InfluenceGrid,
     pub terrain: &'a TerrainGrid,
     pub tick: u64,
     pub registry: &'a LineageRegistry,
-    pub snapshots: &'a [InternalEntitySnapshot],
+    pub snapshots: &'a [crate::model::snapshot::InternalEntitySnapshot],
     pub food_handles: &'a [hecs::Entity],
     pub world_seed: u64,
 }
@@ -59,6 +60,7 @@ pub struct World {
     pub pheromones: PheromoneGrid,
     pub sound: SoundGrid,
     pub pressure: crate::model::pressure::PressureGrid,
+    pub influence: crate::model::influence::InfluenceGrid,
     pub social_grid: Vec<u8>,
     pub lineage_registry: LineageRegistry,
     pub fossil_registry: FossilRegistry,
@@ -81,7 +83,7 @@ pub struct World {
     #[serde(skip, default)]
     pub lineage_consumption: Vec<(uuid::Uuid, f64)>,
     #[serde(skip, default)]
-    pub entity_snapshots: Vec<InternalEntitySnapshot>,
+    pub entity_snapshots: Vec<crate::model::snapshot::InternalEntitySnapshot>,
 
     #[serde(skip)]
     pub cached_terrain: Arc<TerrainGrid>,
@@ -91,6 +93,8 @@ pub struct World {
     pub cached_sound: Arc<SoundGrid>,
     #[serde(skip)]
     pub cached_pressure: Arc<crate::model::pressure::PressureGrid>,
+    #[serde(skip)]
+    pub cached_influence: Arc<crate::model::influence::InfluenceGrid>,
     #[serde(skip)]
     pub cached_social_grid: Arc<Vec<u8>>,
     #[serde(skip)]

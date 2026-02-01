@@ -99,6 +99,8 @@ impl World {
 
             self.learn_and_bond_check_parallel_internal(&mut entity_data);
 
+            self.influence.update(&self.entity_snapshots);
+
             let system_ctx = SystemContext {
                 config: &self.config,
                 ecs: &self.ecs,
@@ -107,6 +109,7 @@ impl World {
                 pheromones: &self.pheromones,
                 sound: &self.sound,
                 pressure: &self.pressure,
+                influence: &self.influence,
                 terrain: &self.terrain,
                 tick: self.tick,
                 registry: &self.lineage_registry,
@@ -550,6 +553,7 @@ impl World {
         self.cached_pheromones = snapshot.pheromones;
         self.cached_sound = snapshot.sound;
         self.cached_pressure = snapshot.pressure;
+        self.cached_influence = snapshot.influence;
         self.cached_social_grid = snapshot.social_grid;
         self.cached_rank_grid = snapshot.rank_grid;
 

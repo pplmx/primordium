@@ -2,6 +2,7 @@ pub mod brain;
 pub mod config;
 pub mod environment;
 pub mod food;
+pub mod influence;
 pub mod interaction;
 pub mod lifecycle;
 pub mod lineage_registry;
@@ -14,5 +15,6 @@ pub mod spatial_hash;
 pub mod terrain;
 
 pub use brain::{BrainLogic, GenotypeLogic};
+pub use influence::{InfluenceGrid, InfluenceSource};
 pub use primordium_data::{Connection, Node, NodeType};
 pub use terrain::TerrainLogic;

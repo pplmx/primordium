@@ -1,3 +1,4 @@
+use crate::influence::InfluenceGrid;
 use crate::pheromone::PheromoneGrid;
 use crate::pressure::PressureGrid;
 use crate::sound::SoundGrid;
@@ -35,6 +36,26 @@ pub struct EntitySnapshot {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct InternalEntitySnapshot {
+    pub id: Uuid,
+    pub lineage_id: Uuid,
+    pub x: f64,
+    pub y: f64,
+    pub energy: f64,
+    pub birth_tick: u64,
+    pub offspring_count: u32,
+    pub generation: u32,
+    pub max_energy: f64,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub rank: f32,
+    pub status: EntityStatus,
+    #[serde(skip)]
+    pub genotype: Option<Arc<primordium_data::Genotype>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WorldSnapshot {
     pub tick: u64,
     pub entities: Vec<EntitySnapshot>,
@@ -45,6 +66,7 @@ pub struct WorldSnapshot {
     pub pheromones: Arc<PheromoneGrid>,
     pub sound: Arc<SoundGrid>,
     pub pressure: Arc<PressureGrid>,
+    pub influence: Arc<InfluenceGrid>,
     pub social_grid: Arc<Vec<u8>>,
     pub rank_grid: Arc<Vec<f32>>,
     pub width: u16,

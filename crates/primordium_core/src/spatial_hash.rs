@@ -1,20 +1,16 @@
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Default)]
 pub struct SpatialHash {
     pub cell_size: f64,
     pub width: u16,
     pub height: u16,
     pub cols: usize,
     pub rows: usize,
-    #[serde(skip, default = "Vec::new")]
     pub cell_offsets: Vec<usize>,
-    #[serde(skip, default = "Vec::new")]
     pub entity_indices: Vec<usize>,
-    #[serde(skip)]
     pub lineage_centroids: HashMap<uuid::Uuid, (f64, f64, usize)>,
 }
 
@@ -35,17 +31,11 @@ impl SpatialHash {
     }
 
     pub fn new_empty() -> Self {
-        Self::new(10.0, 1, 1)
+        Self::new(5.0, 100, 100)
     }
 
-    pub fn clear(&mut self) {
-        self.cell_offsets.fill(0);
-        self.entity_indices.clear();
-        self.lineage_centroids.clear();
-    }
-
-    #[inline(always)]
-    fn get_cell_idx(&self, x: f64, y: f64) -> Option<usize> {
+    #[inline]
+    pub fn get_cell_idx(&self, x: f64, y: f64) -> Option<usize> {
         let cx = (x / self.cell_size).floor() as i32;
         let cy = (y / self.cell_size).floor() as i32;
         if cx >= 0 && cx < self.cols as i32 && cy >= 0 && cy < self.rows as i32 {
@@ -114,7 +104,8 @@ impl SpatialHash {
             .enumerate()
             .for_each(|(entity_idx, &(x, y, _))| {
                 if let Some(cell_idx) = self.get_cell_idx(x, y) {
-                    let write_idx = current_positions[cell_idx].fetch_add(1, Ordering::Relaxed);
+                    let write_idx =
+                        current_positions[cell_idx].fetch_add(1, AtomicOrdering::Relaxed);
                     unsafe {
                         let ptr = self.entity_indices.as_ptr() as *mut usize;
                         *ptr.add(write_idx) = entity_idx;
@@ -155,55 +146,22 @@ impl SpatialHash {
         })
     }
 
-    pub fn add_centroid_data(&mut self, data: &[(f64, f64, uuid::Uuid)]) {
-        let extra_centroids = data
-            .par_iter()
-            .fold(
-                HashMap::new,
-                |mut acc: HashMap<uuid::Uuid, (f64, f64, usize)>, &(x, y, lid)| {
-                    let entry = acc.entry(lid).or_insert((0.0, 0.0, 0));
-                    entry.0 += x;
-                    entry.1 += y;
-                    entry.2 += 1;
-                    acc
-                },
-            )
-            .reduce(HashMap::new, |mut a, b| {
-                for (lid, (sx, sy, count)) in b {
-                    let entry = a.entry(lid).or_insert((0.0, 0.0, 0));
-                    entry.0 += sx;
-                    entry.1 += sy;
-                    entry.2 += count;
-                }
-                a
-            });
-
-        for (lid, (sx, sy, count)) in extra_centroids {
-            let entry = self.lineage_centroids.entry(lid).or_insert((0.0, 0.0, 0));
-            entry.0 += sx;
-            entry.1 += sy;
-            entry.2 += count;
-        }
-    }
-
-    pub fn sense_kin(&self, x: f64, y: f64, range: f64, lid: uuid::Uuid) -> (f64, f64) {
+    pub fn sense_kin(&self, x: f64, y: f64, radius: f64, lid: uuid::Uuid) -> (f64, f64) {
         if let Some((cx, cy)) = self.get_lineage_centroid(&lid) {
-            let dx = (cx - x) / range;
-            let dy = (cy - y) / range;
-            (dx.clamp(-1.0, 1.0), dy.clamp(-1.0, 1.0))
+            let dx = cx - x;
+            let dy = cy - y;
+            let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+            if dist < radius {
+                (dx / dist, dy / dist)
+            } else {
+                (0.0, 0.0)
+            }
         } else {
             (0.0, 0.0)
         }
     }
 
-    pub fn query(&self, x: f64, y: f64, radius: f64) -> Vec<usize> {
-        let mut result = Vec::new();
-        self.query_into(x, y, radius, &mut result);
-        result
-    }
-
-    #[inline]
-    pub fn query_callback<F>(&self, x: f64, y: f64, radius: f64, mut f: F)
+    pub fn query_callback<F>(&self, x: f64, y: f64, radius: f64, mut callback: F)
     where
         F: FnMut(usize),
     {
@@ -225,14 +183,13 @@ impl SpatialHash {
                 let start = self.cell_offsets[cell_idx];
                 let end = self.cell_offsets[cell_idx + 1];
 
-                for &idx in &self.entity_indices[start..end] {
-                    f(idx);
+                for &entity_idx in &self.entity_indices[start..end] {
+                    callback(entity_idx);
                 }
             }
         }
     }
 
-    #[inline]
     pub fn count_nearby(&self, x: f64, y: f64, radius: f64) -> usize {
         let mut count = 0;
         let min_cx = ((x - radius) / self.cell_size).floor() as i32;
@@ -253,6 +210,23 @@ impl SpatialHash {
                 count += self.cell_offsets[cell_idx + 1] - self.cell_offsets[cell_idx];
             }
         }
+        count
+    }
+
+    pub fn count_nearby_kin(
+        &self,
+        x: f64,
+        y: f64,
+        radius: f64,
+        lineage_id: uuid::Uuid,
+        original_data: &[(f64, f64, uuid::Uuid)],
+    ) -> usize {
+        let mut count = 0;
+        self.query_callback(x, y, radius, |idx| {
+            if original_data[idx].2 == lineage_id {
+                count += 1;
+            }
+        });
         count
     }
 
@@ -284,49 +258,42 @@ impl SpatialHash {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
     #[test]
-    fn test_spatial_hash_insert_and_query_same_cell() {
-        let mut hash = SpatialHash::new(10.0, 100, 100);
-        let data = vec![(5.0, 5.0, uuid::Uuid::nil()), (7.0, 8.0, uuid::Uuid::nil())];
-        hash.build_with_lineage(&data, 100, 100);
+    fn test_spatial_hash_query_finds_nearby() {
+        let mut sh = SpatialHash::new(5.0, 20, 20);
+        let data = vec![
+            (1.0, 1.0, uuid::Uuid::new_v4()),
+            (2.0, 2.0, uuid::Uuid::new_v4()),
+            (10.0, 10.0, uuid::Uuid::new_v4()),
+        ];
+        sh.build_with_lineage(&data, 20, 20);
 
-        let results = hash.query(6.0, 6.0, 5.0);
-
-        assert!(results.contains(&0), "Should find entity 0");
-        assert!(results.contains(&1), "Should find entity 1");
+        let mut count = 0;
+        sh.query_callback(1.5, 1.5, 2.0, |_| count += 1);
+        assert_eq!(count, 2);
     }
 
     #[test]
-    fn test_spatial_hash_query_finds_nearby() {
-        let mut hash = SpatialHash::new(5.0, 200, 200);
-        let data = vec![
-            (10.0, 10.0, uuid::Uuid::nil()),
-            (12.0, 10.0, uuid::Uuid::nil()),
-            (100.0, 100.0, uuid::Uuid::nil()),
-        ];
-        hash.build_with_lineage(&data, 200, 200);
-
-        let results = hash.query(11.0, 10.0, 5.0);
-
-        assert!(results.contains(&0), "Should find nearby entity 0");
-        assert!(results.contains(&1), "Should find nearby entity 1");
-        assert!(!results.contains(&2), "Should NOT find distant entity 2");
+    fn test_spatial_hash_insert_and_query_same_cell() {
+        let mut sh = SpatialHash::new(5.0, 20, 20);
+        let data = vec![(1.0, 1.0, uuid::Uuid::new_v4())];
+        sh.build_with_lineage(&data, 20, 20);
+        let mut count = 0;
+        sh.query_callback(1.0, 1.0, 1.0, |_| count += 1);
+        assert_eq!(count, 1);
     }
 
     #[test]
     fn test_spatial_hash_clear() {
-        let mut hash = SpatialHash::new(10.0, 100, 100);
-        let data = vec![
-            (5.0, 5.0, uuid::Uuid::nil()),
-            (15.0, 15.0, uuid::Uuid::nil()),
-        ];
-        hash.build_with_lineage(&data, 100, 100);
-
-        assert!(hash.entity_indices.len() == 2);
-        hash.clear();
-        assert!(hash.entity_indices.is_empty());
+        let mut sh = SpatialHash::new(5.0, 20, 20);
+        let data = vec![(1.0, 1.0, uuid::Uuid::new_v4())];
+        sh.build_with_lineage(&data, 20, 20);
+        sh.build_with_lineage(&[], 20, 20);
+        let mut count = 0;
+        sh.query_callback(1.0, 1.0, 10.0, |_| count += 1);
+        assert_eq!(count, 0);
     }
 }

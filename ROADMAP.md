@@ -25,8 +25,8 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 These tasks are the critical path to the next major version of Primordium.
 
 1.  **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite* ✅ (Complete - Core/Data/Observer crates, Trait-based behaviors)
-2.  **Phase 66: Data-Oriented Core (ECS Refactor)** - *Performance Foundation* ✅ (Food migrated, Parallel SpatialHash, Entity ECS Mirror, Perception Fusion, Rank Heatmaps)
-3.  **Phase 66.5: Cognitive Hygiene & Resilience** - *Long-term Stability* ✅ (Done - Renaming, Neural Pruning, Zero-Allocation Optimizations, Buffer Pooling)
+2.  **Phase 66: Data-Oriented Core (ECS Refactor)** - *Performance Foundation* ✅ (Food migrated, Parallel SpatialHash, Entity ECS Mirror, Perception Fusion, Rank Heatmaps, Gene Regulatory Networks, Influence Maps)
+3.  **Phase 66.5: Cognitive Hygiene & Resilience** - *Long-term Stability* ✅ (Done - Renaming, Neural Pruning, Zero-Allocation Optimizations, Buffer Pooling, Regulatory System)
 4.  **T2: Engineering Excellence (CI/CD + Determinism)** - *Safety Net* ✅ (CI + Release workflows, Zero-Allocation Core, Parallel Scaling verified)
 5.  **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement* ✅ (Foundation - Heuristic narration via primordium_observer)
 6.  **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth* ✅

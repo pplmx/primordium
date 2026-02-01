@@ -46,10 +46,12 @@ fn test_symbiosis_spring_force() {
     let mut id_map = std::collections::HashMap::new();
     id_map.insert(e2.identity.id, 0);
 
+    let influence = primordium_lib::model::influence::InfluenceGrid::new(100, 100);
     let mut ctx = ActionContext {
         env: &env,
         config: &config,
         terrain: &terrain,
+        influence: &influence,
         snapshots: &[snapshot],
         entity_id_map: &id_map,
         spatial_hash: &primordium_lib::model::spatial_hash::SpatialHash::new(5.0, 100, 100),

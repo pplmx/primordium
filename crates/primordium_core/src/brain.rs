@@ -182,6 +182,7 @@ pub fn create_genotype_random_with_rng<R: Rng>(rng: &mut R) -> Genotype {
         mate_preference: 0.5,
         pairing_bias: 0.5,
         specialization_bias: [0.33, 0.33, 0.34],
+        regulatory_rules: Vec::new(),
     }
 }
 
@@ -488,6 +489,7 @@ impl GenotypeLogic for Genotype {
             mate_preference: 0.5,
             pairing_bias: 0.5,
             specialization_bias: [0.33, 0.33, 0.34],
+            regulatory_rules: Vec::new(),
         }
     }
 

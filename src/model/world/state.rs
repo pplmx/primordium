@@ -2,9 +2,10 @@ use crate::model::lifecycle;
 use crate::model::snapshot::{EntitySnapshot, WorldSnapshot};
 use crate::model::world::World;
 use primordium_data::{Food, Physics};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+pub use crate::model::snapshot::InternalEntitySnapshot;
 
 pub type EntityComponents<'a> = (
     &'a primordium_data::Identity,
@@ -16,32 +17,29 @@ pub type EntityComponents<'a> = (
     &'a mut primordium_data::Health,
 );
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct InternalEntitySnapshot {
-    pub id: uuid::Uuid,
-    pub lineage_id: uuid::Uuid,
-    pub x: f64,
-    pub y: f64,
-    pub energy: f64,
-    pub birth_tick: u64,
-    pub offspring_count: u32,
-    pub generation: u32,
-    pub max_energy: f64,
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub rank: f32,
-    pub status: primordium_data::EntityStatus,
-    #[serde(skip)]
-    pub genotype: Option<Arc<primordium_data::Genotype>>,
-}
-
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct EntityDecision {
     pub outputs: [f32; 12],
     pub next_hidden: [f32; 6],
     pub activations: primordium_data::Activations,
     pub nearby_count: usize,
+    pub grn_speed_mod: f64,
+    pub grn_sensing_mod: f64,
+    pub grn_repro_mod: f32,
+}
+
+impl Default for EntityDecision {
+    fn default() -> Self {
+        Self {
+            outputs: [0.0; 12],
+            next_hidden: [0.0; 6],
+            activations: primordium_data::Activations::default(),
+            nearby_count: 0,
+            grn_speed_mod: 1.0,
+            grn_sensing_mod: 1.0,
+            grn_repro_mod: 1.0,
+        }
+    }
 }
 
 impl World {
@@ -240,6 +238,7 @@ impl World {
             pheromones: self.cached_pheromones.clone(),
             sound: self.cached_sound.clone(),
             pressure: self.cached_pressure.clone(),
+            influence: self.cached_influence.clone(),
             social_grid: self.cached_social_grid.clone(),
             rank_grid: self.cached_rank_grid.clone(),
             width: self.width,

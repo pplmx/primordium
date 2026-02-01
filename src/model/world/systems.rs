@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use crate::model::brain::BrainLogic;
 use crate::model::lifecycle;
-use crate::model::systems::{action, ecological, social};
+use crate::model::systems::{action, ecological, intel, social};
 use crate::model::world::{EntityComponents, EntityDecision, SystemContext};
 use social::ReproductionContext;
 
@@ -27,25 +27,44 @@ pub fn perceive_and_decide_internal(
         .zip(decision_buffer.par_iter_mut())
         .for_each(
             |((_handle, (_identity, pos, _vel, phys, met, intel, health)), decision)| {
+                let mut nearby_kin = 0;
+                ctx.spatial_hash
+                    .query_callback(pos.x, pos.y, phys.sensing_range, |t_idx| {
+                        if ctx.snapshots[t_idx].lineage_id == met.lineage_id {
+                            nearby_kin += 1;
+                        }
+                    });
+
+                let (speed_mod, sensing_mod, repro_mod) = intel::apply_grn_rules(
+                    &intel.genotype,
+                    met,
+                    env.oxygen_level,
+                    env.carbon_level,
+                    nearby_kin,
+                    ctx.tick,
+                );
+
+                let eff_sensing_range = phys.sensing_range * sensing_mod;
+
                 let (dx_f, dy_f, f_type) = ecological::sense_nearest_food_ecs_decomposed(
                     pos,
-                    phys,
+                    eff_sensing_range,
                     ctx.ecs,
                     ctx.food_hash,
                     ctx.food_handles,
                 );
                 let nearby_count = ctx
                     .spatial_hash
-                    .count_nearby(pos.x, pos.y, phys.sensing_range);
+                    .count_nearby(pos.x, pos.y, eff_sensing_range);
                 let (ph_f, tribe_d, sa, sb) =
                     ctx.pheromones
-                        .sense_all(pos.x, pos.y, phys.sensing_range / 2.0);
+                        .sense_all(pos.x, pos.y, eff_sensing_range / 2.0);
                 let (kx, ky) =
                     ctx.spatial_hash
-                        .sense_kin(pos.x, pos.y, phys.sensing_range, met.lineage_id);
+                        .sense_kin(pos.x, pos.y, eff_sensing_range, met.lineage_id);
                 let wall_dist = ctx.terrain.sense_wall(pos.x, pos.y, 5.0);
                 let age_ratio = (ctx.tick - met.birth_tick) as f32 / 2000.0;
-                let sound_sense = ctx.sound.sense(pos.x, pos.y, phys.sensing_range);
+                let sound_sense = ctx.sound.sense(pos.x, pos.y, eff_sensing_range);
                 let mut partner_energy = 0.0;
                 if let Some(p_id) = intel.bonded_to {
                     if let Some(&p_idx) = id_map.get(&p_id) {
@@ -53,7 +72,7 @@ pub fn perceive_and_decide_internal(
                             (ctx.snapshots[p_idx].energy / met.max_energy.max(1.0)) as f32;
                     }
                 }
-                let (d_press, b_press) = ctx.pressure.sense(pos.x, pos.y, phys.sensing_range);
+                let (d_press, b_press) = ctx.pressure.sense(pos.x, pos.y, eff_sensing_range);
                 let shared_goal = ctx.registry.get_memory_value(&met.lineage_id, "goal");
                 let shared_threat = ctx.registry.get_memory_value(&met.lineage_id, "threat");
                 let mut lin_pop = 0.0;
@@ -114,6 +133,9 @@ pub fn perceive_and_decide_internal(
                     next_hidden,
                     activations,
                     nearby_count,
+                    grn_speed_mod: speed_mod,
+                    grn_sensing_mod: sensing_mod,
+                    grn_repro_mod: repro_mod,
                 };
             },
         );
@@ -129,9 +151,11 @@ pub fn perceive_and_decide_internal(
                 let decision = &decision_buffer[i];
                 let outputs = decision.outputs;
 
+                let eff_sensing_range = phys.sensing_range * decision.grn_sensing_mod;
+
                 let (dx_f, dy_f, _) = ecological::sense_nearest_food_ecs_decomposed(
                     pos,
-                    phys,
+                    eff_sensing_range,
                     ctx.ecs,
                     ctx.food_hash,
                     ctx.food_handles,
@@ -207,12 +231,19 @@ pub fn perceive_and_decide_internal(
                                 rng: &mut local_rng,
                                 ancestral_genotype: ancestral,
                             };
+
+                            let mut modified_genotype = intel.genotype.clone();
+                            modified_genotype.reproductive_investment = (modified_genotype
+                                .reproductive_investment
+                                * decision.grn_repro_mod)
+                                .clamp(0.1, 0.9);
+
                             let (baby, dist) =
                                 social::reproduce_sexual_parallel_components_decomposed(
                                     pos,
                                     met.energy,
                                     met.generation,
-                                    &intel.genotype,
+                                    &modified_genotype,
                                     &Position {
                                         x: partner_snap.x,
                                         y: partner_snap.y,
@@ -374,11 +405,17 @@ pub fn perceive_and_decide_internal(
                             .get(&met.lineage_id)
                             .and_then(|r| r.max_fitness_genotype.as_ref()),
                     };
+
+                    let mut modified_genotype = intel.genotype.clone();
+                    modified_genotype.reproductive_investment =
+                        (modified_genotype.reproductive_investment * decision.grn_repro_mod)
+                            .clamp(0.1, 0.9);
+
                     let (baby, dist) = social::reproduce_asexual_parallel_components_decomposed(
                         pos,
                         met.energy,
                         met.generation,
-                        &intel.genotype,
+                        &modified_genotype,
                         intel.specialization,
                         &mut repro_ctx,
                     );
@@ -481,6 +518,7 @@ pub fn execute_actions_internal(
                     outputs,
                     next_hidden,
                     activations,
+                    grn_speed_mod,
                     ..
                 } = std::mem::take(decision);
                 intel.last_hidden = next_hidden;
@@ -488,18 +526,24 @@ pub fn execute_actions_internal(
                 intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
 
                 let mut output = action::ActionOutput::default();
-                action::action_system_components(
+
+                let eff_max_speed = phys.max_speed * grn_speed_mod;
+
+                action::action_system_components_with_modifiers(
                     &identity.id,
                     pos,
                     velocity,
                     phys,
+                    eff_max_speed,
                     met,
                     intel,
+                    _health,
                     outputs,
                     &mut action::ActionContext {
                         env,
                         config: ctx.config,
                         terrain: ctx.terrain,
+                        influence: ctx.influence,
                         snapshots: ctx.snapshots,
                         entity_id_map,
                         spatial_hash: ctx.spatial_hash,

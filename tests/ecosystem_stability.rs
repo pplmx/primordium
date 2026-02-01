@@ -47,14 +47,18 @@ fn test_hunter_competition_impact() {
     let mut prey = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
     prey.metabolism.energy = 500.0;
     prey.metabolism.max_energy = 1000.0;
+    prey.metabolism.trophic_potential = 0.0;
+    prey.intel.genotype.brain.connections.clear();
     prey.physics.r = 0;
 
     world.spawn_entity(hunter.clone());
     world.spawn_entity(prey.clone());
+    assert_eq!(world.get_population_count(), 2);
 
     world.pop_stats.biomass_c = 0.0;
     world.update(&mut env).unwrap();
     let entities1 = world.get_all_entities();
+    println!("Pop after update: {}", entities1.len());
     let hunter_after1 = entities1
         .iter()
         .find(|e| e.metabolism.trophic_potential > 0.9)
@@ -68,6 +72,7 @@ fn test_hunter_competition_impact() {
     world2.pop_stats.biomass_c = 20000.0;
     world2.update(&mut env).unwrap();
     let entities2 = world2.get_all_entities();
+    println!("Pop after update (world2): {}", entities2.len());
     let hunter_after2 = entities2
         .iter()
         .find(|e| e.metabolism.trophic_potential > 0.9)

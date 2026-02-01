@@ -65,6 +65,8 @@ impl World {
         let sound = SoundGrid::new(config.world.width, config.world.height);
         let pressure =
             crate::model::pressure::PressureGrid::new(config.world.width, config.world.height);
+        let influence =
+            crate::model::influence::InfluenceGrid::new(config.world.width, config.world.height);
         let social_grid = vec![0; config.world.width as usize * config.world.height as usize];
 
         Ok(Self {
@@ -83,6 +85,7 @@ impl World {
             cached_pheromones: Arc::new(pheromones.clone()),
             cached_sound: Arc::new(sound.clone()),
             cached_pressure: Arc::new(pressure.clone()),
+            cached_influence: Arc::new(influence.clone()),
             cached_social_grid: Arc::new(social_grid.clone()),
             cached_rank_grid: Arc::new(vec![
                 0.0;
@@ -93,6 +96,7 @@ impl World {
             pheromones,
             sound,
             pressure,
+            influence,
             social_grid,
             lineage_registry,
             config,

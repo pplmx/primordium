@@ -19,6 +19,7 @@ fn test_semantic_pheromone_roundtrip() {
         env: &env,
         config: &config,
         terrain: &world.terrain,
+        influence: &world.influence,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
         spatial_hash: &primordium_lib::model::spatial_hash::SpatialHash::new(5.0, 100, 100),

@@ -26,6 +26,7 @@ fn test_ancestral_trait_metabolism_buff() {
         env: &env,
         config: &config,
         terrain: &world.terrain,
+        influence: &world.influence,
         snapshots: &[],
         entity_id_map: &std::collections::HashMap::new(),
         spatial_hash: &world.spatial_hash,

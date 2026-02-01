@@ -57,6 +57,31 @@ pub enum LineageGoal {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RegulatorySensor {
+    Oxygen,
+    Carbon,
+    EnergyRatio,
+    NearbyKin,
+    AgeRatio,
+    Clock,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RegulatoryOperator {
+    GreaterThan,
+    LessThan,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct RegulatoryRule {
+    pub sensor: RegulatorySensor,
+    pub threshold: f32,
+    pub operator: RegulatoryOperator,
+    pub target: GeneType,
+    pub modifier: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GeneType {
     Trophic,
     Sensing,
@@ -215,6 +240,7 @@ pub struct Genotype {
     pub mate_preference: f32,
     pub pairing_bias: f32,
     pub specialization_bias: [f32; 3],
+    pub regulatory_rules: Vec<RegulatoryRule>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

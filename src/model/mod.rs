@@ -43,6 +43,9 @@ pub mod lineage_registry {
 }
 
 pub mod history;
+pub mod influence {
+    pub use primordium_core::influence::*;
+}
 pub mod migration;
 pub mod observer;
 pub mod world;
