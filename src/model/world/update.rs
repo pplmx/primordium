@@ -60,8 +60,9 @@ impl World {
             self.spatial_hash
                 .build_with_lineage(&spatial_data, self.width, self.height);
 
-            let mut food_positions = Vec::new();
-            let mut food_handles = Vec::new();
+            let estimated_food = self.ecs.query::<(&Position, &Food)>().iter().count();
+            let mut food_positions = Vec::with_capacity(estimated_food);
+            let mut food_handles = Vec::with_capacity(estimated_food);
             for (handle, (pos, _)) in self.ecs.query::<(&Position, &Food)>().iter() {
                 food_handles.push(handle);
                 food_positions.push((pos.x, pos.y));
@@ -146,7 +147,8 @@ impl World {
         self.entity_snapshots = snapshots;
 
         let food_handles = {
-            let mut food_handles = Vec::new();
+            let food_count = self.ecs.query::<&Food>().iter().count();
+            let mut food_handles = Vec::with_capacity(food_count);
             for (handle, _) in self.ecs.query::<&Food>().iter() {
                 food_handles.push(handle);
             }
@@ -403,7 +405,7 @@ impl World {
             );
         }
 
-        let mut dead_handles = Vec::new();
+        let mut dead_handles = Vec::with_capacity(entity_handles.len() / 10);
         for &handle in entity_handles {
             let is_dead = if let (Ok(identity), Ok(metabolism)) = (
                 self.ecs.get::<&Identity>(handle),
