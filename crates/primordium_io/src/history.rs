@@ -1,4 +1,5 @@
 use crate::lineage::AncestryTree;
+use crate::storage::StorageManager;
 use anyhow::Result;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
@@ -64,12 +65,14 @@ pub enum LogCommand {
     Legend(Legend),
     SaveLineages(LineageRegistry, String),
     SaveFossils(FossilRegistry, String),
+    SyncToStorage(LineageRegistry, FossilRegistry),
     Stop,
 }
 
 pub struct HistoryLogger {
     sender: Option<Sender<LogCommand>>,
     log_dir: String,
+    pub storage: Option<StorageManager>,
 }
 
 impl HistoryLogger {
@@ -84,6 +87,9 @@ impl HistoryLogger {
 
         let (tx, rx) = mpsc::channel::<LogCommand>();
         let dir_clone = dir.to_string();
+
+        let storage = StorageManager::new(format!("{}/world.db", dir)).ok();
+        let storage_sender = storage.as_ref().map(|s| s.clone_sender());
 
         thread::spawn(move || {
             let file_path = format!("{}/live.jsonl", dir_clone);
@@ -119,12 +125,28 @@ impl HistoryLogger {
                                 let _ = f.flush();
                             }
                         }
+                        if let Some(ref tx) = storage_sender {
+                            let _ = tx.send(crate::storage::StorageCommand::RecordFossil {
+                                lineage_id: lg.lineage_id,
+                                tick: lg.death_tick,
+                                genotype: lg.genotype.to_hex(),
+                                reason: "Legendary Organism".to_string(),
+                            });
+                        }
                     }
                     LogCommand::SaveLineages(reg, path) => {
                         let _ = reg.save(path);
                     }
                     LogCommand::SaveFossils(reg, path) => {
                         let _ = reg.save(&path);
+                    }
+                    LogCommand::SyncToStorage(lin_reg, fos_reg) => {
+                        if let Some(ref tx) = storage_sender {
+                            let _ =
+                                tx.send(crate::storage::StorageCommand::BatchSyncLineages(lin_reg));
+                            let _ =
+                                tx.send(crate::storage::StorageCommand::BatchSyncFossils(fos_reg));
+                        }
                     }
                     LogCommand::Stop => break,
                 }
@@ -134,6 +156,7 @@ impl HistoryLogger {
         Ok(Self {
             sender: Some(tx),
             log_dir: dir.to_string(),
+            storage,
         })
     }
 
@@ -141,6 +164,7 @@ impl HistoryLogger {
         Self {
             sender: None,
             log_dir: "".to_string(),
+            storage: None,
         }
     }
 
@@ -168,6 +192,17 @@ impl HistoryLogger {
     pub fn save_fossils_async(&self, registry: FossilRegistry, path: String) -> Result<()> {
         if let Some(ref tx) = self.sender {
             let _ = tx.send(LogCommand::SaveFossils(registry, path));
+        }
+        Ok(())
+    }
+
+    pub fn sync_to_storage_async(
+        &self,
+        lin_reg: LineageRegistry,
+        fos_reg: FossilRegistry,
+    ) -> Result<()> {
+        if let Some(ref tx) = self.sender {
+            let _ = tx.send(LogCommand::SyncToStorage(lin_reg, fos_reg));
         }
         Ok(())
     }

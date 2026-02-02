@@ -64,6 +64,7 @@ pub fn apply_grn_rules(
     (speed_mod, sensing_mod, repro_mod)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn mutate_genotype<R: Rng>(
     genotype: &mut primordium_data::Genotype,
     config: &crate::config::AppConfig,

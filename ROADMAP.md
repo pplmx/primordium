@@ -24,21 +24,20 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 These tasks are the critical path to the next major version of Primordium.
 
-1.  **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite* ✅ (Complete - Core/Data/Observer crates, Trait-based behaviors)
-2.  **Phase 66: Data-Oriented Core (ECS Refactor)** - *Performance Foundation* ✅ (Food migrated, Parallel SpatialHash, Entity ECS Mirror, Perception Fusion, Rank Heatmaps, Gene Regulatory Networks, Influence Maps)
-3.  **Phase 66.5: Cognitive Hygiene & Resilience** - *Long-term Stability* ✅ (Done - Renaming, Neural Pruning, Zero-Allocation Optimizations, Buffer Pooling, Regulatory System)
-4.  **T2: Engineering Excellence (CI/CD + Determinism)** - *Safety Net* ✅ (CI + Release workflows, Zero-Allocation Core, Parallel Scaling verified)
-5.  **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement* ✅ (Foundation - Heuristic narration via primordium_observer)
-6.  **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth* ✅
-7.  **Phase 66.7: Neural & Social Correction** - *CRITICAL FIX* ✅ (Deterministic Innovation IDs, Parallel Interaction Application, Intelligent Terraforming)
-8.  **Phase 66 Step 2: Entity ECS Migration** - *Performance* ✅ (Completed - Entity split into components, logic uses granular queries)
-9.  **Phase 66 Step 3: System Parallelism** - *Performance* ✅ (Completed - World::update refactored to use pipelined queries)
+1. **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite* ✅ (Complete - Core/Data/Observer crates, Trait-based behaviors)
+2. **Phase 66: Data-Oriented Core (ECS Refactor)** - *Performance Foundation* ✅ (Food migrated, Parallel SpatialHash, Entity ECS Mirror, Perception Fusion, Rank Heatmaps, Gene Regulatory Networks, Influence Maps)
+3. **Phase 66.5: Cognitive Hygiene & Resilience** - *Long-term Stability* ✅ (Done - Renaming, Neural Pruning, Zero-Allocation Optimizations, Buffer Pooling, Regulatory System)
+4. **T2: Engineering Excellence (CI/CD + Determinism)** - *Safety Net* ✅ (CI + Release workflows, Zero-Allocation Core, Parallel Scaling verified)
+5. **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement* ✅ (Foundation - Heuristic narration via primordium_observer)
+6. **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth* ✅
+7. **Phase 66.7: Neural & Social Correction** - *CRITICAL FIX* ✅ (Deterministic Innovation IDs, Parallel Interaction Application, Intelligent Terraforming)
+8. **Phase 66 Step 2: Entity ECS Migration** - *Performance* ✅ (Completed - Entity split into components, logic uses granular queries)
+9. **Phase 66 Step 3: System Parallelism** - *Performance* ✅ (Completed - World::update refactored to use pipelined queries)
 10. **Phase 66 Step 4: Zero-Copy Serialization** - *Performance* ✅ (Completed - Implemented rkyv persistence in primordium_io)
 11. **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite* ✅ (Completed - Extracted primordium_io and decoupled Core)
-12. **Phase 67: The Creator's Interface (Plugin Architecture)** - *Extensibility*
-13. **Phase 68: The Song of Entropy (Audio)** - *Immersion*
-14. **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
-15. **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
+12. **Phase 68: The Song of Entropy (Audio)** - *Immersion*
+13. **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
+14. **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
 
 ---
 
@@ -629,20 +628,6 @@ toml = "0.8"
     - Functional: Instant simulation saves and network transfers.
     - Technical: Implement `rkyv` for memory-mapped persistence of **component tables** (Archetypes).
 
-### Phase 67: The Creator's Interface (Plugin Architecture) 🧩
-
-**Goal:** Community extensibility and modding support.
-
-- **WASM Plugin Host**:
-    - Functional: Users can write custom `Systems` (e.g., new disease logic) in Rust/WASM.
-    - Technical: `wasmer` or `wasmtime` integration to run sandboxed systems during `World::update`.
-- **Lua Scripting**:
-    - Functional: Lightweight scripting for "Disaster Scenarios" or level design.
-    - Technical: `mlua` integration for triggering events based on world state conditions.
-- **Mod Loader**:
-    - Functional: Simple CLI to load/unload mods.
-    - Technical: `mods/` directory scanner and dependency resolution.
-
 ### 🎨 Creative Construction
 
 *Focus on the artistic and sensory experience.*
@@ -679,6 +664,7 @@ toml = "0.8"
 These parallel workstreams focus on the long-term health, stability, and developer experience of the Primordium engine.
 
 ### T1: Architectural Decoupling (The Hexagonal Refactor) 🧱
+
 - **Goal**: Achieve a "Perfect" separation of Data, Logic, IO, and Presentation.
 - **Tasks**:
     - **`primordium_data`** (The Atom):
@@ -713,6 +699,7 @@ These parallel workstreams focus on the long-term health, stability, and develop
         - *Dependencies*: `primordium_net`, `axum`, `tokio`.
 
 ### T2: Continuous Evolution (CI/CD Pipeline) 🔄
+
 - **Goal**: Automate quality assurance.
 - **Tasks**:
     - `test.yml`: Run `cargo test` on every push.
@@ -721,6 +708,7 @@ These parallel workstreams focus on the long-term health, stability, and develop
     - `clippy.yml`: Enforce strict linting rules on PRs.
 
 ### T3: The Testing Gauntlet 🛡️
+
 - **Goal**: Catch distinct edge cases and ensure deterministic simulation.
 - **Tasks**:
     - **Property Testing**: Integrate `proptest` to fuzz `physics` and `collision` logic with millions of inputs.
@@ -728,6 +716,7 @@ These parallel workstreams focus on the long-term health, stability, and develop
     - **Long-Haul Tests**: 24-hour runtime verification to check for memory leaks and numerical drift.
 
 ### T4: Knowledge Preservation (Documentation) 📚
+
 - **Goal**: Move beyond markdown files to a searchable knowledge base.
 - **Tasks**:
     - Setup `mdBook` framework for documentation.

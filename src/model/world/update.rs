@@ -511,11 +511,26 @@ impl World {
                 self.fossil_registry.clone(),
                 format!("{}/fossils.json.gz", self.log_dir),
             );
+            let _ = self
+                .logger
+                .sync_to_storage_async(self.lineage_registry.clone(), self.fossil_registry.clone());
             let snap_ev = LiveEvent::Snapshot {
                 tick: self.tick,
                 stats: self.pop_stats.clone(),
                 timestamp: Utc::now().to_rfc3339(),
             };
+            if let Some(ref storage) = self.logger.storage {
+                let world_data =
+                    serde_json::to_vec(&self.create_snapshot(None)).unwrap_or_default();
+                storage.save_snapshot(
+                    self.tick,
+                    self.pop_stats.population as u32,
+                    env.carbon_level,
+                    self.pop_stats.biomass_h + self.pop_stats.biomass_c,
+                    world_data,
+                );
+            }
+
             let _ = self.logger.log_event(snap_ev.clone());
             events.push(snap_ev);
             history::handle_fossilization(

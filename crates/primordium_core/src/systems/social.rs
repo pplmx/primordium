@@ -259,6 +259,7 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
     (baby, dist)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
     p1_pos: &primordium_data::Position,
     p1_energy: f64,

@@ -249,16 +249,16 @@ impl BrainLogic for Brain {
             }
 
             let mut outputs = [0.0; 12];
-            for i in 0..12 {
+            for (i, output) in outputs.iter_mut().enumerate() {
                 if let Some(&idx) = self.node_idx_map.get(&(i + 29)) {
-                    outputs[i] = node_values[idx];
+                    *output = node_values[idx];
                 }
             }
 
             let mut next_hidden = [0.0; 6];
-            for i in 0..6 {
+            for (i, hidden) in next_hidden.iter_mut().enumerate() {
                 if let Some(&idx) = self.node_idx_map.get(&(i + 41)) {
-                    next_hidden[i] = node_values[idx];
+                    *hidden = node_values[idx];
                 }
             }
 
@@ -287,6 +287,11 @@ impl BrainLogic for Brain {
 
             for (i, output) in outputs.iter_mut().enumerate() {
                 *output = node_values[i + 29];
+            }
+
+            let mut next_hidden = [0.0; 6];
+            for (i, hidden) in next_hidden.iter_mut().enumerate() {
+                *hidden = node_values[i + 41];
             }
 
             let mut next_hidden = [0.0; 6];

@@ -37,6 +37,7 @@ impl Default for ActionOutput {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn action_system_components_with_modifiers(
     id: &uuid::Uuid,
     position: &mut primordium_data::Position,
@@ -276,6 +277,7 @@ pub fn action_system_components_with_modifiers(
     output.oxygen_drain = activity_drain;
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn action_system_components(
     id: &uuid::Uuid,
     position: &mut primordium_data::Position,

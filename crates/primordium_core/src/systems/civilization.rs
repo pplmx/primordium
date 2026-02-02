@@ -312,6 +312,7 @@ pub enum OutpostAction {
     },
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_outposts_ecs(
     terrain: &mut TerrainGrid,
     world: &mut hecs::World,
@@ -337,7 +338,7 @@ pub fn handle_outposts_ecs(
                 if Some(snap.lineage_id) == owner_id {
                     match spec {
                         OutpostSpecialization::Silo => {
-                            if snap.energy > 50.0 {
+                            if snap.energy > snap.max_energy * 0.5 {
                                 // Estimation of surplus
                                 acc.push(OutpostAction::TransferEnergy {
                                     entity_idx: e_idx,
@@ -347,25 +348,25 @@ pub fn handle_outposts_ecs(
                             }
                         }
                         OutpostSpecialization::Nursery => {
-                            if snap.energy < 30.0 && stored > 20.0 {
+                            if snap.energy < snap.max_energy * 0.5 && stored > 20.0 {
                                 acc.push(OutpostAction::TransferEnergy {
                                     entity_idx: e_idx,
-                                    amount: 20.0,
+                                    amount: (snap.max_energy * 0.2).min(stored as f64),
                                     outpost_idx: idx,
                                 });
                             }
                         }
                         _ => {
-                            if snap.energy > 80.0 {
+                            if snap.energy > snap.max_energy * 0.8 {
                                 acc.push(OutpostAction::TransferEnergy {
                                     entity_idx: e_idx,
                                     amount: -snap.energy * 0.05,
                                     outpost_idx: idx,
                                 });
-                            } else if snap.energy < 20.0 && stored > 10.0 {
+                            } else if snap.energy < snap.max_energy * 0.3 && stored > 10.0 {
                                 acc.push(OutpostAction::TransferEnergy {
                                     entity_idx: e_idx,
-                                    amount: 10.0,
+                                    amount: (snap.max_energy * 0.1).min(stored as f64),
                                     outpost_idx: idx,
                                 });
                             }
