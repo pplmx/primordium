@@ -509,6 +509,9 @@ impl App {
                     }
                 }
             }
+            KeyCode::Char('z') | KeyCode::Char('Z') => {
+                self.cinematic_mode = !self.cinematic_mode;
+            }
             KeyCode::Char('i') | KeyCode::Char('I') | KeyCode::Char('l') => {
                 self.show_legend = !self.show_legend;
             }

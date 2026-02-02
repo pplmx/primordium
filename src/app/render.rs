@@ -43,9 +43,13 @@ impl App {
 
         self.last_world_rect = left_layout[2];
 
-        if self.screensaver {
+        if self.screensaver || self.cinematic_mode {
             let world_widget = WorldWidget::new(snapshot, true, self.view_mode);
             f.render_widget(world_widget, f.area());
+
+            if self.cinematic_mode {
+                self.render_cinematic_overlays(f, snapshot);
+            }
         } else {
             // STATUS BAR
             let status_lines = Layout::default()
@@ -177,7 +181,7 @@ impl App {
             );
 
             // LEGEND
-            let legend = " [Space] Pause | [M] Mutate | [K] Smite | [P] Reincarnate | [A] Ancestry | [Y] Archeology | [H] Help ";
+            let legend = " [Space] Pause | [z] Cinematic | [M] Mutate | [K] Smite | [P] Reincarnate | [A] Ancestry | [Y] Archeology | [H] Help ";
             f.render_widget(
                 Paragraph::new(legend).style(Style::default().fg(Color::DarkGray)),
                 status_lines[4],
@@ -345,6 +349,54 @@ impl App {
         ]));
 
         f.render_widget(Paragraph::new(lines).block(block), legend_area);
+    }
+
+    fn render_cinematic_overlays(
+        &self,
+        f: &mut Frame,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
+    ) {
+        let area = f.area();
+        let header_area = ratatui::layout::Rect::new(area.x + 2, area.y + 1, area.width - 4, 3);
+        let footer_area = ratatui::layout::Rect::new(
+            area.x + 2,
+            area.bottom().saturating_sub(2),
+            area.width - 4,
+            1,
+        );
+
+        let header_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Style::default().fg(Color::DarkGray));
+
+        let carbon = snapshot.stats.carbon_level;
+        let climate_text = if carbon > 800.0 {
+            ("Scorching", Color::Red)
+        } else if carbon > 500.0 {
+            ("Warming", Color::Yellow)
+        } else {
+            ("Balanced", Color::Green)
+        };
+
+        let header_text = vec![ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(
+                " PRIMORDIUM ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            ratatui::text::Span::raw(format!(" | Tick: {} | Climate: ", snapshot.tick)),
+            ratatui::text::Span::styled(climate_text.0, Style::default().fg(climate_text.1)),
+        ])];
+
+        f.render_widget(Paragraph::new(header_text).block(header_block), header_area);
+
+        let footer_text = ratatui::text::Span::styled(
+            " [z] Exit Cinematic Mode ",
+            Style::default().fg(Color::DarkGray),
+        );
+        f.render_widget(Paragraph::new(footer_text), footer_area);
     }
 
     fn render_ancestry_tree(

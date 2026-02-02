@@ -49,6 +49,7 @@ pub struct App {
     pub is_anchoring: bool,
     // Modes
     pub screensaver: bool,
+    pub cinematic_mode: bool,
     pub show_help: bool,
     pub show_legend: bool,
     pub help_tab: u8, // 0=Controls, 1=Symbols, 2=Concepts, 3=Eras
@@ -124,6 +125,7 @@ impl App {
             anchor_interval: Duration::from_secs(3600),
             is_anchoring: false,
             screensaver: false,
+            cinematic_mode: false,
             show_help: false,
             show_legend: false,
             help_tab: 0,

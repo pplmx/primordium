@@ -54,6 +54,7 @@ impl App {
                 " ─────────────────────────────────",
                 " [Q]       Quit simulation",
                 " [Space]   Pause / Resume",
+                " [z]       Toggle Cinematic Mode",
                 " [B]       Toggle Brain panel",
                 " [A]       Toggle Ancestry Tree",
                 " [Y]       Toggle Archeology Tool",
