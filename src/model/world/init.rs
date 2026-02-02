@@ -135,7 +135,8 @@ impl World {
 
     pub fn post_load(&mut self) {
         self.ecs = hecs::World::new();
-        for e in std::mem::take(&mut self.entities_persist) {
+        for mut e in std::mem::take(&mut self.entities_persist) {
+            crate::model::brain::BrainLogic::initialize_node_idx_map(&mut e.intel.genotype.brain);
             self.ecs.spawn((
                 e.identity,
                 e.position,

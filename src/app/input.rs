@@ -268,6 +268,7 @@ impl App {
                         intel.specialization,
                         &mut rng,
                         None,
+                        0.0,
                     );
                     phys.sensing_range = intel.genotype.sensing_range;
                     phys.max_speed = intel.genotype.max_speed;
@@ -419,6 +420,7 @@ impl App {
                             intel.specialization,
                             &mut rng,
                             None,
+                            0.0,
                         );
                         phys.sensing_range = intel.genotype.sensing_range;
                         phys.max_speed = intel.genotype.max_speed;

@@ -84,6 +84,7 @@ fn test_global_event_radiation_surge() {
         None,
         &mut rng,
         None,
+        0.0,
     );
 
     assert_ne!(genotype.to_hex(), original_dna);

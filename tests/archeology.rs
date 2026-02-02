@@ -68,6 +68,7 @@ fn test_fossilization_and_snapshots() {
     );
 
     // 5. Check if Snapshot event was emitted
+    std::thread::sleep(std::time::Duration::from_millis(100)); // Wait for async logger
     let snapshots = world.logger.get_snapshots().unwrap();
     assert!(
         !snapshots.is_empty(),

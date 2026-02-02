@@ -10,7 +10,9 @@ pub trait BrainLogic {
         &self,
         inputs: [f32; 29],
         last_hidden: [f32; 6],
-    ) -> ([f32; 12], [f32; 6], primordium_data::Activations);
+        activations: &mut primordium_data::Activations,
+    ) -> ([f32; 12], [f32; 6]);
+
     fn learn(&mut self, inputs: [f32; 29], last_hidden: [f32; 6], reinforcement: f32);
     fn mutate_with_config<R: Rng>(
         &mut self,
@@ -23,6 +25,7 @@ pub trait BrainLogic {
     fn crossover_with_rng<R: Rng>(&self, other: &Brain, rng: &mut R) -> Brain;
     fn crossover(&self, other: &Brain) -> Brain;
     fn remodel_for_adult_with_rng<R: Rng>(&mut self, rng: &mut R);
+    fn initialize_node_idx_map(&mut self);
 }
 
 pub trait GenotypeLogic {
@@ -133,13 +136,16 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
         }
     }
 
-    Brain {
+    let mut brain = Brain {
         nodes,
         connections,
         next_node_id: 47,
         learning_rate: 0.0,
         weight_deltas: HashMap::new(),
-    }
+        node_idx_map: HashMap::new(),
+    };
+    brain.initialize_node_idx_map();
+    brain
 }
 
 /// Deterministic Innovation ID based on connection topology.
@@ -197,61 +203,126 @@ impl BrainLogic for Brain {
     }
 
     fn forward(&self, inputs: [f32; 29], last_hidden: [f32; 6]) -> ([f32; 12], [f32; 6]) {
-        let (outputs, next_hidden, _) = self.forward_internal(inputs, last_hidden);
-        (outputs, next_hidden)
+        let mut activations = primordium_data::Activations::default();
+        self.forward_internal(inputs, last_hidden, &mut activations)
     }
 
     fn forward_internal(
         &self,
         inputs: [f32; 29],
         _last_hidden: [f32; 6],
-    ) -> ([f32; 12], [f32; 6], primordium_data::Activations) {
-        let max_id = self.nodes.iter().map(|n| n.id).max().unwrap_or(63);
-        let mut node_values = vec![0.0f32; (max_id + 1).max(64)];
-        for (i, &val) in inputs.iter().enumerate() {
-            node_values[i] = val;
-        }
+        activations: &mut primordium_data::Activations,
+    ) -> ([f32; 12], [f32; 6]) {
+        let node_count = self.nodes.len();
+        let node_values = &mut activations.0;
+        node_values.clear();
+        node_values.resize(node_count, 0.0);
 
-        for conn in &self.connections {
-            if !conn.enabled {
-                continue;
+        let use_dense = !self.node_idx_map.is_empty();
+
+        if use_dense {
+            for (i, &val) in inputs.iter().enumerate() {
+                if let Some(&idx) = self.node_idx_map.get(&i) {
+                    if idx < node_count {
+                        node_values[idx] = val;
+                    }
+                }
             }
-            let val = node_values[conn.from];
-            node_values[conn.to] += val * conn.weight;
-        }
 
-        let mut outputs = [0.0; 12];
-        for node in &self.nodes {
-            node_values[node.id] = node_values[node.id].tanh();
-        }
+            for conn in &self.connections {
+                if !conn.enabled {
+                    continue;
+                }
+                let from_idx = self.node_idx_map.get(&conn.from);
+                let to_idx = self.node_idx_map.get(&conn.to);
 
-        for (i, output) in outputs.iter_mut().enumerate() {
-            *output = node_values[i + 29];
-        }
+                if let (Some(&f), Some(&t)) = (from_idx, to_idx) {
+                    let val = node_values[f];
+                    node_values[t] += val * conn.weight;
+                }
+            }
 
-        let mut next_hidden = [0.0; 6];
-        for (i, val) in next_hidden.iter_mut().enumerate() {
-            *val = node_values[i + 41];
-        }
+            for node in &self.nodes {
+                if let Some(&idx) = self.node_idx_map.get(&node.id) {
+                    node_values[idx] = node_values[idx].tanh();
+                }
+            }
 
-        (
-            outputs,
-            next_hidden,
-            primordium_data::Activations(node_values),
-        )
+            let mut outputs = [0.0; 12];
+            for i in 0..12 {
+                if let Some(&idx) = self.node_idx_map.get(&(i + 29)) {
+                    outputs[i] = node_values[idx];
+                }
+            }
+
+            let mut next_hidden = [0.0; 6];
+            for i in 0..6 {
+                if let Some(&idx) = self.node_idx_map.get(&(i + 41)) {
+                    next_hidden[i] = node_values[idx];
+                }
+            }
+
+            (outputs, next_hidden)
+        } else {
+            let max_id = self.nodes.iter().map(|n| n.id).max().unwrap_or(63);
+            node_values.clear();
+            node_values.resize((max_id + 1).max(64), 0.0);
+
+            for (i, &val) in inputs.iter().enumerate() {
+                node_values[i] = val;
+            }
+
+            for conn in &self.connections {
+                if !conn.enabled {
+                    continue;
+                }
+                let val = node_values[conn.from];
+                node_values[conn.to] += val * conn.weight;
+            }
+
+            let mut outputs = [0.0; 12];
+            for node in &self.nodes {
+                node_values[node.id] = node_values[node.id].tanh();
+            }
+
+            for (i, output) in outputs.iter_mut().enumerate() {
+                *output = node_values[i + 29];
+            }
+
+            let mut next_hidden = [0.0; 6];
+            for (i, val) in next_hidden.iter_mut().enumerate() {
+                *val = node_values[i + 41];
+            }
+
+            (outputs, next_hidden)
+        }
     }
 
     fn learn(&mut self, inputs: [f32; 29], last_hidden: [f32; 6], reinforcement: f32) {
         if self.learning_rate.abs() < 1e-4 || reinforcement.abs() < 1e-4 {
             return;
         }
-        let (_, _, activations) = self.forward_internal(inputs, last_hidden);
+        let mut activations = primordium_data::Activations::default();
+        self.forward_internal(inputs, last_hidden, &mut activations);
+
+        let use_dense = !self.node_idx_map.is_empty();
+
         for conn in &mut self.connections {
             if !conn.enabled {
                 continue;
             }
-            let pre = activations.0[conn.from];
-            let post = activations.0[conn.to];
+
+            let (pre, post) = if use_dense {
+                let f = self.node_idx_map.get(&conn.from);
+                let t = self.node_idx_map.get(&conn.to);
+                match (f, t) {
+                    (Some(&fi), Some(&ti)) => (activations.0[fi], activations.0[ti]),
+                    _ => (0.0, 0.0),
+                }
+            } else {
+                (activations.0[conn.from], activations.0[conn.to])
+            };
+
             let delta = self.learning_rate * reinforcement * pre * post;
             conn.weight += delta;
             conn.weight = conn.weight.clamp(-5.0, 5.0);
@@ -269,20 +340,30 @@ impl BrainLogic for Brain {
         let rate = config.evolution.mutation_rate;
         let amount = config.evolution.mutation_amount;
 
+        let mut protected_nodes = std::collections::HashSet::new();
+        if let Some(spec) = specialization {
+            use primordium_data::Specialization;
+            let target_nodes = match spec {
+                Specialization::Soldier => vec![32],
+                Specialization::Engineer => vec![38, 39],
+                Specialization::Provider => vec![33],
+            };
+            for &t in &target_nodes {
+                protected_nodes.insert(t);
+            }
+            for c in &self.connections {
+                if c.enabled && target_nodes.contains(&c.to) {
+                    protected_nodes.insert(c.from);
+                }
+            }
+        }
+
         for conn in &mut self.connections {
             if rng.gen::<f32>() < rate {
                 let mut mut_amount = amount;
 
-                if let Some(spec) = specialization {
-                    use primordium_data::Specialization;
-                    let is_protected = match spec {
-                        Specialization::Soldier => conn.to == 32,
-                        Specialization::Engineer => conn.to == 38 || conn.to == 39,
-                        _ => false,
-                    };
-                    if is_protected {
-                        mut_amount *= 0.1;
-                    }
+                if !protected_nodes.is_empty() && protected_nodes.contains(&conn.to) {
+                    mut_amount *= 0.1;
                 }
 
                 conn.weight += rng.gen_range(-mut_amount..mut_amount);
@@ -350,6 +431,7 @@ impl BrainLogic for Brain {
             self.connections
                 .retain(|c| c.weight.abs() >= config.brain.pruning_threshold || !c.enabled);
         }
+        self.initialize_node_idx_map();
     }
 
     fn genotype_distance(&self, other: &Brain) -> f32 {
@@ -416,7 +498,7 @@ impl BrainLogic for Brain {
             }
         }
 
-        Brain {
+        let mut child = Brain {
             nodes: child_nodes,
             connections: child_connections,
             next_node_id: self.next_node_id.max(other.next_node_id),
@@ -426,7 +508,10 @@ impl BrainLogic for Brain {
                 other.learning_rate
             },
             weight_deltas: HashMap::new(),
-        }
+            node_idx_map: HashMap::new(),
+        };
+        child.initialize_node_idx_map();
+        child
     }
 
     fn crossover(&self, other: &Brain) -> Brain {
@@ -465,6 +550,14 @@ impl BrainLogic for Brain {
             }
         }
         self.learning_rate = (self.learning_rate + 0.05).clamp(0.0, 0.5);
+        self.initialize_node_idx_map();
+    }
+
+    fn initialize_node_idx_map(&mut self) {
+        self.node_idx_map.clear();
+        for (idx, node) in self.nodes.iter().enumerate() {
+            self.node_idx_map.insert(node.id, idx);
+        }
     }
 }
 

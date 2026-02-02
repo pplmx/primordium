@@ -116,10 +116,11 @@ pub fn perceive_and_decide_internal(
                     overmind_signal,
                 ];
 
-                let (mut outputs, next_hidden, activations) = intel
-                    .genotype
-                    .brain
-                    .forward_internal(inputs, intel.last_hidden);
+                let (mut outputs, next_hidden) = intel.genotype.brain.forward_internal(
+                    inputs,
+                    intel.last_hidden,
+                    &mut intel.last_activations,
+                );
                 if let Some(ref path) = health.pathogen {
                     if let Some((idx, offset)) = path.behavior_manipulation {
                         let out_idx = idx.saturating_sub(22);
@@ -128,10 +129,9 @@ pub fn perceive_and_decide_internal(
                         }
                     }
                 }
+                intel.last_hidden = next_hidden;
                 *decision = EntityDecision {
                     outputs,
-                    next_hidden,
-                    activations,
                     nearby_count,
                     grn_speed_mod: speed_mod,
                     grn_sensing_mod: sensing_mod,
@@ -513,13 +513,9 @@ pub fn execute_actions_internal(
             |((_handle, (identity, pos, velocity, phys, met, intel, _health)), decision)| {
                 let EntityDecision {
                     outputs,
-                    next_hidden,
-                    activations,
                     grn_speed_mod,
                     ..
                 } = std::mem::take(decision);
-                intel.last_hidden = next_hidden;
-                intel.last_activations = activations;
                 intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
 
                 let mut output = action::ActionOutput::default();

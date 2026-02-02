@@ -20,8 +20,6 @@ pub type EntityComponents<'a> = (
 #[derive(Clone)]
 pub struct EntityDecision {
     pub outputs: [f32; 12],
-    pub next_hidden: [f32; 6],
-    pub activations: primordium_data::Activations,
     pub nearby_count: usize,
     pub grn_speed_mod: f64,
     pub grn_sensing_mod: f64,
@@ -32,8 +30,6 @@ impl Default for EntityDecision {
     fn default() -> Self {
         Self {
             outputs: [0.0; 12],
-            next_hidden: [0.0; 6],
-            activations: primordium_data::Activations::default(),
             nearby_count: 0,
             grn_speed_mod: 1.0,
             grn_sensing_mod: 1.0,

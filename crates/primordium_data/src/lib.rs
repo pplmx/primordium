@@ -41,6 +41,9 @@ pub struct Brain {
     #[serde(skip, default = "HashMap::new")]
     #[with(rkyv::with::Skip)]
     pub weight_deltas: HashMap<usize, f32>,
+    #[serde(skip, default = "HashMap::new")]
+    #[with(rkyv::with::Skip)]
+    pub node_idx_map: HashMap<usize, usize>,
 }
 
 #[derive(

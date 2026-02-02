@@ -264,16 +264,31 @@ pub fn resolve_power_grid(
         groups.entry(root).or_default().push(idx);
     }
 
-    for group in groups.values() {
-        if group.len() > 1 {
-            let total_energy: f32 = group.iter().map(|&i| terrain.cells[i].energy_store).sum();
+    let group_data: Vec<Vec<usize>> = groups.into_values().filter(|g| g.len() > 1).collect();
+
+    let terrain_ref = &*terrain;
+    let changes: Vec<(usize, f32)> = group_data
+        .par_iter()
+        .flat_map(|group| {
+            let total_energy: f32 = group
+                .iter()
+                .map(|&i| terrain_ref.cells[i].energy_store)
+                .sum();
             let avg_energy = total_energy / group.len() as f32;
-            for &i in group {
-                let current = terrain.cells[i].energy_store;
-                let flow = (avg_energy - current) * 0.1;
-                terrain.cells[i].energy_store += flow;
-            }
-        }
+
+            group
+                .iter()
+                .map(move |&i| {
+                    let current = terrain_ref.cells[i].energy_store;
+                    let flow = (avg_energy - current) * 0.1;
+                    (i, flow)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    for (i, flow) in changes {
+        terrain.cells[i].energy_store += flow;
     }
 }
 

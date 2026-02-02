@@ -55,6 +55,7 @@ impl World {
 
         let genotype = primordium_data::Genotype::from_hex(&dna)?;
         entity.intel.genotype = genotype;
+        crate::model::brain::BrainLogic::initialize_node_idx_map(&mut entity.intel.genotype.brain);
         // Sync phenotype
         entity.physics.sensing_range = entity.intel.genotype.sensing_range;
         entity.physics.max_speed = entity.intel.genotype.max_speed;

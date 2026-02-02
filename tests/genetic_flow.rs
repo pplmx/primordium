@@ -80,6 +80,7 @@ fn test_genetic_surge() {
             None,
             &mut rng,
             None,
+            0.0,
         );
     }
 

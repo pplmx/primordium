@@ -1,10 +1,10 @@
 use crate::model::environment::Environment;
-use crate::model::history::{FossilPersistence, LineagePersistence, LiveEvent};
+use crate::model::history::LiveEvent;
 use crate::model::interaction::InteractionCommand;
 use chrono::Utc;
 use hecs;
 use primordium_data::{Entity, Food, Health, Identity, Intel, Metabolism, Physics, Position};
-use rand::SeedableRng;
+use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -216,11 +216,12 @@ impl World {
                 c.terrain_type == crate::model::terrain::TerrainType::Forest && c.owner_id.is_some()
             })
             .count();
-        if total_owned_forests > 100 {
-            env.carbon_level = (env.carbon_level - 0.5).max(100.0);
-        }
 
-        env.sequestrate_carbon(total_sequestration * self.config.ecosystem.sequestration_rate);
+        let sequestration_bonus =
+            total_owned_forests as f64 * self.config.ecosystem.sequestration_rate * 0.1;
+        env.sequestrate_carbon(
+            total_sequestration * self.config.ecosystem.sequestration_rate + sequestration_bonus,
+        );
         env.add_carbon(pop_count as f64 * self.config.ecosystem.carbon_emission_rate);
         env.consume_oxygen(pop_count as f64 * self.config.metabolism.oxygen_consumption_rate);
         env.tick();
@@ -350,8 +351,12 @@ impl World {
     ) {
         let config = &self.config;
         let tick = self.tick;
+        let active_pathogens = &self.active_pathogens;
+        let spatial_hash = &self.spatial_hash;
+        let killed_ids = &self.killed_ids;
 
-        {
+        // 1. Parallel pass: Update systems and collect proposals
+        let proposals: Vec<_> = {
             let mut query = self.ecs.query::<(
                 &Identity,
                 &mut Metabolism,
@@ -362,10 +367,13 @@ impl World {
             let mut components: Vec<_> = query.iter().collect();
             let population_count = components.len();
 
-            components.par_iter_mut().for_each(
-                |(_handle, (identity, met, intel, health, phys))| {
+            components
+                .par_iter_mut()
+                .map(|(handle, (identity, met, intel, health, phys))| {
                     let mut rng =
                         rand_chacha::ChaCha8Rng::seed_from_u64(tick ^ identity.id.as_u128() as u64);
+
+                    // a. Basic biological update
                     biological::biological_system_components(
                         met,
                         intel,
@@ -375,50 +383,74 @@ impl World {
                         config,
                         &mut rng,
                     );
-                },
-            );
+
+                    // b. Infection check (Incoming from environment)
+                    for p in active_pathogens {
+                        if rng.gen_bool(0.005) {
+                            biological::try_infect_components(health, p, &mut rng);
+                        }
+                    }
+
+                    // c. Infection Spread proposal (Outgoing to neighbors)
+                    let mut infections = Vec::new();
+                    if let Some(p) = &health.pathogen {
+                        spatial_hash.query_callback(phys.x, phys.y, 2.0, |n_idx| {
+                            let n_handle = entity_handles[n_idx];
+                            if n_handle != *handle {
+                                infections.push((n_handle, p.clone()));
+                            }
+                        });
+                    }
+
+                    // d. Death check
+                    let is_dead = killed_ids.contains(&identity.id) || met.energy <= 0.0;
+
+                    (*handle, infections, is_dead)
+                })
+                .collect()
+        };
+
+        // 2. Sequential pass: Apply proposals
+        for (_handle, infections, _) in &proposals {
+            for (n_handle, pathogen) in infections {
+                if let Ok(mut n_health) = self.ecs.get::<&mut Health>(*n_handle) {
+                    biological::try_infect_components(&mut n_health, pathogen, &mut self.rng);
+                }
+            }
         }
 
-        for &handle in entity_handles {
-            biological::handle_infection_ecs(
-                handle,
-                &mut self.ecs,
-                entity_handles,
-                &self.killed_ids,
-                &self.active_pathogens,
-                &self.spatial_hash,
-                &mut self.rng,
-            );
-        }
-
-        let mut dead_handles = Vec::with_capacity(entity_handles.len() / 10);
-        for &handle in entity_handles {
-            let is_dead = if let (Ok(identity), Ok(metabolism)) = (
-                self.ecs.get::<&Identity>(handle),
-                self.ecs.get::<&Metabolism>(handle),
-            ) {
-                self.killed_ids.contains(&identity.id) || metabolism.energy <= 0.0
-            } else {
-                false
-            };
-
+        let mut dead_handles = Vec::new();
+        for (handle, _, is_dead) in proposals {
             if is_dead {
                 dead_handles.push(handle);
             }
         }
 
         for handle in dead_handles {
-            let met = self.ecs.get::<&Metabolism>(handle);
-            let identity = self.ecs.get::<&Identity>(handle);
+            let (dead_info, extra) = {
+                if let (Ok(met), Ok(identity)) = (
+                    self.ecs.get::<&Metabolism>(handle),
+                    self.ecs.get::<&Identity>(handle),
+                ) {
+                    let info = ((*met).clone(), (*identity).clone());
+                    let extra = if let (Ok(phys), Ok(intel)) = (
+                        self.ecs.get::<&Physics>(handle),
+                        self.ecs.get::<&Intel>(handle),
+                    ) {
+                        Some(((*phys).clone(), (*intel).clone()))
+                    } else {
+                        None
+                    };
+                    (Some(info), extra)
+                } else {
+                    (None, None)
+                }
+            };
 
-            if let (Ok(met), Ok(identity)) = (met, identity) {
+            if let Some((met, identity)) = dead_info {
                 self.lineage_registry.record_death(met.lineage_id);
 
-                if let (Ok(phys), Ok(intel), Ok(_health)) = (
-                    self.ecs.get::<&Physics>(handle),
-                    self.ecs.get::<&Intel>(handle),
-                    self.ecs.get::<&Health>(handle),
-                ) {
+                if let Some((phys, intel)) = extra {
                     if let Some(legend) =
                         social::archive_if_legend_components(&identity, &met, &intel, &phys, tick)
                     {
@@ -437,8 +469,8 @@ impl World {
                     self.terrain
                         .add_biomass(phys.x, phys.y, fertilize_amount * 10.0);
                 }
+                let _ = self.ecs.despawn(handle);
             }
-            let _ = self.ecs.despawn(handle);
         }
 
         for baby in new_babies {
@@ -470,19 +502,15 @@ impl World {
                 self.height,
                 &outpost_counts,
             );
-            // self.lineage_registry.save(...) needs moving to IO?
-            // LineageRegistry is in Core. It has save logic?
-            // I haven't moved LineageRegistry save logic yet.
-            // I should use IO trait if possible.
-            // For now I'll comment out save calls to break dependency, or use simple serde save if LineageRegistry still has it?
-            // LineageRegistry is in Core.
-            // I should assume LineageRegistry STILL has save for now (I haven't edited core/lineage_registry.rs yet).
-            let _ = self
-                .lineage_registry
-                .save(format!("{}/lineages.json", self.log_dir));
-            let _ = self
-                .fossil_registry
-                .save(&format!("{}/fossils.json.gz", self.log_dir));
+            self.lineage_registry.prune();
+            let _ = self.logger.save_lineages_async(
+                self.lineage_registry.clone(),
+                format!("{}/lineages.json", self.log_dir),
+            );
+            let _ = self.logger.save_fossils_async(
+                self.fossil_registry.clone(),
+                format!("{}/fossils.json.gz", self.log_dir),
+            );
             let snap_ev = LiveEvent::Snapshot {
                 tick: self.tick,
                 stats: self.pop_stats.clone(),

@@ -161,6 +161,8 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
     let child_energy = energy * investment;
 
     let mut child_genotype = genotype.clone();
+    let stress_factor = (1.0 - (energy / genotype.max_energy)).max(0.0) as f32;
+
     intel::mutate_genotype(
         &mut child_genotype,
         ctx.config,
@@ -169,6 +171,7 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
         specialization,
         ctx.rng,
         ctx.ancestral_genotype,
+        stress_factor,
     );
     let dist = genotype.distance(&child_genotype);
     if dist > ctx.config.evolution.speciation_threshold {
@@ -271,6 +274,10 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
     let child_energy = (p1_energy + p2_energy) * investment / 2.0;
 
     let mut child_genotype = p1_genotype.crossover_with_rng(p2_genotype, ctx.rng);
+    let combined_energy = (p1_energy + p2_energy) / 2.0;
+    let avg_max_energy = (p1_genotype.max_energy + p2_genotype.max_energy) / 2.0;
+    let stress_factor = (1.0 - (combined_energy / avg_max_energy)).max(0.0) as f32;
+
     intel::mutate_genotype(
         &mut child_genotype,
         ctx.config,
@@ -279,6 +286,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
         None,
         ctx.rng,
         ctx.ancestral_genotype,
+        stress_factor,
     );
 
     let mut baby = Entity {

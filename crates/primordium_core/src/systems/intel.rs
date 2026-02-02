@@ -72,6 +72,7 @@ pub fn mutate_genotype<R: Rng>(
     specialization: Option<primordium_data::Specialization>,
     rng: &mut R,
     ancestral_genotype: Option<&primordium_data::Genotype>,
+    stress_factor: f32,
 ) {
     let mut effective_mutation_rate = config.evolution.mutation_rate;
     let mut effective_mutation_amount = config.evolution.mutation_amount;
@@ -82,8 +83,11 @@ pub fn mutate_genotype<R: Rng>(
     }
 
     if let Some(ancestral) = ancestral_genotype {
-        if rng.gen_bool(0.01) {
+        let recall_chance = 0.01 + (stress_factor * 0.05); // Up to 6% chance under high stress
+        if rng.gen_bool(recall_chance as f64) {
             genotype.brain = ancestral.brain.clone();
+            // Re-initialize map after brain replacement
+            crate::brain::BrainLogic::initialize_node_idx_map(&mut genotype.brain);
         }
     }
 
@@ -336,6 +340,7 @@ pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
             p2.learning_rate
         },
         weight_deltas: HashMap::new(),
+        node_idx_map: HashMap::new(),
     }
 }
 
@@ -363,7 +368,16 @@ mod tests {
         let mut genotype = create_test_genotype();
 
         for _ in 0..100 {
-            mutate_genotype(&mut genotype, &config, 100, false, None, &mut rng, None);
+            mutate_genotype(
+                &mut genotype,
+                &config,
+                100,
+                false,
+                None,
+                &mut rng,
+                None,
+                0.0,
+            );
         }
 
         assert!(genotype.sensing_range >= 3.0 && genotype.sensing_range <= 15.0);
@@ -397,6 +411,7 @@ mod tests {
             None,
             &mut rng1,
             None,
+            0.0,
         );
 
         mutate_genotype(
@@ -407,6 +422,7 @@ mod tests {
             None,
             &mut rng2,
             None,
+            0.0,
         );
 
         let bottleneck_changes =
@@ -433,6 +449,7 @@ mod tests {
             None,
             &mut rng1,
             None,
+            0.0,
         );
 
         mutate_genotype(
@@ -443,6 +460,7 @@ mod tests {
             None,
             &mut rng2,
             None,
+            0.0,
         );
 
         assert!(!genotype_storm.brain.connections.is_empty());
@@ -462,7 +480,7 @@ mod tests {
             let original_maturity = genotype.maturity_gene;
             let original_pairing = genotype.pairing_bias;
 
-            mutate_genotype(&mut genotype, &config, 5, false, None, &mut rng, None);
+            mutate_genotype(&mut genotype, &config, 5, false, None, &mut rng, None, 0.0);
 
             let trophic_drift = (genotype.trophic_potential - original_trophic).abs() > 0.3;
             let niche_drift = (genotype.metabolic_niche - original_niche).abs() > 0.3;
@@ -500,6 +518,7 @@ mod tests {
                 None,
                 &mut rng,
                 Some(&ancestral),
+                1.0, // Full stress for max chance
             );
 
             if (genotype.brain.learning_rate - 0.999).abs() < 0.01 {

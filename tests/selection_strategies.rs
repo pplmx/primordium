@@ -118,6 +118,7 @@ fn test_maturity_body_size_coupling() {
         None,
         &mut rng,
         None,
+        0.0,
     );
     let r_max = genotype.max_energy;
 
@@ -131,6 +132,7 @@ fn test_maturity_body_size_coupling() {
         None,
         &mut rng,
         None,
+        0.0,
     );
     let k_max = genotype.max_energy;
 

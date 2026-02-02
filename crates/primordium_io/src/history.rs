@@ -53,8 +53,22 @@ impl FossilPersistence for FossilRegistry {
     }
 }
 
+use std::sync::mpsc::{self, Sender};
+use std::thread;
+
+use crate::registry::LineagePersistence;
+use primordium_core::lineage_registry::LineageRegistry;
+
+pub enum LogCommand {
+    Event(LiveEvent),
+    Legend(Legend),
+    SaveLineages(LineageRegistry, String),
+    SaveFossils(FossilRegistry, String),
+    Stop,
+}
+
 pub struct HistoryLogger {
-    live_file: Option<BufWriter<File>>,
+    sender: Option<Sender<LogCommand>>,
     log_dir: String,
 }
 
@@ -67,42 +81,93 @@ impl HistoryLogger {
         if !std::path::Path::new(dir).exists() {
             std::fs::create_dir_all(dir)?;
         }
-        let file_path = format!("{}/live.jsonl", dir);
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(file_path)?;
+
+        let (tx, rx) = mpsc::channel::<LogCommand>();
+        let dir_clone = dir.to_string();
+
+        thread::spawn(move || {
+            let file_path = format!("{}/live.jsonl", dir_clone);
+            let mut live_file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(file_path)
+                .map(BufWriter::new)
+                .ok();
+
+            let legend_path = format!("{}/legends.json", dir_clone);
+            let mut legend_file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(legend_path)
+                .map(BufWriter::new)
+                .ok();
+
+            while let Ok(cmd) = rx.recv() {
+                match cmd {
+                    LogCommand::Event(ev) => {
+                        if let Some(ref mut f) = live_file {
+                            if let Ok(json) = serde_json::to_string(&ev) {
+                                let _ = writeln!(f, "{}", json);
+                                let _ = f.flush();
+                            }
+                        }
+                    }
+                    LogCommand::Legend(lg) => {
+                        if let Some(ref mut f) = legend_file {
+                            if let Ok(json) = serde_json::to_string(&lg) {
+                                let _ = writeln!(f, "{}", json);
+                                let _ = f.flush();
+                            }
+                        }
+                    }
+                    LogCommand::SaveLineages(reg, path) => {
+                        let _ = reg.save(path);
+                    }
+                    LogCommand::SaveFossils(reg, path) => {
+                        let _ = reg.save(&path);
+                    }
+                    LogCommand::Stop => break,
+                }
+            }
+        });
+
         Ok(Self {
-            live_file: Some(BufWriter::new(file)),
+            sender: Some(tx),
             log_dir: dir.to_string(),
         })
     }
 
     pub fn new_dummy() -> Self {
         Self {
-            live_file: None,
+            sender: None,
             log_dir: "".to_string(),
         }
     }
 
-    pub fn log_event(&mut self, event: LiveEvent) -> Result<()> {
-        if let Some(ref mut file) = self.live_file {
-            let json = serde_json::to_string(&event)?;
-            writeln!(file, "{}", json)?;
-            file.flush()?;
+    pub fn log_event(&self, event: LiveEvent) -> Result<()> {
+        if let Some(ref tx) = self.sender {
+            let _ = tx.send(LogCommand::Event(event));
         }
         Ok(())
     }
 
     pub fn archive_legend(&self, legend: Legend) -> Result<()> {
-        if self.live_file.is_some() {
-            let file_path = format!("{}/legends.json", self.log_dir);
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(file_path)?;
-            let json = serde_json::to_string(&legend)?;
-            writeln!(file, "{}", json)?;
+        if let Some(ref tx) = self.sender {
+            let _ = tx.send(LogCommand::Legend(legend));
+        }
+        Ok(())
+    }
+
+    pub fn save_lineages_async(&self, registry: LineageRegistry, path: String) -> Result<()> {
+        if let Some(ref tx) = self.sender {
+            let _ = tx.send(LogCommand::SaveLineages(registry, path));
+        }
+        Ok(())
+    }
+
+    pub fn save_fossils_async(&self, registry: FossilRegistry, path: String) -> Result<()> {
+        if let Some(ref tx) = self.sender {
+            let _ = tx.send(LogCommand::SaveFossils(registry, path));
         }
         Ok(())
     }
