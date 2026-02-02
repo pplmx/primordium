@@ -6,7 +6,8 @@ use primordium_data::{
 use rand::Rng;
 
 impl World {
-    pub fn spawn_entity(&mut self, e: Entity) -> hecs::Entity {
+    pub fn spawn_entity(&mut self, mut e: Entity) -> hecs::Entity {
+        crate::model::brain::BrainLogic::initialize_node_idx_map(&mut e.intel.genotype.brain);
         self.ecs.spawn((
             e.identity,
             e.position,

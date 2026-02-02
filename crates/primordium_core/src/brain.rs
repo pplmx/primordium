@@ -13,7 +13,7 @@ pub trait BrainLogic {
         activations: &mut primordium_data::Activations,
     ) -> ([f32; 12], [f32; 6]);
 
-    fn learn(&mut self, inputs: [f32; 29], last_hidden: [f32; 6], reinforcement: f32);
+    fn learn(&mut self, activations: &primordium_data::Activations, reinforcement: f32);
     fn mutate_with_config<R: Rng>(
         &mut self,
         config: &crate::config::AppConfig,
@@ -143,13 +143,15 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
         learning_rate: 0.0,
         weight_deltas: HashMap::new(),
         node_idx_map: HashMap::new(),
+        topological_order: Vec::new(),
+        forward_connections: Vec::new(),
+        recurrent_connections: Vec::new(),
+        incoming_forward_connections: HashMap::new(),
     };
     brain.initialize_node_idx_map();
     brain
 }
 
-/// Deterministic Innovation ID based on connection topology.
-/// Essential for NEAT crossover to align matching genes across different organisms.
 fn get_innovation_id(from: usize, to: usize) -> usize {
     let h = (from as u64) << 32 | (to as u64);
     let mut hash = 0xcbf29ce484222325u64;
@@ -160,16 +162,13 @@ fn get_innovation_id(from: usize, to: usize) -> usize {
     (hash as usize) & 0x7FFFFFFF
 }
 
-/// Deterministic Node ID for splitting a connection.
-/// Ensures that splitting the same connection (A -> B) always produces a node with the same ID.
 fn get_split_node_id(from: usize, to: usize) -> usize {
     let h = (from as u64) << 32 | (to as u64);
-    let mut hash = 0x84222325cbf29ce4u64; // Different seed
+    let mut hash = 0x84222325cbf29ce4u64;
     for byte in h.to_le_bytes() {
         hash ^= byte as u64;
         hash = hash.wrapping_mul(0x100000001b3u64);
     }
-    // Reserve low IDs for original inputs/outputs/hidden (0..1000)
     (hash as usize % 1_000_000) + 1000
 }
 
@@ -214,118 +213,85 @@ impl BrainLogic for Brain {
         activations: &mut primordium_data::Activations,
     ) -> ([f32; 12], [f32; 6]) {
         let node_count = self.nodes.len();
+        if self.node_idx_map.is_empty() {
+            let outputs = [0.0; 12];
+            let next_hidden = [0.0; 6];
+            return (outputs, next_hidden);
+        }
+
+        std::mem::swap(&mut activations.0, &mut activations.1);
+        let prev_values = &activations.1;
         let node_values = &mut activations.0;
         node_values.clear();
         node_values.resize(node_count, 0.0);
 
-        let use_dense = !self.node_idx_map.is_empty();
-
-        if use_dense {
-            for (i, &val) in inputs.iter().enumerate() {
-                if let Some(&idx) = self.node_idx_map.get(&i) {
-                    if idx < node_count {
-                        node_values[idx] = val;
-                    }
+        for &conn_idx in &self.recurrent_connections {
+            let conn = &self.connections[conn_idx];
+            if let (Some(&f_idx), Some(&t_idx)) = (
+                self.node_idx_map.get(&conn.from),
+                self.node_idx_map.get(&conn.to),
+            ) {
+                if f_idx < prev_values.len() {
+                    node_values[t_idx] += prev_values[f_idx] * conn.weight;
                 }
             }
-
-            for conn in &self.connections {
-                if !conn.enabled {
-                    continue;
-                }
-                let from_idx = self.node_idx_map.get(&conn.from);
-                let to_idx = self.node_idx_map.get(&conn.to);
-
-                if let (Some(&f), Some(&t)) = (from_idx, to_idx) {
-                    let val = node_values[f];
-                    node_values[t] += val * conn.weight;
-                }
-            }
-
-            for node in &self.nodes {
-                if let Some(&idx) = self.node_idx_map.get(&node.id) {
-                    node_values[idx] = node_values[idx].tanh();
-                }
-            }
-
-            let mut outputs = [0.0; 12];
-            for (i, output) in outputs.iter_mut().enumerate() {
-                if let Some(&idx) = self.node_idx_map.get(&(i + 29)) {
-                    *output = node_values[idx];
-                }
-            }
-
-            let mut next_hidden = [0.0; 6];
-            for (i, hidden) in next_hidden.iter_mut().enumerate() {
-                if let Some(&idx) = self.node_idx_map.get(&(i + 41)) {
-                    *hidden = node_values[idx];
-                }
-            }
-
-            (outputs, next_hidden)
-        } else {
-            let max_id = self.nodes.iter().map(|n| n.id).max().unwrap_or(63);
-            node_values.clear();
-            node_values.resize((max_id + 1).max(64), 0.0);
-
-            for (i, &val) in inputs.iter().enumerate() {
-                node_values[i] = val;
-            }
-
-            for conn in &self.connections {
-                if !conn.enabled {
-                    continue;
-                }
-                let val = node_values[conn.from];
-                node_values[conn.to] += val * conn.weight;
-            }
-
-            let mut outputs = [0.0; 12];
-            for node in &self.nodes {
-                node_values[node.id] = node_values[node.id].tanh();
-            }
-
-            for (i, output) in outputs.iter_mut().enumerate() {
-                *output = node_values[i + 29];
-            }
-
-            let mut next_hidden = [0.0; 6];
-            for (i, hidden) in next_hidden.iter_mut().enumerate() {
-                *hidden = node_values[i + 41];
-            }
-
-            let mut next_hidden = [0.0; 6];
-            for (i, val) in next_hidden.iter_mut().enumerate() {
-                *val = node_values[i + 41];
-            }
-
-            (outputs, next_hidden)
         }
+
+        for &node_id in &self.topological_order {
+            let node_idx = *self.node_idx_map.get(&node_id).unwrap();
+
+            if node_id < 29 {
+                node_values[node_idx] = inputs[node_id];
+                continue;
+            }
+
+            if let Some(incoming) = self.incoming_forward_connections.get(&node_id) {
+                for &conn_idx in incoming {
+                    let conn = &self.connections[conn_idx];
+                    let from_idx = *self.node_idx_map.get(&conn.from).unwrap();
+                    node_values[node_idx] += node_values[from_idx] * conn.weight;
+                }
+            }
+
+            node_values[node_idx] = node_values[node_idx].tanh();
+        }
+
+        let mut outputs = [0.0; 12];
+        for (i, output) in outputs.iter_mut().enumerate() {
+            if let Some(&idx) = self.node_idx_map.get(&(i + 29)) {
+                *output = node_values[idx];
+            }
+        }
+
+        let mut next_hidden = [0.0; 6];
+        for (i, hidden) in next_hidden.iter_mut().enumerate() {
+            if let Some(&idx) = self.node_idx_map.get(&(i + 41)) {
+                *hidden = node_values[idx];
+            }
+        }
+
+        (outputs, next_hidden)
     }
 
-    fn learn(&mut self, inputs: [f32; 29], last_hidden: [f32; 6], reinforcement: f32) {
+    fn learn(&mut self, activations: &primordium_data::Activations, reinforcement: f32) {
         if self.learning_rate.abs() < 1e-4 || reinforcement.abs() < 1e-4 {
             return;
         }
-        let mut activations = primordium_data::Activations::default();
-        self.forward_internal(inputs, last_hidden, &mut activations);
 
-        let use_dense = !self.node_idx_map.is_empty();
+        let _use_dense = !self.node_idx_map.is_empty();
 
         for conn in &mut self.connections {
             if !conn.enabled {
                 continue;
             }
 
-            let (pre, post) = if use_dense {
+            let (pre, post) = {
                 let f = self.node_idx_map.get(&conn.from);
                 let t = self.node_idx_map.get(&conn.to);
                 match (f, t) {
                     (Some(&fi), Some(&ti)) => (activations.0[fi], activations.0[ti]),
                     _ => (0.0, 0.0),
                 }
-            } else {
-                (activations.0[conn.from], activations.0[conn.to])
             };
 
             let delta = self.learning_rate * reinforcement * pre * post;
@@ -385,7 +351,6 @@ impl BrainLogic for Brain {
             let to_node = &self.nodes[to_idx];
             if !matches!(to_node.node_type, NodeType::Input) {
                 let innovation = get_innovation_id(from, to_node.id);
-                // Only add if it doesn't already exist
                 if !self.connections.iter().any(|c| c.innovation == innovation) {
                     self.connections.push(Connection {
                         from,
@@ -406,7 +371,6 @@ impl BrainLogic for Brain {
                 let to = self.connections[idx].to;
                 let new_id = get_split_node_id(from, to);
 
-                // Check if node already exists in this brain
                 if !self.nodes.iter().any(|n| n.id == new_id) {
                     self.nodes.push(Node {
                         id: new_id,
@@ -514,6 +478,10 @@ impl BrainLogic for Brain {
             },
             weight_deltas: HashMap::new(),
             node_idx_map: HashMap::new(),
+            topological_order: Vec::new(),
+            forward_connections: Vec::new(),
+            recurrent_connections: Vec::new(),
+            incoming_forward_connections: HashMap::new(),
         };
         child.initialize_node_idx_map();
         child
@@ -563,6 +531,75 @@ impl BrainLogic for Brain {
         for (idx, node) in self.nodes.iter().enumerate() {
             self.node_idx_map.insert(node.id, idx);
         }
+
+        let mut adj = HashMap::new();
+        for conn in &self.connections {
+            if conn.enabled {
+                adj.entry(conn.from).or_insert_with(Vec::new).push(conn.to);
+            }
+        }
+
+        let mut order = Vec::new();
+        let mut visited = HashMap::new();
+
+        fn dfs(
+            u: usize,
+            adj: &HashMap<usize, Vec<usize>>,
+            visited: &mut HashMap<usize, u8>,
+            order: &mut Vec<usize>,
+        ) {
+            visited.insert(u, 1);
+            if let Some(neighbors) = adj.get(&u) {
+                for &v in neighbors {
+                    if visited.get(&v).is_none() {
+                        dfs(v, adj, visited, order);
+                    }
+                }
+            }
+            visited.insert(u, 2);
+            order.push(u);
+        }
+
+        for i in 0..29 {
+            if visited.get(&i).is_none() {
+                dfs(i, &adj, &mut visited, &mut order);
+            }
+        }
+        for node in &self.nodes {
+            if visited.get(&node.id).is_none() {
+                dfs(node.id, &adj, &mut visited, &mut order);
+            }
+        }
+        order.reverse();
+
+        let mut node_ranks = HashMap::new();
+        for (rank, &id) in order.iter().enumerate() {
+            node_ranks.insert(id, rank);
+        }
+
+        let mut forward = Vec::new();
+        let mut recurrent = Vec::new();
+        let mut incoming = HashMap::new();
+
+        for (idx, conn) in self.connections.iter().enumerate() {
+            if !conn.enabled {
+                continue;
+            }
+            let from_rank = node_ranks.get(&conn.from).unwrap_or(&0);
+            let to_rank = node_ranks.get(&conn.to).unwrap_or(&0);
+
+            if from_rank < to_rank {
+                forward.push(idx);
+                incoming.entry(conn.to).or_insert_with(Vec::new).push(idx);
+            } else {
+                recurrent.push(idx);
+            }
+        }
+
+        self.topological_order = order;
+        self.forward_connections = forward;
+        self.recurrent_connections = recurrent;
+        self.incoming_forward_connections = incoming;
     }
 }
 

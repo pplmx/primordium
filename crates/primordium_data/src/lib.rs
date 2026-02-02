@@ -44,6 +44,18 @@ pub struct Brain {
     #[serde(skip, default = "HashMap::new")]
     #[with(rkyv::with::Skip)]
     pub node_idx_map: HashMap<usize, usize>,
+    #[serde(skip, default = "Vec::new")]
+    #[with(rkyv::with::Skip)]
+    pub topological_order: Vec<usize>,
+    #[serde(skip, default = "Vec::new")]
+    #[with(rkyv::with::Skip)]
+    pub forward_connections: Vec<usize>,
+    #[serde(skip, default = "Vec::new")]
+    #[with(rkyv::with::Skip)]
+    pub recurrent_connections: Vec<usize>,
+    #[serde(skip, default = "HashMap::new")]
+    #[with(rkyv::with::Skip)]
+    pub incoming_forward_connections: HashMap<usize, Vec<usize>>,
 }
 
 #[derive(
@@ -377,11 +389,11 @@ pub struct Genotype {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
-pub struct Activations(pub Vec<f32>);
+pub struct Activations(pub Vec<f32>, pub Vec<f32>); // (Current, Previous)
 
 impl Default for Activations {
     fn default() -> Self {
-        Self(vec![0.0; 64])
+        Self(vec![0.0; 64], vec![0.0; 64])
     }
 }
 

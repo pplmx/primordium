@@ -75,11 +75,10 @@ impl World {
                 } else {
                     -0.05
                 };
-                intel.genotype.brain.learn(
-                    intel.last_inputs,
-                    intel.last_hidden,
-                    reinforcement as f32,
-                );
+                intel
+                    .genotype
+                    .brain
+                    .learn(&intel.last_activations, reinforcement as f32);
             });
         }
 

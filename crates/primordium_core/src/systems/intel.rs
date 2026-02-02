@@ -342,6 +342,10 @@ pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
         },
         weight_deltas: HashMap::new(),
         node_idx_map: HashMap::new(),
+        topological_order: Vec::new(),
+        forward_connections: Vec::new(),
+        recurrent_connections: Vec::new(),
+        incoming_forward_connections: HashMap::new(),
     }
 }
 

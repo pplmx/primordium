@@ -57,7 +57,7 @@ pub struct App {
     pub archeology_index: usize,
     pub selected_fossil_index: usize, // NEW
     pub onboarding_step: Option<u8>,  // None=done, Some(0-2)=onboarding screens
-    pub view_mode: u8, // 0: Normal, 1: Fertility, 2: Social, 3: Rank, 4: Vocal, 5: Market, 6: Research
+    pub view_mode: u8,
     // Layout tracking
     pub last_world_rect: Rect,
     pub last_sidebar_rect: Rect,

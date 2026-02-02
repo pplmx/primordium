@@ -106,6 +106,7 @@ impl StorageManager {
                             params![tick, pop_count, carbon_level, energy_total, world_data],
                         );
                     }
+
                     StorageCommand::BatchSyncLineages(registry) => {
                         let tx = match conn.transaction() {
                             Ok(t) => t,
