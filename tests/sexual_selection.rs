@@ -1,8 +1,8 @@
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_mate_preference_rejection() {
+#[tokio::test]
+async fn test_mate_preference_rejection() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).unwrap();
@@ -43,8 +43,8 @@ fn test_mate_preference_rejection() {
     assert!(world.get_population_count() >= 2);
 }
 
-#[tokio::test] async
-fn test_mate_preference_acceptance() {
+#[tokio::test]
+async fn test_mate_preference_acceptance() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).unwrap();

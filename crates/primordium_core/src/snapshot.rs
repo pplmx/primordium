@@ -5,12 +5,14 @@ use crate::sound::SoundGrid;
 use crate::terrain::TerrainGrid;
 use primordium_data::Food;
 use primordium_data::{EntityStatus, HallOfFame, PopulationStats};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct EntitySnapshot {
     pub id: Uuid,
     pub name: String,
@@ -55,7 +57,8 @@ pub struct InternalEntitySnapshot {
     pub genotype: Option<Arc<primordium_data::Genotype>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct WorldSnapshot {
     pub tick: u64,
     pub entities: Vec<EntitySnapshot>,

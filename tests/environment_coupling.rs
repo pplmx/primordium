@@ -3,8 +3,8 @@ use primordium_lib::model::environment::{ClimateState, Environment, Era, Resourc
 use primordium_lib::model::history::PopulationStats;
 use primordium_lib::model::systems::environment as environment_system;
 
-#[tokio::test] async
-fn test_hardware_coupling_logic() {
+#[tokio::test]
+async fn test_hardware_coupling_logic() {
     let mut env = Environment {
         cpu_usage: 10.0,
         ..Environment::default()
@@ -24,8 +24,8 @@ fn test_hardware_coupling_logic() {
     assert_eq!(env.resource_state(), ResourceState::Famine);
 }
 
-#[tokio::test] async
-fn test_era_transitions() {
+#[tokio::test]
+async fn test_era_transitions() {
     let mut env = Environment::default();
     let mut stats = PopulationStats::default();
     let config = AppConfig::default();

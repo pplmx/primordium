@@ -3,8 +3,8 @@ use primordium_lib::model::history;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_lineage_inheritance() {
+#[tokio::test]
+async fn test_lineage_inheritance() {
     let config = AppConfig::default();
     let parent = lifecycle::create_entity(10.0, 10.0, 0);
     let original_lineage = parent.metabolism.lineage_id;
@@ -40,8 +40,8 @@ fn test_lineage_inheritance() {
     );
 }
 
-#[tokio::test] async
-fn test_lineage_population_stats() {
+#[tokio::test]
+async fn test_lineage_population_stats() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).unwrap();
@@ -78,8 +78,8 @@ fn test_lineage_population_stats() {
     assert_eq!(world.pop_stats.lineage_counts.get(&l2), Some(&1));
 }
 
-#[tokio::test] async
-fn test_multiverse_lineage_preservation() {
+#[tokio::test]
+async fn test_multiverse_lineage_preservation() {
     let entity = primordium_lib::model::lifecycle::create_entity(5.0, 5.0, 0);
     let original_lineage = entity.metabolism.lineage_id;
 

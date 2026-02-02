@@ -21,3 +21,4 @@ hecs = "0.10"
 flate2 = "1.0"
 petgraph = "0.6"
 chrono = "0.4"
+rkyv = { version = "0.7", features = ["validation", "uuid"] }

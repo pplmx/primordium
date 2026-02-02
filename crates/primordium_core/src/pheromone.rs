@@ -1,7 +1,11 @@
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum PheromoneType {
     Food,
     Danger,
@@ -9,7 +13,8 @@ pub enum PheromoneType {
     SignalB,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct PheromoneDeposit {
     pub x: f64,
     pub y: f64,
@@ -17,7 +22,10 @@ pub struct PheromoneDeposit {
     pub amount: f32,
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Default, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub struct PheromoneCell {
     pub food_strength: f32,
     pub danger_strength: f32,
@@ -25,23 +33,30 @@ pub struct PheromoneCell {
     pub sig_b_strength: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct PheromoneGrid {
     pub cells: Vec<PheromoneCell>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     pub back_buffer: Vec<PheromoneCell>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     atomic_food: Vec<AtomicU32>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     atomic_danger: Vec<AtomicU32>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     atomic_sig_a: Vec<AtomicU32>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     atomic_sig_b: Vec<AtomicU32>,
     pub width: u16,
     pub height: u16,
     pub decay_rate: f32,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     pub is_dirty: bool,
 }
 

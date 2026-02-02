@@ -5,8 +5,8 @@ use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::systems::environment as environment_system;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_wall_collisions() {
+#[tokio::test]
+async fn test_wall_collisions() {
     let mut config = AppConfig::default();
     config.world.width = 10;
     config.world.height = 10;
@@ -45,8 +45,8 @@ fn test_wall_collisions() {
     );
 }
 
-#[tokio::test] async
-fn test_dust_bowl_trigger() {
+#[tokio::test]
+async fn test_dust_bowl_trigger() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.disaster_chance = 1.0; // P47: Forced deterministic trigger

@@ -2,8 +2,8 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_phenotype_inheritance_and_mutation() {
+#[tokio::test]
+async fn test_phenotype_inheritance_and_mutation() {
     let mut p1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     p1.physics.sensing_range = 10.0;
     p1.physics.max_speed = 2.0;
@@ -43,8 +43,8 @@ fn test_phenotype_inheritance_and_mutation() {
     assert!(child.metabolism.max_energy >= 100.0 && child.metabolism.max_energy <= 500.0);
 }
 
-#[tokio::test] async
-fn test_sensing_range_affects_perception() {
+#[tokio::test]
+async fn test_sensing_range_affects_perception() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.initial_food = 1;
@@ -93,8 +93,8 @@ fn test_sensing_range_affects_perception() {
     assert_eq!(entities[1].physics.sensing_range, 15.0);
 }
 
-#[tokio::test] async
-fn test_hex_dna_contains_phenotype() {
+#[tokio::test]
+async fn test_hex_dna_contains_phenotype() {
     let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e.intel.genotype.sensing_range = 12.34;
     e.intel.genotype.max_speed = 2.5;

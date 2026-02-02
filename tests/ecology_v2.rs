@@ -4,8 +4,8 @@ use primordium_lib::model::systems::ecological;
 use primordium_lib::model::world::World;
 use std::collections::HashSet;
 
-#[tokio::test] async
-fn test_metabolic_niche_efficiency() {
+#[tokio::test]
+async fn test_metabolic_niche_efficiency() {
     // 1. Green Specialist (niche = 0.0, Herbivore-leaning)
     let mut green_forager = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     green_forager.intel.genotype.metabolic_niche = 0.0;
@@ -64,8 +64,8 @@ fn test_metabolic_niche_efficiency() {
     assert_eq!(entities_b[0].metabolism.energy, 110.0);
 }
 
-#[tokio::test] async
-fn test_nutrient_sensing_in_perception() {
+#[tokio::test]
+async fn test_nutrient_sensing_in_perception() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).unwrap();
@@ -101,8 +101,8 @@ fn test_nutrient_sensing_in_perception() {
     }
 }
 
-#[tokio::test] async
-fn test_niche_partitioning_coexistence() {
+#[tokio::test]
+async fn test_niche_partitioning_coexistence() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.initial_food = 0;

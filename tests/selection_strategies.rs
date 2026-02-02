@@ -1,8 +1,8 @@
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::lifecycle;
 
-#[tokio::test] async
-fn test_r_strategy_fast_reproduction() {
+#[tokio::test]
+async fn test_r_strategy_fast_reproduction() {
     let mut config = AppConfig::default();
     config.metabolism.maturity_age = 100;
 
@@ -47,8 +47,8 @@ fn test_r_strategy_fast_reproduction() {
     assert!(r_parent.metabolism.energy > 150.0);
 }
 
-#[tokio::test] async
-fn test_k_strategy_slow_reproduction() {
+#[tokio::test]
+async fn test_k_strategy_slow_reproduction() {
     let mut config = AppConfig::default();
     config.metabolism.maturity_age = 100;
 
@@ -101,8 +101,8 @@ fn test_k_strategy_slow_reproduction() {
     assert!(k_parent.metabolism.energy < 100.0);
 }
 
-#[tokio::test] async
-fn test_maturity_body_size_coupling() {
+#[tokio::test]
+async fn test_maturity_body_size_coupling() {
     let config = AppConfig::default();
     let mut genotype =
         primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng());

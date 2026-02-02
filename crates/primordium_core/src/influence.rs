@@ -1,20 +1,27 @@
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+#[derive(
+    Serialize, Deserialize, Clone, Default, Debug, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub struct InfluenceCell {
     pub dominant_lineage: Option<Uuid>,
     pub intensity: f32,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct InfluenceGrid {
     pub width: u16,
     pub height: u16,
     pub cells: Vec<InfluenceCell>,
 }
 
+#[derive(Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct InfluenceSource {
     pub x: f64,
     pub y: f64,

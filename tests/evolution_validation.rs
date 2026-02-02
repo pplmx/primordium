@@ -2,8 +2,8 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_r_vs_k_dominance_in_resource_boom() {
+#[tokio::test]
+async fn test_r_vs_k_dominance_in_resource_boom() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.max_food = 500; // Abundant food

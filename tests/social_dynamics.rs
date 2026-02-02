@@ -2,8 +2,8 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_tribe_solidarity_no_aggression() {
+#[tokio::test]
+async fn test_tribe_solidarity_no_aggression() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
@@ -35,8 +35,8 @@ fn test_tribe_solidarity_no_aggression() {
     );
 }
 
-#[tokio::test] async
-fn test_energy_sharing_between_allies() {
+#[tokio::test]
+async fn test_energy_sharing_between_allies() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
@@ -97,8 +97,8 @@ fn test_energy_sharing_between_allies() {
     assert!(shared, "Energy sharing did not occur between allies");
 }
 
-#[tokio::test] async
-fn test_inter_tribe_predation() {
+#[tokio::test]
+async fn test_inter_tribe_predation() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");

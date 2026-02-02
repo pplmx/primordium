@@ -4,8 +4,8 @@ use primordium_lib::model::state::terrain::TerrainGrid;
 use primordium_lib::model::systems::action::{action_system, ActionContext};
 use primordium_lib::model::world::InternalEntitySnapshot;
 
-#[tokio::test] async
-fn test_symbiosis_spring_force() {
+#[tokio::test]
+async fn test_symbiosis_spring_force() {
     let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     let e2 = primordium_lib::model::lifecycle::create_entity(15.0, 10.0, 0); // 5.0 units away (Rest length is 2.0)
 

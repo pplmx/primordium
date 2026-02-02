@@ -4,8 +4,8 @@ use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_pathogen_transmission() {
+#[tokio::test]
+async fn test_pathogen_transmission() {
     let log_dir = "logs_test_pathogens";
     let _ = std::fs::remove_dir_all(log_dir);
     let mut config = AppConfig::default();
@@ -55,8 +55,8 @@ fn test_pathogen_transmission() {
     );
 }
 
-#[tokio::test] async
-fn test_immunity_gain() {
+#[tokio::test]
+async fn test_immunity_gain() {
     let mut entity = lifecycle::create_entity(0.0, 0.0, 0);
     let initial_immunity = entity.health.immunity;
 

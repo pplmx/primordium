@@ -1,13 +1,18 @@
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum PressureType {
     DigDemand,
     BuildDemand,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct PressureDeposit {
     pub x: f64,
     pub y: f64,
@@ -15,7 +20,10 @@ pub struct PressureDeposit {
     pub amount: f32,
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Default, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub struct PressureCell {
     pub dig_demand: f32,
     pub build_demand: f32,
@@ -34,19 +42,24 @@ impl PressureCell {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct PressureGrid {
     pub cells: Vec<PressureCell>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     pub back_buffer: Vec<PressureCell>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     atomic_dig: Vec<AtomicU32>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     atomic_build: Vec<AtomicU32>,
     pub width: u16,
     pub height: u16,
     pub decay_rate: f32,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     pub is_dirty: bool,
 }
 

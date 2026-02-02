@@ -6,8 +6,8 @@ use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 use uuid::Uuid;
 
-#[tokio::test] async
-fn test_collective_memory_reinforcement() {
+#[tokio::test]
+async fn test_collective_memory_reinforcement() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
     let mut _env = Environment::default();
@@ -30,8 +30,8 @@ fn test_collective_memory_reinforcement() {
     assert_eq!(world.lineage_registry.get_memory_value(&l_id, "goal"), 0.5);
 }
 
-#[tokio::test] async
-fn test_engineer_biological_irrigation_pressure() {
+#[tokio::test]
+async fn test_engineer_biological_irrigation_pressure() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
     let mut env = Environment::default();
@@ -54,8 +54,8 @@ fn test_engineer_biological_irrigation_pressure() {
     assert!(d > 0.0, "Engineer should deposit Dig pressure near river");
 }
 
-#[tokio::test] async
-fn test_outpost_construction() {
+#[tokio::test]
+async fn test_outpost_construction() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
     let mut env = Environment::default();
@@ -108,8 +108,8 @@ fn test_outpost_construction() {
     assert_eq!(cell.owner_id, Some(l_id));
 }
 
-#[tokio::test] async
-fn test_outpost_energy_capacitor() {
+#[tokio::test]
+async fn test_outpost_energy_capacitor() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
     let mut _env = Environment::default();

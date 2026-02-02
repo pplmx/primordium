@@ -2,8 +2,8 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_world_persistence_cycle() {
+#[tokio::test]
+async fn test_world_persistence_cycle() {
     let config = AppConfig::default();
     let mut env = Environment::default();
     let mut world = World::new(10, config).expect("Failed to create world");

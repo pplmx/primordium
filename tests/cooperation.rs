@@ -3,8 +3,8 @@ use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_kin_recognition_influences_movement() {
+#[tokio::test]
+async fn test_kin_recognition_influences_movement() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config.clone()).unwrap();
@@ -31,8 +31,8 @@ fn test_kin_recognition_influences_movement() {
     assert_eq!(world.get_population_count(), 2);
 }
 
-#[tokio::test] async
-fn test_herding_bonus() {
+#[tokio::test]
+async fn test_herding_bonus() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config.clone()).unwrap();

@@ -6,8 +6,8 @@ use primordium_lib::model::state::environment::Environment;
 
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_rank_accumulation() {
+#[tokio::test]
+async fn test_rank_accumulation() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
@@ -46,8 +46,8 @@ fn test_rank_accumulation() {
     assert!(rank_aged > rank, "Rank should increase with age");
 }
 
-#[tokio::test] async
-fn test_soldier_classification() {
+#[tokio::test]
+async fn test_soldier_classification() {
     let mut e = primordium_lib::model::lifecycle::create_entity(0.0, 0.0, 0);
     e.intel.rank = 0.9;
     e.intel.last_aggression = 0.8;
@@ -70,8 +70,8 @@ fn test_soldier_classification() {
     );
 }
 
-#[tokio::test] async
-fn test_tribal_split_under_pressure() {
+#[tokio::test]
+async fn test_tribal_split_under_pressure() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config).expect("Failed to create world");
@@ -106,8 +106,8 @@ fn test_tribal_split_under_pressure() {
     );
 }
 
-#[tokio::test] async
-fn test_soldier_damage_bonus() {
+#[tokio::test]
+async fn test_soldier_damage_bonus() {
     // This requires inspecting `handle_predation` logic indirectly or via unit test in social.rs.
     // But since logic is embedded in World::update InteractionCommand generation, integration test is best.
     // However, it's hard to precisely measure damage in integration without mocking rng.

@@ -1,5 +1,7 @@
 use anyhow::Result;
-use rkyv::ser::{serializers::AllocSerializer, Serializer};
+use rkyv::de::deserializers::SharedDeserializeMap;
+use rkyv::ser::serializers::AllocSerializer;
+use rkyv::ser::Serializer;
 use rkyv::{Archive, Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
@@ -24,13 +26,16 @@ where
 pub fn load_rkyv<T, P>(path: P) -> Result<T>
 where
     T: Archive,
-    T::Archived: Deserialize<T, rkyv::Infallible>,
+    T::Archived: Deserialize<T, SharedDeserializeMap>
+        + for<'a> rkyv::CheckBytes<rkyv::validation::validators::DefaultValidator<'a>>,
     P: AsRef<Path>,
 {
     let bytes = std::fs::read(path)?;
-    // Unsafe access for now, assuming file integrity.
-    // In production we should use check_archived_root with validation.
-    let archived = unsafe { rkyv::archived_root::<T>(&bytes) };
-    let deserialized: T = archived.deserialize(&mut rkyv::Infallible).unwrap();
+    let archived = rkyv::check_archived_root::<T>(&bytes)
+        .map_err(|e| anyhow::anyhow!("Rkyv validation error: {:?}", e))?;
+    let mut deserializer = SharedDeserializeMap::default();
+    let deserialized: T = archived
+        .deserialize(&mut deserializer)
+        .map_err(|e| anyhow::anyhow!("Rkyv deserialization error: {:?}", e))?;
     Ok(deserialized)
 }

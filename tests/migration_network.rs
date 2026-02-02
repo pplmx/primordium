@@ -4,8 +4,8 @@ use primordium_lib::model::world::World;
 use sha2::Digest;
 use uuid::Uuid;
 
-#[tokio::test] async
-fn test_entity_migration_via_network() {
+#[tokio::test]
+async fn test_entity_migration_via_network() {
     let mut entity = primordium_lib::model::lifecycle::create_entity(50.0, 50.0, 0);
     entity.metabolism.energy = 175.0;
     entity.metabolism.generation = 5;
@@ -71,8 +71,8 @@ fn test_entity_migration_via_network() {
 }
 
 /// Test migration using hex-encoded brain DNA (as used in production)
-#[tokio::test] async
-fn test_entity_migration_with_hex_dna() {
+#[tokio::test]
+async fn test_entity_migration_with_hex_dna() {
     let mut entity = primordium_lib::model::lifecycle::create_entity(25.0, 25.0, 0);
     entity.metabolism.energy = 200.0;
     entity.metabolism.generation = 10;
@@ -118,8 +118,8 @@ fn test_entity_migration_with_hex_dna() {
 }
 
 /// Test peer discovery message flow
-#[tokio::test] async
-fn test_peer_discovery_flow() {
+#[tokio::test]
+async fn test_peer_discovery_flow() {
     // Simulate server creating peer list
     let peer1 = PeerInfo {
         peer_id: Uuid::new_v4(),
@@ -161,8 +161,8 @@ fn test_peer_discovery_flow() {
 }
 
 /// Test peer announce message
-#[tokio::test] async
-fn test_peer_announce_message() {
+#[tokio::test]
+async fn test_peer_announce_message() {
     let announce = NetMessage::PeerAnnounce {
         entity_count: 42,
         migrations_sent: 8,

@@ -2,8 +2,8 @@ use primordium_lib::model::brain::{Brain, BrainLogic};
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_dna_hex_roundtrip() {
+#[tokio::test]
+async fn test_dna_hex_roundtrip() {
     let brain = Brain::new_random();
     let hex = brain.to_hex();
 
@@ -21,8 +21,8 @@ fn test_dna_hex_roundtrip() {
     }
 }
 
-#[tokio::test] async
-fn test_entity_import_export() {
+#[tokio::test]
+async fn test_entity_import_export() {
     let config = AppConfig::default();
     let mut world = World::new(1, config).expect("Failed to create world");
 
@@ -53,8 +53,8 @@ fn test_entity_import_export() {
     assert_eq!(imported.intel.genotype.to_hex(), dna);
 }
 
-#[tokio::test] async
-fn test_genetic_surge() {
+#[tokio::test]
+async fn test_genetic_surge() {
     let config = AppConfig::default();
     let mut world = World::new(10, config).expect("Failed to create world");
 

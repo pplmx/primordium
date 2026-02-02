@@ -2,8 +2,8 @@ use primordium_core::config::{AppConfig, GameMode};
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_group_defense_reduces_damage() {
+#[tokio::test]
+async fn test_group_defense_reduces_damage() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.seed = Some(42);
@@ -53,8 +53,8 @@ fn test_group_defense_reduces_damage() {
         .any(|e| e.metabolism.lineage_id == v_lineage));
 }
 
-#[tokio::test] async
-fn test_metabolic_cost_of_signaling() {
+#[tokio::test]
+async fn test_metabolic_cost_of_signaling() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let _world = World::new(0, config.clone()).unwrap();

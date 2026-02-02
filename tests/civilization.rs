@@ -5,8 +5,8 @@ use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 use uuid::Uuid;
 
-#[tokio::test] async
-fn test_ancestral_trait_metabolism_buff() {
+#[tokio::test]
+async fn test_ancestral_trait_metabolism_buff() {
     let config = AppConfig::default();
     let world = World::new(0, config.clone()).unwrap();
     let env = Environment::default();
@@ -60,8 +60,8 @@ fn test_ancestral_trait_metabolism_buff() {
     );
 }
 
-#[tokio::test] async
-fn test_global_event_radiation_surge() {
+#[tokio::test]
+async fn test_global_event_radiation_surge() {
     let world = World::new(0, AppConfig::default()).unwrap();
     let env = Environment {
         radiation_timer: 500,
@@ -90,8 +90,8 @@ fn test_global_event_radiation_surge() {
     assert_ne!(genotype.to_hex(), original_dna);
 }
 
-#[tokio::test] async
-fn test_civilization_leveling_outposts() {
+#[tokio::test]
+async fn test_civilization_leveling_outposts() {
     let mut world = World::new(0, AppConfig::default()).unwrap();
     let l_id = Uuid::new_v4();
 

@@ -4,8 +4,8 @@ use primordium_lib::model::infra::lineage_tree::AncestryTree;
 use primordium_lib::model::lifecycle;
 use uuid::Uuid;
 
-#[tokio::test] async
-fn test_ancestry_tree_linking() {
+#[tokio::test]
+async fn test_ancestry_tree_linking() {
     let p_id = Uuid::new_v4();
     let c_id = Uuid::new_v4();
 

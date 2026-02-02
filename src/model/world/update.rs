@@ -519,8 +519,11 @@ impl World {
                 timestamp: Utc::now().to_rfc3339(),
             };
             if let Some(ref storage) = self.logger.storage {
+                let snapshot = self.create_snapshot(None);
                 let world_data =
-                    serde_json::to_vec(&self.create_snapshot(None)).unwrap_or_default();
+                    rkyv::to_bytes::<crate::model::snapshot::WorldSnapshot, 4096>(&snapshot)
+                        .map(|v| v.to_vec())
+                        .unwrap_or_default();
                 storage.save_snapshot(
                     self.tick,
                     self.pop_stats.population as u32,

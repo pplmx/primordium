@@ -4,8 +4,8 @@ use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_death_by_brain_bloat() {
+#[tokio::test]
+async fn test_death_by_brain_bloat() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let mut world = World::new(0, config.clone()).unwrap();
@@ -48,8 +48,8 @@ fn test_death_by_brain_bloat() {
     );
 }
 
-#[tokio::test] async
-fn test_high_speed_metabolic_exhaustion() {
+#[tokio::test]
+async fn test_high_speed_metabolic_exhaustion() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     let _world = World::new(0, config.clone()).unwrap();
@@ -97,8 +97,8 @@ fn test_high_speed_metabolic_exhaustion() {
     assert!(e_fast.metabolism.energy < e_slow.metabolism.energy);
 }
 
-#[tokio::test] async
-fn test_inertia_responsiveness_penalty() {
+#[tokio::test]
+async fn test_inertia_responsiveness_penalty() {
     let config = AppConfig::default();
     let env = Environment::default();
     let terrain = primordium_lib::model::terrain::TerrainGrid::generate(100, 100, 42);

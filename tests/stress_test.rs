@@ -3,8 +3,8 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 use std::time::Instant;
 
-#[tokio::test] async
-fn test_engine_stress_high_load() {
+#[tokio::test]
+async fn test_engine_stress_high_load() {
     let mut config = AppConfig::default();
     // High density configuration
     config.world.width = 150;

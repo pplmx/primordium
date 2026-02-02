@@ -3,8 +3,8 @@ use primordium_lib::model::environment::{Environment, Era};
 use primordium_lib::model::history::PopulationStats;
 use primordium_lib::model::systems::environment as environment_system;
 
-#[tokio::test] async
-fn test_era_transition_sequence() {
+#[tokio::test]
+async fn test_era_transition_sequence() {
     let mut env = Environment::default();
     let mut stats = PopulationStats::default();
 
@@ -44,8 +44,8 @@ fn test_era_transition_sequence() {
     );
 }
 
-#[tokio::test] async
-fn test_circadian_environmental_stress() {
+#[tokio::test]
+async fn test_circadian_environmental_stress() {
     // Day time (Default is 0)
     let mut env = Environment {
         world_time: 0,
@@ -63,8 +63,8 @@ fn test_circadian_environmental_stress() {
     );
 }
 
-#[tokio::test] async
-fn test_hardware_resource_linkage() {
+#[tokio::test]
+async fn test_hardware_resource_linkage() {
     // Simulate low stress
     let mut env = Environment {
         cpu_usage: 10.0,

@@ -1,24 +1,30 @@
 use rayon::prelude::*;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct SoundDeposit {
     pub x: f64,
     pub y: f64,
     pub amount: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct SoundGrid {
     pub cells: Vec<f32>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     pub back_buffer: Vec<f32>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     atomic_deposits: Vec<AtomicU32>,
     pub width: u16,
     pub height: u16,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     pub is_dirty: bool,
 }
 

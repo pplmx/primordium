@@ -3,8 +3,8 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_succession_and_carbon_cycle() {
+#[tokio::test]
+async fn test_succession_and_carbon_cycle() {
     let mut config = AppConfig::default();
     config.world.width = 20;
     config.world.height = 20;
@@ -53,8 +53,8 @@ fn test_succession_and_carbon_cycle() {
     }
 }
 
-#[tokio::test] async
-fn test_biodiversity_hotspots() {
+#[tokio::test]
+async fn test_biodiversity_hotspots() {
     let mut config = AppConfig::default();
     config.world.width = 50;
     config.world.height = 50;

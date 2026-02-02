@@ -3,8 +3,8 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 
-#[tokio::test] async
-fn test_terrain_fertility_cycle() {
+#[tokio::test]
+async fn test_terrain_fertility_cycle() {
     let mut config = AppConfig::default();
     config.world.initial_food = 0;
     config.world.max_food = 0;
@@ -32,8 +32,8 @@ fn test_terrain_fertility_cycle() {
     assert!(after_fertility < 0.5);
 }
 
-#[tokio::test] async
-fn test_barren_transition() {
+#[tokio::test]
+async fn test_barren_transition() {
     let mut config = AppConfig::default();
     config.world.initial_food = 0;
     config.world.max_food = 0;
@@ -49,8 +49,8 @@ fn test_barren_transition() {
     assert!(terrain_type == TerrainType::Barren || terrain_type == TerrainType::Desert);
 }
 
-#[tokio::test] async
-fn test_trophic_diet_restrictions() {
+#[tokio::test]
+async fn test_trophic_diet_restrictions() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.initial_food = 0;
@@ -95,8 +95,8 @@ fn test_trophic_diet_restrictions() {
     }
 }
 
-#[tokio::test] async
-fn test_light_dependent_food_growth() {
+#[tokio::test]
+async fn test_light_dependent_food_growth() {
     let mut config = AppConfig::default();
     config.world.initial_food = 0;
     config.world.max_food = 1000;

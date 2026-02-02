@@ -1,6 +1,7 @@
 pub use primordium_data::{OutpostSpecialization, TerrainType};
 use rand::Rng;
 use rayon::prelude::*;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashSet;
@@ -58,7 +59,8 @@ impl TerrainLogic for TerrainType {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct TerrainCell {
     pub terrain_type: TerrainType,
     pub original_type: TerrainType,
@@ -98,23 +100,32 @@ impl Default for TerrainCell {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(
+    Serialize, Deserialize, Clone, Debug, Default, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub struct TerrainGrid {
     pub cells: Vec<TerrainCell>,
     pub width: u16,
     pub height: u16,
     pub dust_bowl_timer: u32,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     pub is_dirty: bool,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     pub outpost_indices: HashSet<usize>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     type_buffer: Vec<TerrainType>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     hydration_buffer: Vec<bool>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     moisture_buffer: Vec<f32>,
     #[serde(skip)]
+    #[with(rkyv::with::Skip)]
     cooling_buffer: Vec<f32>,
 }
 
