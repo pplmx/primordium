@@ -128,21 +128,59 @@ impl<'a> Widget for WorldWidget<'a> {
 
         let inner = Self::get_inner_area(area, self.screensaver);
 
-        let mut screen_positions = HashMap::new();
+        let mut screen_positions = HashMap::with_capacity(self.snapshot.entities.len());
+
+        let left_f = inner.left() as f64 - inner.x as f64;
+        let top_f = inner.top() as f64 - inner.y as f64;
+        let right_f = inner.right() as f64 - inner.x as f64;
+        let bottom_f = inner.bottom() as f64 - inner.y as f64;
+
         for entity in &self.snapshot.entities {
-            if let Some((x, y)) = Self::world_to_screen(entity.x, entity.y, area, self.screensaver)
+            if entity.x >= left_f && entity.x < right_f && entity.y >= top_f && entity.y < bottom_f
             {
-                screen_positions.insert(entity.id, (x, y));
+                if let Some((x, y)) =
+                    Self::world_to_screen(entity.x, entity.y, area, self.screensaver)
+                {
+                    screen_positions.insert(entity.id, (x, y));
+
+                    let status = entity.status;
+                    let cell = &mut buf[(x, y)];
+                    cell.set_symbol(&Self::symbol_for_status(status).to_string());
+                    cell.set_fg(Self::color_for_status(entity, status));
+                    if self.view_mode >= 2 {
+                        if entity.rank > 0.9 {
+                            cell.set_bg(Color::Rgb(100, 100, 0));
+                        } else if status == EntityStatus::Soldier {
+                            cell.set_bg(Color::Rgb(80, 0, 0));
+                        }
+                    }
+                    if entity.bonded_to.is_some() {
+                        cell.set_bg(Color::Rgb(80, 80, 0));
+                    }
+                }
             }
         }
 
-        for y in 0..inner.height.min(self.snapshot.terrain.height) {
-            for x in 0..inner.width.min(self.snapshot.terrain.width) {
+        let map_w = self.snapshot.terrain.width as u16;
+        let map_h = self.snapshot.terrain.height as u16;
+
+        let start_x = 0;
+        let end_x = inner.width.min(map_w);
+        let start_y = 0;
+        let end_y = inner.height.min(map_h);
+
+        for y in start_y..end_y {
+            for x in start_x..end_x {
                 let terrain = self.snapshot.terrain.get_cell(x, y);
                 let screen_x = inner.x + x;
                 let screen_y = inner.y + y;
+
                 if screen_x < inner.right() && screen_y < inner.bottom() {
                     let cell = &mut buf[(screen_x, screen_y)];
+
+                    if cell.symbol() != " " {
+                        continue;
+                    }
 
                     match self.view_mode {
                         1 => {
