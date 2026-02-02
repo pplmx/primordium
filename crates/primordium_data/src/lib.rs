@@ -1,22 +1,28 @@
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use uuid::Uuid;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum NodeType {
     Input,
     Hidden,
     Output,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Node {
     pub id: usize,
     pub node_type: NodeType,
     pub label: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Connection {
     pub from: usize,
     pub to: usize,
@@ -25,38 +31,91 @@ pub struct Connection {
     pub innovation: usize,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Brain {
     pub nodes: Vec<Node>,
     pub connections: Vec<Connection>,
     pub next_node_id: usize,
     pub learning_rate: f32,
     #[serde(skip, default = "HashMap::new")]
+    #[with(rkyv::with::Skip)]
     pub weight_deltas: HashMap<usize, f32>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug, PartialEq, Eq, Hash))]
 pub enum Specialization {
     Soldier,
     Engineer,
     Provider,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+#[archive(check_bytes)]
+#[archive_attr(derive(Debug, PartialEq, Eq, Hash))]
 pub enum AncestralTrait {
     HardenedMetabolism,
     AcuteSenses,
     SwiftMovement,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum LineageGoal {
     Expansion,
     Dominance,
     Resilience,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum RegulatorySensor {
     Oxygen,
     Carbon,
@@ -66,13 +125,28 @@ pub enum RegulatorySensor {
     Clock,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum RegulatoryOperator {
     GreaterThan,
     LessThan,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub struct RegulatoryRule {
     pub sensor: RegulatorySensor,
     pub threshold: f32,
@@ -81,7 +155,19 @@ pub struct RegulatoryRule {
     pub modifier: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum GeneType {
     Trophic,
     Sensing,
@@ -91,7 +177,10 @@ pub enum GeneType {
     MaxEnergy,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum EntityStatus {
     Starving,
     Larva,
@@ -106,7 +195,19 @@ pub enum EntityStatus {
     InTransit,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Default,
+    Serialize,
+    Deserialize,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum TerrainType {
     #[default]
     Plains,
@@ -121,7 +222,19 @@ pub enum TerrainType {
     Outpost,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Default,
+    Serialize,
+    Deserialize,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub enum OutpostSpecialization {
     #[default]
     Standard,
@@ -129,33 +242,44 @@ pub enum OutpostSpecialization {
     Nursery,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Identity {
     pub id: Uuid,
     pub name: String,
     pub parent_id: Option<Uuid>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, Default, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub struct LineageInfo {
     pub lineage_id: Uuid,
     pub generation: u32,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, Default, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub struct ColorRGB {
     pub r: u8,
     pub g: u8,
     pub b: u8,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, Default, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
 pub struct Velocity {
     pub vx: f64,
     pub vy: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Appearance {
     pub r: u8,
     pub g: u8,
@@ -174,7 +298,8 @@ impl Default for Appearance {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Physics {
     pub home_x: f64,
     pub home_y: f64,
@@ -190,7 +315,8 @@ pub struct Physics {
     pub max_speed: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Metabolism {
     pub trophic_potential: f32,
     pub energy: f64,
@@ -209,7 +335,8 @@ pub struct Metabolism {
     pub migration_id: Option<Uuid>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Pathogen {
     pub id: Uuid,
     pub lethality: f32,
@@ -219,14 +346,16 @@ pub struct Pathogen {
     pub behavior_manipulation: Option<(usize, f32)>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Health {
     pub pathogen: Option<Pathogen>,
     pub infection_timer: u32,
     pub immunity: f32,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Genotype {
     pub brain: Brain,
     pub sensing_range: f64,
@@ -243,7 +372,8 @@ pub struct Genotype {
     pub regulatory_rules: Vec<RegulatoryRule>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Activations(pub Vec<f32>);
 
 impl Default for Activations {
@@ -252,7 +382,8 @@ impl Default for Activations {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Intel {
     pub genotype: Genotype,
     #[serde(skip)]
@@ -274,7 +405,8 @@ pub struct Intel {
     pub ancestral_traits: HashSet<AncestralTrait>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Entity {
     #[serde(flatten)]
     pub identity: Identity,
@@ -287,7 +419,8 @@ pub struct Entity {
     pub intel: Intel,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Fossil {
     pub lineage_id: Uuid,
     pub name: String,
@@ -300,7 +433,8 @@ pub struct Fossil {
     pub genotype: Genotype,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Legend {
     pub id: Uuid,
     pub parent_id: Option<Uuid>,
@@ -317,7 +451,8 @@ pub struct Legend {
     pub color_rgb: (u8, u8, u8),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct PopulationStats {
     pub population: usize,
     pub avg_lifespan: f64,
@@ -362,7 +497,8 @@ impl Default for PopulationStats {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct HallOfFame {
     pub top_living: Vec<(f64, Entity)>,
 }
@@ -375,19 +511,23 @@ impl Default for HallOfFame {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct MetabolicNiche(pub f32);
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Energy(pub f64);
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
 pub struct Food {
     pub x: u16,
     pub y: u16,
