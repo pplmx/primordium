@@ -154,7 +154,7 @@ impl App {
             KeyCode::Char('5') if self.show_help => self.help_tab = 4,
             KeyCode::Char('6') if self.show_help => self.help_tab = 5,
             KeyCode::Char(c) if self.view_mode == 5 && c.is_ascii_digit() => {
-                let idx = c.to_digit(10).unwrap() as usize;
+                let idx = c.to_digit(10).map(|d| d as usize).unwrap_or(0);
                 if let Some(offer) = self.network_state.trade_offers.get(idx).cloned() {
                     self.world.apply_trade(
                         &mut self.env,

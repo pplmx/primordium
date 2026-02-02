@@ -124,11 +124,12 @@ impl AncestryTree {
         }
 
         for edge in self.graph.edge_indices() {
-            let (from, to) = self.graph.edge_endpoints(edge).unwrap();
-            dot.push_str(&format!(
-                "  \"{}\" -> \"{}\";\n",
-                self.graph[from].id, self.graph[to].id
-            ));
+            if let Some((from, to)) = self.graph.edge_endpoints(edge) {
+                dot.push_str(&format!(
+                    " \"{}\" -> \"{}\";\n",
+                    self.graph[from].id, self.graph[to].id
+                ));
+            }
         }
 
         dot.push_str("}\n");

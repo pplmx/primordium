@@ -238,36 +238,33 @@ pub fn perceive_and_decide_internal(
                                 * decision.grn_repro_mod)
                                 .clamp(0.1, 0.9);
 
-                            let (baby, dist) =
-                                social::reproduce_sexual_parallel_components_decomposed(
-                                    pos,
-                                    met.energy,
-                                    met.generation,
-                                    &modified_genotype,
-                                    &Position {
-                                        x: partner_snap.x,
-                                        y: partner_snap.y,
-                                    },
-                                    partner_snap.energy,
-                                    partner_snap.generation,
-                                    partner_snap.genotype.as_ref().unwrap(),
-                                    &mut repro_ctx,
-                                );
-                            acc.push(InteractionCommand::Birth {
-                                parent_idx: i,
-                                baby: Box::new(baby),
-                                genetic_distance: dist,
-                            });
-                            acc.push(InteractionCommand::TransferEnergy {
-                                target_idx: p_idx,
-                                amount: -(partner_snap.energy
-                                    * partner_snap
-                                        .genotype
-                                        .as_ref()
-                                        .unwrap()
-                                        .reproductive_investment
-                                        as f64),
-                            });
+                            if let Some(partner_genotype) = partner_snap.genotype.as_ref() {
+                                let (baby, dist) =
+                                    social::reproduce_sexual_parallel_components_decomposed(
+                                        pos,
+                                        met.energy,
+                                        met.generation,
+                                        &modified_genotype,
+                                        &Position {
+                                            x: partner_snap.x,
+                                            y: partner_snap.y,
+                                        },
+                                        partner_snap.energy,
+                                        partner_snap.generation,
+                                        partner_genotype,
+                                        &mut repro_ctx,
+                                    );
+                                acc.push(InteractionCommand::Birth {
+                                    parent_idx: i,
+                                    baby: Box::new(baby),
+                                    genetic_distance: dist,
+                                });
+                                acc.push(InteractionCommand::TransferEnergy {
+                                    target_idx: p_idx,
+                                    amount: -(partner_snap.energy
+                                        * partner_genotype.reproductive_investment as f64),
+                                });
+                            }
                         }
                         let self_energy = met.energy;
                         let partner_energy = partner_snap.energy;
