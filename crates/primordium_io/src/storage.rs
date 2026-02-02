@@ -30,6 +30,8 @@ pub enum StorageCommand {
     },
     BatchSyncLineages(LineageRegistry),
     BatchSyncFossils(FossilRegistry),
+    QueryFossils(Uuid, Sender<Vec<(u64, String)>>),
+    QueryHallOfFame(Sender<Vec<(Uuid, u32, bool)>>),
     Stop,
 }
 
@@ -150,6 +152,42 @@ impl StorageManager {
                         }
                         let _ = tx.commit();
                     }
+                    StorageCommand::QueryFossils(lineage_id, reply_tx) => {
+                        let mut stmt = match conn.prepare(
+                            "SELECT tick, legend_reason FROM fossils WHERE lineage_id = ?1 ORDER BY tick DESC"
+                        ) {
+                            Ok(s) => s,
+                            Err(_) => continue,
+                        };
+
+                        let rows = stmt
+                            .query_map(params![lineage_id], |row| Ok((row.get(0)?, row.get(1)?)));
+
+                        if let Ok(iter) = rows {
+                            let results: Vec<(u64, String)> = iter.filter_map(Result::ok).collect();
+                            let _ = reply_tx.send(results);
+                        }
+                    }
+                    StorageCommand::QueryHallOfFame(reply_tx) => {
+                        let mut stmt = match conn.prepare(
+                            "SELECT id, civilization_level, is_extinct FROM lineages ORDER BY civilization_level DESC LIMIT 10"
+                        ) {
+                            Ok(s) => s,
+                            Err(_) => continue,
+                        };
+
+                        let rows = stmt.query_map([], |row| {
+                            let id_str: String = row.get(0)?;
+                            let id = Uuid::parse_str(&id_str).unwrap_or_default();
+                            Ok((id, row.get(1)?, row.get(2)?))
+                        });
+
+                        if let Ok(iter) = rows {
+                            let results: Vec<(Uuid, u32, bool)> =
+                                iter.filter_map(Result::ok).collect();
+                            let _ = reply_tx.send(results);
+                        }
+                    }
                     StorageCommand::Stop => break,
                 }
             }
@@ -209,6 +247,35 @@ impl StorageManager {
 
     pub fn sync_fossils(&self, registry: FossilRegistry) {
         let _ = self.sender.send(StorageCommand::BatchSyncFossils(registry));
+    }
+
+    pub fn query_fossils_async(
+        &self,
+        lineage_id: Uuid,
+    ) -> Option<mpsc::Receiver<Vec<(u64, String)>>> {
+        let (tx, rx) = mpsc::channel();
+        if self
+            .sender
+            .send(StorageCommand::QueryFossils(lineage_id, tx))
+            .is_ok()
+        {
+            Some(rx)
+        } else {
+            None
+        }
+    }
+
+    pub fn query_hall_of_fame_async(&self) -> Option<mpsc::Receiver<Vec<(Uuid, u32, bool)>>> {
+        let (tx, rx) = mpsc::channel();
+        if self
+            .sender
+            .send(StorageCommand::QueryHallOfFame(tx))
+            .is_ok()
+        {
+            Some(rx)
+        } else {
+            None
+        }
     }
 }
 

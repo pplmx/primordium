@@ -65,9 +65,12 @@ pub struct App {
     // Live Data
     pub event_log: VecDeque<(String, Color)>,
 
-    pub network_state: crate::model::infra::network::NetworkState, // NEW
+    pub network_state: crate::model::infra::network::NetworkState,
     pub latest_snapshot: Option<crate::model::snapshot::WorldSnapshot>,
     pub network: Option<crate::client::manager::NetworkManager>,
+
+    pub hof_query_rx: Option<std::sync::mpsc::Receiver<Vec<(Uuid, u32, bool)>>>,
+    pub cached_hall_of_fame: Vec<(Uuid, u32, bool)>,
 }
 
 impl App {
@@ -139,6 +142,8 @@ impl App {
             network_state: crate::model::infra::network::NetworkState::default(),
             latest_snapshot,
             network: None,
+            hof_query_rx: None,
+            cached_hall_of_fame: Vec::new(),
         })
     }
 

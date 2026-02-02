@@ -1,3 +1,5 @@
+pub mod views;
+
 use anyhow::Result;
 use crossterm::{
     cursor,
@@ -46,7 +48,6 @@ impl Tui {
 
 impl Drop for Tui {
     fn drop(&mut self) {
-        // Attempt to restore terminal state on drop to prevent messed up terminal
         let _ = disable_raw_mode();
         let _ = execute!(
             io::stdout(),
