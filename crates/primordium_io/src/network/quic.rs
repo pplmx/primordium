@@ -37,12 +37,12 @@ impl QuicClient {
             .with_safe_defaults()
             .with_custom_certificate_verifier(Arc::new(SkipServerVerification))
             .with_no_client_auth();
-        
+
         let mut client_config = quinn::ClientConfig::new(Arc::new(crypto));
         let mut transport_config = quinn::TransportConfig::default();
         transport_config.keep_alive_interval(Some(std::time::Duration::from_secs(5)));
         client_config.transport_config(Arc::new(transport_config));
-        
+
         endpoint.set_default_client_config(client_config);
         Ok(Self { endpoint })
     }

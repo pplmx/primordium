@@ -161,8 +161,8 @@ impl<'a> Widget for WorldWidget<'a> {
             }
         }
 
-        let map_w = self.snapshot.terrain.width as u16;
-        let map_h = self.snapshot.terrain.height as u16;
+        let map_w = self.snapshot.terrain.width;
+        let map_h = self.snapshot.terrain.height;
 
         let start_x = 0;
         let end_x = inner.width.min(map_w);

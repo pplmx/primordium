@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 #[derive(Clone, Debug)]
 pub struct TokenBucket {
@@ -45,6 +45,7 @@ impl TokenBucket {
 mod tests {
     use super::*;
     use std::thread;
+    use std::time::Duration;
 
     #[test]
     fn test_token_bucket_rate_limiting() {
