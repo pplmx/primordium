@@ -424,6 +424,10 @@ impl TerrainGrid {
                         cell.fertility = (cell.fertility - 0.05).max(0.0);
                     }
 
+                    if cell.energy_store > 1000.0 {
+                        cell.fertility *= 0.99;
+                    }
+
                     let mut forest_neighbors = 0;
                     for dy in -1..=1 {
                         for dx in -1..=1 {

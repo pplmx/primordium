@@ -63,7 +63,11 @@ impl World {
                 Food::new(fx, fy, n_type),
             ));
         }
-        let terrain = TerrainGrid::generate(config.world.width, config.world.height, 42);
+        let terrain = TerrainGrid::generate(
+            config.world.width,
+            config.world.height,
+            config.world.seed.unwrap_or(42),
+        );
         let pheromones = PheromoneGrid::new(config.world.width, config.world.height);
         let sound = SoundGrid::new(config.world.width, config.world.height);
         let pressure =

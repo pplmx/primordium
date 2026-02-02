@@ -87,6 +87,9 @@ pub fn mutate_genotype<R: Rng>(
         let recall_chance = 0.01 + (stress_factor * 0.05); // Up to 6% chance under high stress
         if rng.gen_bool(recall_chance as f64) {
             genotype.brain = ancestral.brain.clone();
+            genotype.sensing_range = ancestral.sensing_range;
+            genotype.max_speed = ancestral.max_speed;
+            genotype.maturity_gene = ancestral.maturity_gene;
             // Re-initialize map after brain replacement
             crate::brain::BrainLogic::initialize_node_idx_map(&mut genotype.brain);
         }

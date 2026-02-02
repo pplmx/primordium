@@ -232,6 +232,10 @@ impl Environment {
         self.radiation_timer >= 50
     }
 
+    pub fn is_hypoxia(&self) -> bool {
+        self.oxygen_level < 10.0
+    }
+
     pub fn climate(&self) -> ClimateState {
         if let Some(over) = self.god_climate_override {
             return over;
@@ -296,7 +300,14 @@ impl Environment {
         };
 
         // Apply season modifier
-        base * era_mult * self.current_season.metabolism_multiplier() * circadian
+        let mut final_mult =
+            base * era_mult * self.current_season.metabolism_multiplier() * circadian;
+
+        if self.is_hypoxia() {
+            final_mult *= 1.5;
+        }
+
+        final_mult
     }
 
     pub fn food_spawn_multiplier(&self) -> f64 {
