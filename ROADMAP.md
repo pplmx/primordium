@@ -33,11 +33,12 @@ These tasks are the critical path to the next major version of Primordium.
 7.  **Phase 66.7: Neural & Social Correction** - *CRITICAL FIX* ✅ (Deterministic Innovation IDs, Parallel Interaction Application, Intelligent Terraforming)
 8.  **Phase 66 Step 2: Entity ECS Migration** - *Performance* ✅ (Completed - Entity split into components, logic uses granular queries)
 9.  **Phase 66 Step 3: System Parallelism** - *Performance* ✅ (Completed - World::update refactored to use pipelined queries)
-10. **Phase 66 Step 4: Zero-Copy Serialization** - *Performance* 🚧 (In Progress - Data layer ready)
-11. **Phase 67: The Creator's Interface (Plugin Architecture)** - *Extensibility*
-12. **Phase 68: The Song of Entropy (Audio)** - *Immersion*
-9.  **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
-10. **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
+10. **Phase 66 Step 4: Zero-Copy Serialization** - *Performance* ✅ (Completed - Implemented rkyv persistence in primordium_io)
+11. **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite* ✅ (Completed - Extracted primordium_io and decoupled Core)
+12. **Phase 67: The Creator's Interface (Plugin Architecture)** - *Extensibility*
+13. **Phase 68: The Song of Entropy (Audio)** - *Immersion*
+14. **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
+15. **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
 
 ---
 
