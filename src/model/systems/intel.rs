@@ -160,17 +160,16 @@ pub fn mutate_genotype<R: Rng>(
         }
     }
 
-    if rng.gen::<f32>() < effective_mutation_rate * 0.1
-        && !genotype.regulatory_rules.is_empty() {
-            let idx = rng.gen_range(0..genotype.regulatory_rules.len());
-            let rule = &mut genotype.regulatory_rules[idx];
-            if rng.gen_bool(0.5) {
-                rule.threshold += rng.gen_range(-0.1..0.1);
-            } else {
-                rule.modifier += rng.gen_range(-0.1..0.1);
-            }
-            rule.modifier = rule.modifier.clamp(0.1, 5.0);
+    if rng.gen::<f32>() < effective_mutation_rate * 0.1 && !genotype.regulatory_rules.is_empty() {
+        let idx = rng.gen_range(0..genotype.regulatory_rules.len());
+        let rule = &mut genotype.regulatory_rules[idx];
+        if rng.gen_bool(0.5) {
+            rule.threshold += rng.gen_range(-0.1..0.1);
+        } else {
+            rule.modifier += rng.gen_range(-0.1..0.1);
         }
+        rule.modifier = rule.modifier.clamp(0.1, 5.0);
+    }
 
     if rng.gen::<f32>() < effective_mutation_rate * 0.05 {
         use primordium_data::{RegulatoryOperator, RegulatoryRule, RegulatorySensor};
@@ -202,11 +201,10 @@ pub fn mutate_genotype<R: Rng>(
         }
     }
 
-    if rng.gen::<f32>() < effective_mutation_rate * 0.02
-        && !genotype.regulatory_rules.is_empty() {
-            let idx = rng.gen_range(0..genotype.regulatory_rules.len());
-            genotype.regulatory_rules.remove(idx);
-        }
+    if rng.gen::<f32>() < effective_mutation_rate * 0.02 && !genotype.regulatory_rules.is_empty() {
+        let idx = rng.gen_range(0..genotype.regulatory_rules.len());
+        genotype.regulatory_rules.remove(idx);
+    }
 
     if population < 10 && population > 0 && rng.gen_bool(0.05) {
         match rng.gen_range(0..5) {
