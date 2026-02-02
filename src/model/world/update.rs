@@ -156,6 +156,11 @@ impl World {
 
         let (mut interaction_events, new_babies) =
             self.execute_interactions(env, interaction_commands, &handles, &food_handles);
+
+        for ev in &interaction_events {
+            let _ = self.logger.log_event(ev.clone());
+        }
+
         events.append(&mut interaction_events);
 
         self.finalize_tick(env, &mut events, &handles, new_babies);
@@ -483,7 +488,7 @@ impl World {
                 stats: self.pop_stats.clone(),
                 timestamp: Utc::now().to_rfc3339(),
             };
-            // self.logger.log_event(snap_ev.clone()); // Removed
+            let _ = self.logger.log_event(snap_ev.clone());
             events.push(snap_ev);
             history::handle_fossilization(
                 &self.lineage_registry,

@@ -81,7 +81,6 @@ fn test_outpost_construction() {
         pop_stats: &mut world.pop_stats,
         lineage_registry: &mut world.lineage_registry,
         fossil_registry: &mut world.fossil_registry,
-        logger: &mut world.logger,
         config: &world.config,
         tick: 0,
         width: world.width,
