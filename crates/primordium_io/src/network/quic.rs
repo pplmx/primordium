@@ -5,10 +5,18 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AuthorityTransfer {
+    pub entity_id: uuid::Uuid,
+    pub dna: String,
+    pub signature: Vec<u8>,
+    pub timestamp: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum NetMessage {
     Handshake { version: String, magic: u64 },
     PeerAnnounce { id: uuid::Uuid, address: String },
-    MigrateEntity { dna: String },
+    MigrateEntity(AuthorityTransfer),
 }
 
 pub struct QuicServer {

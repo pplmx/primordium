@@ -63,6 +63,8 @@ impl StorageManager {
             }
 
             let _ = conn.execute("PRAGMA journal_mode=WAL", []);
+            let _ = conn.execute("PRAGMA synchronous = NORMAL", []);
+            let _ = conn.execute("PRAGMA mmap_size = 30000000000", []);
 
             while let Ok(cmd) = rx.recv() {
                 match cmd {

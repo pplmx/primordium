@@ -77,7 +77,6 @@ impl World {
             height: config.world.height,
             tick: 0,
             ecs,
-            entities_persist: Vec::new(),
             food_persist: Vec::new(),
             logger,
             spatial_hash: SpatialHash::new(5.0, config.world.width, config.world.height),
@@ -135,19 +134,7 @@ impl World {
 
     pub fn post_load(&mut self) {
         self.ecs = hecs::World::new();
-        for mut e in std::mem::take(&mut self.entities_persist) {
-            crate::model::brain::BrainLogic::initialize_node_idx_map(&mut e.intel.genotype.brain);
-            self.ecs.spawn((
-                e.identity,
-                e.position,
-                e.velocity,
-                e.appearance,
-                e.physics,
-                e.metabolism,
-                e.health,
-                e.intel,
-            ));
-        }
+
         for f in std::mem::take(&mut self.food_persist) {
             self.ecs.spawn((
                 Position {

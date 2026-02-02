@@ -45,7 +45,6 @@ pub struct World {
     #[serde(skip, default = "hecs::World::new")]
     pub ecs: hecs::World,
 
-    pub entities_persist: Vec<primordium_data::Entity>,
     pub food_persist: Vec<primordium_data::Food>,
 
     #[serde(skip, default = "HistoryLogger::new_dummy")]

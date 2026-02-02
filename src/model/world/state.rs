@@ -144,7 +144,6 @@ impl World {
     }
 
     pub fn prepare_for_save(&mut self) {
-        self.entities_persist = self.get_all_entities();
         self.food_persist.clear();
         for (_handle, f) in self.ecs.query::<&Food>().iter() {
             self.food_persist.push(f.clone());
