@@ -2,7 +2,7 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_overgrazing_feedback_loop() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -17,7 +17,7 @@ fn test_overgrazing_feedback_loop() {
     assert!(f1 < f0, "Massive overgrazing should deplete fertility");
 }
 
-#[test]
+#[tokio::test] async
 fn test_hunter_competition_impact() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;

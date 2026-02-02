@@ -2,7 +2,7 @@ use primordium_core::config::{AppConfig, GameMode};
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_group_defense_reduces_damage() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -53,7 +53,7 @@ fn test_group_defense_reduces_damage() {
         .any(|e| e.metabolism.lineage_id == v_lineage));
 }
 
-#[test]
+#[tokio::test] async
 fn test_metabolic_cost_of_signaling() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;

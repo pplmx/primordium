@@ -109,8 +109,8 @@ pub struct World {
 mod tests {
     use super::*;
     use crate::model::systems::action;
-    #[test]
-    fn test_handle_movement_wall_bounce() {
+    #[tokio::test]
+    async fn test_handle_movement_wall_bounce() {
         let mut config = AppConfig::default();
         config.world.width = 10;
         config.world.height = 10;

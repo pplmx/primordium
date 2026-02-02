@@ -2,7 +2,7 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_genetic_bottleneck_increases_mutation() {
     let mut config = AppConfig::default();
     config.evolution.population_aware = true;
@@ -64,7 +64,7 @@ fn test_genetic_bottleneck_increases_mutation() {
     assert_ne!(child_small.identity.id, child_large.identity.id);
 }
 
-#[test]
+#[tokio::test] async
 fn test_genetic_drift_in_small_pop() {
     let mut config = AppConfig::default();
     config.evolution.mutation_rate = 0.0; // Disable normal mutation

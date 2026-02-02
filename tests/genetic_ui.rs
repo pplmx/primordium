@@ -2,7 +2,7 @@ use primordium_data::GeneType;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_genetic_edit_application() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;

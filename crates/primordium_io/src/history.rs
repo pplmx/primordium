@@ -62,7 +62,7 @@ use primordium_core::lineage_registry::LineageRegistry;
 
 pub enum LogCommand {
     Event(LiveEvent),
-    Legend(Legend),
+    Legend(Box<Legend>),
     SaveLineages(LineageRegistry, String),
     SaveFossils(FossilRegistry, String),
     SyncToStorage(LineageRegistry, FossilRegistry),
@@ -120,7 +120,7 @@ impl HistoryLogger {
                     }
                     LogCommand::Legend(lg) => {
                         if let Some(ref mut f) = legend_file {
-                            if let Ok(json) = serde_json::to_string(&lg) {
+                            if let Ok(json) = serde_json::to_string(&*lg) {
                                 let _ = writeln!(f, "{}", json);
                                 let _ = f.flush();
                             }
@@ -177,7 +177,7 @@ impl HistoryLogger {
 
     pub fn archive_legend(&self, legend: Legend) -> Result<()> {
         if let Some(ref tx) = self.sender {
-            let _ = tx.send(LogCommand::Legend(legend));
+            let _ = tx.send(LogCommand::Legend(Box::new(legend)));
         }
         Ok(())
     }

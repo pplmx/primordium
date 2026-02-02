@@ -4,7 +4,7 @@ use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_death_by_brain_bloat() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -48,7 +48,7 @@ fn test_death_by_brain_bloat() {
     );
 }
 
-#[test]
+#[tokio::test] async
 fn test_high_speed_metabolic_exhaustion() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -97,7 +97,7 @@ fn test_high_speed_metabolic_exhaustion() {
     assert!(e_fast.metabolism.energy < e_slow.metabolism.energy);
 }
 
-#[test]
+#[tokio::test] async
 fn test_inertia_responsiveness_penalty() {
     let config = AppConfig::default();
     let env = Environment::default();

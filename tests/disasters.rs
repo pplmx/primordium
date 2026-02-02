@@ -5,7 +5,7 @@ use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::systems::environment as environment_system;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_wall_collisions() {
     let mut config = AppConfig::default();
     config.world.width = 10;
@@ -45,7 +45,7 @@ fn test_wall_collisions() {
     );
 }
 
-#[test]
+#[tokio::test] async
 fn test_dust_bowl_trigger() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;

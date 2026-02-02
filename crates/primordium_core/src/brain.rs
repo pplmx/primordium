@@ -174,12 +174,13 @@ fn get_split_node_id(from: usize, to: usize) -> usize {
 
 pub fn create_genotype_random_with_rng<R: Rng>(rng: &mut R) -> Genotype {
     let brain = Brain::new_random_with_rng(rng);
+    let lineage_id = uuid::Uuid::from_u128(rng.gen::<u128>());
     Genotype {
         brain,
         sensing_range: 10.0,
         max_speed: 1.0,
         max_energy: 100.0,
-        lineage_id: uuid::Uuid::new_v4(),
+        lineage_id,
         metabolic_niche: 0.5,
         trophic_potential: 0.5,
         reproductive_investment: 0.5,
@@ -610,22 +611,7 @@ impl GenotypeLogic for Genotype {
     }
 
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self {
-        let brain = Brain::new_random_with_rng(rng);
-        Self {
-            brain,
-            sensing_range: 10.0,
-            max_speed: 1.0,
-            max_energy: 100.0,
-            lineage_id: uuid::Uuid::new_v4(),
-            metabolic_niche: 0.5,
-            trophic_potential: 0.5,
-            reproductive_investment: 0.5,
-            maturity_gene: 1.0,
-            mate_preference: 0.5,
-            pairing_bias: 0.5,
-            specialization_bias: [0.33, 0.33, 0.34],
-            regulatory_rules: Vec::new(),
-        }
+        create_genotype_random_with_rng(rng)
     }
 
     fn crossover_with_rng<R: Rng>(&self, other: &Self, rng: &mut R) -> Self {

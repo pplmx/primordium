@@ -88,11 +88,10 @@ impl World {
             }
             TradeResource::Biomass => {
                 if incoming {
-                    let mut rng = rand::thread_rng();
                     for _ in 0..(amount as usize) {
-                        let fx = rng.gen_range(1..self.width - 1);
-                        let fy = rng.gen_range(1..self.height - 1);
-                        let n_type = rng.gen_range(0.0..1.0);
+                        let fx = self.rng.gen_range(1..self.width - 1);
+                        let fy = self.rng.gen_range(1..self.height - 1);
+                        let n_type = self.rng.gen_range(0.0..1.0);
                         self.ecs.spawn((
                             Position {
                                 x: fx as f64,
@@ -141,5 +140,58 @@ impl World {
                 break;
             }
         }
+    }
+
+    /// Generate a deterministic hash of the entire world state for verification.
+    pub fn deterministic_hash(&self, env: &Environment) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+
+        // 1. Tick
+        hasher.update(self.tick.to_le_bytes());
+
+        // 2. Entities (Sorted by ID)
+        let mut entities: Vec<_> = self.get_all_entities();
+        entities.sort_by_key(|e| e.identity.id);
+        for e in entities {
+            hasher.update(e.identity.id.as_bytes());
+            // Use bits for float stability in hash
+            hasher.update(e.position.x.to_bits().to_le_bytes());
+            hasher.update(e.position.y.to_bits().to_le_bytes());
+            hasher.update(e.metabolism.energy.to_bits().to_le_bytes());
+            hasher.update(e.intel.genotype.to_hex().as_bytes());
+        }
+
+        // 3. Food (Sorted by position)
+        let mut food: Vec<_> = Vec::new();
+        for (_, (pos, f)) in self.ecs.query::<(&Position, &Food)>().iter() {
+            food.push((pos.x, pos.y, f.nutrient_type));
+        }
+        food.sort_by(|a, b| {
+            a.0.partial_cmp(&b.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+        });
+        for f in food {
+            hasher.update(f.0.to_bits().to_le_bytes());
+            hasher.update(f.1.to_bits().to_le_bytes());
+            hasher.update(f.2.to_bits().to_le_bytes());
+        }
+
+        // 4. Terrain
+        for cell in &self.terrain.cells {
+            hasher.update((cell.terrain_type as u8).to_le_bytes());
+            hasher.update(cell.fertility.to_bits().to_le_bytes());
+            if let Some(owner) = cell.owner_id {
+                hasher.update(owner.as_bytes());
+            }
+        }
+
+        // 5. Environment
+        hasher.update(env.carbon_level.to_bits().to_le_bytes());
+        hasher.update(env.oxygen_level.to_bits().to_le_bytes());
+        hasher.update((env.current_era as u32).to_le_bytes());
+
+        hex::encode(hasher.finalize())
     }
 }

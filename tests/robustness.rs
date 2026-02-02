@@ -3,7 +3,7 @@ use primordium_lib::model::history;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_corrupted_dna_handling() {
     use primordium_lib::model::state::entity::Genotype;
     // 1. Completely invalid hex
@@ -16,7 +16,7 @@ fn test_corrupted_dna_handling() {
     assert!(result2.is_err());
 }
 
-#[test]
+#[tokio::test] async
 fn test_lineage_registry_cleanup_on_extinction() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -60,7 +60,7 @@ fn test_lineage_registry_cleanup_on_extinction() {
     assert_eq!(world.pop_stats.population, 0);
 }
 
-#[test]
+#[tokio::test] async
 fn test_multiverse_version_compatibility_resilience() {
     // Simulate a migration from a peer with missing fields (e.g. older version)
     // We should ensure import_migrant doesn't panic

@@ -107,9 +107,9 @@ pub fn process_infection_components(health: &mut Health, metabolism: &mut Metabo
     }
 }
 
-pub fn handle_pathogen_emergence(active_pathogens: &mut Vec<Pathogen>, _rng: &mut impl Rng) {
-    if rand::thread_rng().gen_bool(0.0001) {
-        active_pathogens.push(crate::pathogen::create_random_pathogen());
+pub fn handle_pathogen_emergence<R: Rng>(active_pathogens: &mut Vec<Pathogen>, rng: &mut R) {
+    if rng.gen_bool(0.0001) {
+        active_pathogens.push(crate::pathogen::create_random_pathogen_with_rng(rng));
     }
 }
 

@@ -5,7 +5,7 @@ use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 use uuid::Uuid;
 
-#[test]
+#[tokio::test] async
 fn test_ancestral_trait_metabolism_buff() {
     let config = AppConfig::default();
     let world = World::new(0, config.clone()).unwrap();
@@ -60,7 +60,7 @@ fn test_ancestral_trait_metabolism_buff() {
     );
 }
 
-#[test]
+#[tokio::test] async
 fn test_global_event_radiation_surge() {
     let world = World::new(0, AppConfig::default()).unwrap();
     let env = Environment {
@@ -90,7 +90,7 @@ fn test_global_event_radiation_surge() {
     assert_ne!(genotype.to_hex(), original_dna);
 }
 
-#[test]
+#[tokio::test] async
 fn test_civilization_leveling_outposts() {
     let mut world = World::new(0, AppConfig::default()).unwrap();
     let l_id = Uuid::new_v4();

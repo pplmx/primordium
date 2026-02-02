@@ -1,4 +1,7 @@
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Narration {
@@ -8,26 +11,28 @@ pub struct Narration {
     pub severity: f32,
 }
 
-pub struct SiliconScribe {
-    pub narrations: Vec<Narration>,
-    pub max_history: usize,
+#[async_trait]
+pub trait Narrator: Send + Sync {
+    async fn generate_narration(
+        &self,
+        tick: u64,
+        event_type: &str,
+        description: &str,
+        severity: f32,
+    ) -> String;
 }
 
-impl Default for SiliconScribe {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub struct HeuristicNarrator;
 
-impl SiliconScribe {
-    pub fn new() -> Self {
-        Self {
-            narrations: Vec::new(),
-            max_history: 100,
-        }
-    }
-
-    pub fn narrate(&mut self, tick: u64, event_type: &str, description: &str, severity: f32) {
+#[async_trait]
+impl Narrator for HeuristicNarrator {
+    async fn generate_narration(
+        &self,
+        tick: u64,
+        event_type: &str,
+        description: &str,
+        severity: f32,
+    ) -> String {
         let prefix = if severity > 0.8 {
             "◈"
         } else if severity > 0.5 {
@@ -36,7 +41,7 @@ impl SiliconScribe {
             "○"
         };
 
-        let text = match event_type {
+        match event_type {
             "ExtinctionEvent" => format!(
                 "{} The Great Thinning: population collapsed. (Tick {})",
                 prefix, tick
@@ -54,22 +59,76 @@ impl SiliconScribe {
                 prefix, tick
             ),
             _ => format!("{} Epoch {}: {}", prefix, tick, description),
-        };
-
-        let narration = Narration {
-            tick,
-            event_type: event_type.to_string(),
-            text,
-            severity,
-        };
-
-        if self.narrations.len() >= self.max_history {
-            self.narrations.remove(0);
         }
-        self.narrations.push(narration);
+    }
+}
+
+pub struct SiliconScribe {
+    pub narrations: Arc<Mutex<Vec<Narration>>>,
+    pub max_history: usize,
+    tx: mpsc::UnboundedSender<NarrationRequest>,
+}
+
+struct NarrationRequest {
+    tick: u64,
+    event_type: String,
+    description: String,
+    severity: f32,
+}
+
+impl Default for SiliconScribe {
+    fn default() -> Self {
+        Self::new(Box::new(HeuristicNarrator))
+    }
+}
+
+impl SiliconScribe {
+    pub fn new(narrator: Box<dyn Narrator>) -> Self {
+        let narrations = Arc::new(Mutex::new(Vec::new()));
+        let (tx, mut rx) = mpsc::unbounded_channel::<NarrationRequest>();
+
+        let narrations_clone = Arc::clone(&narrations);
+        let max_history = 100;
+
+        tokio::spawn(async move {
+            while let Some(req) = rx.recv().await {
+                let text = narrator
+                    .generate_narration(req.tick, &req.event_type, &req.description, req.severity)
+                    .await;
+
+                let narration = Narration {
+                    tick: req.tick,
+                    event_type: req.event_type,
+                    text,
+                    severity: req.severity,
+                };
+
+                let mut list = narrations_clone.lock().unwrap();
+                if list.len() >= max_history {
+                    list.remove(0);
+                }
+                list.push(narration);
+            }
+        });
+
+        Self {
+            narrations,
+            max_history,
+            tx,
+        }
     }
 
-    pub fn consume_narrations(&mut self) -> Vec<Narration> {
-        std::mem::take(&mut self.narrations)
+    pub fn narrate(&self, tick: u64, event_type: &str, description: &str, severity: f32) {
+        let _ = self.tx.send(NarrationRequest {
+            tick,
+            event_type: event_type.to_string(),
+            description: description.to_string(),
+            severity,
+        });
+    }
+
+    pub fn consume_narrations(&self) -> Vec<Narration> {
+        let mut list = self.narrations.lock().unwrap();
+        std::mem::take(&mut *list)
     }
 }

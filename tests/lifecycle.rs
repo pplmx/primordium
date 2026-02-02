@@ -2,7 +2,7 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_simulation_lifecycle() {
     // 1. Setup
     let config = AppConfig::default();
@@ -32,7 +32,7 @@ fn test_simulation_lifecycle() {
     assert_eq!(world.tick, 100);
 }
 
-#[test]
+#[tokio::test] async
 fn test_reproduction_and_genetics() {
     let mut config = AppConfig::default();
     // High energy start to encourage reproduction

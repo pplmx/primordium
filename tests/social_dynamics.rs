@@ -2,7 +2,7 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_tribe_solidarity_no_aggression() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -35,7 +35,7 @@ fn test_tribe_solidarity_no_aggression() {
     );
 }
 
-#[test]
+#[tokio::test] async
 fn test_energy_sharing_between_allies() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -97,7 +97,7 @@ fn test_energy_sharing_between_allies() {
     assert!(shared, "Energy sharing did not occur between allies");
 }
 
-#[test]
+#[tokio::test] async
 fn test_inter_tribe_predation() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;

@@ -2,8 +2,8 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
-fn test_parallel_determinism() {
+#[tokio::test]
+async fn test_parallel_determinism() {
     let mut config = AppConfig::default();
     config.world.width = 50;
     config.world.height = 50;

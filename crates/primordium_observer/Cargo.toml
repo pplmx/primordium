@@ -9,4 +9,5 @@ tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 primordium_data = { path = "../primordium_data" }
+async-trait = "0.1"
 # Future: candle-core or similar for local LLM

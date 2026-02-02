@@ -6,7 +6,7 @@ use primordium_lib::model::state::environment::Environment;
 
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_rank_accumulation() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -46,7 +46,7 @@ fn test_rank_accumulation() {
     assert!(rank_aged > rank, "Rank should increase with age");
 }
 
-#[test]
+#[tokio::test] async
 fn test_soldier_classification() {
     let mut e = primordium_lib::model::lifecycle::create_entity(0.0, 0.0, 0);
     e.intel.rank = 0.9;
@@ -70,7 +70,7 @@ fn test_soldier_classification() {
     );
 }
 
-#[test]
+#[tokio::test] async
 fn test_tribal_split_under_pressure() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -106,7 +106,7 @@ fn test_tribal_split_under_pressure() {
     );
 }
 
-#[test]
+#[tokio::test] async
 fn test_soldier_damage_bonus() {
     // This requires inspecting `handle_predation` logic indirectly or via unit test in social.rs.
     // But since logic is embedded in World::update InteractionCommand generation, integration test is best.

@@ -34,7 +34,7 @@ impl WorldObserver {
         Self {
             history: VecDeque::new(),
             max_history: 100,
-            scribe: SiliconScribe::new(),
+            scribe: SiliconScribe::default(),
             last_population: 0,
             ticks_since_famine: 0,
             last_climate: None,
@@ -135,10 +135,11 @@ impl WorldObserver {
             }
         }
         report.push_str("\n--- SILICON SCRIBE NARRATIONS ---\n");
-        if self.scribe.narrations.is_empty() {
+        let narrations = self.scribe.narrations.lock().unwrap();
+        if narrations.is_empty() {
             report.push_str("No narrations yet.\n");
         } else {
-            for n in &self.scribe.narrations {
+            for n in &*narrations {
                 report.push_str(&format!("{}\n", n.text));
             }
         }

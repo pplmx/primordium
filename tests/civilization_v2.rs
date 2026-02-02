@@ -5,7 +5,7 @@ use primordium_lib::model::terrain::{OutpostSpecialization, TerrainType};
 use primordium_lib::model::world::World;
 use uuid::Uuid;
 
-#[test]
+#[tokio::test] async
 fn test_contested_ownership() {
     let mut config = AppConfig::default();
     config.world.width = 50;
@@ -80,7 +80,7 @@ fn test_contested_ownership() {
     );
 }
 
-#[test]
+#[tokio::test] async
 fn test_outpost_upgrades() {
     let mut config = AppConfig::default();
     config.world.width = 50;

@@ -6,7 +6,7 @@ use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 use uuid::Uuid;
 
-#[test]
+#[tokio::test] async
 fn test_collective_memory_reinforcement() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
@@ -30,7 +30,7 @@ fn test_collective_memory_reinforcement() {
     assert_eq!(world.lineage_registry.get_memory_value(&l_id, "goal"), 0.5);
 }
 
-#[test]
+#[tokio::test] async
 fn test_engineer_biological_irrigation_pressure() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
@@ -54,7 +54,7 @@ fn test_engineer_biological_irrigation_pressure() {
     assert!(d > 0.0, "Engineer should deposit Dig pressure near river");
 }
 
-#[test]
+#[tokio::test] async
 fn test_outpost_construction() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
@@ -108,7 +108,7 @@ fn test_outpost_construction() {
     assert_eq!(cell.owner_id, Some(l_id));
 }
 
-#[test]
+#[tokio::test] async
 fn test_outpost_energy_capacitor() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();

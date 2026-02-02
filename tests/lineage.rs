@@ -3,7 +3,7 @@ use primordium_lib::model::history;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_lineage_inheritance() {
     let config = AppConfig::default();
     let parent = lifecycle::create_entity(10.0, 10.0, 0);
@@ -40,7 +40,7 @@ fn test_lineage_inheritance() {
     );
 }
 
-#[test]
+#[tokio::test] async
 fn test_lineage_population_stats() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -78,7 +78,7 @@ fn test_lineage_population_stats() {
     assert_eq!(world.pop_stats.lineage_counts.get(&l2), Some(&1));
 }
 
-#[test]
+#[tokio::test] async
 fn test_multiverse_lineage_preservation() {
     let entity = primordium_lib::model::lifecycle::create_entity(5.0, 5.0, 0);
     let original_lineage = entity.metabolism.lineage_id;

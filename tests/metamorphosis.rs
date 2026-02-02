@@ -5,7 +5,7 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainType;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_larval_gating_logic() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -54,7 +54,7 @@ fn test_larval_gating_logic() {
     assert_eq!(world.terrain.get(5.0, 5.0).terrain_type, TerrainType::Wall);
 }
 
-#[test]
+#[tokio::test] async
 fn test_metamorphosis_transition_and_remodeling() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;

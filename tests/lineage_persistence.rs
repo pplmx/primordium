@@ -4,7 +4,7 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 use std::fs;
 
-#[test]
+#[tokio::test] async
 fn test_lineage_registry_persistence() {
     let config = AppConfig::default();
     let mut world = World::new(0, config).unwrap();
@@ -38,7 +38,7 @@ fn test_lineage_registry_persistence() {
     let _ = fs::remove_file(test_path);
 }
 
-#[test]
+#[tokio::test] async
 fn test_world_update_tracks_lineage_metrics() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;

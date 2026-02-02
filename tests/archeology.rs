@@ -2,8 +2,8 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
-fn test_fossilization_and_snapshots() {
+#[tokio::test]
+async fn test_fossilization_and_snapshots() {
     let log_dir = "logs_test_archeology_isolated";
     let _ = std::fs::remove_dir_all(log_dir);
     let _ = std::fs::create_dir_all(log_dir);

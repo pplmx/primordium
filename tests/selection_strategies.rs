@@ -1,7 +1,7 @@
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::lifecycle;
 
-#[test]
+#[tokio::test] async
 fn test_r_strategy_fast_reproduction() {
     let mut config = AppConfig::default();
     config.metabolism.maturity_age = 100;
@@ -47,7 +47,7 @@ fn test_r_strategy_fast_reproduction() {
     assert!(r_parent.metabolism.energy > 150.0);
 }
 
-#[test]
+#[tokio::test] async
 fn test_k_strategy_slow_reproduction() {
     let mut config = AppConfig::default();
     config.metabolism.maturity_age = 100;
@@ -101,7 +101,7 @@ fn test_k_strategy_slow_reproduction() {
     assert!(k_parent.metabolism.energy < 100.0);
 }
 
-#[test]
+#[tokio::test] async
 fn test_maturity_body_size_coupling() {
     let config = AppConfig::default();
     let mut genotype =

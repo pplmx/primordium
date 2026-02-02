@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use quinn::Endpoint;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
@@ -14,12 +15,38 @@ pub struct AuthorityTransfer {
 }
 
 impl AuthorityTransfer {
-    pub fn sign(&mut self, _secret: &[u8]) {
-        self.signature = vec![0; 64];
+    pub fn sign(&mut self, secret_key_bytes: &[u8]) -> Result<()> {
+        let key_array: [u8; 32] = secret_key_bytes
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Invalid secret key length: expected 32 bytes"))?;
+        let signing_key = SigningKey::from_bytes(&key_array);
+        let message = self.get_message();
+        let signature = signing_key.sign(&message);
+        self.signature = signature.to_bytes().to_vec();
+        Ok(())
     }
 
-    pub fn verify(&self, _public_key: &[u8]) -> bool {
-        !self.signature.is_empty()
+    pub fn verify(&self, public_key_bytes: &[u8]) -> bool {
+        let Ok(key_array) = public_key_bytes.try_into() else {
+            return false;
+        };
+        let Ok(verifying_key) = VerifyingKey::from_bytes(key_array) else {
+            return false;
+        };
+        let Ok(signature) = Signature::from_slice(&self.signature) else {
+            return false;
+        };
+        let message = self.get_message();
+        verifying_key.verify(&message, &signature).is_ok()
+    }
+
+    fn get_message(&self) -> Vec<u8> {
+        let mut msg = Vec::new();
+        msg.extend_from_slice(self.entity_id.as_bytes());
+        msg.extend_from_slice(self.dna.as_bytes());
+        msg.extend_from_slice(&self.timestamp.to_le_bytes());
+        msg.extend_from_slice(&self.nonce.to_le_bytes());
+        msg
     }
 }
 

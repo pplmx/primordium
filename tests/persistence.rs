@@ -2,7 +2,7 @@ use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
-#[test]
+#[tokio::test] async
 fn test_world_persistence_cycle() {
     let config = AppConfig::default();
     let mut env = Environment::default();

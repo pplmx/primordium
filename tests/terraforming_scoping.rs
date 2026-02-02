@@ -3,7 +3,7 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::pheromone::PheromoneGrid;
 use primordium_lib::model::state::terrain::{TerrainGrid, TerrainType};
 
-#[test]
+#[tokio::test] async
 fn test_terraforming_architecture_verification() {
     // This test explores requirements for Phase 52: Emergent Architecture (Terraforming)
     // We need to verify if we can mutate terrain from Action System.

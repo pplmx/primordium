@@ -3,9 +3,9 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 use std::time::Instant;
 
-#[test]
+#[tokio::test]
 #[ignore = "Massive benchmark - run manually with --ignored"]
-fn test_massive_population_performance() {
+async fn test_massive_population_performance() {
     let log_dir = "logs_test_perf";
     let _ = std::fs::remove_dir_all(log_dir);
     let mut config = AppConfig::default();
