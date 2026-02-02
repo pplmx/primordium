@@ -1,9 +1,9 @@
 //! Ecological system - handles food spawning and consumption.
 
-use crate::model::environment::Environment;
-use crate::model::pheromone::{PheromoneGrid, PheromoneType};
-use crate::model::spatial_hash::SpatialHash;
-use crate::model::terrain::TerrainGrid;
+use crate::environment::Environment;
+use crate::pheromone::{PheromoneGrid, PheromoneType};
+use crate::spatial_hash::SpatialHash;
+use crate::terrain::TerrainGrid;
 use primordium_data::{Entity, Food};
 use rand::Rng;
 use std::collections::HashSet;
@@ -15,7 +15,7 @@ pub struct FeedingContext<'a> {
     pub eaten_indices: &'a mut HashSet<usize>,
     pub terrain: &'a mut TerrainGrid,
     pub pheromones: &'a mut PheromoneGrid,
-    pub config: &'a crate::model::config::AppConfig,
+    pub config: &'a crate::config::AppConfig,
     pub lineage_consumption: &'a mut Vec<(uuid::Uuid, f64)>,
 }
 
@@ -23,7 +23,7 @@ pub fn spawn_food_ecs(
     world: &mut hecs::World,
     env: &Environment,
     terrain: &TerrainGrid,
-    config: &crate::model::config::AppConfig,
+    config: &crate::config::AppConfig,
     width: u16,
     height: u16,
     rng: &mut impl Rng,
@@ -45,18 +45,18 @@ pub fn spawn_food_ecs(
             if terrain_mod > 0.0 && rng.gen::<f64>() < base_spawn_chance * terrain_mod {
                 let terrain_type = terrain.get_cell(x, y).terrain_type;
                 let nutrient_type = match terrain_type {
-                    crate::model::terrain::TerrainType::Mountain
-                    | crate::model::terrain::TerrainType::River => rng.gen_range(0.6..1.0),
+                    primordium_data::TerrainType::Mountain
+                    | primordium_data::TerrainType::River => rng.gen_range(0.6..1.0),
                     _ => rng.gen_range(0.0..0.4),
                 };
                 let new_food = Food::new(x, y, nutrient_type);
                 world.spawn((
                     new_food,
-                    crate::model::state::Position {
+                    primordium_data::Position {
                         x: x as f64,
                         y: y as f64,
                     },
-                    crate::model::state::MetabolicNiche(nutrient_type),
+                    primordium_data::MetabolicNiche(nutrient_type),
                 ));
                 break;
             }
@@ -69,7 +69,7 @@ pub fn spawn_food(
     food: &mut Vec<Food>,
     env: &Environment,
     terrain: &TerrainGrid,
-    config: &crate::model::config::AppConfig,
+    config: &crate::config::AppConfig,
     width: u16,
     height: u16,
     rng: &mut impl Rng,
@@ -86,8 +86,8 @@ pub fn spawn_food(
                 // Typed food: Mountain/River favors Blue, Plains favor Green
                 let terrain_type = terrain.get_cell(x, y).terrain_type;
                 let nutrient_type = match terrain_type {
-                    crate::model::terrain::TerrainType::Mountain
-                    | crate::model::terrain::TerrainType::River => {
+                    primordium_data::TerrainType::Mountain
+                    | primordium_data::TerrainType::River => {
                         rng.gen_range(0.6..1.0) // Favor Blue
                     }
                     _ => rng.gen_range(0.0..0.4), // Favor Green
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_sense_nearest_food_empty() {
-        let entity = crate::model::lifecycle::create_entity(5.0, 5.0, 0);
+        let entity = crate::lifecycle::create_entity(5.0, 5.0, 0);
         let food: Vec<Food> = vec![];
         let food_hash = SpatialHash::new(5.0, 100, 100);
         let (dx, dy, _) = sense_nearest_food(&entity, &food, &food_hash);
@@ -257,7 +257,7 @@ mod tests {
         let terrain = TerrainGrid::generate(20, 20, 42);
         let mut rng = rand::thread_rng();
         let initial_count = food.len();
-        let config = crate::model::config::AppConfig::default();
+        let config = crate::config::AppConfig::default();
         spawn_food(&mut food, &env, &terrain, &config, 20, 20, &mut rng);
         assert_eq!(food.len(), initial_count);
     }

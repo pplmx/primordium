@@ -1,6 +1,6 @@
-use crate::model::lineage_registry::LineageRegistry;
-use crate::model::spatial_hash::SpatialHash;
-use crate::model::terrain::{OutpostSpecialization, TerrainGrid, TerrainType};
+use crate::lineage_registry::LineageRegistry;
+use crate::spatial_hash::SpatialHash;
+use crate::terrain::{OutpostSpecialization, TerrainGrid, TerrainType};
 use primordium_data::{Entity, Metabolism};
 use rayon::prelude::*;
 use uuid::Uuid;
@@ -13,8 +13,8 @@ pub fn resolve_contested_ownership(
     width: u16,
     _height: u16,
     spatial_hash: &SpatialHash,
-    snapshots: &[crate::model::world::InternalEntitySnapshot],
-    lineage_registry: &crate::model::lineage_registry::LineageRegistry,
+    snapshots: &[crate::snapshot::InternalEntitySnapshot],
+    lineage_registry: &LineageRegistry,
 ) {
     let outpost_indices: Vec<usize> = terrain.outpost_indices.iter().copied().collect();
 
@@ -105,8 +105,8 @@ pub fn resolve_outpost_upgrades(
     width: u16,
     _height: u16,
     spatial_hash: &SpatialHash,
-    snapshots: &[crate::model::world::InternalEntitySnapshot],
-    lineage_registry: &crate::model::lineage_registry::LineageRegistry,
+    snapshots: &[crate::snapshot::InternalEntitySnapshot],
+    lineage_registry: &LineageRegistry,
 ) {
     let outpost_indices: Vec<usize> = terrain.outpost_indices.iter().copied().collect();
 
@@ -302,7 +302,7 @@ pub fn handle_outposts_ecs(
     world: &mut hecs::World,
     entity_handles: &[hecs::Entity],
     spatial_hash: &SpatialHash,
-    snapshots: &[crate::model::world::InternalEntitySnapshot],
+    snapshots: &[crate::snapshot::InternalEntitySnapshot],
     width: u16,
     silo_cap: f32,
     outpost_cap: f32,
@@ -311,7 +311,7 @@ pub fn handle_outposts_ecs(
 
     let actions: Vec<OutpostAction> = outpost_indices
         .par_iter()
-        .fold(Vec::new, |mut acc, &idx| {
+        .fold(Vec::new, |mut acc: Vec<OutpostAction>, &idx| {
             let (ox, oy) = ((idx % width as usize) as f64, (idx / width as usize) as f64);
             let owner_id = terrain.cells[idx].owner_id;
             let stored = terrain.cells[idx].energy_store;
@@ -360,7 +360,7 @@ pub fn handle_outposts_ecs(
             });
             acc
         })
-        .reduce(Vec::new, |mut a, b| {
+        .reduce(Vec::new, |mut a: Vec<OutpostAction>, b| {
             a.extend(b);
             a
         });

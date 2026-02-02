@@ -1,8 +1,8 @@
 //! Biological system - handles infection, pathogen emergence, and death processing.
 
-use crate::model::config::AppConfig;
-use crate::model::spatial_hash::SpatialHash;
-use crate::model::systems::social;
+use crate::config::AppConfig;
+use crate::spatial_hash::SpatialHash;
+use crate::systems::social;
 use primordium_data::{Health, Intel, Metabolism, Pathogen, Physics, Specialization};
 use rand::Rng;
 use std::collections::HashSet;
@@ -109,7 +109,7 @@ pub fn process_infection_components(health: &mut Health, metabolism: &mut Metabo
 
 pub fn handle_pathogen_emergence(active_pathogens: &mut Vec<Pathogen>, _rng: &mut impl Rng) {
     if rand::thread_rng().gen_bool(0.0001) {
-        active_pathogens.push(crate::model::pathogen::create_random_pathogen());
+        active_pathogens.push(crate::pathogen::create_random_pathogen());
     }
 }
 

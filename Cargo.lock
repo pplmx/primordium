@@ -1476,7 +1476,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "atomic_float",
+ "chrono",
+ "flate2",
+ "hecs",
  "hex",
+ "petgraph",
  "primordium_data",
  "rand",
  "rand_chacha",

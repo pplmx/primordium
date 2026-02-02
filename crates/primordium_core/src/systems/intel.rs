@@ -1,4 +1,4 @@
-use crate::model::brain::BrainLogic;
+use crate::brain::BrainLogic;
 use primordium_data::Brain;
 use rand::Rng;
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ pub fn brain_forward(
 
 pub fn mutate_brain<R: Rng>(
     brain: &mut Brain,
-    config: &crate::model::config::AppConfig,
+    config: &crate::config::AppConfig,
     specialization: Option<primordium_data::Specialization>,
     rng: &mut R,
 ) {
@@ -66,7 +66,7 @@ pub fn apply_grn_rules(
 
 pub fn mutate_genotype<R: Rng>(
     genotype: &mut primordium_data::Genotype,
-    config: &crate::model::config::AppConfig,
+    config: &crate::config::AppConfig,
     population: usize,
     is_radiation_storm: bool,
     specialization: Option<primordium_data::Specialization>,
@@ -342,14 +342,14 @@ pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::config::AppConfig;
+    use crate::config::AppConfig;
     use primordium_data::Genotype;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
     fn create_test_genotype() -> Genotype {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
-        crate::model::brain::create_genotype_random_with_rng(&mut rng)
+        crate::brain::create_genotype_random_with_rng(&mut rng)
     }
 
     fn create_test_config() -> AppConfig {

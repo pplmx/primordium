@@ -1,4 +1,4 @@
-use crate::model::history::Legend;
+use crate::history::Legend;
 use petgraph::graph::{DiGraph, NodeIndex};
 use primordium_data::Entity;
 use std::collections::HashMap;
