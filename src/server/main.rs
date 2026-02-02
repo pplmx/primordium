@@ -56,29 +56,57 @@ async fn main() {
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     tracing::info!("Primordium Relay Server listening on {}", addr);
-    tracing::info!("  WebSocket: ws://{}/ws", addr);
-    tracing::info!("  Peers API: http://{}/api/peers", addr);
-    tracing::info!("  Stats API: http://{}/api/stats", addr);
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .expect("Failed to bind to address");
-    axum::serve(listener, app).await.expect("Server error");
+    tracing::info!("    WebSocket: ws://{}/ws", addr);
+    tracing::info!("    Peers API: http://{}/api/peers", addr);
+    tracing::info!("    Stats API: http://{}/api/stats", addr);
+
+    let listener = match tokio::net::TcpListener::bind(addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!("Failed to bind to address {}: {}", addr, e);
+            std::process::exit(1);
+        }
+    };
+
+    if let Err(e) = axum::serve(listener, app).await {
+        tracing::error!("Server error: {}", e);
+        std::process::exit(1);
+    }
 }
 
 /// REST endpoint: Get list of connected peers
 async fn get_peers(State(state): State<Arc<AppState>>) -> Json<Vec<PeerInfo>> {
-    let peers = state.peers.lock().expect("Mutex poisoned");
-    Json(peers.values().cloned().collect())
+    match state.peers.lock() {
+        Ok(peers) => Json(peers.values().cloned().collect()),
+        Err(e) => {
+            tracing::error!("Failed to lock peers mutex: {}", e);
+            Json(vec![])
+        }
+    }
 }
 
 /// REST endpoint: Get server stats
 async fn get_stats(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    let peers = state.peers.lock().expect("Mutex poisoned");
-    let total_migrations = *state.total_migrations.lock().expect("Mutex poisoned");
+    let (online_count, peers_data) = match state.peers.lock() {
+        Ok(peers) => (peers.len(), peers.values().cloned().collect::<Vec<_>>()),
+        Err(e) => {
+            tracing::error!("Failed to lock peers mutex: {}", e);
+            (0, vec![])
+        }
+    };
+
+    let total_migrations = match state.total_migrations.lock() {
+        Ok(migrations) => *migrations,
+        Err(e) => {
+            tracing::error!("Failed to lock migrations mutex: {}", e);
+            0
+        }
+    };
+
     Json(serde_json::json!({
-        "online_count": peers.len(),
+        "online_count": online_count,
         "total_migrations": total_migrations,
-        "peers": peers.values().cloned().collect::<Vec<_>>()
+        "peers": peers_data
     }))
 }
 
@@ -95,26 +123,33 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // Initialize peer info and get initial peer list message
     let initial_peer_list_msg = {
-        let mut peers = state.peers.lock().expect("Mutex poisoned");
-        peers.insert(
-            client_id,
-            PeerInfo {
-                peer_id: client_id,
-                entity_count: 0,
-                migrations_sent: 0,
-                migrations_received: 0,
-            },
-        );
-        tracing::info!(
-            "Client connected: {}. Total peers: {}",
-            client_id,
-            peers.len()
-        );
-        // Create peer list message
-        let peer_list = NetMessage::PeerList {
-            peers: peers.values().cloned().collect(),
-        };
-        serde_json::to_string(&peer_list).ok()
+        match state.peers.lock() {
+            Ok(mut peers) => {
+                peers.insert(
+                    client_id,
+                    PeerInfo {
+                        peer_id: client_id,
+                        entity_count: 0,
+                        migrations_sent: 0,
+                        migrations_received: 0,
+                    },
+                );
+                tracing::info!(
+                    "Client connected: {}. Total peers: {}",
+                    client_id,
+                    peers.len()
+                );
+                // Create peer list message
+                let peer_list = NetMessage::PeerList {
+                    peers: peers.values().cloned().collect(),
+                };
+                serde_json::to_string(&peer_list).ok()
+            }
+            Err(e) => {
+                tracing::error!("Failed to lock peers mutex: {}", e);
+                None
+            }
+        }
     };
 
     // Send Handshake with client ID
@@ -146,36 +181,59 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let active_trades_clone = state.active_trades.clone();
     let id_clone = client_id;
 
+    // Maximum message size: 100KB to prevent DoS
+    const MAX_MESSAGE_SIZE: usize = 100 * 1024;
+
     // Process incoming messages
     while let Some(Ok(result)) = receiver.next().await {
         if let Message::Text(text) = result {
+            // Check message size to prevent memory exhaustion
+            if text.len() > MAX_MESSAGE_SIZE {
+                tracing::warn!(
+                    "Client {} sent oversized message: {} bytes (max: {})",
+                    client_id,
+                    text.len(),
+                    MAX_MESSAGE_SIZE
+                );
+                continue;
+            }
+
             if let Ok(msg) = serde_json::from_str::<NetMessage>(&text) {
                 match msg {
                     NetMessage::MigrateEntity { .. } => {
                         // Update migration stats
                         {
-                            let mut peers = peers_clone.lock().expect("Mutex poisoned");
-                            if let Some(peer) = peers.get_mut(&id_clone) {
-                                peer.migrations_sent += 1;
+                            if let Ok(mut peers) = peers_clone.lock() {
+                                if let Some(peer) = peers.get_mut(&id_clone) {
+                                    peer.migrations_sent += 1;
+                                }
+                            } else {
+                                tracing::warn!("Failed to lock peers mutex for migration stats");
                             }
-                            let mut total = total_migrations_clone.lock().expect("Mutex poisoned");
-                            *total += 1;
+                            if let Ok(mut total) = total_migrations_clone.lock() {
+                                *total += 1;
+                            } else {
+                                tracing::warn!("Failed to lock migrations mutex");
+                            }
                         }
                         tracing::info!("Relaying migration from {}", id_clone);
                         let _ = tx.send(text);
                     }
                     NetMessage::TradeOffer(proposal) => {
-                        {
-                            let mut trades = active_trades_clone.lock().expect("Mutex poisoned");
+                        if let Ok(mut trades) = active_trades_clone.lock() {
                             trades.insert(proposal.id, proposal.clone());
+                        } else {
+                            tracing::warn!("Failed to lock trades mutex for trade offer");
                         }
                         tracing::info!("Relaying trade offer from {}", id_clone);
                         let _ = tx.send(text);
                     }
                     NetMessage::TradeAccept { proposal_id, .. } => {
-                        let is_valid = {
-                            let mut trades = active_trades_clone.lock().expect("Mutex poisoned");
+                        let is_valid = if let Ok(mut trades) = active_trades_clone.lock() {
                             trades.remove(&proposal_id).is_some()
+                        } else {
+                            tracing::warn!("Failed to lock trades mutex for trade acceptance");
+                            false
                         };
 
                         if is_valid {
@@ -186,9 +244,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         }
                     }
                     NetMessage::TradeRevoke { proposal_id } => {
-                        {
-                            let mut trades = active_trades_clone.lock().expect("Mutex poisoned");
+                        if let Ok(mut trades) = active_trades_clone.lock() {
                             trades.remove(&proposal_id);
+                        } else {
+                            tracing::warn!("Failed to lock trades mutex for trade revoke");
                         }
                         let _ = tx.send(text);
                     }
@@ -202,8 +261,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         migrations_received,
                     } => {
                         // Update peer info and broadcast
-                        let peer_list_msg = {
-                            let mut peers = peers_clone.lock().expect("Mutex poisoned");
+                        let peer_list_msg = if let Ok(mut peers) = peers_clone.lock() {
                             if let Some(peer) = peers.get_mut(&id_clone) {
                                 peer.entity_count = entity_count;
                                 peer.migrations_sent = migrations_sent;
@@ -218,6 +276,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                 peers: peers.values().cloned().collect(),
                             };
                             serde_json::to_string(&peer_list).ok()
+                        } else {
+                            tracing::warn!("Failed to lock peers mutex for PeerAnnounce");
+                            None
                         };
                         if let Some(msg_str) = peer_list_msg {
                             let _ = tx.send(msg_str);
@@ -232,8 +293,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // Cleanup on disconnect
     send_task.abort();
 
-    let revoked_ids = {
-        let mut trades = state.active_trades.lock().expect("Mutex poisoned");
+    let revoked_ids = if let Ok(mut trades) = state.active_trades.lock() {
         let to_remove: Vec<Uuid> = trades
             .iter()
             .filter(|(_, p)| p.sender_id == client_id)
@@ -244,6 +304,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             trades.remove(id);
         }
         to_remove
+    } else {
+        tracing::warn!("Failed to lock trades mutex during disconnect cleanup");
+        vec![]
     };
 
     for id in revoked_ids {
@@ -253,8 +316,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         }
     }
 
-    let disconnect_peer_list_msg = {
-        let mut peers = peers_clone.lock().expect("Mutex poisoned");
+    let disconnect_peer_list_msg = if let Ok(mut peers) = peers_clone.lock() {
         peers.remove(&id_clone);
         tracing::info!(
             "Client disconnected: {}. Total peers: {}",
@@ -265,6 +327,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             peers: peers.values().cloned().collect(),
         };
         serde_json::to_string(&peer_list).ok()
+    } else {
+        tracing::warn!("Failed to lock peers mutex during disconnect");
+        None
     };
     if let Some(msg_str) = disconnect_peer_list_msg {
         let _ = tx.send(msg_str);

@@ -91,13 +91,23 @@ impl NetworkManager {
                     Some(msg) = rx.recv() => {
                         if ws_sender.send(Message::Text(msg)).await.is_err() { break; }
                     }
-                    Some(Ok(msg)) = ws_receiver.next() => {
-                        if let Message::Text(txt) = msg {
-                            if let Ok(net_msg) = serde_json::from_str::<NetMessage>(&txt) {
-                                Self::handle_incoming_message(&state_clone, &pending_clone, net_msg);
-                            }
+                Some(Ok(msg)) = ws_receiver.next() => {
+                    if let Message::Text(txt) = msg {
+                        // Security: Limit message size to prevent DoS (100KB max)
+                        const MAX_MESSAGE_SIZE: usize = 100 * 1024;
+                        if txt.len() > MAX_MESSAGE_SIZE {
+                            #[cfg(target_arch = "wasm32")]
+                            web_sys::console::warn_1(&format!("Oversized message received: {} bytes", txt.len()).into());
+                            #[cfg(not(target_arch = "wasm32"))]
+                            eprintln!("Warning: Oversized message received: {} bytes", txt.len());
+                            continue;
+                        }
+
+                        if let Ok(net_msg) = serde_json::from_str::<NetMessage>(&txt) {
+                            Self::handle_incoming_message(&state_clone, &pending_clone, net_msg);
                         }
                     }
+                }
                     else => break,
                 }
             }
@@ -115,11 +125,22 @@ impl NetworkManager {
         pending: &Arc<Mutex<Vec<NetMessage>>>,
         msg: NetMessage,
     ) {
-        let mut s = state.lock().unwrap();
+        let mut s = match state.lock() {
+            Ok(s) => s,
+            Err(e) => {
+                #[cfg(target_arch = "wasm32")]
+                web_sys::console::error_1(&format!("Failed to lock state mutex: {}", e).into());
+                #[cfg(not(target_arch = "wasm32"))]
+                eprintln!("Failed to lock state mutex: {}", e);
+                return;
+            }
+        };
         match msg {
             NetMessage::MigrateEntity { .. } => {
                 s.migrations_received += 1;
-                pending.lock().unwrap().push(msg);
+                if let Ok(mut p) = pending.lock() {
+                    p.push(msg);
+                }
             }
             NetMessage::Handshake { client_id } => {
                 s.client_id = Some(client_id);
@@ -137,14 +158,25 @@ impl NetworkManager {
                 s.trade_offers.retain(|o| o.id != proposal_id);
             }
             NetMessage::Relief { .. } => {
-                pending.lock().unwrap().push(msg);
+                if let Ok(mut p) = pending.lock() {
+                    p.push(msg);
+                }
             }
             _ => {}
         }
     }
 
     pub fn send(&self, msg: &NetMessage) {
-        let txt = serde_json::to_string(msg).unwrap();
+        let txt = match serde_json::to_string(msg) {
+            Ok(t) => t,
+            Err(e) => {
+                #[cfg(target_arch = "wasm32")]
+                web_sys::console::error_1(&format!("Failed to serialize message: {}", e).into());
+                #[cfg(not(target_arch = "wasm32"))]
+                eprintln!("Failed to serialize message: {}", e);
+                return;
+            }
+        };
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -163,28 +195,37 @@ impl NetworkManager {
         }
 
         if matches!(msg, NetMessage::MigrateEntity { .. }) {
-            self.state.lock().unwrap().migrations_sent += 1;
+            if let Ok(mut s) = self.state.lock() {
+                s.migrations_sent += 1;
+            }
         }
     }
 
     pub fn announce(&self, entity_count: usize) {
-        let s = self.state.lock().unwrap();
+        let (migrations_sent, migrations_received) = if let Ok(s) = self.state.lock() {
+            (s.migrations_sent, s.migrations_received)
+        } else {
+            (0, 0)
+        };
         let msg = NetMessage::PeerAnnounce {
             entity_count,
-            migrations_sent: s.migrations_sent,
-            migrations_received: s.migrations_received,
+            migrations_sent,
+            migrations_received,
         };
-        drop(s);
         self.send(&msg);
     }
 
     pub fn pop_pending_limited(&self, limit: usize) -> Vec<NetMessage> {
-        let mut p = self.pending_migrations.lock().unwrap();
-        let count = p.len().min(limit);
-        p.drain(..count).collect()
+        match self.pending_migrations.lock() {
+            Ok(mut p) => {
+                let count = p.len().min(limit);
+                p.drain(..count).collect()
+            }
+            Err(_) => vec![],
+        }
     }
 
     pub fn get_state(&self) -> NetworkState {
-        self.state.lock().unwrap().clone()
+        self.state.lock().map(|s| s.clone()).unwrap_or_default()
     }
 }
