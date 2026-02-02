@@ -1,7 +1,15 @@
 use anyhow::{Context, Result};
 use quinn::Endpoint;
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum NetMessage {
+    Handshake { version: String, magic: u64 },
+    PeerAnnounce { id: uuid::Uuid, address: String },
+    MigrateEntity { dna: String },
+}
 
 pub struct QuicServer {
     endpoint: Endpoint,
@@ -29,7 +37,13 @@ impl QuicClient {
             .with_safe_defaults()
             .with_custom_certificate_verifier(Arc::new(SkipServerVerification))
             .with_no_client_auth();
-        endpoint.set_default_client_config(quinn::ClientConfig::new(Arc::new(crypto)));
+        
+        let mut client_config = quinn::ClientConfig::new(Arc::new(crypto));
+        let mut transport_config = quinn::TransportConfig::default();
+        transport_config.keep_alive_interval(Some(std::time::Duration::from_secs(5)));
+        client_config.transport_config(Arc::new(transport_config));
+        
+        endpoint.set_default_client_config(client_config);
         Ok(Self { endpoint })
     }
 
@@ -50,7 +64,11 @@ fn make_server_endpoint(bind_addr: SocketAddr) -> Result<(Endpoint, Vec<u8>)> {
     let cert_chain = vec![rustls::Certificate(cert_der.clone())];
     let priv_key = rustls::PrivateKey(priv_key);
 
-    let server_config = quinn::ServerConfig::with_single_cert(cert_chain, priv_key)?;
+    let mut server_config = quinn::ServerConfig::with_single_cert(cert_chain, priv_key)?;
+    let mut transport_config = quinn::TransportConfig::default();
+    transport_config.keep_alive_interval(Some(std::time::Duration::from_secs(5)));
+    server_config.transport_config(Arc::new(transport_config));
+
     let endpoint = Endpoint::server(server_config, bind_addr)?;
     Ok((endpoint, cert_der))
 }
