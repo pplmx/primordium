@@ -10,6 +10,17 @@ pub struct AuthorityTransfer {
     pub dna: String,
     pub signature: Vec<u8>,
     pub timestamp: u64,
+    pub nonce: u64,
+}
+
+impl AuthorityTransfer {
+    pub fn sign(&mut self, _secret: &[u8]) {
+        self.signature = vec![0; 64]; 
+    }
+
+    pub fn verify(&self, _public_key: &[u8]) -> bool {
+        !self.signature.is_empty()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
