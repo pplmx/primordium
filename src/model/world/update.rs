@@ -1,5 +1,5 @@
 use crate::model::environment::Environment;
-use crate::model::history::LiveEvent;
+use crate::model::history::{FossilPersistence, LineagePersistence, LiveEvent};
 use crate::model::interaction::InteractionCommand;
 use chrono::Utc;
 use hecs;
@@ -272,7 +272,6 @@ impl World {
             pop_stats: &mut self.pop_stats,
             lineage_registry: &mut self.lineage_registry,
             fossil_registry: &mut self.fossil_registry,
-            logger: &mut self.logger,
             config: &self.config,
             tick: self.tick,
             width: self.width,
@@ -284,7 +283,7 @@ impl World {
             rng: &mut self.rng,
         };
 
-        interaction::process_interaction_commands_ecs(
+        let result1 = interaction::process_interaction_commands_ecs(
             &mut self.ecs,
             entity_handles,
             state_cmds,
@@ -298,6 +297,9 @@ impl World {
             &mut interaction_ctx,
         );
 
+        let mut all_events = result1.events;
+        all_events.extend(interaction_result.events);
+
         for (l_id, amount) in &self.lineage_consumption {
             self.lineage_registry.record_consumption(*l_id, *amount);
         }
@@ -306,7 +308,7 @@ impl World {
         self.killed_ids = interaction_result.killed_ids;
         self.eaten_food_indices = interaction_result.eaten_food_indices;
 
-        (interaction_result.events, interaction_result.new_babies)
+        (all_events, interaction_result.new_babies)
     }
 
     fn update_rank_grid(&mut self) {
@@ -412,14 +414,10 @@ impl World {
                     self.ecs.get::<&Intel>(handle),
                     self.ecs.get::<&Health>(handle),
                 ) {
-                    if let Some(legend) = social::archive_if_legend_components(
-                        &identity,
-                        &met,
-                        &intel,
-                        &phys,
-                        tick,
-                        &self.logger,
-                    ) {
+                    if let Some(legend) =
+                        social::archive_if_legend_components(&identity, &met, &intel, &phys, tick)
+                    {
+                        let _ = self.logger.archive_legend(legend.clone());
                         history::update_best_legend(
                             &mut self.lineage_registry,
                             &mut self.best_legends,
@@ -467,6 +465,13 @@ impl World {
                 self.height,
                 &outpost_counts,
             );
+            // self.lineage_registry.save(...) needs moving to IO?
+            // LineageRegistry is in Core. It has save logic?
+            // I haven't moved LineageRegistry save logic yet.
+            // I should use IO trait if possible.
+            // For now I'll comment out save calls to break dependency, or use simple serde save if LineageRegistry still has it?
+            // LineageRegistry is in Core.
+            // I should assume LineageRegistry STILL has save for now (I haven't edited core/lineage_registry.rs yet).
             let _ = self
                 .lineage_registry
                 .save(format!("{}/lineages.json", self.log_dir));
@@ -478,7 +483,7 @@ impl World {
                 stats: self.pop_stats.clone(),
                 timestamp: Utc::now().to_rfc3339(),
             };
-            let _ = self.logger.log_event(snap_ev.clone());
+            // self.logger.log_event(snap_ev.clone()); // Removed
             events.push(snap_ev);
             history::handle_fossilization(
                 &self.lineage_registry,

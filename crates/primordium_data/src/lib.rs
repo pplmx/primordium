@@ -451,6 +451,85 @@ pub struct Legend {
     pub color_rgb: (u8, u8, u8),
 }
 
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Archive, RkyvSerialize, RkyvDeserialize, Default,
+)]
+#[archive(check_bytes)]
+pub struct FossilRegistry {
+    pub fossils: Vec<Fossil>,
+}
+
+impl FossilRegistry {
+    pub fn add_fossil(&mut self, fossil: Fossil) {
+        self.fossils.push(fossil);
+        if self.fossils.len() > 100 {
+            self.fossils
+                .sort_by(|a, b| b.total_offspring.cmp(&a.total_offspring));
+            self.fossils.truncate(100);
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Archive, RkyvSerialize, RkyvDeserialize)]
+#[serde(tag = "event")]
+#[archive(check_bytes)]
+pub enum LiveEvent {
+    Birth {
+        id: Uuid,
+        parent_id: Option<Uuid>,
+        gen: u32,
+        tick: u64,
+        timestamp: String,
+    },
+    Death {
+        id: Uuid,
+        age: u64,
+        offspring: u32,
+        tick: u64,
+        timestamp: String,
+        cause: String,
+    },
+    Metamorphosis {
+        id: Uuid,
+        name: String,
+        tick: u64,
+        timestamp: String,
+    },
+    TribalSplit {
+        id: Uuid,
+        lineage_id: Uuid,
+        tick: u64,
+        timestamp: String,
+    },
+    ClimateShift {
+        from: String,
+        to: String,
+        tick: u64,
+        timestamp: String,
+    },
+    Extinction {
+        population: usize,
+        tick: u64,
+        timestamp: String,
+    },
+    EcoAlert {
+        message: String,
+        tick: u64,
+        timestamp: String,
+    },
+    Snapshot {
+        tick: u64,
+        stats: PopulationStats,
+        timestamp: String,
+    },
+    Narration {
+        tick: u64,
+        text: String,
+        severity: f32,
+        timestamp: String,
+    },
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct PopulationStats {

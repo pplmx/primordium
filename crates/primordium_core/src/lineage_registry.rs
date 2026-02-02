@@ -2,9 +2,6 @@ use primordium_data::Genotype;
 use primordium_data::{AncestralTrait, LineageGoal};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
-use std::path::Path;
 use uuid::Uuid;
 
 /// High-level metrics for an ancestral line.
@@ -113,23 +110,6 @@ impl LineageRegistry {
         if let Some(record) = self.lineages.get_mut(&id) {
             record.total_energy_consumed += amount;
         }
-    }
-
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
-        let file = File::create(path)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, self)?;
-        Ok(())
-    }
-
-    pub fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
-        if !path.as_ref().exists() {
-            return Ok(Self::new());
-        }
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        let registry = serde_json::from_reader(reader)?;
-        Ok(registry)
     }
 
     pub fn get_top_lineages(&self, count: usize) -> Vec<(&Uuid, &LineageRecord)> {

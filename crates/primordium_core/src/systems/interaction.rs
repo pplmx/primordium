@@ -1,7 +1,7 @@
 use crate::brain::BrainLogic;
 use crate::config::AppConfig;
 use crate::environment::Environment;
-use crate::history::{FossilRegistry, HistoryLogger, LiveEvent, PopulationStats};
+use crate::history::{FossilRegistry, LiveEvent, PopulationStats};
 use crate::interaction::InteractionCommand;
 use crate::lifecycle;
 use crate::lineage_registry::LineageRegistry;
@@ -20,7 +20,7 @@ pub struct InteractionContext<'a, R: Rng> {
     pub pop_stats: &'a mut PopulationStats,
     pub lineage_registry: &'a mut LineageRegistry,
     pub fossil_registry: &'a mut FossilRegistry,
-    pub logger: &'a mut HistoryLogger,
+    // logger removed
     pub config: &'a AppConfig,
     pub tick: u64,
     pub width: u16,
@@ -93,7 +93,6 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                             timestamp: Utc::now().to_rfc3339(),
                             cause: cause.clone(),
                         };
-                        let _ = ctx.logger.log_event(ev.clone());
                         events.push(ev);
 
                         ctx.lineage_consumption
@@ -145,7 +144,6 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                     tick: ctx.tick,
                     timestamp: chrono::Utc::now().to_rfc3339(),
                 };
-                let _ = ctx.logger.log_event(ev.clone());
                 events.push(ev);
 
                 let terrain_type = ctx.terrain.get(baby.physics.x, baby.physics.y).terrain_type;
@@ -356,7 +354,6 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                             tick: ctx.tick,
                             timestamp: Utc::now().to_rfc3339(),
                         };
-                        let _ = ctx.logger.log_event(ev.clone());
                         events.push(ev);
                     }
                 }
@@ -387,7 +384,6 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                             tick: ctx.tick,
                             timestamp: chrono::Utc::now().to_rfc3339(),
                         };
-                        let _ = ctx.logger.log_event(ev.clone());
                         events.push(ev);
                     }
                 }

@@ -32,6 +32,7 @@ path = "src/server/main.rs"
 primordium_data = { path = "crates/primordium_data" }
 primordium_core = { path = "crates/primordium_core" }
 primordium_observer = { path = "crates/primordium_observer" }
+primordium_io = { path = "crates/primordium_io" }
 # Error handling
 anyhow = "1.0"
 

@@ -1,6 +1,6 @@
 use crate::brain::GenotypeLogic;
 use crate::config::AppConfig;
-use crate::history::{HistoryLogger, Legend, LiveEvent, PopulationStats};
+use crate::history::{Legend, LiveEvent, PopulationStats};
 use crate::lifecycle;
 use crate::pheromone::PheromoneGrid;
 use crate::snapshot::InternalEntitySnapshot;
@@ -22,7 +22,7 @@ pub struct PredationContext<'a> {
     pub spatial_hash: &'a SpatialHash,
     pub pheromones: &'a mut PheromoneGrid,
     pub pop_stats: &'a mut PopulationStats,
-    pub logger: &'a mut HistoryLogger,
+    // logger removed
     pub tick: u64,
     pub energy_transfers: &'a mut Vec<(usize, f64)>,
     pub lineage_consumption: &'a mut Vec<(Uuid, f64)>,
@@ -34,7 +34,6 @@ pub fn archive_if_legend_components(
     intel: &Intel,
     physics: &Physics,
     tick: u64,
-    logger: &HistoryLogger,
 ) -> Option<Legend> {
     let lifespan = tick - metabolism.birth_tick;
     if lifespan > 1000 || metabolism.offspring_count > 10 || metabolism.peak_energy > 300.0 {
@@ -53,7 +52,6 @@ pub fn archive_if_legend_components(
             genotype: intel.genotype.clone(),
             color_rgb: (physics.r, physics.g, physics.b),
         };
-        let _ = logger.archive_legend(legend.clone());
         Some(legend)
     } else {
         None

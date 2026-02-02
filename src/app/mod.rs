@@ -257,6 +257,7 @@ impl App {
         }
 
         for ev in events {
+            let _ = self.world.logger.log_event(ev.clone());
             let (msg, color) = ev.to_ui_message();
             self.event_log.push_back((msg, color));
             if self.event_log.len() > 15 {
@@ -266,3 +267,59 @@ impl App {
         Ok(())
     }
 }
+
+trait LiveEventExt {
+    fn to_ui_message(&self) -> (String, ratatui::style::Color);
+}
+
+impl LiveEventExt for LiveEvent {
+    fn to_ui_message(&self) -> (String, ratatui::style::Color) {
+        use ratatui::style::Color;
+        match self {
+            LiveEvent::Birth { gen, id, .. } => (
+                format!("Gen {} #{} born", gen, &id.to_string()[..4]),
+                Color::Cyan,
+            ),
+            LiveEvent::Death { age, id, cause, .. } => {
+                let msg = if cause.is_empty() {
+                    format!("#{} died at age {}", &id.to_string()[..4], age)
+                } else {
+                    format!(
+                        "#{} killed by {} at age {}",
+                        &id.to_string()[..4],
+                        cause,
+                        age
+                    )
+                };
+                (msg, Color::Red)
+            }
+            LiveEvent::ClimateShift { from: _, to, .. } => {
+                let effect = match to.as_str() {
+                    "Temperate" => "☀️ Temperate - ×1.0",
+                    "Warm" => "🔥 Warm - ×1.5",
+                    "Hot" => "🌋 Hot - ×2.0",
+                    "Scorching" => "☀️ SCORCHING - ×3.0",
+                    _ => to.as_str(),
+                };
+                (format!("Climate: {}", effect), Color::Yellow)
+            }
+            LiveEvent::Extinction { tick, .. } => {
+                (format!("Extinction at tick {}", tick), Color::Magenta)
+            }
+            LiveEvent::EcoAlert { message, .. } => (format!("⚠️ {}", message), Color::Yellow),
+            LiveEvent::Metamorphosis { name, .. } => {
+                (format!("✨ {} has metamorphosed!", name), Color::Yellow)
+            }
+            LiveEvent::TribalSplit { id, .. } => (
+                format!("⚔️ #{} split into a new tribe!", &id.to_string()[..4]),
+                Color::Magenta,
+            ),
+            LiveEvent::Snapshot { tick, .. } => (
+                format!("🏛️ Snapshot saved at tick {}", tick),
+                Color::DarkGray,
+            ),
+            LiveEvent::Narration { text, .. } => (format!("📜 {}", text), Color::Green),
+        }
+    }
+}
+

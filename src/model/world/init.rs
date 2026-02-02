@@ -1,5 +1,8 @@
 use crate::model::config::AppConfig;
-use crate::model::history::{FossilRegistry, HallOfFame, HistoryLogger, PopulationStats};
+use crate::model::history::{
+    FossilPersistence, FossilRegistry, HallOfFame, HistoryLogger, LineagePersistence,
+    PopulationStats,
+};
 use crate::model::lifecycle;
 use crate::model::lineage_registry::LineageRegistry;
 use crate::model::observer::WorldObserver;
