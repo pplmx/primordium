@@ -509,19 +509,10 @@ impl App {
                     }
                 }
             }
-            KeyCode::Char('K') => {
-                if self.env.god_climate_override.is_some() {
-                    self.env.god_climate_override = None;
-                    self.event_log
-                        .push_back(("God: Climate Restored".to_string(), Color::Cyan));
-                } else {
-                    self.env.god_climate_override =
-                        Some(crate::model::environment::ClimateState::Scorching);
-                    self.event_log
-                        .push_back(("GOD MODE: HEAT WAVE INDUCED".to_string(), Color::Red));
-                }
+            KeyCode::Char('i') | KeyCode::Char('I') | KeyCode::Char('l') => {
+                self.show_legend = !self.show_legend;
             }
-            KeyCode::Char('l') | KeyCode::Char('L') => {
+            KeyCode::Char('L') => {
                 let pop = self.world.get_population_count();
                 let kill_count = (pop as f32 * 0.9) as usize;
                 let mut handles: Vec<_> = self
@@ -540,6 +531,19 @@ impl App {
                     "GOD MODE: MASS EXTINCTION & CARBON SCRUB".to_string(),
                     Color::Magenta,
                 ));
+            }
+
+            KeyCode::Char('K') => {
+                if self.env.god_climate_override.is_some() {
+                    self.env.god_climate_override = None;
+                    self.event_log
+                        .push_back(("God: Climate Restored".to_string(), Color::Cyan));
+                } else {
+                    self.env.god_climate_override =
+                        Some(crate::model::environment::ClimateState::Scorching);
+                    self.event_log
+                        .push_back(("GOD MODE: HEAT WAVE INDUCED".to_string(), Color::Red));
+                }
             }
             KeyCode::Char('r') | KeyCode::Char('R') => {
                 use crate::model::state::{MetabolicNiche, Position};

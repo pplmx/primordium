@@ -4,7 +4,7 @@ use crate::pressure::PressureGrid;
 use crate::sound::SoundGrid;
 use crate::terrain::TerrainGrid;
 use primordium_data::Food;
-use primordium_data::{EntityStatus, HallOfFame, PopulationStats};
+use primordium_data::{EntityStatus, HallOfFame, PopulationStats, Specialization};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -35,6 +35,8 @@ pub struct EntitySnapshot {
     pub last_activations: HashMap<i32, f32>,
     pub weight_deltas: HashMap<usize, f32>,
     pub genotype_hex: Option<String>,
+    pub specialization: Option<Specialization>,
+    pub is_larva: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

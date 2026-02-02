@@ -13,6 +13,10 @@ impl App {
             None => return,
         };
 
+        let bg_color = self.get_climate_bg_color();
+        let main_block = Block::default().style(Style::default().bg(bg_color));
+        f.render_widget(main_block, f.area());
+
         let main_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -185,11 +189,19 @@ impl App {
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .split(left_layout[1]);
 
+            let era_color = match self.env.current_era {
+                Era::Primordial => Color::Green,
+                Era::DawnOfLife => Color::Cyan,
+                Era::Flourishing => Color::Yellow,
+                Era::DominanceWar => Color::Red,
+                Era::ApexEra => Color::Magenta,
+            };
+
             let pop_data: Vec<u64> = self.pop_history.iter().cloned().collect();
             let pop_spark = Sparkline::default()
                 .block(Block::default().title(" Population "))
                 .data(&pop_data)
-                .style(Style::default().fg(Color::Cyan));
+                .style(Style::default().fg(era_color));
             f.render_widget(pop_spark, spark_layout[0]);
 
             let cpu_data: Vec<u64> = self.cpu_history.iter().cloned().collect();
@@ -244,6 +256,95 @@ impl App {
         if let Some(_step) = self.onboarding_step {
             self.render_onboarding(f);
         }
+
+        if self.show_legend {
+            self.render_legend(f);
+        }
+    }
+
+    fn render_legend(&self, f: &mut Frame) {
+        let area = f.area();
+        let legend_width = 50.min(area.width - 4);
+        let legend_height = 16.min(area.height - 4);
+        let legend_area = ratatui::layout::Rect::new(
+            (area.width - legend_width) / 2,
+            (area.height - legend_height) / 2,
+            legend_width,
+            legend_height,
+        );
+        f.render_widget(ratatui::widgets::Clear, legend_area);
+
+        let block = Block::default()
+            .title(" 📖 Symbol Legend [i] ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan));
+
+        let mut lines = Vec::new();
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(" ● ", Style::default().fg(Color::Rgb(100, 255, 100))),
+            ratatui::text::Span::raw("Worker / Adult"),
+            ratatui::text::Span::raw("   "),
+            ratatui::text::Span::styled(" · ", Style::default().fg(Color::Rgb(50, 127, 50))),
+            ratatui::text::Span::raw("Worker / Larva"),
+        ]));
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(" ▲ ", Style::default().fg(Color::Rgb(255, 50, 50))),
+            ratatui::text::Span::raw("Soldier / Adult"),
+            ratatui::text::Span::raw("  "),
+            ratatui::text::Span::styled(" △ ", Style::default().fg(Color::Rgb(127, 25, 25))),
+            ratatui::text::Span::raw("Soldier / Larva"),
+        ]));
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(" ◈ ", Style::default().fg(Color::Cyan)),
+            ratatui::text::Span::raw("Engineer / Adult"),
+            ratatui::text::Span::raw(" "),
+            ratatui::text::Span::styled(" ◇ ", Style::default().fg(Color::Rgb(0, 127, 127))),
+            ratatui::text::Span::raw("Engineer / Larva"),
+        ]));
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(" ◎ ", Style::default().fg(Color::Yellow)),
+            ratatui::text::Span::raw("Provider / Adult"),
+            ratatui::text::Span::raw(" "),
+            ratatui::text::Span::styled(" ○ ", Style::default().fg(Color::Rgb(127, 127, 0))),
+            ratatui::text::Span::raw("Provider / Larva"),
+        ]));
+        lines.push(ratatui::text::Line::from(""));
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(" † ", Style::default().fg(Color::Red)),
+            ratatui::text::Span::raw("Starving"),
+            ratatui::text::Span::raw("        "),
+            ratatui::text::Span::styled(" ✈ ", Style::default().fg(Color::DarkGray)),
+            ratatui::text::Span::raw("In Transit (P2P)"),
+        ]));
+        lines.push(ratatui::text::Line::from(""));
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(
+                " Terrain: ",
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
+        ]));
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(" ▲ ", Style::default().fg(Color::Rgb(100, 100, 100))),
+            ratatui::text::Span::raw("Mountain"),
+            ratatui::text::Span::raw("  "),
+            ratatui::text::Span::styled(" ≈ ", Style::default().fg(Color::Rgb(70, 130, 180))),
+            ratatui::text::Span::raw("River"),
+            ratatui::text::Span::raw("  "),
+            ratatui::text::Span::styled(" ♠ ", Style::default().fg(Color::Rgb(34, 139, 34))),
+            ratatui::text::Span::raw("Forest"),
+        ]));
+        lines.push(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(" █ ", Style::default().fg(Color::Rgb(60, 60, 60))),
+            ratatui::text::Span::raw("Wall"),
+            ratatui::text::Span::raw("      "),
+            ratatui::text::Span::styled(" ◊ ", Style::default().fg(Color::Rgb(50, 205, 50))),
+            ratatui::text::Span::raw("Oasis"),
+            ratatui::text::Span::raw("  "),
+            ratatui::text::Span::styled(" Ψ ", Style::default().fg(Color::Rgb(255, 69, 0))),
+            ratatui::text::Span::raw("Outpost"),
+        ]));
+
+        f.render_widget(Paragraph::new(lines).block(block), legend_area);
     }
 
     fn render_ancestry_tree(
@@ -631,5 +732,20 @@ impl App {
         }
 
         f.render_widget(Paragraph::new(lines).block(civ_block), area);
+    }
+
+    fn get_climate_bg_color(&self) -> Color {
+        let carbon = self.env.carbon_level;
+        let temp = self.env.cpu_usage as f64 / 100.0;
+
+        if carbon > 800.0 || temp > 0.8 {
+            Color::Rgb(30, 5, 5)
+        } else if carbon > 500.0 {
+            Color::Rgb(20, 15, 10)
+        } else if self.env.oxygen_level < 15.0 {
+            Color::Rgb(10, 10, 20)
+        } else {
+            Color::Rgb(5, 10, 5)
+        }
     }
 }

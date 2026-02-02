@@ -50,6 +50,7 @@ pub struct App {
     // Modes
     pub screensaver: bool,
     pub show_help: bool,
+    pub show_legend: bool,
     pub help_tab: u8, // 0=Controls, 1=Symbols, 2=Concepts, 3=Eras
     // Phase 40: Archeology View
     pub show_archeology: bool,
@@ -124,6 +125,7 @@ impl App {
             is_anchoring: false,
             screensaver: false,
             show_help: false,
+            show_legend: false,
             help_tab: 0,
             show_archeology: false,
             archeology_snapshots: Vec::new(),

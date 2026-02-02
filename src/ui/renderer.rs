@@ -32,34 +32,47 @@ impl<'a> WorldWidget<'a> {
     }
 
     pub fn color_for_status(entity: &EntitySnapshot, status: EntityStatus) -> Color {
-        match status {
-            EntityStatus::Starving => Color::Rgb(150, 50, 50),
-            EntityStatus::Infected => Color::Rgb(154, 205, 50),
-            EntityStatus::Larva => Color::Rgb(180, 180, 180),
-            EntityStatus::Juvenile => Color::Rgb(200, 200, 255),
-            EntityStatus::Sharing => Color::Rgb(100, 200, 100),
-            EntityStatus::Mating => Color::Rgb(255, 105, 180),
-            EntityStatus::Hunting => Color::Rgb(255, 69, 0),
-            EntityStatus::Foraging => Color::Rgb(entity.r, entity.g, entity.b),
-            EntityStatus::Soldier => Color::Red,
-            EntityStatus::Bonded => Color::Rgb(255, 215, 0),
-            EntityStatus::InTransit => Color::Rgb(150, 150, 150),
+        if status == EntityStatus::Starving {
+            return Color::Rgb(255, 0, 0);
+        }
+        if status == EntityStatus::Infected {
+            return Color::Rgb(154, 205, 50);
+        }
+
+        let base_color = match entity.specialization {
+            Some(primordium_data::Specialization::Soldier) => Color::Rgb(255, 50, 50),
+            Some(primordium_data::Specialization::Engineer) => Color::Cyan,
+            Some(primordium_data::Specialization::Provider) => Color::Yellow,
+            None => Color::Rgb(100, 255, 100),
+        };
+
+        if entity.is_larva {
+            match base_color {
+                Color::Rgb(r, g, b) => Color::Rgb(r / 2, g / 2, b / 2),
+                _ => base_color,
+            }
+        } else {
+            base_color
         }
     }
 
-    pub fn symbol_for_status(status: EntityStatus) -> char {
-        match status {
-            EntityStatus::Starving => '†',
-            EntityStatus::Infected => '☣',
-            EntityStatus::Larva => '⋯',
-            EntityStatus::Juvenile => '◦',
-            EntityStatus::Sharing => '♣',
-            EntityStatus::Mating => '♥',
-            EntityStatus::Hunting => '♦',
-            EntityStatus::Foraging => '●',
-            EntityStatus::Soldier => '⚔',
-            EntityStatus::Bonded => '⚭',
-            EntityStatus::InTransit => '✈',
+    pub fn symbol_for_status(entity: &EntitySnapshot) -> char {
+        if entity.status == EntityStatus::InTransit {
+            return '✈';
+        }
+        if entity.status == EntityStatus::Starving {
+            return '†';
+        }
+
+        match (entity.specialization, entity.is_larva) {
+            (Some(primordium_data::Specialization::Soldier), true) => '△',
+            (Some(primordium_data::Specialization::Soldier), false) => '▲',
+            (Some(primordium_data::Specialization::Engineer), true) => '◇',
+            (Some(primordium_data::Specialization::Engineer), false) => '◈',
+            (Some(primordium_data::Specialization::Provider), true) => '○',
+            (Some(primordium_data::Specialization::Provider), false) => '◎',
+            (None, true) => '·',
+            (None, false) => '●',
         }
     }
 
@@ -145,7 +158,7 @@ impl<'a> Widget for WorldWidget<'a> {
 
                     let status = entity.status;
                     let cell = &mut buf[(x, y)];
-                    cell.set_symbol(&Self::symbol_for_status(status).to_string());
+                    cell.set_symbol(&Self::symbol_for_status(entity).to_string());
                     cell.set_fg(Self::color_for_status(entity, status));
                     if self.view_mode >= 2 {
                         if entity.rank > 0.9 {
@@ -254,7 +267,7 @@ impl<'a> Widget for WorldWidget<'a> {
             {
                 let status = entity.status;
                 let cell = &mut buf[(x, y)];
-                cell.set_symbol(&Self::symbol_for_status(status).to_string());
+                cell.set_symbol(&Self::symbol_for_status(entity).to_string());
                 cell.set_fg(Self::color_for_status(entity, status));
                 if self.view_mode >= 2 {
                     if entity.rank > 0.9 {

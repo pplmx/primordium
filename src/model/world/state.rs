@@ -213,8 +213,11 @@ impl World {
                 } else {
                     None
                 },
+                specialization: intel.specialization,
+                is_larva: !metabolism.has_metamorphosed,
             });
         }
+
         entities.sort_by_key(|e| e.id);
 
         let mut food = Vec::new();
