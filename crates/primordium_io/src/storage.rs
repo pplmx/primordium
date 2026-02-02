@@ -32,6 +32,7 @@ pub enum StorageCommand {
     BatchSyncFossils(FossilRegistry),
     QueryFossils(Uuid, Sender<Vec<(u64, String)>>),
     QueryHallOfFame(Sender<Vec<(Uuid, u32, bool)>>),
+    QuerySnapshot(u64, Sender<Option<Vec<u8>>>),
     Stop,
 }
 
@@ -190,6 +191,18 @@ impl StorageManager {
                             let _ = reply_tx.send(results);
                         }
                     }
+                    StorageCommand::QuerySnapshot(tick, reply_tx) => {
+                        let mut stmt = match conn
+                            .prepare("SELECT world_data FROM world_snapshots WHERE tick = ?1")
+                        {
+                            Ok(s) => s,
+                            Err(_) => continue,
+                        };
+
+                        let result: Option<Vec<u8>> =
+                            stmt.query_row(params![tick], |row| row.get(0)).ok();
+                        let _ = reply_tx.send(result);
+                    }
                     StorageCommand::Stop => break,
                 }
             }
@@ -272,6 +285,19 @@ impl StorageManager {
         if self
             .sender
             .send(StorageCommand::QueryHallOfFame(tx))
+            .is_ok()
+        {
+            Some(rx)
+        } else {
+            None
+        }
+    }
+
+    pub fn query_snapshot_async(&self, tick: u64) -> Option<mpsc::Receiver<Option<Vec<u8>>>> {
+        let (tx, rx) = mpsc::channel();
+        if self
+            .sender
+            .send(StorageCommand::QuerySnapshot(tick, tx))
             .is_ok()
         {
             Some(rx)

@@ -15,7 +15,7 @@ pub struct AuthorityTransfer {
 
 impl AuthorityTransfer {
     pub fn sign(&mut self, _secret: &[u8]) {
-        self.signature = vec![0; 64]; 
+        self.signature = vec![0; 64];
     }
 
     pub fn verify(&self, _public_key: &[u8]) -> bool {
