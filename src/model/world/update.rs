@@ -10,13 +10,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::model::brain::BrainLogic;
-use crate::model::lifecycle;
 use crate::model::systems::{
     action, biological, civilization, ecological, environment, history, interaction, social, stats,
 };
-use crate::model::world::{
-    systems, EntityComponents, InternalEntitySnapshot, SystemContext, World,
-};
+use crate::model::world::{systems, EntityComponents, SystemContext, World};
 
 impl World {
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
@@ -30,77 +27,84 @@ impl World {
         let tick = self.tick;
         let config = &self.config;
 
-        let interaction_commands;
-        let id_map: HashMap<uuid::Uuid, usize>;
-        let handles: Vec<hecs::Entity>;
+        // 1. Update Social Ranks (Parallel, Specific Query)
+        {
+            let mut query = self.ecs.query::<(&Metabolism, &mut Intel)>();
+            let mut data: Vec<_> = query.iter().collect();
+            data.par_iter_mut().for_each(|(_, (met, intel))| {
+                intel.rank = social::calculate_social_rank_components(met, intel, tick, config);
+            });
+        }
 
+        // 2. Prepare Spatial Hash (Specific Query)
+        {
+            let mut query = self.ecs.query::<(&Position, &Metabolism)>();
+            let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
+            spatial_data.clear();
+            for (_h, (pos, met)) in query.iter() {
+                spatial_data.push((pos.x, pos.y, met.lineage_id));
+            }
+            self.spatial_hash
+                .build_with_lineage(&spatial_data, self.width, self.height);
+            self.spatial_data_buffer = spatial_data;
+        }
+
+        // 3. Prepare Food Hash (Specific Query)
+        let food_handles = {
+            let mut handles = Vec::new();
+            let mut positions = Vec::new();
+            for (handle, (pos, _)) in self.ecs.query::<(&Position, &Food)>().iter() {
+                handles.push(handle);
+                positions.push((pos.x, pos.y));
+            }
+            self.food_hash
+                .build_parallel(&positions, self.width, self.height);
+            handles
+        };
+
+        // 4. Capture Snapshots (Read Only, Specific Query)
+        self.capture_entity_snapshots();
+
+        // 5. Learn & Bond Check (Parallel, Specific Query)
+        {
+            let mut query = self.ecs.query::<(&Metabolism, &mut Intel)>();
+            let mut data: Vec<_> = query.iter().collect();
+            data.par_iter_mut().for_each(|(_, (met, intel))| {
+                let reinforcement = if met.energy > met.prev_energy {
+                    0.1
+                } else {
+                    -0.05
+                };
+                intel.genotype.brain.learn(
+                    intel.last_inputs,
+                    intel.last_hidden,
+                    reinforcement as f32,
+                );
+            });
+        }
+
+        // 6. Influence Maps
+        self.influence.update(&self.entity_snapshots);
+
+        let interaction_commands;
+        let overmind_broadcasts;
+
+        // 7. Perceive & Act (Strictly scoped big block)
         {
             let mut query = self.ecs.query::<EntityComponents>();
             let mut entity_data: Vec<_> = query.iter().collect();
+            // Critical: Sort by ID to match the order of snapshots
             entity_data.sort_by_key(|(_h, (i, ..))| i.id);
 
-            handles = entity_data.iter().map(|(h, ..)| *h).collect();
-
-            id_map = entity_data
+            let id_map: HashMap<uuid::Uuid, usize> = entity_data
                 .iter()
                 .enumerate()
                 .map(|(idx, (_, (i, ..)))| (i.id, idx))
                 .collect();
 
-            entity_data.par_iter_mut().for_each(
-                |(_handle, (_id, _pos, _vel, _phys, met, intel, _health))| {
-                    intel.rank = social::calculate_social_rank_components(met, intel, tick, config);
-                },
-            );
-
-            let spatial_data: Vec<_> = entity_data
-                .iter()
-                .map(|(_h, (_i, p, _v, _ph, m, _it, _hl))| (p.x, p.y, m.lineage_id))
-                .collect();
-            self.spatial_hash
-                .build_with_lineage(&spatial_data, self.width, self.height);
-
-            let estimated_food = self.ecs.query::<(&Position, &Food)>().iter().count();
-            let mut food_positions = Vec::with_capacity(estimated_food);
-            let mut food_handles = Vec::with_capacity(estimated_food);
-            for (handle, (pos, _)) in self.ecs.query::<(&Position, &Food)>().iter() {
-                food_handles.push(handle);
-                food_positions.push((pos.x, pos.y));
+            if self.entity_snapshots.len() != entity_data.len() {
+                eprintln!("Warning: Snapshot/Entity count mismatch!");
             }
-            self.food_hash
-                .build_parallel(&food_positions, self.width, self.height);
-
-            self.entity_snapshots.clear();
-            for (_h, (identity, pos, _vel, physics, metabolism, intel, health)) in &entity_data {
-                self.entity_snapshots.push(InternalEntitySnapshot {
-                    id: identity.id,
-                    lineage_id: metabolism.lineage_id,
-                    x: pos.x,
-                    y: pos.y,
-                    energy: metabolism.energy,
-                    birth_tick: metabolism.birth_tick,
-                    offspring_count: metabolism.offspring_count,
-                    generation: metabolism.generation,
-                    max_energy: metabolism.max_energy,
-                    r: physics.r,
-                    g: physics.g,
-                    b: physics.b,
-                    rank: intel.rank,
-                    status: lifecycle::calculate_status(
-                        metabolism,
-                        health,
-                        intel,
-                        self.config.brain.activation_threshold,
-                        self.tick,
-                        self.config.metabolism.maturity_age,
-                    ),
-                    genotype: Some(Arc::new(intel.genotype.clone())),
-                });
-            }
-
-            self.learn_and_bond_check_parallel_internal(&mut entity_data);
-
-            self.influence.update(&self.entity_snapshots);
 
             let system_ctx = SystemContext {
                 config: &self.config,
@@ -128,32 +132,27 @@ impl World {
             );
             interaction_commands = cmds;
 
-            let overmind_broadcasts = systems::execute_actions_internal(
+            let broadcasts = systems::execute_actions_internal(
                 &system_ctx,
                 env,
                 &id_map,
                 &mut entity_data,
                 &mut decs,
             );
+            overmind_broadcasts = broadcasts;
             self.decision_buffer = decs;
 
-            for (l_id, amount) in overmind_broadcasts {
+            for (l_id, amount) in &overmind_broadcasts {
                 self.lineage_registry
-                    .set_memory_value(&l_id, "overmind", amount);
+                    .set_memory_value(l_id, "overmind", *amount);
             }
         }
 
+        // 8. Execute Interactions
+        let handles = self.get_sorted_handles();
+
         let snapshots = std::mem::take(&mut self.entity_snapshots);
         self.entity_snapshots = snapshots;
-
-        let food_handles = {
-            let food_count = self.ecs.query::<&Food>().iter().count();
-            let mut food_handles = Vec::with_capacity(food_count);
-            for (handle, _) in self.ecs.query::<&Food>().iter() {
-                food_handles.push(handle);
-            }
-            food_handles
-        };
 
         let (mut interaction_events, new_babies) =
             self.execute_interactions(env, interaction_commands, &handles, &food_handles);
@@ -248,26 +247,6 @@ impl World {
             self.food_dirty = false;
             self.food_positions_buffer = food_positions;
         }
-    }
-
-    fn learn_and_bond_check_parallel_internal(
-        &self,
-        entity_data: &mut [(hecs::Entity, EntityComponents)],
-    ) {
-        entity_data.par_iter_mut().for_each(
-            |(_handle, (_id, _pos, _vel, _phys, met, intel, _health))| {
-                let reinforcement = if met.energy > met.prev_energy {
-                    0.1
-                } else {
-                    -0.05
-                };
-                intel.genotype.brain.learn(
-                    intel.last_inputs,
-                    intel.last_hidden,
-                    reinforcement as f32,
-                );
-            },
-        );
     }
 
     fn execute_interactions(

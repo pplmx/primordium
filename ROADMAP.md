@@ -31,9 +31,11 @@ These tasks are the critical path to the next major version of Primordium.
 5.  **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement* ✅ (Foundation - Heuristic narration via primordium_observer)
 6.  **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth* ✅
 7.  **Phase 66.7: Neural & Social Correction** - *CRITICAL FIX* ✅ (Deterministic Innovation IDs, Parallel Interaction Application, Intelligent Terraforming)
-8.  **Phase 66 Step 2: Entity ECS Migration** - *Performance* - (In progress - Food migrated, secondary components remaining)
-8.  **Phase 67: The Creator's Interface (Plugin Architecture)** - *Extensibility*
-8.  **Phase 68: The Song of Entropy (Audio)** - *Immersion*
+8.  **Phase 66 Step 2: Entity ECS Migration** - *Performance* ✅ (Completed - Entity split into components, logic uses granular queries)
+9.  **Phase 66 Step 3: System Parallelism** - *Performance* ✅ (Completed - World::update refactored to use pipelined queries)
+10. **Phase 66 Step 4: Zero-Copy Serialization** - *Performance* 🚧 (Next Priority)
+11. **Phase 67: The Creator's Interface (Plugin Architecture)** - *Extensibility*
+12. **Phase 68: The Song of Entropy (Audio)** - *Immersion*
 9.  **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
 10. **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
 
