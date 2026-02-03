@@ -65,8 +65,6 @@ pub fn action_system_components_with_modifiers(
     velocity.vy = velocity.vy * inertia + f64::from(outputs[1]) * (1.0 - inertia);
 
     let metabolism_mult = ctx.env.metabolism_multiplier();
-    let oxygen_factor = (ctx.env.oxygen_level / 21.0).max(0.1);
-    let aerobic_boost = oxygen_factor.sqrt();
 
     let activity_drain = (speed_mult - 1.0).max(0.0) * 0.01;
 
@@ -79,150 +77,26 @@ pub fn action_system_components_with_modifiers(
         metabolism_mult
     };
 
-    let mut move_cost =
-        ctx.config.metabolism.base_move_cost * effective_metabolism_mult * speed_mult
-            / aerobic_boost;
-
-    if predation_mode {
-        move_cost *= 2.0;
-    }
-
-    let signal_cost = f64::from(outputs[5].abs()) * ctx.config.social.sharing_fraction * 2.0;
-    let brain_maintenance = (intel.genotype.brain.nodes.len() as f64
-        * ctx.config.brain.hidden_node_cost)
-        + (intel.genotype.brain.connections.len() as f64 * ctx.config.brain.connection_cost);
-
-    let mut base_idle = ctx.config.metabolism.base_idle_cost;
-
-    if intel
-        .ancestral_traits
-        .contains(&primordium_data::AncestralTrait::HardenedMetabolism)
-    {
-        base_idle *= 0.8;
-    }
-
-    if matches!(cell.terrain_type, primordium_data::TerrainType::Nest) {
-        base_idle *= 1.0 - f64::from(ctx.config.ecosystem.corpse_fertility_mult);
-    }
-
-    let mut idle_cost = (base_idle + brain_maintenance) * effective_metabolism_mult;
-
-    if intel.bonded_to.is_some() {
-        move_cost *= 0.9;
-        idle_cost *= 0.9;
-    }
-
-    if ctx.env.oxygen_level < 8.0 {
-        idle_cost += 1.0;
-    }
-
-    let (dom_l, intensity) = ctx.influence.get_influence(position.x, position.y);
-    if let Some(lid) = dom_l {
-        if lid != metabolism.lineage_id {
-            idle_cost += f64::from(intensity) * 0.1;
-        }
-    }
-
-    let total_cost = move_cost + signal_cost + idle_cost + activity_drain;
+    let total_cost = calculate_metabolic_cost(
+        intel,
+        metabolism,
+        physics,
+        ctx,
+        speed_mult,
+        predation_mode,
+        outputs[5].abs(),
+        activity_drain,
+        cell,
+        effective_metabolism_mult,
+        position.x,
+        position.y,
+    );
 
     metabolism.energy -= total_cost;
 
-    if let Some(partner_id) = intel.bonded_to {
-        if let Some(partner) = ctx
-            .entity_id_map
-            .get(&partner_id)
-            .map(|&idx| &ctx.snapshots[idx])
-        {
-            let dx = partner.x - position.x;
-            let dy = partner.y - position.y;
-            let dist = (dx * dx + dy * dy).sqrt();
+    apply_social_forces(id, position, velocity, physics, intel, metabolism, ctx);
 
-            let k = ctx.config.brain.coupling_spring_constant;
-            let rest_length = 2.0;
-
-            if dist > rest_length {
-                let force = (dist - rest_length) * k;
-                let fx = (dx / dist) * force;
-                let fy = (dy / dist) * force;
-
-                velocity.vx += fx;
-                velocity.vy += fy;
-            }
-        }
-    }
-
-    if intel.bonded_to.is_none() {
-        let mut best_alpha_pos = None;
-        let mut max_rank = intel.rank;
-
-        ctx.spatial_hash
-            .query_callback(position.x, position.y, physics.sensing_range, |idx| {
-                let s = &ctx.snapshots[idx];
-                if s.id != *id && s.lineage_id == metabolism.lineage_id {
-                    let dx = s.x - position.x;
-                    let dy = s.y - position.y;
-                    let dist_sq = dx * dx + dy * dy;
-
-                    if dist_sq < physics.sensing_range.powi(2) && s.rank > max_rank + 0.1 {
-                        max_rank = s.rank;
-                        best_alpha_pos = Some((s.x, s.y));
-                    }
-                }
-            });
-
-        if let Some((ax, ay)) = best_alpha_pos {
-            let dx = ax - position.x;
-            let dy = ay - position.y;
-            let dist = (dx * dx + dy * dy).sqrt().max(1.0);
-            velocity.vx = velocity.vx * 0.7 + (dx / dist) * 0.3;
-            velocity.vy = velocity.vy * 0.7 + (dy / dist) * 0.3;
-        }
-    }
-
-    if outputs[6].abs() > 0.1 {
-        output.sounds.push(crate::sound::SoundDeposit {
-            x: position.x,
-            y: position.y,
-            amount: outputs[6].abs(),
-        });
-        output.pheromones.push(crate::pheromone::PheromoneDeposit {
-            x: position.x,
-            y: position.y,
-            ptype: crate::pheromone::PheromoneType::SignalA,
-            amount: outputs[6].abs(),
-        });
-    }
-
-    if outputs[7].abs() > 0.1 {
-        output.sounds.push(crate::sound::SoundDeposit {
-            x: position.x,
-            y: position.y,
-            amount: outputs[7].abs(),
-        });
-        output.pheromones.push(crate::pheromone::PheromoneDeposit {
-            x: position.x,
-            y: position.y,
-            ptype: crate::pheromone::PheromoneType::SignalB,
-            amount: outputs[7].abs(),
-        });
-    }
-
-    if outputs[9] > 0.5 {
-        output.pressure.push(crate::pressure::PressureDeposit {
-            x: position.x,
-            y: position.y,
-            ptype: crate::pressure::PressureType::DigDemand,
-            amount: outputs[9],
-        });
-    }
-    if outputs[10] > 0.5 {
-        output.pressure.push(crate::pressure::PressureDeposit {
-            x: position.x,
-            y: position.y,
-            ptype: crate::pressure::PressureType::BuildDemand,
-            amount: outputs[10],
-        });
-    }
+    handle_emissions(position, outputs, intel, output);
 
     if let Some(spec) = intel.specialization {
         if spec == Specialization::Engineer {
@@ -275,6 +149,183 @@ pub fn action_system_components_with_modifiers(
         ctx.height,
     );
     output.oxygen_drain = activity_drain;
+}
+
+#[allow(clippy::too_many_arguments)]
+fn calculate_metabolic_cost(
+    intel: &Intel,
+    metabolism: &Metabolism,
+    _physics: &Physics,
+    ctx: &ActionContext,
+    speed_mult: f64,
+    predation_mode: bool,
+    signal_strength: f32,
+    activity_drain: f64,
+    cell: &crate::terrain::TerrainCell,
+    effective_metabolism_mult: f64,
+    x: f64,
+    y: f64,
+) -> f64 {
+    let oxygen_factor = (ctx.env.oxygen_level / 21.0).max(0.1);
+    let aerobic_boost = oxygen_factor.sqrt();
+
+    let mut move_cost =
+        ctx.config.metabolism.base_move_cost * effective_metabolism_mult * speed_mult
+            / aerobic_boost;
+
+    if predation_mode {
+        move_cost *= 2.0;
+    }
+
+    let signal_cost = f64::from(signal_strength) * ctx.config.social.sharing_fraction * 2.0;
+    let brain_maintenance = (intel.genotype.brain.nodes.len() as f64
+        * ctx.config.brain.hidden_node_cost)
+        + (intel.genotype.brain.connections.len() as f64 * ctx.config.brain.connection_cost);
+
+    let mut base_idle = ctx.config.metabolism.base_idle_cost;
+
+    if intel
+        .ancestral_traits
+        .contains(&primordium_data::AncestralTrait::HardenedMetabolism)
+    {
+        base_idle *= 0.8;
+    }
+
+    if matches!(cell.terrain_type, primordium_data::TerrainType::Nest) {
+        base_idle *= 1.0 - f64::from(ctx.config.ecosystem.corpse_fertility_mult);
+    }
+
+    let mut idle_cost = (base_idle + brain_maintenance) * effective_metabolism_mult;
+
+    if intel.bonded_to.is_some() {
+        move_cost *= 0.9;
+        idle_cost *= 0.9;
+    }
+
+    if ctx.env.oxygen_level < 8.0 {
+        idle_cost += 1.0;
+    }
+
+    let (dom_l, intensity) = ctx.influence.get_influence(x, y);
+    if let Some(lid) = dom_l {
+        if lid != metabolism.lineage_id {
+            idle_cost += f64::from(intensity) * 0.1;
+        }
+    }
+
+    move_cost + signal_cost + idle_cost + activity_drain
+}
+
+fn apply_social_forces(
+    id: &uuid::Uuid,
+    position: &primordium_data::Position,
+    velocity: &mut primordium_data::Velocity,
+    physics: &Physics,
+    intel: &Intel,
+    metabolism: &Metabolism,
+    ctx: &ActionContext,
+) {
+    if let Some(partner_id) = intel.bonded_to {
+        if let Some(partner) = ctx
+            .entity_id_map
+            .get(&partner_id)
+            .map(|&idx| &ctx.snapshots[idx])
+        {
+            let dx = partner.x - position.x;
+            let dy = partner.y - position.y;
+            let dist = (dx * dx + dy * dy).sqrt();
+
+            let k = ctx.config.brain.coupling_spring_constant;
+            let rest_length = 2.0;
+
+            if dist > rest_length {
+                let force = (dist - rest_length) * k;
+                let fx = (dx / dist) * force;
+                let fy = (dy / dist) * force;
+
+                velocity.vx += fx;
+                velocity.vy += fy;
+            }
+        }
+    } else {
+        let mut best_alpha_pos = None;
+        let mut max_rank = intel.rank;
+
+        ctx.spatial_hash
+            .query_callback(position.x, position.y, physics.sensing_range, |idx| {
+                let s = &ctx.snapshots[idx];
+                if s.id != *id && s.lineage_id == metabolism.lineage_id {
+                    let dx = s.x - position.x;
+                    let dy = s.y - position.y;
+                    let dist_sq = dx * dx + dy * dy;
+
+                    if dist_sq < physics.sensing_range.powi(2) && s.rank > max_rank + 0.1 {
+                        max_rank = s.rank;
+                        best_alpha_pos = Some((s.x, s.y));
+                    }
+                }
+            });
+
+        if let Some((ax, ay)) = best_alpha_pos {
+            let dx = ax - position.x;
+            let dy = ay - position.y;
+            let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+            velocity.vx = velocity.vx * 0.7 + (dx / dist) * 0.3;
+            velocity.vy = velocity.vy * 0.7 + (dy / dist) * 0.3;
+        }
+    }
+}
+
+fn handle_emissions(
+    position: &primordium_data::Position,
+    outputs: [f32; 12],
+    _intel: &Intel,
+    output: &mut ActionOutput,
+) {
+    if outputs[6].abs() > 0.1 {
+        output.sounds.push(crate::sound::SoundDeposit {
+            x: position.x,
+            y: position.y,
+            amount: outputs[6].abs(),
+        });
+        output.pheromones.push(crate::pheromone::PheromoneDeposit {
+            x: position.x,
+            y: position.y,
+            ptype: crate::pheromone::PheromoneType::SignalA,
+            amount: outputs[6].abs(),
+        });
+    }
+
+    if outputs[7].abs() > 0.1 {
+        output.sounds.push(crate::sound::SoundDeposit {
+            x: position.x,
+            y: position.y,
+            amount: outputs[7].abs(),
+        });
+        output.pheromones.push(crate::pheromone::PheromoneDeposit {
+            x: position.x,
+            y: position.y,
+            ptype: crate::pheromone::PheromoneType::SignalB,
+            amount: outputs[7].abs(),
+        });
+    }
+
+    if outputs[9] > 0.5 {
+        output.pressure.push(crate::pressure::PressureDeposit {
+            x: position.x,
+            y: position.y,
+            ptype: crate::pressure::PressureType::DigDemand,
+            amount: outputs[9],
+        });
+    }
+    if outputs[10] > 0.5 {
+        output.pressure.push(crate::pressure::PressureDeposit {
+            x: position.x,
+            y: position.y,
+            ptype: crate::pressure::PressureType::BuildDemand,
+            amount: outputs[10],
+        });
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

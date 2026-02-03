@@ -41,63 +41,65 @@ pub trait GenotypeLogic {
         Self: Sized;
 }
 
+const INPUT_LABELS: [&str; 29] = [
+    "FoodDX",
+    "FoodDY",
+    "Energy",
+    "Density",
+    "Phero",
+    "Tribe",
+    "KX",
+    "KY",
+    "SA",
+    "SB",
+    "WL",
+    "AG",
+    "NT",
+    "TP",
+    "Mem0",
+    "Mem1",
+    "Mem2",
+    "Mem3",
+    "Mem4",
+    "Mem5",
+    "Hear",
+    "PartnerEnergy",
+    "BuildPressure",
+    "DigPressure",
+    "SharedGoal",
+    "SharedThreat",
+    "LineagePop",
+    "LineageEnergy",
+    "Overmind",
+];
+
+const OUTPUT_LABELS: [&str; 12] = [
+    "MoveX",
+    "MoveY",
+    "Speed",
+    "Aggro",
+    "Share",
+    "Color",
+    "EmitA",
+    "EmitB",
+    "Bond",
+    "Dig",
+    "Build",
+    "OvermindEmit",
+];
+
 pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
     let mut nodes = Vec::new();
 
-    let input_labels = [
-        "FoodDX",
-        "FoodDY",
-        "Energy",
-        "Density",
-        "Phero",
-        "Tribe",
-        "KX",
-        "KY",
-        "SA",
-        "SB",
-        "WL",
-        "AG",
-        "NT",
-        "TP",
-        "Mem0",
-        "Mem1",
-        "Mem2",
-        "Mem3",
-        "Mem4",
-        "Mem5",
-        "Hear",
-        "PartnerEnergy",
-        "BuildPressure",
-        "DigPressure",
-        "SharedGoal",
-        "SharedThreat",
-        "LineagePop",
-        "LineageEnergy",
-        "Overmind",
-    ];
-
-    for (i, label) in input_labels.iter().enumerate() {
+    for (i, label) in INPUT_LABELS.iter().enumerate() {
         nodes.push(Node {
             id: i,
             node_type: NodeType::Input,
             label: Some(label.to_string()),
         });
     }
-    let output_labels = [
-        "MoveX",
-        "MoveY",
-        "Speed",
-        "Aggro",
-        "Share",
-        "Color",
-        "EmitA",
-        "EmitB",
-        "Bond",
-        "Dig",
-        "Build",
-        "OvermindEmit",
-    ];
-    for (i, label) in output_labels.iter().enumerate() {
+
+    for (i, label) in OUTPUT_LABELS.iter().enumerate() {
         nodes.push(Node {
             id: i + 29,
             node_type: NodeType::Output,

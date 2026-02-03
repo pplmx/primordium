@@ -37,7 +37,7 @@ fn apply_genetic_drift<R: Rng>(
 ) {
     if population_count > 0
         && population_count < 10
-        && rng.gen_bool(config.evolution.drift_rate as f64)
+        && rng.gen_bool(f64::from(config.evolution.drift_rate))
     {
         match rng.gen_range(0..4) {
             0 => intel.genotype.metabolic_niche = rng.gen_range(0.0..1.0),
@@ -97,7 +97,7 @@ pub fn try_infect_components<R: Rng>(
 
 pub fn process_infection_components(health: &mut Health, metabolism: &mut Metabolism) {
     if let Some(p) = &health.pathogen {
-        metabolism.energy -= p.lethality as f64;
+        metabolism.energy -= f64::from(p.lethality);
         if health.infection_timer > 0 {
             health.infection_timer -= 1;
         } else {
@@ -113,11 +113,11 @@ pub fn handle_pathogen_emergence<R: Rng>(active_pathogens: &mut Vec<Pathogen>, r
     }
 }
 
-pub fn handle_infection_ecs<R: Rng>(
+pub fn handle_infection_ecs<R: Rng, S: std::hash::BuildHasher>(
     handle: hecs::Entity,
     world: &mut hecs::World,
     entity_handles: &[hecs::Entity],
-    killed_ids: &HashSet<uuid::Uuid>,
+    killed_ids: &HashSet<uuid::Uuid, S>,
     active_pathogens: &[Pathogen],
     spatial_hash: &SpatialHash,
     rng: &mut R,
