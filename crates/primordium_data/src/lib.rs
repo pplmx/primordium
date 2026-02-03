@@ -56,6 +56,12 @@ pub struct Brain {
     #[serde(skip, default = "HashMap::new")]
     #[with(rkyv::with::Skip)]
     pub incoming_forward_connections: HashMap<usize, Vec<usize>>,
+    #[serde(skip, default = "Vec::new")]
+    #[with(rkyv::with::Skip)]
+    pub fast_forward_order: Vec<usize>, // Node Indices
+    #[serde(skip, default = "Vec::new")]
+    #[with(rkyv::with::Skip)]
+    pub fast_incoming: Vec<Vec<(usize, usize)>>, // Node Index -> Vec<(Source Node Index, Connection Index)>
 }
 
 #[derive(

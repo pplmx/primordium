@@ -1,7 +1,6 @@
 use crate::brain::BrainLogic;
 use primordium_data::Brain;
 use rand::Rng;
-use std::collections::HashMap;
 
 pub fn brain_forward(
     brain: &Brain,
@@ -230,7 +229,7 @@ pub fn crossover_genotypes<R: Rng>(
     p2: &primordium_data::Genotype,
     rng: &mut R,
 ) -> primordium_data::Genotype {
-    let brain = crossover_brains(&p1.brain, &p2.brain, rng);
+    let brain = p1.brain.crossover_with_rng(&p2.brain, rng);
 
     primordium_data::Genotype {
         brain,
@@ -290,65 +289,6 @@ pub fn crossover_genotypes<R: Rng>(
         } else {
             p2.regulatory_rules.clone()
         },
-    }
-}
-
-pub fn crossover_brains<R: Rng>(p1: &Brain, p2: &Brain, rng: &mut R) -> Brain {
-    let mut child_nodes = p1.nodes.clone();
-    let mut child_connections = Vec::new();
-    let mut map2 = std::collections::HashMap::new();
-    for c in &p2.connections {
-        map2.insert(c.innovation, c);
-    }
-
-    for c1 in &p1.connections {
-        if let Some(c2) = map2.get(&c1.innovation) {
-            if rng.gen_bool(0.5) {
-                child_connections.push(c1.clone());
-            } else {
-                child_connections.push((*c2).clone());
-            }
-        } else {
-            child_connections.push(c1.clone());
-        }
-    }
-
-    let mut existing_node_ids: std::collections::HashSet<usize> =
-        child_nodes.iter().map(|n| n.id).collect();
-
-    let p2_node_map: std::collections::HashMap<usize, &primordium_data::Node> =
-        p2.nodes.iter().map(|n| (n.id, n)).collect();
-
-    for c in &child_connections {
-        if !existing_node_ids.contains(&c.from) {
-            if let Some(&n) = p2_node_map.get(&c.from) {
-                child_nodes.push(n.clone());
-                existing_node_ids.insert(c.from);
-            }
-        }
-        if !existing_node_ids.contains(&c.to) {
-            if let Some(&n) = p2_node_map.get(&c.to) {
-                child_nodes.push(n.clone());
-                existing_node_ids.insert(c.to);
-            }
-        }
-    }
-
-    Brain {
-        nodes: child_nodes,
-        connections: child_connections,
-        next_node_id: p1.next_node_id.max(p2.next_node_id),
-        learning_rate: if rng.gen_bool(0.5) {
-            p1.learning_rate
-        } else {
-            p2.learning_rate
-        },
-        weight_deltas: HashMap::new(),
-        node_idx_map: HashMap::new(),
-        topological_order: Vec::new(),
-        forward_connections: Vec::new(),
-        recurrent_connections: Vec::new(),
-        incoming_forward_connections: HashMap::new(),
     }
 }
 

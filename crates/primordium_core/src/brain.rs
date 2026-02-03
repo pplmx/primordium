@@ -159,6 +159,8 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
         forward_connections: Vec::new(),
         recurrent_connections: Vec::new(),
         incoming_forward_connections: HashMap::new(),
+        fast_forward_order: Vec::new(),
+        fast_incoming: Vec::new(),
     };
     brain.initialize_node_idx_map();
     brain
@@ -254,25 +256,19 @@ impl BrainLogic for Brain {
             }
         }
 
-        for &node_id in &self.topological_order {
-            let node_idx = *self
-                .node_idx_map
-                .get(&node_id)
-                .expect("Topology error: node_id in order but not in map");
+        for &node_idx in &self.fast_forward_order {
+            // Safe optimized access via pre-computed indices
+            let node_id = self.nodes[node_idx].id;
 
             if node_id < BRAIN_INPUTS {
                 node_values[node_idx] = inputs[node_id];
                 continue;
             }
 
-            if let Some(incoming) = self.incoming_forward_connections.get(&node_id) {
-                for &conn_idx in incoming {
-                    let conn = &self.connections[conn_idx];
-                    let from_idx = *self
-                        .node_idx_map
-                        .get(&conn.from)
-                        .expect("Topology error: source node missing from map");
-                    node_values[node_idx] += node_values[from_idx] * conn.weight;
+            if node_idx < self.fast_incoming.len() {
+                for &(from_idx, conn_idx) in &self.fast_incoming[node_idx] {
+                    node_values[node_idx] +=
+                        node_values[from_idx] * self.connections[conn_idx].weight;
                 }
             }
 
@@ -505,6 +501,8 @@ impl BrainLogic for Brain {
             forward_connections: Vec::new(),
             recurrent_connections: Vec::new(),
             incoming_forward_connections: HashMap::new(),
+            fast_forward_order: Vec::new(),
+            fast_incoming: Vec::new(),
         };
         child.initialize_node_idx_map();
         child
@@ -619,10 +617,33 @@ impl BrainLogic for Brain {
             }
         }
 
+        let mut fast_forward_order = Vec::with_capacity(order.len());
+        for &id in &order {
+            if let Some(&idx) = self.node_idx_map.get(&id) {
+                fast_forward_order.push(idx);
+            }
+        }
+
+        let mut fast_incoming = vec![Vec::new(); self.nodes.len()];
+        for (to_id, conn_indices) in &incoming {
+            if let Some(&to_idx) = self.node_idx_map.get(to_id) {
+                let mut inputs = Vec::with_capacity(conn_indices.len());
+                for &conn_idx in conn_indices {
+                    let conn = &self.connections[conn_idx];
+                    if let Some(&from_idx) = self.node_idx_map.get(&conn.from) {
+                        inputs.push((from_idx, conn_idx));
+                    }
+                }
+                fast_incoming[to_idx] = inputs;
+            }
+        }
+
         self.topological_order = order;
         self.forward_connections = forward;
         self.recurrent_connections = recurrent;
         self.incoming_forward_connections = incoming;
+        self.fast_forward_order = fast_forward_order;
+        self.fast_incoming = fast_incoming;
     }
 }
 
