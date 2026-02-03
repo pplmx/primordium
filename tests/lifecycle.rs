@@ -1,24 +1,26 @@
-use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::world::World;
+mod common;
+use common::{EntityBuilder, WorldBuilder};
 
 #[tokio::test]
 async fn test_simulation_lifecycle() {
-    // 1. Setup
-    let config = AppConfig::default();
     let initial_pop = 50;
-    let mut world = World::new(initial_pop, config).expect("Failed to create world");
-    let mut env = Environment::default();
+    
+    // We can use WorldBuilder for cleaner setup
+    let mut world_builder = WorldBuilder::new();
+    
+    for _ in 0..initial_pop {
+        world_builder = world_builder.with_entity(EntityBuilder::new().build());
+    }
+    
+    let (mut world, mut env) = world_builder.build();
 
     assert_eq!(world.get_population_count(), initial_pop);
 
-    // 2. Run for 100 ticks
+    // Run for 100 ticks
     for _ in 0..100 {
         world.update(&mut env).expect("World update failed");
     }
 
-    // 3. Verify
-    // Population should change based on birth/death
     println!(
         "Population after 100 ticks: {}",
         world.get_population_count()
@@ -34,13 +36,21 @@ async fn test_simulation_lifecycle() {
 
 #[tokio::test]
 async fn test_reproduction_and_genetics() {
-    let mut config = AppConfig::default();
-    // High energy start to encourage reproduction
-    config.world.initial_population = 10;
-    config.metabolism.maturity_age = 10; // Rapid maturity for test
+    let mut world_builder = WorldBuilder::new()
+        .with_config(|c| {
+            c.metabolism.maturity_age = 10; // Rapid maturity for test
+        });
 
-    let mut world = World::new(10, config).expect("Failed to create world");
-    let mut env = Environment::default();
+    for _ in 0..10 {
+        world_builder = world_builder.with_entity(
+            EntityBuilder::new()
+                .energy(200.0) // Start with high energy
+                .max_energy(200.0)
+                .build()
+        );
+    }
+
+    let (mut world, mut env) = world_builder.build();
 
     // Run ticks - some should reproduce
     let mut total_births = 0;

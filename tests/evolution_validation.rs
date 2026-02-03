@@ -1,39 +1,41 @@
-use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::world::World;
+mod common;
+use common::{EntityBuilder, WorldBuilder};
 
 #[tokio::test]
 async fn test_r_vs_k_dominance_in_resource_boom() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    config.world.max_food = 500; // Abundant food
-    let mut world = World::new(0, config).unwrap();
-    let mut env = Environment::default();
+    let mut world_builder = WorldBuilder::new()
+        .with_config(|c| {
+            c.world.max_food = 500; // Abundant food
+        });
 
     // Strategy R: Fast maturity (50), Low investment (0.2)
     // Low investment means babies start weak, but they mature fast.
-    let mut r_type = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let r_type = EntityBuilder::new()
+        .at(10.0, 10.0)
+        .energy(500.0)
+        .max_energy(500.0)
+        .lineage(uuid::Uuid::new_v4())
+        .build();
+    // Manual modification needed as Builder lacks genetic tuner yet
+    let mut r_type = r_type;
     r_type.intel.genotype.maturity_gene = 0.5;
     r_type.intel.genotype.reproductive_investment = 0.2;
-    r_type.metabolism.energy = 500.0;
-    r_type.metabolism.max_energy = 500.0;
-    r_type.metabolism.lineage_id = uuid::Uuid::new_v4();
-    r_type.intel.genotype.lineage_id = r_type.metabolism.lineage_id;
+    world_builder = world_builder.with_entity(r_type);
 
     // Strategy K: Slow maturity (200), High investment (0.8)
-    // High investment means babies start with 80% parent energy (400.0).
-    // If reproduction threshold is < 400.0, they might reproduce instantly IF they are mature.
-    // But they have high maturity gene (2.0), so they should take longer to mature.
-    let mut k_type = primordium_lib::model::lifecycle::create_entity(20.0, 20.0, 0);
-    k_type.intel.genotype.maturity_gene = 5.0; // Increase maturity time significantly to handicap K
+    // High investment means babies start with 80% parent energy.
+    let k_type = EntityBuilder::new()
+        .at(20.0, 20.0)
+        .energy(500.0)
+        .max_energy(1000.0)
+        .lineage(uuid::Uuid::new_v4())
+        .build();
+    let mut k_type = k_type;
+    k_type.intel.genotype.maturity_gene = 5.0; // Handicap K maturity
     k_type.intel.genotype.reproductive_investment = 0.8;
-    k_type.metabolism.energy = 500.0;
-    k_type.metabolism.max_energy = 1000.0;
-    k_type.metabolism.lineage_id = uuid::Uuid::new_v4();
-    k_type.intel.genotype.lineage_id = k_type.metabolism.lineage_id;
+    world_builder = world_builder.with_entity(k_type);
 
-    world.spawn_entity(r_type);
-    world.spawn_entity(k_type);
+    let (mut world, mut env) = world_builder.build();
 
     // In a resource boom, Strategy R should multiply faster
     for _ in 0..100 {
