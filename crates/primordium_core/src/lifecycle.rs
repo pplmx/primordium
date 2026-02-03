@@ -44,10 +44,9 @@ pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) ->
     let genotype = crate::brain::create_genotype_random_with_rng(rng);
     let id_u128 = rng.gen::<u128>();
     let id = Uuid::from_u128(id_u128);
-    let mut entity = Entity {
+    Entity {
         identity: primordium_data::Identity {
             id,
-            name: String::new(),
             parent_id: None,
         },
         position: primordium_data::Position { x, y },
@@ -107,9 +106,7 @@ pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) ->
             spec_meters: HashMap::new(),
             ancestral_traits: HashSet::new(),
         },
-    };
-    entity.identity.name = get_name_components(&entity.identity.id, &entity.metabolism);
-    entity
+    }
 }
 
 pub fn create_entity(x: f64, y: f64, tick: u64) -> Entity {

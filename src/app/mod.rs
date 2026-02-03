@@ -236,7 +236,10 @@ impl App {
                         dna,
                         energy,
                         generation,
-                        species_name: identity.name.clone(),
+                        species_name: crate::model::lifecycle::get_name_components(
+                            &identity.id,
+                            met,
+                        ),
                         fingerprint: config_fingerprint.clone(),
                         checksum,
                     });

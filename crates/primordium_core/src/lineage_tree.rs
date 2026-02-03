@@ -60,7 +60,7 @@ impl AncestryTree {
 
             let node = AncestryNode {
                 id: e.identity.id,
-                name: e.identity.name.clone(),
+                name: crate::lifecycle::get_name(e),
                 generation: e.metabolism.generation,
                 trophic_potential: e.metabolism.trophic_potential,
                 offspring_count: e.metabolism.offspring_count,

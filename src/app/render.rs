@@ -531,7 +531,8 @@ impl App {
             let age = snapshot.tick - e.metabolism.birth_tick;
             hof_lines.push(ratatui::text::Line::from(format!(
                 "Fit {:.0}: {}",
-                score, e.identity.name
+                score,
+                crate::model::lifecycle::get_name(e)
             )));
             hof_lines.push(ratatui::text::Line::from(format!(
                 "  Age: {} | Kids: {}",

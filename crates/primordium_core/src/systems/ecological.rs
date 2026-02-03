@@ -19,38 +19,40 @@ pub struct FeedingContext<'a> {
     pub lineage_consumption: &'a mut Vec<(uuid::Uuid, f64)>,
 }
 
-pub fn spawn_food_ecs(
-    world: &mut hecs::World,
-    env: &Environment,
-    terrain: &TerrainGrid,
-    config: &crate::config::AppConfig,
-    width: u16,
-    height: u16,
-    rng: &mut impl Rng,
-) {
-    let food_spawn_mult = env.food_spawn_multiplier();
-    let base_spawn_chance =
-        config.ecosystem.base_spawn_chance as f64 * food_spawn_mult * env.light_level() as f64;
+pub struct SpawnFoodContext<'a> {
+    pub world: &'a mut hecs::World,
+    pub env: &'a Environment,
+    pub terrain: &'a TerrainGrid,
+    pub config: &'a crate::config::AppConfig,
+    pub width: u16,
+    pub height: u16,
+    pub food_count_ptr: &'a std::sync::atomic::AtomicUsize,
+}
 
-    let mut food_count = 0;
-    for _ in world.query::<&Food>().iter() {
-        food_count += 1;
-    }
+pub fn spawn_food_ecs(ctx: &mut SpawnFoodContext, rng: &mut impl Rng) {
+    let food_spawn_mult = ctx.env.food_spawn_multiplier();
+    let base_spawn_chance = ctx.config.ecosystem.base_spawn_chance as f64
+        * food_spawn_mult
+        * ctx.env.light_level() as f64;
 
-    if food_count < config.world.max_food {
+    let food_count = ctx
+        .food_count_ptr
+        .load(std::sync::atomic::Ordering::Relaxed);
+
+    if food_count < ctx.config.world.max_food {
         for _ in 0..3 {
-            let x = rng.gen_range(1..width - 1);
-            let y = rng.gen_range(1..height - 1);
-            let terrain_mod = terrain.food_spawn_modifier(f64::from(x), f64::from(y));
+            let x = rng.gen_range(1..ctx.width - 1);
+            let y = rng.gen_range(1..ctx.height - 1);
+            let terrain_mod = ctx.terrain.food_spawn_modifier(f64::from(x), f64::from(y));
             if terrain_mod > 0.0 && rng.gen::<f64>() < base_spawn_chance * terrain_mod {
-                let terrain_type = terrain.get_cell(x, y).terrain_type;
+                let terrain_type = ctx.terrain.get_cell(x, y).terrain_type;
                 let nutrient_type = match terrain_type {
                     primordium_data::TerrainType::Mountain
                     | primordium_data::TerrainType::River => rng.gen_range(0.6..1.0),
                     _ => rng.gen_range(0.0..0.4),
                 };
                 let new_food = Food::new(x, y, nutrient_type);
-                world.spawn((
+                ctx.world.spawn((
                     new_food,
                     primordium_data::Position {
                         x: x as f64,
@@ -58,6 +60,8 @@ pub fn spawn_food_ecs(
                     },
                     primordium_data::MetabolicNiche(nutrient_type),
                 ));
+                ctx.food_count_ptr
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 break;
             }
         }
@@ -168,11 +172,13 @@ pub fn sense_nearest_food_ecs_decomposed(
     world: &hecs::World,
     food_hash: &SpatialHash,
     food_handles: &[hecs::Entity],
-) -> (f64, f64, f32) {
+) -> (Option<usize>, f64, f64, f32) {
     let mut dx_food = 0.0;
     let mut dy_food = 0.0;
     let mut f_type = 0.5;
     let mut min_dist_sq = f64::MAX;
+    let mut best_idx = None;
+    let range_sq = sensing_range * sensing_range;
 
     food_hash.query_callback(position.x, position.y, sensing_range, |f_idx| {
         let handle = food_handles[f_idx];
@@ -180,20 +186,17 @@ pub fn sense_nearest_food_ecs_decomposed(
             let dx = f64::from(f.x) - position.x;
             let dy = f64::from(f.y) - position.y;
             let dist_sq = dx * dx + dy * dy;
-            if dist_sq < min_dist_sq {
+            if dist_sq < min_dist_sq && dist_sq < range_sq {
                 min_dist_sq = dist_sq;
                 dx_food = dx;
                 dy_food = dy;
                 f_type = f.nutrient_type;
+                best_idx = Some(f_idx);
             }
         }
     });
 
-    if min_dist_sq == f64::MAX {
-        (0.0, 0.0, 0.5)
-    } else {
-        (dx_food, dy_food, f_type)
-    }
+    (best_idx, dx_food, dy_food, f_type)
 }
 
 /// Sense the nearest food within a radius (using components).

@@ -17,11 +17,16 @@ pub trait FossilPersistence {
 
 impl FossilPersistence for FossilRegistry {
     fn save(&self, path: &str) -> Result<()> {
-        let file = File::create(path)?;
-        let mut encoder = GzEncoder::new(file, Compression::default());
-        let json = serde_json::to_string(self)?;
-        encoder.write_all(json.as_bytes())?;
-        encoder.finish()?;
+        let path_buf = std::path::Path::new(path);
+        let tmp_path = path_buf.with_extension("tmp");
+        {
+            let file = File::create(&tmp_path)?;
+            let mut encoder = GzEncoder::new(file, Compression::default());
+            let json = serde_json::to_string(self)?;
+            encoder.write_all(json.as_bytes())?;
+            encoder.finish()?;
+        }
+        std::fs::rename(tmp_path, path)?;
         Ok(())
     }
 
@@ -135,10 +140,14 @@ impl HistoryLogger {
                         }
                     }
                     LogCommand::SaveLineages(reg, path) => {
-                        let _ = reg.save(path);
+                        if let Err(e) = reg.save(path) {
+                            eprintln!("HistoryLogger: Error saving lineages: {}", e);
+                        }
                     }
                     LogCommand::SaveFossils(reg, path) => {
-                        let _ = reg.save(&path);
+                        if let Err(e) = reg.save(&path) {
+                            eprintln!("HistoryLogger: Error saving fossils: {}", e);
+                        }
                     }
                     LogCommand::SyncToStorage(lin_reg, fos_reg) => {
                         if let Some(ref tx) = storage_sender {

@@ -17,25 +17,14 @@ pub type EntityComponents<'a> = (
     &'a mut primordium_data::Health,
 );
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct EntityDecision {
     pub outputs: [f32; 12],
     pub nearby_count: usize,
     pub grn_speed_mod: f64,
     pub grn_sensing_mod: f64,
     pub grn_repro_mod: f32,
-}
-
-impl Default for EntityDecision {
-    fn default() -> Self {
-        Self {
-            outputs: [0.0; 12],
-            nearby_count: 0,
-            grn_speed_mod: 1.0,
-            grn_sensing_mod: 1.0,
-            grn_repro_mod: 1.0,
-        }
-    }
+    pub sensed_food: Option<(usize, f64, f64, f32)>, // index, dx, dy, type
 }
 
 impl World {
@@ -167,7 +156,7 @@ impl World {
         {
             entities.push(EntitySnapshot {
                 id: identity.id,
-                name: identity.name.clone(),
+                name: lifecycle::get_name_components(&identity.id, metabolism),
                 x: physics.x,
                 y: physics.y,
                 r: physics.r,

@@ -93,7 +93,7 @@ async fn test_entity_migration_with_hex_dna() {
         dna: brain_hex.clone(),
         energy: entity.metabolism.energy as f32,
         generation: entity.metabolism.generation,
-        species_name: entity.identity.name,
+        species_name: primordium_lib::model::lifecycle::get_name(&entity),
         fingerprint: config.fingerprint(),
         checksum,
     };

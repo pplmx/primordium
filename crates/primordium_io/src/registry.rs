@@ -11,9 +11,14 @@ pub trait LineagePersistence {
 
 impl LineagePersistence for LineageRegistry {
     fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let file = File::create(path)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, self)?;
+        let path = path.as_ref();
+        let tmp_path = path.with_extension("tmp");
+        {
+            let file = File::create(&tmp_path)?;
+            let writer = BufWriter::new(file);
+            serde_json::to_writer_pretty(writer, self)?;
+        }
+        std::fs::rename(tmp_path, path)?;
         Ok(())
     }
 

@@ -36,12 +36,15 @@ impl SpatialHash {
 
     #[inline]
     pub fn get_cell_idx(&self, x: f64, y: f64) -> Option<usize> {
-        let cx = (x / self.cell_size).floor() as i32;
-        let cy = (y / self.cell_size).floor() as i32;
-        if cx >= 0 && cx < self.cols as i32 && cy >= 0 && cy < self.rows as i32 {
-            Some((cy as usize * self.cols) + cx as usize)
-        } else {
+        if !x.is_finite() || !y.is_finite() {
+            return None;
+        }
+        let cx = (x / self.cell_size) as i32;
+        let cy = (y / self.cell_size) as i32;
+        if cx < 0 || cx >= self.cols as i32 || cy < 0 || cy >= self.rows as i32 {
             None
+        } else {
+            Some((cy as usize * self.cols) + cx as usize)
         }
     }
 

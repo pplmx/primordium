@@ -96,8 +96,9 @@ pub fn mutate_genotype<R: Rng>(
 
     if config.evolution.population_aware && population > 0 {
         if population < config.evolution.bottleneck_threshold {
-            let scaling =
-                (config.evolution.bottleneck_threshold as f32 / population as f32).min(3.0);
+            let scaling = (config.evolution.bottleneck_threshold as f32
+                / (population as f32).max(1.0))
+            .min(3.0);
             effective_mutation_rate *= scaling;
             effective_mutation_amount *= scaling;
         } else if population > config.evolution.stasis_threshold {

@@ -173,9 +173,12 @@ impl World {
     }
 
     fn update_grids_and_environment(&mut self, env: &mut Environment) {
-        self.pheromones.update();
-        self.sound.update();
-        self.pressure.update();
+        rayon::join(
+            || self.pheromones.update(),
+            || {
+                rayon::join(|| self.sound.update(), || self.pressure.update());
+            },
+        );
 
         if self.config.world.deterministic {
             env.tick_deterministic(self.tick);
@@ -238,15 +241,16 @@ impl World {
 
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut self.rng);
 
-        ecological::spawn_food_ecs(
-            &mut self.ecs,
+        let mut spawn_ctx = ecological::SpawnFoodContext {
+            world: &mut self.ecs,
             env,
-            &self.terrain,
-            &self.config,
-            self.width,
-            self.height,
-            &mut self.rng,
-        );
+            terrain: &self.terrain,
+            config: &self.config,
+            width: self.width,
+            height: self.height,
+            food_count_ptr: &self.food_count,
+        };
+        ecological::spawn_food_ecs(&mut spawn_ctx, &mut self.rng);
 
         if self.food_dirty {
             let mut food_positions = std::mem::take(&mut self.food_positions_buffer);
@@ -297,6 +301,7 @@ impl World {
             food_handles,
             spatial_hash: &self.spatial_hash,
             rng: &mut self.rng,
+            food_count: &self.food_count,
         };
 
         let result1 = interaction::process_interaction_commands_ecs(
@@ -328,26 +333,44 @@ impl World {
     }
 
     fn update_rank_grid(&mut self) {
-        let mut rank_grid = vec![0.0f32; self.width as usize * self.height as usize];
         let width = self.width as usize;
         let height = self.height as usize;
 
-        for (_handle, (phys, intel)) in self.ecs.query::<(&Physics, &Intel)>().iter() {
-            let ex = phys.x as i32;
-            let ey = phys.y as i32;
-            let r = 3;
-            for dy in -r..=r {
-                for dx in -r..=r {
-                    let nx = ex + dx;
-                    let ny = ey + dy;
-                    if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
-                        let idx = (ny as usize * width) + nx as usize;
-                        let dist_sq = dx * dx + dy * dy;
-                        let weight = (1.0 - (dist_sq as f32 / (r * r) as f32).sqrt()).max(0.0);
-                        rank_grid[idx] += intel.rank * weight;
+        let deposits: Vec<(usize, f32)> = self
+            .ecs
+            .query::<(&Physics, &Intel)>()
+            .iter()
+            .par_bridge()
+            .filter_map(|(_handle, (phys, intel))| {
+                if !phys.x.is_finite() || !phys.y.is_finite() {
+                    return None;
+                }
+                let mut local_deps = Vec::new();
+                let ex = phys.x as i32;
+                let ey = phys.y as i32;
+                let r = 3;
+                for dy in -r..=r {
+                    for dx in -r..=r {
+                        let nx = ex + dx;
+                        let ny = ey + dy;
+                        if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                            let idx = (ny as usize * width) + nx as usize;
+                            let dist_sq = dx * dx + dy * dy;
+                            let weight = (1.0 - (dist_sq as f32 / (r * r) as f32).sqrt()).max(0.0);
+                            if weight > 0.0 {
+                                local_deps.push((idx, intel.rank * weight));
+                            }
+                        }
                     }
                 }
-            }
+                Some(local_deps)
+            })
+            .flatten()
+            .collect();
+
+        let mut rank_grid = vec![0.0f32; width * height];
+        for (idx, val) in deposits {
+            rank_grid[idx] += val;
         }
         self.cached_rank_grid = Arc::new(rank_grid);
     }
@@ -483,8 +506,8 @@ impl World {
             }
         }
 
-        for baby in new_babies {
-            self.ecs.spawn((
+        self.ecs.spawn_batch(new_babies.into_iter().map(|baby| {
+            (
                 baby.identity,
                 baby.position,
                 baby.velocity,
@@ -493,8 +516,8 @@ impl World {
                 baby.metabolism,
                 baby.health,
                 baby.intel,
-            ));
-        }
+            )
+        }));
 
         if !self.eaten_food_indices.is_empty() {
             self.food_dirty = true;

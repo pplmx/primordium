@@ -267,7 +267,6 @@ pub enum OutpostSpecialization {
 #[archive(check_bytes)]
 pub struct Identity {
     pub id: Uuid,
-    pub name: String,
     pub parent_id: Option<Uuid>,
 }
 

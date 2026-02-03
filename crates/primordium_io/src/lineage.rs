@@ -59,7 +59,7 @@ impl AncestryTree {
 
             let node = AncestryNode {
                 id: e.identity.id,
-                name: e.identity.name.clone(),
+                name: primordium_core::lifecycle::get_name(e),
                 generation: e.metabolism.generation,
                 trophic_potential: e.metabolism.trophic_potential,
                 offspring_count: e.metabolism.offspring_count,

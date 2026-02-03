@@ -51,13 +51,15 @@ pub fn perceive_and_decide_internal(
 
                 let eff_sensing_range = phys.sensing_range * sensing_mod;
 
-                let (dx_f, dy_f, f_type) = ecological::sense_nearest_food_ecs_decomposed(
-                    pos,
-                    eff_sensing_range,
-                    ctx.ecs,
-                    ctx.food_hash,
-                    ctx.food_handles,
-                );
+                let (best_idx_f, dx_f, dy_f, f_type) =
+                    ecological::sense_nearest_food_ecs_decomposed(
+                        pos,
+                        eff_sensing_range,
+                        ctx.ecs,
+                        ctx.food_hash,
+                        ctx.food_handles,
+                    );
+                let sensed_food = best_idx_f.map(|idx| (idx, dx_f, dy_f, f_type));
                 let nearby_count = ctx
                     .spatial_hash
                     .count_nearby(pos.x, pos.y, eff_sensing_range);
@@ -141,6 +143,7 @@ pub fn perceive_and_decide_internal(
                     grn_speed_mod: speed_mod,
                     grn_sensing_mod: sensing_mod,
                     grn_repro_mod: repro_mod,
+                    sensed_food,
                 };
             },
         );
@@ -156,17 +159,8 @@ pub fn perceive_and_decide_internal(
                 let decision = &decision_buffer[i];
                 let outputs = decision.outputs;
 
-                let eff_sensing_range = phys.sensing_range * decision.grn_sensing_mod;
-
-                let (dx_f, dy_f, _) = ecological::sense_nearest_food_ecs_decomposed(
-                    pos,
-                    eff_sensing_range,
-                    ctx.ecs,
-                    ctx.food_hash,
-                    ctx.food_handles,
-                );
-                if dx_f.abs() < 1.5 && dy_f.abs() < 1.5 {
-                    ctx.food_hash.query_callback(pos.x, pos.y, 1.5, |f_idx| {
+                if let Some((f_idx, dx_f, dy_f, _)) = decision.sensed_food {
+                    if dx_f.abs() < 1.5 && dy_f.abs() < 1.5 {
                         let food_handle = ctx.food_handles[f_idx];
                         let mut energy_gain = 0.0;
                         if let Ok(food_data) = ctx.ecs.get::<&Food>(food_handle) {
@@ -189,7 +183,7 @@ pub fn perceive_and_decide_internal(
                                 precalculated_energy_gain: energy_gain,
                             });
                         }
-                    });
+                    }
                 }
 
                 if intel.bonded_to.is_none() && met.has_metamorphosed {

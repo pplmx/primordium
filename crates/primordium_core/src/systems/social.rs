@@ -1,7 +1,6 @@
 use crate::brain::GenotypeLogic;
 use crate::config::AppConfig;
 use crate::history::{Legend, LiveEvent, PopulationStats};
-use crate::lifecycle;
 use crate::pheromone::PheromoneGrid;
 use crate::snapshot::InternalEntitySnapshot;
 use crate::spatial_hash::SpatialHash;
@@ -181,7 +180,6 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
     let mut baby = Entity {
         identity: primordium_data::Identity {
             id: Uuid::from_u128(ctx.rng.gen()),
-            name: String::new(),
             parent_id: None,
         },
         position: primordium_data::Position { x: pos.x, y: pos.y },
@@ -254,8 +252,6 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
             _ => {}
         }
     }
-
-    baby.identity.name = lifecycle::get_name_components(&baby.identity.id, &baby.metabolism);
     (baby, dist)
 }
 
@@ -293,7 +289,6 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
     let mut baby = Entity {
         identity: primordium_data::Identity {
             id: Uuid::from_u128(ctx.rng.gen()),
-            name: String::new(),
             parent_id: None,
         },
         position: primordium_data::Position {
@@ -364,8 +359,6 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
             _ => {}
         }
     }
-
-    baby.identity.name = lifecycle::get_name_components(&baby.identity.id, &baby.metabolism);
     (baby, 0.1)
 }
 

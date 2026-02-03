@@ -90,6 +90,7 @@ async fn test_outpost_construction() {
         food_handles: &[],
         spatial_hash: &world.spatial_hash,
         rng: &mut rng,
+        food_count: &world.food_count,
     };
 
     let cmd = InteractionCommand::Build {

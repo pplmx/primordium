@@ -102,6 +102,10 @@ pub struct World {
     pub cached_rank_grid: Arc<Vec<f32>>,
     pub food_dirty: bool,
     #[serde(skip, default)]
+    pub food_count: std::sync::atomic::AtomicUsize,
+    #[serde(skip, default)]
+    pub last_persistence_error: Option<String>,
+    #[serde(skip, default)]
     pub spatial_data_buffer: Vec<(f64, f64, uuid::Uuid)>,
     #[serde(skip, default)]
     pub food_positions_buffer: Vec<(f64, f64)>,

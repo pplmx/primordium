@@ -76,6 +76,7 @@ impl World {
             crate::model::influence::InfluenceGrid::new(config.world.width, config.world.height);
         let social_grid = vec![0; config.world.width as usize * config.world.height as usize];
 
+        let initial_food = config.world.initial_food;
         Ok(Self {
             width: config.world.width,
             height: config.world.height,
@@ -119,6 +120,8 @@ impl World {
             lineage_consumption: Vec::new(),
             entity_snapshots: Vec::new(),
             food_dirty: true,
+            food_count: std::sync::atomic::AtomicUsize::new(initial_food),
+            last_persistence_error: None,
             spatial_data_buffer: Vec::new(),
             food_positions_buffer: Vec::new(),
         })

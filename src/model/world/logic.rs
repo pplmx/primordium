@@ -88,7 +88,8 @@ impl World {
             }
             TradeResource::Biomass => {
                 if incoming {
-                    for _ in 0..(amount as usize) {
+                    let spawn_count = (amount.max(0.0) as usize).min(100);
+                    for _ in 0..spawn_count {
                         let fx = self.rng.gen_range(1..self.width - 1);
                         let fy = self.rng.gen_range(1..self.height - 1);
                         let n_type = self.rng.gen_range(0.0..1.0);
@@ -100,14 +101,19 @@ impl World {
                             MetabolicNiche(n_type),
                             Food::new(fx, fy, n_type),
                         ));
+                        self.food_count
+                            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     }
                 } else {
                     let mut food_entities = Vec::new();
                     for (handle, _) in self.ecs.query::<&Food>().iter() {
                         food_entities.push(handle);
                     }
-                    for &handle in food_entities.iter().take(amount as usize) {
+                    let remove_count = (amount.max(0.0) as usize).min(food_entities.len());
+                    for &handle in food_entities.iter().take(remove_count) {
                         let _ = self.ecs.despawn(handle);
+                        self.food_count
+                            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                     }
                 }
                 self.food_dirty = true;

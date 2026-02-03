@@ -30,6 +30,7 @@ pub struct InteractionContext<'a, R: Rng> {
     pub food_handles: &'a [hecs::Entity],
     pub spatial_hash: &'a crate::spatial_hash::SpatialHash,
     pub rng: &'a mut R,
+    pub food_count: &'a std::sync::atomic::AtomicUsize,
 }
 
 pub struct InteractionResult {
@@ -178,6 +179,8 @@ pub fn process_interaction_commands_ecs<R: Rng>(
 
                     eaten_food_indices.insert(food_index);
                     let _ = world.despawn(food_handle);
+                    ctx.food_count
+                        .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                     if let Ok(mut met_mut) = world.get::<&mut Metabolism>(handle) {
                         met_mut.energy =
                             (met_mut.energy + precalculated_energy_gain).min(met_mut.max_energy);
