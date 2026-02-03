@@ -31,7 +31,7 @@ async fn test_barren_transition() {
     // but we can use it for initial setup.
     let ix = 5;
     let iy = 5;
-    
+
     let (mut world, _env) = WorldBuilder::new()
         .with_terrain(ix, iy, TerrainType::Plains)
         .build();
@@ -92,21 +92,27 @@ async fn test_light_dependent_food_growth() {
         let (mut world, mut env) = WorldBuilder::new()
             .with_config(|c| c.world.max_food = 1000)
             .build();
-            
+
         for _ in 0..1000 {
             env.world_time = env.day_cycle_ticks / 4; // Noon
             world.update(&mut env).expect("Update failed");
             day_food_count += world.get_food_count();
-            
+
             // Clear food to measure spawn rate per tick
             // Direct ECS manipulation is still needed here as this is a specific measurement pattern
             let mut food_handles = Vec::new();
-            for (h, _) in world.ecs.query::<&primordium_lib::model::food::Food>().iter() {
+            for (h, _) in world
+                .ecs
+                .query::<&primordium_lib::model::food::Food>()
+                .iter()
+            {
                 food_handles.push(h);
             }
             for h in food_handles {
                 let _ = world.ecs.despawn(h);
-                world.food_count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                world
+                    .food_count
+                    .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
             }
         }
     }
@@ -121,14 +127,20 @@ async fn test_light_dependent_food_growth() {
             env.world_time = env.day_cycle_ticks / 2 + 100; // Night
             world.update(&mut env).expect("Update failed");
             night_food_count += world.get_food_count();
-            
+
             let mut food_handles = Vec::new();
-            for (h, _) in world.ecs.query::<&primordium_lib::model::food::Food>().iter() {
+            for (h, _) in world
+                .ecs
+                .query::<&primordium_lib::model::food::Food>()
+                .iter()
+            {
                 food_handles.push(h);
             }
             for h in food_handles {
                 let _ = world.ecs.despawn(h);
-                world.food_count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                world
+                    .food_count
+                    .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
             }
         }
     }

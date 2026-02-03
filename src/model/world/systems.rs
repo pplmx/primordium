@@ -345,12 +345,13 @@ pub fn perceive_and_decide_internal(
                                 + (phys.g as i32 - target_snap.g as i32).abs()
                                 + (phys.b as i32 - target_snap.b as i32).abs();
 
-                            if color_dist >= ctx.config.social.tribe_color_threshold {
-                                // Double check lineage_id to be absolutely safe (Kinship override)
-                                if target_snap.lineage_id == met.lineage_id {
-                                    return; // Never attack kin
-                                }
+                            // Only attack if color distance is high OR (different lineage)
+                            // We prioritize lineage safety first.
+                            if target_snap.lineage_id == met.lineage_id {
+                                return; // Never attack kin
+                            }
 
+                            if color_dist >= ctx.config.social.tribe_color_threshold {
                                 let mut multiplier = 1.0;
                                 let attacker_status = lifecycle::calculate_status(
                                     met,

@@ -16,7 +16,7 @@ async fn test_tribe_solidarity_no_aggression() {
 
     let mut e1_mut = e1.clone();
     e1_mut.metabolism.trophic_potential = 1.0;
-    
+
     let e2 = EntityBuilder::new()
         .at(10.5, 10.5)
         .energy(5000.0)
@@ -24,20 +24,16 @@ async fn test_tribe_solidarity_no_aggression() {
         .color(100, 100, 100)
         .lineage(id)
         .build();
-    
+
     let mut e2_mut = e2.clone();
     e2_mut.metabolism.trophic_potential = 0.0;
 
     // IMPORTANT: Ensure lineage_id is propagated to both metabolism AND genotype
-    // The builder handles this if .lineage() is called, but let's double check via manual override
-    // to be absolutely sure the test logic holds.
-    // Actually, EntityBuilder::lineage() sets both. The issue might be e2 being recognized as "food" or "prey"
-    // despite being kin if the aggression logic overrides kinship for different trophic levels.
-    // However, the test asserts NO aggression.
-    
-    // Let's force them to be identical except for trophic potential
-    e2_mut.metabolism.lineage_id = id;
-    e2_mut.intel.genotype.lineage_id = id;
+    // We already passed lineage(id) to builder, which sets both.
+    // However, aggressive behavior in systems.rs might be overriding kinship if logic is flawed.
+    // We'll trust the builder for now as it sets:
+    // e.metabolism.lineage_id = lid;
+    // e.intel.genotype.lineage_id = lid;
 
     let (mut world, mut env) = WorldBuilder::new()
         .with_entity(e1_mut)
@@ -56,7 +52,7 @@ async fn test_tribe_solidarity_no_aggression() {
 #[tokio::test]
 async fn test_energy_sharing_between_allies() {
     let world_builder = WorldBuilder::new();
-    
+
     // Giver
     let e1 = EntityBuilder::new()
         .at(10.0, 10.0)
@@ -65,7 +61,7 @@ async fn test_energy_sharing_between_allies() {
         .color(200, 200, 200)
         .with_behavior(TestBehavior::Altruist)
         .build();
-        
+
     // Receiver
     let e2 = EntityBuilder::new()
         .at(10.2, 10.2)
@@ -73,16 +69,13 @@ async fn test_energy_sharing_between_allies() {
         .max_energy(1000.0)
         .color(200, 200, 200)
         .build(); // No special behavior needed
-        
+
     // Clone genotype to ensure compatibility if needed, though color is primary trigger
     let mut e2_clone = e2.clone();
     e2_clone.intel.genotype = e1.intel.genotype.clone();
-    
-    let (mut world, mut env) = world_builder
-        .with_entity(e1)
-        .with_entity(e2_clone)
-        .build();
-        
+
+    let (mut world, mut env) = world_builder.with_entity(e1).with_entity(e2_clone).build();
+
     let e2_id = world.get_all_entities()[1].identity.id; // Assuming order preserved or we find by energy
 
     let mut shared = false;
@@ -95,7 +88,7 @@ async fn test_energy_sharing_between_allies() {
                 break;
             }
         }
-        
+
         // Keep E1 energy high and force share intent (manual override still useful for deterministic forcing)
         for (_handle, (phys, met, intel, ident)) in world.ecs.query_mut::<(
             &mut primordium_lib::model::state::Physics,
@@ -118,10 +111,10 @@ async fn test_inter_tribe_predation() {
         .at(10.0, 10.0)
         .color(255, 0, 0)
         .energy(5000.0)
+        .max_energy(10000.0) // Ensure cap allows high energy
         .with_behavior(TestBehavior::Aggressive)
         .build();
-    // Trophic potential needs manual set as builder defaults to 0.5 usually? 
-    // Actually builder just builds default entity. We need to set it.
+
     let mut e1_mut = e1.clone();
     e1_mut.metabolism.trophic_potential = 1.0;
 
@@ -144,6 +137,11 @@ async fn test_inter_tribe_predation() {
             break;
         }
     }
-    // E2 should be eaten
-    assert_eq!(world.get_population_count(), 1, "Predator failed to eat prey");
+    // E2 should be eaten, E1 should survive
+    assert_eq!(
+        world.get_population_count(),
+        1,
+        "Predator failed to survive or failed to eat prey (Pop: {})",
+        world.get_population_count()
+    );
 }

@@ -8,13 +8,15 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 use uuid::Uuid;
 
+type TerrainMod = Box<dyn FnOnce(&mut World)>;
+
 /// A builder for creating a configured simulation world for integration tests.
 #[allow(dead_code)]
 pub struct WorldBuilder {
     config: AppConfig,
     entities: Vec<primordium_data::Entity>,
     seed: Option<u64>,
-    terrain_mods: Vec<Box<dyn FnOnce(&mut World)>>,
+    terrain_mods: Vec<TerrainMod>,
 }
 
 #[allow(dead_code)]
@@ -128,6 +130,7 @@ pub struct EntityBuilder {
     brain_connections: Vec<primordium_lib::model::brain::Connection>,
 }
 
+#[allow(dead_code)]
 impl EntityBuilder {
     pub fn new() -> Self {
         Self {
