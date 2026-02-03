@@ -106,6 +106,11 @@ impl SpatialHash {
                 if let Some(cell_idx) = self.get_cell_idx(x, y) {
                     let write_idx =
                         current_positions[cell_idx].fetch_add(1, AtomicOrdering::Relaxed);
+                    // SAFETY:
+                    // 1. self.entity_indices was resized to accommodate ALL entities (entity_count)
+                    // 2. cell_offsets ensures partitioned writing regions for each cell
+                    // 3. write_idx comes from atomic fetch_add, ensuring unique index per entity within cell region
+                    // 4. write_idx is bounded by the cell's assigned range in cell_offsets
                     unsafe {
                         let ptr = self.entity_indices.as_ptr() as *mut usize;
                         *ptr.add(write_idx) = entity_idx;
