@@ -135,7 +135,11 @@ impl WorldObserver {
             }
         }
         report.push_str("\n--- SILICON SCRIBE NARRATIONS ---\n");
-        let narrations = self.scribe.narrations.lock().unwrap();
+        let narrations = self
+            .scribe
+            .narrations
+            .lock()
+            .expect("Observer narration lock poisoned");
         if narrations.is_empty() {
             report.push_str("No narrations yet.\n");
         } else {

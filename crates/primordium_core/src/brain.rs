@@ -255,7 +255,10 @@ impl BrainLogic for Brain {
         }
 
         for &node_id in &self.topological_order {
-            let node_idx = *self.node_idx_map.get(&node_id).unwrap();
+            let node_idx = *self
+                .node_idx_map
+                .get(&node_id)
+                .expect("Topology error: node_id in order but not in map");
 
             if node_id < BRAIN_INPUTS {
                 node_values[node_idx] = inputs[node_id];
@@ -265,7 +268,10 @@ impl BrainLogic for Brain {
             if let Some(incoming) = self.incoming_forward_connections.get(&node_id) {
                 for &conn_idx in incoming {
                     let conn = &self.connections[conn_idx];
-                    let from_idx = *self.node_idx_map.get(&conn.from).unwrap();
+                    let from_idx = *self
+                        .node_idx_map
+                        .get(&conn.from)
+                        .expect("Topology error: source node missing from map");
                     node_values[node_idx] += node_values[from_idx] * conn.weight;
                 }
             }
