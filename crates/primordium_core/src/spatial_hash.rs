@@ -84,55 +84,25 @@ impl SpatialHash {
 
         self.entity_indices.resize(entity_count, 0);
 
-        let current_positions: Vec<AtomicUsize> = self
-            .cell_offsets
-            .iter()
-            .take(cell_count)
-            .map(|&start| AtomicUsize::new(start))
-            .collect();
+        let mut current_offsets = self.cell_offsets[..cell_count].to_vec();
 
-        data.par_iter()
-            .enumerate()
-            .for_each(|(entity_idx, &(x, y, _))| {
-                if let Some(cell_idx) = self.get_cell_idx(x, y) {
-                    let write_idx =
-                        current_positions[cell_idx].fetch_add(1, AtomicOrdering::Relaxed);
-                    // SAFETY:
-                    // 1. self.entity_indices was resized to accommodate ALL entities (entity_count)
-                    // 2. cell_offsets ensures partitioned writing regions for each cell
-                    // 3. write_idx comes from atomic fetch_add, ensuring unique index per entity within cell region
-                    // 4. write_idx is bounded by the cell's assigned range in cell_offsets
-                    unsafe {
-                        let ptr = self.entity_indices.as_ptr() as *mut usize;
-                        *ptr.add(write_idx) = entity_idx;
-                    }
-                }
-            });
+        for (entity_idx, &(x, y, _)) in data.iter().enumerate() {
+            if let Some(cell_idx) = self.get_cell_idx(x, y) {
+                let write_idx = current_offsets[cell_idx];
+                self.entity_indices[write_idx] = entity_idx;
+                current_offsets[cell_idx] += 1;
+            }
+        }
 
-        self.lineage_centroids = data
-            .par_iter()
-            .fold(
-                || HashMap::with_capacity(64),
-                |mut acc: HashMap<uuid::Uuid, (f64, f64, usize)>, &(x, y, lid)| {
-                    let entry = acc.entry(lid).or_insert((0.0, 0.0, 0));
-                    entry.0 += x;
-                    entry.1 += y;
-                    entry.2 += 1;
-                    acc
-                },
-            )
-            .reduce(
-                || HashMap::with_capacity(64),
-                |mut a, b| {
-                    for (lid, (sx, sy, count)) in b {
-                        let entry = a.entry(lid).or_insert((0.0, 0.0, 0));
-                        entry.0 += sx;
-                        entry.1 += sy;
-                        entry.2 += count;
-                    }
-                    a
-                },
-            );
+        // Deterministic sequential centroid calculation
+        let mut centroids = HashMap::new();
+        for &(x, y, lid) in data {
+            let entry = centroids.entry(lid).or_insert((0.0, 0.0, 0));
+            entry.0 += x;
+            entry.1 += y;
+            entry.2 += 1;
+        }
+        self.lineage_centroids = centroids;
     }
 
     pub fn get_lineage_centroid(&self, lid: &uuid::Uuid) -> Option<(f64, f64)> {

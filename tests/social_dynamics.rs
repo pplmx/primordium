@@ -24,6 +24,11 @@ async fn test_tribe_solidarity_no_aggression() {
     e2.metabolism.max_energy = 10000.0;
     e1.intel.genotype.max_energy = 10000.0;
     e2.intel.genotype.max_energy = 10000.0;
+
+    // Explicitly set same lineage ID to ensure they are recognized as kin
+    e2.metabolism.lineage_id = e1.metabolism.lineage_id;
+    e2.intel.genotype.lineage_id = e1.metabolism.lineage_id;
+
     world.spawn_entity(e1);
     world.spawn_entity(e2);
     for _ in 0..50 {

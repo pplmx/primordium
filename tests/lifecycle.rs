@@ -54,6 +54,7 @@ async fn test_reproduction_and_genetics() {
         }
 
         let events = world.update(&mut env).expect("Update failed");
+
         for event in events {
             if matches!(
                 event,
@@ -61,6 +62,11 @@ async fn test_reproduction_and_genetics() {
             ) {
                 total_births += 1;
             }
+        }
+
+        // Safety break if population explodes too much for a unit test
+        if world.get_population_count() > 1000 {
+            break;
         }
     }
 

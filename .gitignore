@@ -12,6 +12,7 @@
 # Simulation logs and legendary archives
 logs/
 logs_test_*/
+logs_det*
 .sisyphus
 .primordium_onboarded
 

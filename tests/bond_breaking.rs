@@ -22,9 +22,7 @@ async fn test_voluntary_bond_breaking() {
     e1.intel.bonded_to = Some(e2_id);
     e2.intel.bonded_to = Some(e1_id);
 
-    // Configure brain to output low Bond signal (Index 30 < 0.2)
-    // We add a connection from a constant input (Bias, Index 20/Hearing is usually 0 but we can use Energy)
-    // Or we can just set the brain to produce negative output for node 30
+    // Configure brain to output low Bond signal (Index 8 < -0.5)
     e1.intel.genotype.brain.connections.clear();
     e1.intel
         .genotype
@@ -32,7 +30,7 @@ async fn test_voluntary_bond_breaking() {
         .connections
         .push(primordium_lib::model::brain::Connection {
             from: 2, // Energy Input (high)
-            to: 31,  // Hidden
+            to: 41,  // Hidden
             weight: -10.0,
             enabled: true,
             innovation: 1,
@@ -42,8 +40,8 @@ async fn test_voluntary_bond_breaking() {
         .brain
         .connections
         .push(primordium_lib::model::brain::Connection {
-            from: 31, // Hidden
-            to: 30,   // Bond Output (Index 30)
+            from: 41, // Hidden
+            to: 37,   // Bond Output (Index 37-29 = 8)
             weight: 10.0,
             enabled: true,
             innovation: 2,
@@ -51,7 +49,7 @@ async fn test_voluntary_bond_breaking() {
     // With Energy ~1.0:
     // Hidden = tanh(1.0 * -10.0) = -1.0
     // Output = tanh(-1.0 * 10.0) = -1.0
-    // -1.0 < 0.2 -> Should Break Bond
+    // -1.0 < 0.2 -> Should Break Bond (in systems.rs)
 
     world.spawn_entity(e1);
     world.spawn_entity(e2);

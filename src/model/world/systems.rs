@@ -11,6 +11,9 @@ use std::collections::HashMap;
 
 use crate::model::brain::BrainLogic;
 use crate::model::lifecycle;
+use primordium_core::pheromone::PheromoneGrid;
+use primordium_core::pressure::PressureGrid;
+use primordium_core::sound::SoundGrid;
 use social::ReproductionContext;
 
 pub fn perceive_and_decide_internal(
@@ -148,14 +151,17 @@ pub fn perceive_and_decide_internal(
             },
         );
 
-    *interaction_commands = entity_data
+    // Deterministic Command Collection
+    let all_cmds: Vec<Vec<InteractionCommand>> = entity_data
         .par_iter_mut()
         .enumerate()
-        .fold(
-            Vec::new,
-            |mut acc, (i, (_handle, (identity, pos, _vel, phys, met, intel, health)))| {
-                let entity_seed = ctx.world_seed ^ ctx.tick ^ (identity.id.as_u128() as u64);
-                let mut local_rng = ChaCha8Rng::seed_from_u64(entity_seed);
+        .map(
+            |(i, (_handle, (identity, pos, _vel, phys, met, intel, health)))| {
+                let mut acc = Vec::new();
+                let u = identity.id.as_u128();
+                let seed = ctx.world_seed ^ (u >> 64) as u64 ^ (u as u64);
+                let mut local_rng = ChaCha8Rng::seed_from_u64(seed);
+
                 let decision = &decision_buffer[i];
                 let outputs = decision.outputs;
 
@@ -186,7 +192,7 @@ pub fn perceive_and_decide_internal(
                     }
                 }
 
-                if intel.bonded_to.is_none() && met.has_metamorphosed {
+                if outputs[8] > 0.5 {
                     if let Some(p_id) = social::handle_symbiosis_components(
                         i,
                         ctx.snapshots,
@@ -194,50 +200,39 @@ pub fn perceive_and_decide_internal(
                         ctx.spatial_hash,
                         ctx.config,
                     ) {
-                        acc.push(InteractionCommand::Bond {
-                            target_idx: i,
-                            partner_id: p_id,
-                        });
-                    }
-                }
+                        if let Some(&p_idx) = id_map.get(&p_id) {
+                            let partner_snap = &ctx.snapshots[p_idx];
+                            let partner_genotype = partner_snap.genotype.as_ref().unwrap();
 
-                if let Some(p_id) = intel.bonded_to {
-                    if outputs[8] < 0.2 {
-                        acc.push(InteractionCommand::BondBreak { target_idx: i });
-                    } else if let Some(&p_idx) = id_map.get(&p_id) {
-                        let partner_snap = &ctx.snapshots[p_idx];
-                        if lifecycle::is_mature_components(
-                            met,
-                            intel,
-                            ctx.tick,
-                            ctx.config.metabolism.maturity_age,
-                        ) && partner_snap.status != primordium_data::EntityStatus::Juvenile
-                            && partner_snap.status != primordium_data::EntityStatus::Larva
-                            && met.energy > ctx.config.metabolism.reproduction_threshold
-                            && partner_snap.energy > ctx.config.metabolism.reproduction_threshold
-                        {
-                            let ancestral = ctx
-                                .registry
-                                .lineages
-                                .get(&met.lineage_id)
-                                .and_then(|r| r.max_fitness_genotype.as_ref());
-                            let mut repro_ctx = ReproductionContext {
-                                tick: ctx.tick,
-                                config: ctx.config,
-                                population: pop_len,
-                                traits: ctx.registry.get_traits(&met.lineage_id),
-                                is_radiation_storm: env.is_radiation_storm(),
-                                rng: &mut local_rng,
-                                ancestral_genotype: ancestral,
-                            };
+                            if met.energy > ctx.config.metabolism.reproduction_threshold
+                                && partner_snap.energy
+                                    > ctx.config.metabolism.reproduction_threshold
+                            {
+                                acc.push(InteractionCommand::Bond {
+                                    target_idx: i,
+                                    partner_id: p_id,
+                                });
 
-                            let mut modified_genotype = intel.genotype.clone();
-                            modified_genotype.reproductive_investment = (modified_genotype
-                                .reproductive_investment
-                                * decision.grn_repro_mod)
-                                .clamp(0.1, 0.9);
+                                let mut repro_ctx = ReproductionContext {
+                                    tick: ctx.tick,
+                                    config: ctx.config,
+                                    population: pop_len,
+                                    traits: ctx.registry.get_traits(&met.lineage_id),
+                                    is_radiation_storm: env.is_radiation_storm(),
+                                    rng: &mut local_rng,
+                                    ancestral_genotype: ctx
+                                        .registry
+                                        .lineages
+                                        .get(&met.lineage_id)
+                                        .and_then(|r| r.max_fitness_genotype.as_ref()),
+                                };
 
-                            if let Some(partner_genotype) = partner_snap.genotype.as_ref() {
+                                let mut modified_genotype = intel.genotype.clone();
+                                modified_genotype.reproductive_investment = (modified_genotype
+                                    .reproductive_investment
+                                    * decision.grn_repro_mod)
+                                    .clamp(0.1, 0.9);
+
                                 let (baby, dist) =
                                     social::reproduce_sexual_parallel_components_decomposed(
                                         pos,
@@ -265,6 +260,40 @@ pub fn perceive_and_decide_internal(
                                 });
                             }
                         }
+                        let self_energy = met.energy;
+                        let partner_energy = ctx.snapshots[i].energy;
+                        if self_energy > partner_energy + 2.0 {
+                            let diff = self_energy - partner_energy;
+                            let amount = diff * 0.05;
+                            if amount > 0.1 {
+                                if let Some(p_id) = social::handle_symbiosis_components(
+                                    i,
+                                    ctx.snapshots,
+                                    outputs,
+                                    ctx.spatial_hash,
+                                    ctx.config,
+                                ) {
+                                    if let Some(&p_idx) = id_map.get(&p_id) {
+                                        acc.push(InteractionCommand::TransferEnergy {
+                                            target_idx: p_idx,
+                                            amount,
+                                        });
+                                        acc.push(InteractionCommand::TransferEnergy {
+                                            target_idx: i,
+                                            amount: -amount,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let Some(p_id) = intel.bonded_to {
+                    if outputs[8] < 0.2 {
+                        acc.push(InteractionCommand::BondBreak { target_idx: i });
+                    } else if let Some(&p_idx) = id_map.get(&p_id) {
+                        let partner_snap = &ctx.snapshots[p_idx];
                         let self_energy = met.energy;
                         let partner_energy = partner_snap.energy;
                         if self_energy > partner_energy + 2.0 {
@@ -449,6 +478,13 @@ pub fn perceive_and_decide_internal(
                     }
                 }
 
+                if outputs[1] > 0.5 {
+                    acc.push(InteractionCommand::UpdateReputation {
+                        target_idx: i,
+                        delta: 0.01,
+                    });
+                }
+
                 if let Some(new_color) = social::start_tribal_split_components(
                     phys,
                     met,
@@ -476,12 +512,13 @@ pub fn perceive_and_decide_internal(
                 acc
             },
         )
-        .reduce(Vec::new, |mut a, b| {
-            a.extend(b);
-            a
-        });
+        .collect();
 
-    interaction_commands.par_sort_by_key(|cmd| match cmd {
+    for cmds in all_cmds {
+        interaction_commands.extend(cmds);
+    }
+
+    interaction_commands.sort_by_key(|cmd| match cmd {
         InteractionCommand::Kill { attacker_idx, .. } => *attacker_idx,
         InteractionCommand::EatFood { attacker_idx, .. } => *attacker_idx,
         InteractionCommand::Birth { parent_idx, .. } => *parent_idx,
@@ -496,14 +533,14 @@ pub fn perceive_and_decide_internal(
     });
 }
 
-pub fn execute_actions_internal(
+pub fn calculate_actions_parallel(
     ctx: &SystemContext,
     env: &mut Environment,
     entity_id_map: &HashMap<uuid::Uuid, usize>,
     entity_data: &mut [(hecs::Entity, EntityComponents)],
     decision_buffer: &mut [EntityDecision],
-) -> Vec<(uuid::Uuid, f32)> {
-    let (total_oxygen_drain, overmind_broadcasts): (f64, Vec<(uuid::Uuid, f32)>) = entity_data
+) -> Vec<(action::ActionOutput, f64)> {
+    entity_data
         .par_iter_mut()
         .zip(decision_buffer.par_iter_mut())
         .map(
@@ -543,39 +580,40 @@ pub fn execute_actions_internal(
                     },
                     &mut output,
                 );
-
-                for p in output.pheromones {
-                    ctx.pheromones.deposit_parallel(p.x, p.y, p.ptype, p.amount);
-                }
-                for s in output.sounds {
-                    ctx.sound.deposit_parallel(s.x, s.y, s.amount);
-                }
-                for pr in output.pressure {
-                    ctx.pressure
-                        .deposit_parallel(pr.x, pr.y, pr.ptype, pr.amount);
-                }
-
-                (output.oxygen_drain, output.overmind_broadcast)
+                let drain = output.oxygen_drain;
+                (output, drain)
             },
         )
-        .fold(
-            || (0.0, Vec::new()),
-            |mut acc, (drain, broadcast)| {
-                acc.0 += drain;
-                if let Some(b) = broadcast {
-                    acc.1.push(b);
-                }
-                acc
-            },
-        )
-        .reduce(
-            || (0.0, Vec::new()),
-            |mut a, b| {
-                a.0 += b.0;
-                a.1.extend(b.1);
-                a
-            },
-        );
+        .collect()
+}
+
+pub fn apply_actions_sequential(
+    all_outputs: Vec<(action::ActionOutput, f64)>,
+    pheromones: &mut PheromoneGrid,
+    sound: &mut SoundGrid,
+    pressure: &mut PressureGrid,
+    env: &mut Environment,
+) -> Vec<(uuid::Uuid, f32)> {
+    let mut overmind_broadcasts = Vec::new();
+    let mut total_oxygen_drain = 0.0;
+
+    for (output, drain) in all_outputs {
+        total_oxygen_drain += drain;
+        if let Some(b) = output.overmind_broadcast {
+            overmind_broadcasts.push(b);
+        }
+
+        // Deterministic sequential deposits
+        for p in output.pheromones {
+            pheromones.deposit(p.x, p.y, p.ptype, p.amount);
+        }
+        for s in output.sounds {
+            sound.deposit(s.x, s.y, s.amount);
+        }
+        for pr in output.pressure {
+            pressure.deposit(pr.x, pr.y, pr.ptype, pr.amount);
+        }
+    }
 
     env.consume_oxygen(total_oxygen_drain);
     overmind_broadcasts

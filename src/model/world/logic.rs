@@ -165,7 +165,15 @@ impl World {
             hasher.update(e.position.x.to_bits().to_le_bytes());
             hasher.update(e.position.y.to_bits().to_le_bytes());
             hasher.update(e.metabolism.energy.to_bits().to_le_bytes());
-            hasher.update(e.intel.genotype.to_hex().as_bytes());
+
+            hasher.update(e.intel.genotype.lineage_id.as_bytes());
+            hasher.update(e.intel.genotype.sensing_range.to_bits().to_le_bytes());
+            hasher.update(e.intel.genotype.max_speed.to_bits().to_le_bytes());
+            hasher.update(e.intel.genotype.max_energy.to_bits().to_le_bytes());
+
+            for val in &e.intel.last_hidden {
+                hasher.update(val.to_bits().to_le_bytes());
+            }
         }
 
         // 3. Food (Sorted by position)
@@ -197,6 +205,17 @@ impl World {
         hasher.update(env.carbon_level.to_bits().to_le_bytes());
         hasher.update(env.oxygen_level.to_bits().to_le_bytes());
         hasher.update((env.current_era as u32).to_le_bytes());
+
+        // 6. Grid States (Pheromones and Sound)
+        for cell in &self.pheromones.cells {
+            hasher.update(cell.food_strength.to_bits().to_le_bytes());
+            hasher.update(cell.danger_strength.to_bits().to_le_bytes());
+            hasher.update(cell.sig_a_strength.to_bits().to_le_bytes());
+            hasher.update(cell.sig_b_strength.to_bits().to_le_bytes());
+        }
+        for cell in &self.sound.cells {
+            hasher.update(cell.to_bits().to_le_bytes());
+        }
 
         hex::encode(hasher.finalize())
     }
