@@ -4,14 +4,14 @@ use common::{EntityBuilder, WorldBuilder};
 #[tokio::test]
 async fn test_simulation_lifecycle() {
     let initial_pop = 50;
-    
+
     // We can use WorldBuilder for cleaner setup
     let mut world_builder = WorldBuilder::new();
-    
+
     for _ in 0..initial_pop {
         world_builder = world_builder.with_entity(EntityBuilder::new().build());
     }
-    
+
     let (mut world, mut env) = world_builder.build();
 
     assert_eq!(world.get_population_count(), initial_pop);
@@ -36,17 +36,16 @@ async fn test_simulation_lifecycle() {
 
 #[tokio::test]
 async fn test_reproduction_and_genetics() {
-    let mut world_builder = WorldBuilder::new()
-        .with_config(|c| {
-            c.metabolism.maturity_age = 10; // Rapid maturity for test
-        });
+    let mut world_builder = WorldBuilder::new().with_config(|c| {
+        c.metabolism.maturity_age = 10; // Rapid maturity for test
+    });
 
     for _ in 0..10 {
         world_builder = world_builder.with_entity(
             EntityBuilder::new()
                 .energy(200.0) // Start with high energy
                 .max_energy(200.0)
-                .build()
+                .build(),
         );
     }
 

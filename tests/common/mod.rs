@@ -131,6 +131,7 @@ impl WorldBuilder {
 }
 
 /// A builder for creating entities with specific traits and behaviors.
+#[allow(dead_code)]
 pub struct EntityBuilder {
     x: f64,
     y: f64,
@@ -145,6 +146,7 @@ pub struct EntityBuilder {
     rank: Option<f32>,
 }
 
+#[allow(dead_code)]
 impl EntityBuilder {
     pub fn new() -> Self {
         Self {

@@ -3,10 +3,9 @@ use common::{EntityBuilder, WorldBuilder};
 
 #[tokio::test]
 async fn test_r_vs_k_dominance_in_resource_boom() {
-    let mut world_builder = WorldBuilder::new()
-        .with_config(|c| {
-            c.world.max_food = 500; // Abundant food
-        });
+    let mut world_builder = WorldBuilder::new().with_config(|c| {
+        c.world.max_food = 500; // Abundant food
+    });
 
     // Strategy R: Fast maturity (50), Low investment (0.2)
     // Low investment means babies start weak, but they mature fast.
