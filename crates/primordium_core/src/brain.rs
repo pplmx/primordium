@@ -154,20 +154,20 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
 
 fn get_innovation_id(from: usize, to: usize) -> usize {
     let h = (from as u64) << 32 | (to as u64);
-    let mut hash = 0xcbf29ce484222325u64;
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     for byte in h.to_le_bytes() {
-        hash ^= byte as u64;
-        hash = hash.wrapping_mul(0x100000001b3u64);
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3_u64);
     }
-    (hash as usize) & 0x7FFFFFFF
+    (hash as usize) & 0x7FFF_FFFF
 }
 
 fn get_split_node_id(from: usize, to: usize) -> usize {
     let h = (from as u64) << 32 | (to as u64);
-    let mut hash = 0x84222325cbf29ce4u64;
+    let mut hash = 0x8422_2325_cbf2_9ce4_u64;
     for byte in h.to_le_bytes() {
-        hash ^= byte as u64;
-        hash = hash.wrapping_mul(0x100000001b3u64);
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3_u64);
     }
     (hash as usize % 1_000_000) + 1000
 }

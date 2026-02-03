@@ -632,6 +632,7 @@ pub struct Food {
 }
 
 impl Food {
+    #[must_use]
     pub fn new(x: u16, y: u16, nutrient_type: f32) -> Self {
         let color = if nutrient_type < 0.5 {
             (0, 255, 0)
@@ -651,6 +652,7 @@ impl Food {
 }
 
 impl Brain {
+    #[must_use]
     pub fn to_hex(&self) -> String {
         let bytes = serde_json::to_vec(self).unwrap_or_default();
         hex::encode(bytes)
@@ -664,6 +666,7 @@ impl Brain {
 }
 
 impl Genotype {
+    #[must_use]
     pub fn to_hex(&self) -> String {
         let bytes = serde_json::to_vec(self).unwrap_or_default();
         hex::encode(bytes)

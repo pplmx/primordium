@@ -223,6 +223,7 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
+    #[must_use]
     pub fn load() -> Self {
         if let Ok(content) = fs::read_to_string("config.toml") {
             if let Ok(config) = toml::from_str(&content) {
@@ -236,6 +237,7 @@ impl AppConfig {
         default
     }
 
+    #[must_use]
     pub fn fingerprint(&self) -> String {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();

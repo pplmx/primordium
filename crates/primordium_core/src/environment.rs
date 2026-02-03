@@ -19,6 +19,7 @@ pub enum ClimateState {
 }
 
 impl ClimateState {
+    #[must_use]
     pub fn icon(&self) -> &'static str {
         match self {
             ClimateState::Temperate => "🌡️ Temperate",
@@ -38,6 +39,7 @@ pub enum ResourceState {
 }
 
 impl ResourceState {
+    #[must_use]
     pub fn icon(&self) -> &'static str {
         match self {
             ResourceState::Abundant => "🌾 Abundant",
@@ -59,6 +61,7 @@ pub enum Season {
 }
 
 impl Season {
+    #[must_use]
     pub fn icon(&self) -> &'static str {
         match self {
             Season::Spring => "🌸 Spring",
@@ -69,6 +72,7 @@ impl Season {
     }
 
     /// Food spawn multiplier for this season
+    #[must_use]
     pub fn food_multiplier(&self) -> f64 {
         match self {
             Season::Spring => 1.5,
@@ -79,6 +83,7 @@ impl Season {
     }
 
     /// Metabolism multiplier for this season
+    #[must_use]
     pub fn metabolism_multiplier(&self) -> f64 {
         match self {
             Season::Spring => 0.8,
@@ -89,6 +94,7 @@ impl Season {
     }
 
     /// Get next season in the cycle
+    #[must_use]
     pub fn next(&self) -> Season {
         match self {
             Season::Spring => Season::Summer,
@@ -106,6 +112,7 @@ pub enum TimeOfDay {
 }
 
 impl TimeOfDay {
+    #[must_use]
     pub fn icon(&self) -> &'static str {
         match self {
             TimeOfDay::Day => "☀️ Day",
@@ -196,6 +203,7 @@ impl Environment {
         self.oxygen_level = (self.oxygen_level - amount).max(5.0);
     }
 
+    #[must_use]
     pub fn time_of_day(&self) -> TimeOfDay {
         if self.world_time < self.day_cycle_ticks / 2 {
             TimeOfDay::Day
@@ -205,6 +213,7 @@ impl Environment {
     }
 
     /// Light level from 0.0 (darkest night) to 1.0 (brightest day)
+    #[must_use]
     pub fn light_level(&self) -> f32 {
         let half_cycle = self.day_cycle_ticks as f32 / 2.0;
         let progress = (self.world_time as f32 % self.day_cycle_ticks as f32) / half_cycle;
@@ -219,23 +228,29 @@ impl Environment {
         }
     }
 
+    #[must_use]
     pub fn is_heat_wave(&self) -> bool {
         self.heat_wave_timer >= 10
     }
+    #[must_use]
     pub fn is_ice_age(&self) -> bool {
         self.ice_age_timer >= 60
     }
+    #[must_use]
     pub fn is_abundance(&self) -> bool {
         self.abundance_timer > 0
     }
+    #[must_use]
     pub fn is_radiation_storm(&self) -> bool {
         self.radiation_timer >= 50
     }
 
+    #[must_use]
     pub fn is_hypoxia(&self) -> bool {
         self.oxygen_level < 10.0
     }
 
+    #[must_use]
     pub fn climate(&self) -> ClimateState {
         if let Some(over) = self.god_climate_override {
             return over;
@@ -259,6 +274,7 @@ impl Environment {
         }
     }
 
+    #[must_use]
     pub fn resource_state(&self) -> ResourceState {
         if self.ram_usage_percent < 50.0 {
             ResourceState::Abundant

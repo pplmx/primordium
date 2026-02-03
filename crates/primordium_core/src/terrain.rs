@@ -127,6 +127,9 @@ pub struct TerrainGrid {
     #[serde(skip)]
     #[with(rkyv::with::Skip)]
     cooling_buffer: Vec<f32>,
+    #[serde(skip)]
+    #[with(rkyv::with::Skip)]
+    outpost_buffer: Vec<bool>,
 }
 
 use rand::SeedableRng;
@@ -200,6 +203,7 @@ impl TerrainGrid {
             hydration_buffer: vec![false; width as usize * height as usize],
             moisture_buffer: vec![0.5; width as usize * height as usize],
             cooling_buffer: vec![0.0; width as usize * height as usize],
+            outpost_buffer: vec![false; width as usize * height as usize],
         }
     }
 
@@ -235,12 +239,13 @@ impl TerrainGrid {
             self.hydration_buffer = vec![false; w as usize * h as usize];
             self.moisture_buffer = vec![0.5; w as usize * h as usize];
             self.cooling_buffer = vec![0.0; w as usize * h as usize];
+            self.outpost_buffer = vec![false; w as usize * h as usize];
         }
 
-        let mut outpost_map = vec![false; self.cells.len()];
         for (i, cell) in self.cells.iter().enumerate() {
             self.type_buffer[i] = cell.terrain_type;
             self.hydration_buffer[i] = false;
+            self.outpost_buffer[i] = false;
 
             match cell.terrain_type {
                 TerrainType::River => {
@@ -266,7 +271,7 @@ impl TerrainGrid {
             }
 
             if cell.terrain_type == TerrainType::Outpost {
-                outpost_map[i] = true;
+                self.outpost_buffer[i] = true;
             }
         }
 
@@ -317,7 +322,7 @@ impl TerrainGrid {
         let hydration_map = &self.hydration_buffer;
         let moisture_map = &self.moisture_buffer;
         let cooling_map = &self.cooling_buffer;
-        let outposts = &outpost_map;
+        let outposts = &self.outpost_buffer;
 
         type TransitionVec = Vec<Vec<(u16, u16, TerrainType)>>;
         let (stats, transitions): (Vec<(f64, f64)>, TransitionVec) = self
@@ -655,6 +660,8 @@ impl TerrainGrid {
 
         if self.cells[idx].terrain_type == TerrainType::Outpost {
             self.outpost_indices.remove(&idx);
+            // Clear energy store when destroying an outpost to prevent ghost salination
+            self.cells[idx].energy_store = 0.0;
         }
         if t == TerrainType::Outpost {
             self.outpost_indices.insert(idx);

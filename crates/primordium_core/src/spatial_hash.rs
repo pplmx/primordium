@@ -56,8 +56,8 @@ impl SpatialHash {
     pub fn build_with_lineage(&mut self, data: &[(f64, f64, uuid::Uuid)], width: u16, height: u16) {
         self.width = width;
         self.height = height;
-        self.cols = (width as f64 / self.cell_size).ceil() as usize;
-        self.rows = (height as f64 / self.cell_size).ceil() as usize;
+        self.cols = (f64::from(width) / self.cell_size).ceil() as usize;
+        self.rows = (f64::from(height) / self.cell_size).ceil() as usize;
 
         let cell_count = self.cols * self.rows;
         let entity_count = data.len();

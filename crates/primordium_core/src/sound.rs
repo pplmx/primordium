@@ -49,6 +49,7 @@ impl Default for SoundGrid {
 }
 
 impl SoundGrid {
+    #[must_use]
     pub fn new(width: u16, height: u16) -> Self {
         let size = width as usize * height as usize;
         Self {
@@ -120,7 +121,7 @@ impl SoundGrid {
                         }
                         let nx = x + dx;
                         let ny = y + dy;
-                        if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                        if nx >= 0 && nx < i32::from(width) && ny >= 0 && ny < i32::from(height) {
                             neighbors_sum +=
                                 old_cells[(ny as usize * width as usize) + nx as usize];
                             count += 1;
@@ -140,6 +141,7 @@ impl SoundGrid {
             });
     }
 
+    #[must_use]
     pub fn sense(&self, x: f64, y: f64, radius: f64) -> f32 {
         let cx = x as i32;
         let cy = y as i32;
@@ -150,7 +152,7 @@ impl SoundGrid {
             for dx in -r..=r {
                 let nx = cx + dx;
                 let ny = cy + dy;
-                if nx >= 0 && nx < self.width as i32 && ny >= 0 && ny < self.height as i32 {
+                if nx >= 0 && nx < i32::from(self.width) && ny >= 0 && ny < i32::from(self.height) {
                     sum += self.cells[(ny as usize * self.width as usize) + nx as usize];
                     count += 1;
                 }
@@ -163,6 +165,7 @@ impl SoundGrid {
         }
     }
 
+    #[must_use]
     pub fn get_cell(&self, x: u16, y: u16) -> f32 {
         if x < self.width && y < self.height {
             self.cells[self.index(x, y)]

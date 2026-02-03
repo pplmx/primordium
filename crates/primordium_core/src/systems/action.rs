@@ -51,18 +51,18 @@ pub fn action_system_components_with_modifiers(
     ctx: &mut ActionContext,
     output: &mut ActionOutput,
 ) {
-    let speed_mult = (1.0 + (outputs[2] as f64 + 1.0) / 2.0) * eff_max_speed;
-    let predation_mode = (outputs[3] as f64 + 1.0) / 2.0 > 0.5;
+    let speed_mult = (1.0 + f64::midpoint(f64::from(outputs[2]), 1.0)) * eff_max_speed;
+    let predation_mode = f64::midpoint(f64::from(outputs[3]), 1.0) > 0.5;
 
-    intel.last_aggression = (outputs[3] + 1.0) / 2.0;
-    intel.last_share_intent = (outputs[4] + 1.0) / 2.0;
+    intel.last_aggression = f32::midpoint(outputs[3], 1.0);
+    intel.last_share_intent = f32::midpoint(outputs[4], 1.0);
     intel.last_signal = outputs[5];
     intel.last_vocalization = (outputs[6] + outputs[7] + 2.0) / 4.0;
 
     let stomach_penalty = (metabolism.max_energy - 200.0).max(0.0) / 1000.0;
     let inertia = (0.8 + stomach_penalty).clamp(0.4, 0.95);
-    velocity.vx = velocity.vx * inertia + (outputs[0] as f64) * (1.0 - inertia);
-    velocity.vy = velocity.vy * inertia + (outputs[1] as f64) * (1.0 - inertia);
+    velocity.vx = velocity.vx * inertia + f64::from(outputs[0]) * (1.0 - inertia);
+    velocity.vy = velocity.vy * inertia + f64::from(outputs[1]) * (1.0 - inertia);
 
     let metabolism_mult = ctx.env.metabolism_multiplier();
     let oxygen_factor = (ctx.env.oxygen_level / 21.0).max(0.1);
@@ -74,7 +74,7 @@ pub fn action_system_components_with_modifiers(
     let local_cooling = cell.local_cooling;
 
     let effective_metabolism_mult = if metabolism_mult > 1.0 {
-        1.0 + (metabolism_mult - 1.0) * (1.0 - local_cooling as f64 * 0.8).max(0.0)
+        1.0 + (metabolism_mult - 1.0) * (1.0 - f64::from(local_cooling) * 0.8).max(0.0)
     } else {
         metabolism_mult
     };
@@ -87,7 +87,7 @@ pub fn action_system_components_with_modifiers(
         move_cost *= 2.0;
     }
 
-    let signal_cost = outputs[5].abs() as f64 * ctx.config.social.sharing_fraction * 2.0;
+    let signal_cost = f64::from(outputs[5].abs()) * ctx.config.social.sharing_fraction * 2.0;
     let brain_maintenance = (intel.genotype.brain.nodes.len() as f64
         * ctx.config.brain.hidden_node_cost)
         + (intel.genotype.brain.connections.len() as f64 * ctx.config.brain.connection_cost);
@@ -102,7 +102,7 @@ pub fn action_system_components_with_modifiers(
     }
 
     if matches!(cell.terrain_type, primordium_data::TerrainType::Nest) {
-        base_idle *= 1.0 - ctx.config.ecosystem.corpse_fertility_mult as f64;
+        base_idle *= 1.0 - f64::from(ctx.config.ecosystem.corpse_fertility_mult);
     }
 
     let mut idle_cost = (base_idle + brain_maintenance) * effective_metabolism_mult;
@@ -119,7 +119,7 @@ pub fn action_system_components_with_modifiers(
     let (dom_l, intensity) = ctx.influence.get_influence(position.x, position.y);
     if let Some(lid) = dom_l {
         if lid != metabolism.lineage_id {
-            idle_cost += (intensity as f64) * 0.1;
+            idle_cost += f64::from(intensity) * 0.1;
         }
     }
 
