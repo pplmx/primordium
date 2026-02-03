@@ -239,10 +239,10 @@ impl BrainLogic for Brain {
         }
 
         std::mem::swap(&mut activations.0, &mut activations.1);
+        activations.prepare(node_count);
+
         let prev_values = &activations.1;
         let node_values = &mut activations.0;
-        node_values.clear();
-        node_values.resize(node_count, 0.0);
 
         for &conn_idx in &self.recurrent_connections {
             let conn = &self.connections[conn_idx];

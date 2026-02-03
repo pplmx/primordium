@@ -115,6 +115,7 @@ impl World {
             killed_ids: Default::default(),
             eaten_food_indices: Default::default(),
             decision_buffer: Vec::new(),
+            interaction_buffer: Vec::new(),
             lineage_consumption: Vec::new(),
             entity_snapshots: Vec::new(),
             food_dirty: true,

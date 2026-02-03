@@ -62,26 +62,14 @@ impl SpatialHash {
         let cell_count = self.cols * self.rows;
         let entity_count = data.len();
 
-        let counts: Vec<usize> = data
-            .par_iter()
-            .fold(
-                || vec![0; cell_count],
-                |mut acc, &(x, y, _)| {
-                    if let Some(idx) = self.get_cell_idx(x, y) {
-                        acc[idx] += 1;
-                    }
-                    acc
-                },
-            )
-            .reduce(
-                || vec![0; cell_count],
-                |mut a, b| {
-                    for i in 0..cell_count {
-                        a[i] += b[i];
-                    }
-                    a
-                },
-            );
+        let atomic_counts: Vec<AtomicUsize> =
+            (0..cell_count).map(|_| AtomicUsize::new(0)).collect();
+        data.par_iter().for_each(|&(x, y, _)| {
+            if let Some(idx) = self.get_cell_idx(x, y) {
+                atomic_counts[idx].fetch_add(1, AtomicOrdering::Relaxed);
+            }
+        });
+        let counts: Vec<usize> = atomic_counts.into_iter().map(|a| a.into_inner()).collect();
 
         self.cell_offsets.resize(cell_count + 1, 0);
         let mut total = 0;
@@ -121,7 +109,7 @@ impl SpatialHash {
         self.lineage_centroids = data
             .par_iter()
             .fold(
-                HashMap::new,
+                || HashMap::with_capacity(64),
                 |mut acc: HashMap<uuid::Uuid, (f64, f64, usize)>, &(x, y, lid)| {
                     let entry = acc.entry(lid).or_insert((0.0, 0.0, 0));
                     entry.0 += x;
@@ -130,15 +118,18 @@ impl SpatialHash {
                     acc
                 },
             )
-            .reduce(HashMap::new, |mut a, b| {
-                for (lid, (sx, sy, count)) in b {
-                    let entry = a.entry(lid).or_insert((0.0, 0.0, 0));
-                    entry.0 += sx;
-                    entry.1 += sy;
-                    entry.2 += count;
-                }
-                a
-            });
+            .reduce(
+                || HashMap::with_capacity(64),
+                |mut a, b| {
+                    for (lid, (sx, sy, count)) in b {
+                        let entry = a.entry(lid).or_insert((0.0, 0.0, 0));
+                        entry.0 += sx;
+                        entry.1 += sy;
+                        entry.2 += count;
+                    }
+                    a
+                },
+            );
     }
 
     pub fn get_lineage_centroid(&self, lid: &uuid::Uuid) -> Option<(f64, f64)> {

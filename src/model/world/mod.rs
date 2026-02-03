@@ -80,6 +80,8 @@ pub struct World {
     #[serde(skip, default)]
     pub decision_buffer: Vec<EntityDecision>,
     #[serde(skip, default)]
+    pub interaction_buffer: Vec<primordium_core::interaction::InteractionCommand>,
+    #[serde(skip, default)]
     pub lineage_consumption: Vec<(uuid::Uuid, f64)>,
     #[serde(skip, default)]
     pub entity_snapshots: Vec<crate::model::snapshot::InternalEntitySnapshot>,

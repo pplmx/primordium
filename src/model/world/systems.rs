@@ -19,8 +19,12 @@ pub fn perceive_and_decide_internal(
     biomass_c: f64,
     entity_data: &mut [(hecs::Entity, EntityComponents)],
     id_map: &HashMap<uuid::Uuid, usize>,
-) -> (Vec<InteractionCommand>, Vec<EntityDecision>) {
-    let mut decision_buffer = vec![EntityDecision::default(); entity_data.len()];
+    interaction_commands: &mut Vec<InteractionCommand>,
+    decision_buffer: &mut Vec<EntityDecision>,
+) {
+    decision_buffer.clear();
+    decision_buffer.resize(entity_data.len(), EntityDecision::default());
+    interaction_commands.clear();
     let pop_len = entity_data.len();
 
     entity_data
@@ -141,7 +145,7 @@ pub fn perceive_and_decide_internal(
             },
         );
 
-    let mut interaction_commands: Vec<InteractionCommand> = entity_data
+    *interaction_commands = entity_data
         .par_iter_mut()
         .enumerate()
         .fold(
@@ -483,7 +487,7 @@ pub fn perceive_and_decide_internal(
             a
         });
 
-    interaction_commands.sort_by_key(|cmd| match cmd {
+    interaction_commands.par_sort_by_key(|cmd| match cmd {
         InteractionCommand::Kill { attacker_idx, .. } => *attacker_idx,
         InteractionCommand::EatFood { attacker_idx, .. } => *attacker_idx,
         InteractionCommand::Birth { parent_idx, .. } => *parent_idx,
@@ -496,8 +500,6 @@ pub fn perceive_and_decide_internal(
         InteractionCommand::Metamorphosis { target_idx, .. } => *target_idx,
         _ => 0,
     });
-
-    (interaction_commands, decision_buffer)
 }
 
 pub fn execute_actions_internal(

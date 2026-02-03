@@ -103,11 +103,12 @@ impl SiliconScribe {
                     severity: req.severity,
                 };
 
-                let mut list = narrations_clone.lock().expect("Narration mutex poisoned");
-                if list.len() >= max_history {
-                    list.remove(0);
+                if let Ok(mut list) = narrations_clone.lock() {
+                    if list.len() >= max_history {
+                        list.remove(0);
+                    }
+                    list.push(narration);
                 }
-                list.push(narration);
             }
         });
 
@@ -128,7 +129,10 @@ impl SiliconScribe {
     }
 
     pub fn consume_narrations(&self) -> Vec<Narration> {
-        let mut list = self.narrations.lock().expect("Narration mutex poisoned");
-        std::mem::take(&mut *list)
+        if let Ok(mut list) = self.narrations.lock() {
+            std::mem::take(&mut *list)
+        } else {
+            Vec::new()
+        }
     }
 }

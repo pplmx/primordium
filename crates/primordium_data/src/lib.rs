@@ -403,6 +403,16 @@ impl Default for Activations {
     }
 }
 
+impl Activations {
+    pub fn prepare(&mut self, node_count: usize) {
+        if self.0.len() != node_count {
+            self.0.resize(node_count, 0.0);
+        } else {
+            self.0.fill(0.0);
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Intel {

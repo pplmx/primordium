@@ -17,153 +17,162 @@ use primordium_core::systems::{
 
 impl World {
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
-        let mut events = Vec::new();
         self.tick += 1;
-
         let world_seed = self.config.world.seed.unwrap_or(0);
 
         self.update_environment_and_resources(env, world_seed);
 
-        let tick = self.tick;
-        let config = &self.config;
-
-        // 1. Update Social Ranks (Parallel, Specific Query)
-        {
-            let mut query = self.ecs.query::<(&Metabolism, &mut Intel)>();
-            let mut data: Vec<_> = query.iter().collect();
-            data.par_iter_mut().for_each(|(_, (met, intel))| {
-                intel.rank = social::calculate_social_rank_components(met, intel, tick, config);
-            });
-        }
-
-        // 2. Prepare Spatial Hash (Specific Query)
-        {
-            let mut query = self.ecs.query::<(&Position, &Metabolism)>();
-            let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
-            spatial_data.clear();
-            for (_h, (pos, met)) in query.iter() {
-                spatial_data.push((pos.x, pos.y, met.lineage_id));
-            }
-            self.spatial_hash
-                .build_with_lineage(&spatial_data, self.width, self.height);
-            self.spatial_data_buffer = spatial_data;
-        }
-
-        // 3. Prepare Food Hash (Specific Query)
-        let food_handles = {
-            let mut handles = Vec::new();
-            let mut positions = Vec::new();
-            for (handle, (pos, _)) in self.ecs.query::<(&Position, &Food)>().iter() {
-                handles.push(handle);
-                positions.push((pos.x, pos.y));
-            }
-            self.food_hash
-                .build_parallel(&positions, self.width, self.height);
-            handles
-        };
-
-        // 4. Capture Snapshots (Read Only, Specific Query)
+        self.pass_social_ranks();
+        self.pass_spatial_indexing();
+        let food_handles = self.pass_food_indexing();
         self.capture_entity_snapshots();
+        self.pass_learning();
 
-        // 5. Learn & Bond Check (Parallel, Specific Query)
-        {
-            let mut query = self.ecs.query::<(&Metabolism, &mut Intel)>();
-            let mut data: Vec<_> = query.iter().collect();
-            data.par_iter_mut().for_each(|(_, (met, intel))| {
-                let reinforcement = if met.energy > met.prev_energy {
-                    0.1
-                } else {
-                    -0.05
-                };
-                intel
-                    .genotype
-                    .brain
-                    .learn(&intel.last_activations, reinforcement as f32);
-            });
-        }
-
-        // 6. Influence Maps
         self.influence.update(&self.entity_snapshots);
 
-        let interaction_commands;
-        let overmind_broadcasts;
+        let overmind_broadcasts = self.pass_perception_and_action(env, &food_handles, world_seed);
 
-        // 7. Perceive & Act (Strictly scoped big block)
-        {
-            let mut query = self.ecs.query::<EntityComponents>();
-            let mut entity_data: Vec<_> = query.iter().collect();
-            // Critical: Sort by ID to match the order of snapshots
-            entity_data.sort_by_key(|(_h, (i, ..))| i.id);
-
-            let id_map: HashMap<uuid::Uuid, usize> = entity_data
-                .iter()
-                .enumerate()
-                .map(|(idx, (_, (i, ..)))| (i.id, idx))
-                .collect();
-
-            if self.entity_snapshots.len() != entity_data.len() {
-                eprintln!("Warning: Snapshot/Entity count mismatch!");
-            }
-
-            let system_ctx = SystemContext {
-                config: &self.config,
-                ecs: &self.ecs,
-                food_hash: &self.food_hash,
-                spatial_hash: &self.spatial_hash,
-                pheromones: &self.pheromones,
-                sound: &self.sound,
-                pressure: &self.pressure,
-                influence: &self.influence,
-                terrain: &self.terrain,
-                tick: self.tick,
-                registry: &self.lineage_registry,
-                snapshots: &self.entity_snapshots,
-                food_handles: &food_handles,
-                world_seed,
-            };
-
-            let (cmds, mut decs) = systems::perceive_and_decide_internal(
-                &system_ctx,
-                env,
-                self.pop_stats.biomass_c,
-                &mut entity_data,
-                &id_map,
-            );
-            interaction_commands = cmds;
-
-            let broadcasts = systems::execute_actions_internal(
-                &system_ctx,
-                env,
-                &id_map,
-                &mut entity_data,
-                &mut decs,
-            );
-            overmind_broadcasts = broadcasts;
-            self.decision_buffer = decs;
-
-            for (l_id, amount) in &overmind_broadcasts {
-                self.lineage_registry
-                    .set_memory_value(l_id, "overmind", *amount);
-            }
+        for (l_id, amount) in &overmind_broadcasts {
+            self.lineage_registry
+                .set_memory_value(l_id, "overmind", *amount);
         }
 
-        // 8. Execute Interactions
+        let (mut events, new_babies) = self.pass_interactions(env, &food_handles);
+
         let handles = self.get_sorted_handles();
+        self.finalize_tick(env, &mut events, &handles, new_babies);
 
-        let snapshots = std::mem::take(&mut self.entity_snapshots);
-        self.entity_snapshots = snapshots;
+        self.update_grids_and_environment(env);
 
-        let (mut interaction_events, new_babies) =
-            self.execute_interactions(env, interaction_commands, &handles, &food_handles);
+        Ok(events)
+    }
+
+    fn pass_social_ranks(&mut self) {
+        let tick = self.tick;
+        let config = &self.config;
+        let mut query = self.ecs.query::<(&Metabolism, &mut Intel)>();
+        let mut data: Vec<_> = query.iter().collect();
+        data.par_iter_mut().for_each(|(_, (met, intel))| {
+            intel.rank = social::calculate_social_rank_components(met, intel, tick, config);
+        });
+    }
+
+    fn pass_spatial_indexing(&mut self) {
+        let mut query = self.ecs.query::<(&Position, &Metabolism)>();
+        let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
+        spatial_data.clear();
+        for (_h, (pos, met)) in query.iter() {
+            spatial_data.push((pos.x, pos.y, met.lineage_id));
+        }
+        self.spatial_hash
+            .build_with_lineage(&spatial_data, self.width, self.height);
+        self.spatial_data_buffer = spatial_data;
+    }
+
+    fn pass_food_indexing(&mut self) -> Vec<hecs::Entity> {
+        let mut handles = Vec::new();
+        let mut positions = Vec::new();
+        for (handle, (pos, _)) in self.ecs.query::<(&Position, &Food)>().iter() {
+            handles.push(handle);
+            positions.push((pos.x, pos.y));
+        }
+        self.food_hash
+            .build_parallel(&positions, self.width, self.height);
+        handles
+    }
+
+    fn pass_learning(&mut self) {
+        let mut query = self.ecs.query::<(&Metabolism, &mut Intel)>();
+        let mut data: Vec<_> = query.iter().collect();
+        data.par_iter_mut().for_each(|(_, (met, intel))| {
+            let reinforcement = if met.energy > met.prev_energy {
+                0.1
+            } else {
+                -0.05
+            };
+            intel
+                .genotype
+                .brain
+                .learn(&intel.last_activations, reinforcement as f32);
+        });
+    }
+
+    fn pass_perception_and_action(
+        &mut self,
+        env: &mut Environment,
+        food_handles: &[hecs::Entity],
+        world_seed: u64,
+    ) -> Vec<(uuid::Uuid, f32)> {
+        let mut query = self.ecs.query::<EntityComponents>();
+        let mut entity_data: Vec<_> = query.iter().collect();
+        entity_data.par_sort_by_key(|(_h, (i, ..))| i.id);
+
+        let id_map: HashMap<uuid::Uuid, usize> = entity_data
+            .iter()
+            .enumerate()
+            .map(|(idx, (_, (i, ..)))| (i.id, idx))
+            .collect();
+
+        let system_ctx = SystemContext {
+            config: &self.config,
+            ecs: &self.ecs,
+            food_hash: &self.food_hash,
+            spatial_hash: &self.spatial_hash,
+            pheromones: &self.pheromones,
+            sound: &self.sound,
+            pressure: &self.pressure,
+            influence: &self.influence,
+            terrain: &self.terrain,
+            tick: self.tick,
+            registry: &self.lineage_registry,
+            snapshots: &self.entity_snapshots,
+            food_handles,
+            world_seed,
+        };
+
+        let mut interaction_commands_buffer = std::mem::take(&mut self.interaction_buffer);
+        let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
+
+        systems::perceive_and_decide_internal(
+            &system_ctx,
+            env,
+            self.pop_stats.biomass_c,
+            &mut entity_data,
+            &id_map,
+            &mut interaction_commands_buffer,
+            &mut decision_buffer,
+        );
+
+        let overmind_broadcasts = systems::execute_actions_internal(
+            &system_ctx,
+            env,
+            &id_map,
+            &mut entity_data,
+            &mut decision_buffer,
+        );
+
+        self.decision_buffer = decision_buffer;
+        self.interaction_buffer = interaction_commands_buffer;
+        overmind_broadcasts
+    }
+
+    fn pass_interactions(
+        &mut self,
+        env: &mut Environment,
+        food_handles: &[hecs::Entity],
+    ) -> (Vec<LiveEvent>, Vec<Entity>) {
+        let interaction_commands = std::mem::take(&mut self.interaction_buffer);
+        let handles = self.get_sorted_handles();
+        let (interaction_events, new_babies) =
+            self.execute_interactions(env, interaction_commands, &handles, food_handles);
 
         for ev in &interaction_events {
             let _ = self.logger.log_event(ev.clone());
         }
+        (interaction_events, new_babies)
+    }
 
-        events.append(&mut interaction_events);
-
-        self.finalize_tick(env, &mut events, &handles, new_babies);
-
+    fn update_grids_and_environment(&mut self, env: &mut Environment) {
         self.pheromones.update();
         self.sound.update();
         self.pressure.update();
@@ -174,7 +183,9 @@ impl World {
             env.tick();
         }
 
-        Ok(events)
+        if self.tick.is_multiple_of(10) {
+            self.update_rank_grid();
+        }
     }
 
     fn update_environment_and_resources(&mut self, env: &mut Environment, world_seed: u64) {
