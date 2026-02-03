@@ -407,7 +407,14 @@ pub fn handle_outposts_ecs(
             OutpostSpecialization::Silo => silo_cap,
             _ => outpost_cap,
         };
-        terrain.cells[idx].energy_store = terrain.cells[idx].energy_store.clamp(0.0, max_cap);
+        // Apply passive decay (entropy) to all outposts
+        let decay = if terrain.cells[idx].owner_id.is_some() {
+            0.05 // Maintained outposts decay slowly
+        } else {
+            0.5 // Abandoned outposts decay quickly
+        };
+        terrain.cells[idx].energy_store =
+            (terrain.cells[idx].energy_store - decay).clamp(0.0, max_cap);
     }
 }
 

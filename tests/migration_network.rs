@@ -189,3 +189,53 @@ async fn test_peer_announce_message() {
         panic!("Expected PeerAnnounce");
     }
 }
+
+#[tokio::test]
+async fn test_migration_checksum_mismatch() {
+    let mut world = World::new(0, AppConfig::default()).unwrap();
+    let config = AppConfig::default();
+    let fingerprint = config.fingerprint();
+    
+    // Valid DNA but invalid checksum
+    let dna = "invalid_but_not_checked_yet".to_string();
+    let energy = 100.0;
+    let generation = 1;
+    let bad_checksum = "deadbeef".to_string();
+
+    let result = world.import_migrant(dna, energy, generation, &fingerprint, &bad_checksum);
+    
+    assert!(result.is_err(), "Should reject invalid checksum");
+    if let Err(e) = result {
+        assert!(e.to_string().to_lowercase().contains("checksum mismatch") || e.to_string().contains("hex"));
+    }
+}
+
+#[tokio::test]
+async fn test_migration_fingerprint_mismatch() {
+    let mut world = World::new(0, AppConfig::default()).unwrap();
+    
+    let dna = "some_valid_dna_string_placeholder".to_string();
+    let energy = 100.0;
+    let generation = 1;
+    let checksum = "ignored_for_this_test".to_string();
+    
+    // Simulate a fingerprint from a different world configuration
+    let bad_fingerprint = "incompatible_world_config_hash".to_string();
+
+    let result = world.import_migrant(dna, energy, generation, &bad_fingerprint, &checksum);
+    
+    assert!(result.is_err(), "Should reject incompatible world fingerprint");
+    if let Err(e) = result {
+        assert!(e.to_string().to_lowercase().contains("fingerprint"));
+    }
+}
+
+#[tokio::test]
+async fn test_malformed_json_packet() {
+    // Simulate receiving garbage over the wire
+    let garbage_json = "{ \"type\": \"MigrateEntity\", \"dna\": [BROKEN_JSON_HERE";
+    
+    let result = serde_json::from_str::<NetMessage>(garbage_json);
+    
+    assert!(result.is_err(), "Should fail to parse malformed JSON");
+}

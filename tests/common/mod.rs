@@ -100,6 +100,20 @@ impl WorldBuilder {
         self
     }
 
+    pub fn with_memory(mut self, lineage_id: Uuid, key: &str, value: f32) -> Self {
+        let key = key.to_string();
+        self.terrain_mods.push(Box::new(move |world| {
+            // Ensure lineage exists before setting memory, otherwise it's a no-op
+            if !world.lineage_registry.lineages.contains_key(&lineage_id) {
+                world.lineage_registry.record_birth(lineage_id, 0, 0);
+            }
+            world
+                .lineage_registry
+                .set_memory_value(&lineage_id, &key, value);
+        }));
+        self
+    }
+
     pub fn build(self) -> (World, Environment) {
         let mut world = World::new(0, self.config).expect("Failed to create world in test builder");
         let env = Environment::default();
@@ -128,9 +142,9 @@ pub struct EntityBuilder {
     trophic_potential: f32,
     metabolic_niche: f32,
     brain_connections: Vec<primordium_lib::model::brain::Connection>,
+    rank: Option<f32>,
 }
 
-#[allow(dead_code)]
 impl EntityBuilder {
     pub fn new() -> Self {
         Self {
@@ -144,6 +158,7 @@ impl EntityBuilder {
             trophic_potential: 0.5,
             metabolic_niche: 0.5,
             brain_connections: Vec::new(),
+            rank: None,
         }
     }
 
@@ -224,6 +239,11 @@ impl EntityBuilder {
         self
     }
 
+    pub fn rank(mut self, rank: f32) -> Self {
+        self.rank = Some(rank);
+        self
+    }
+
     pub fn build(self) -> primordium_data::Entity {
         let mut e = lifecycle::create_entity(self.x, self.y, 0);
         e.metabolism.energy = self.energy;
@@ -248,6 +268,10 @@ impl EntityBuilder {
 
         // Sync genotype max energy
         e.intel.genotype.max_energy = self.max_energy;
+
+        if let Some(r) = self.rank {
+            e.intel.rank = r;
+        }
 
         e
     }
