@@ -1,36 +1,49 @@
-use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::world::World;
+mod common;
+use common::{EntityBuilder, TestBehavior, WorldBuilder};
 
 #[tokio::test]
 async fn test_tribe_solidarity_no_aggression() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    let mut world = World::new(0, config).expect("Failed to create world");
-    let mut env = Environment::default();
-    let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    let mut e2 = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
-    e1.physics.r = 100;
-    e1.physics.g = 100;
-    e1.physics.b = 100;
-    e2.physics.r = 100;
-    e2.physics.g = 100;
-    e2.physics.b = 100;
-    e1.metabolism.trophic_potential = 1.0;
-    e2.metabolism.trophic_potential = 0.0;
-    e1.metabolism.energy = 5000.0;
-    e2.metabolism.energy = 5000.0;
-    e1.metabolism.max_energy = 10000.0;
-    e2.metabolism.max_energy = 10000.0;
-    e1.intel.genotype.max_energy = 10000.0;
-    e2.intel.genotype.max_energy = 10000.0;
+    let id = uuid::Uuid::new_v4();
 
-    // Explicitly set same lineage ID to ensure they are recognized as kin
-    e2.metabolism.lineage_id = e1.metabolism.lineage_id;
-    e2.intel.genotype.lineage_id = e1.metabolism.lineage_id;
+    // Use builder but explicitly handle the shared lineage ID requirement
+    let e1 = EntityBuilder::new()
+        .at(10.0, 10.0)
+        .energy(5000.0)
+        .max_energy(10000.0)
+        .color(100, 100, 100)
+        .lineage(id)
+        .build();
 
-    world.spawn_entity(e1);
-    world.spawn_entity(e2);
+    let mut e1_mut = e1.clone();
+    e1_mut.metabolism.trophic_potential = 1.0;
+    
+    let e2 = EntityBuilder::new()
+        .at(10.5, 10.5)
+        .energy(5000.0)
+        .max_energy(10000.0)
+        .color(100, 100, 100)
+        .lineage(id)
+        .build();
+    
+    let mut e2_mut = e2.clone();
+    e2_mut.metabolism.trophic_potential = 0.0;
+
+    // IMPORTANT: Ensure lineage_id is propagated to both metabolism AND genotype
+    // The builder handles this if .lineage() is called, but let's double check via manual override
+    // to be absolutely sure the test logic holds.
+    // Actually, EntityBuilder::lineage() sets both. The issue might be e2 being recognized as "food" or "prey"
+    // despite being kin if the aggression logic overrides kinship for different trophic levels.
+    // However, the test asserts NO aggression.
+    
+    // Let's force them to be identical except for trophic potential
+    e2_mut.metabolism.lineage_id = id;
+    e2_mut.intel.genotype.lineage_id = id;
+
+    let (mut world, mut env) = WorldBuilder::new()
+        .with_entity(e1_mut)
+        .with_entity(e2_mut)
+        .build();
+
     for _ in 0..50 {
         world.update(&mut env).expect("Update failed");
     }
@@ -42,40 +55,36 @@ async fn test_tribe_solidarity_no_aggression() {
 
 #[tokio::test]
 async fn test_energy_sharing_between_allies() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    let mut world = World::new(0, config).expect("Failed to create world");
-    let mut env = Environment::default();
-    let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    let mut e2 = primordium_lib::model::lifecycle::create_entity(10.2, 10.2, 0);
-    e2.intel.genotype = e1.intel.genotype.clone();
-    e1.physics.r = 200;
-    e1.physics.g = 200;
-    e1.physics.b = 200;
-    e2.physics.r = 200;
-    e2.physics.g = 200;
-    e2.physics.b = 200;
-    e1.metabolism.energy = 800.0;
-    e1.metabolism.max_energy = 1000.0;
-    e2.metabolism.energy = 10.0;
-    e2.metabolism.max_energy = 1000.0;
+    let world_builder = WorldBuilder::new();
+    
+    // Giver
+    let e1 = EntityBuilder::new()
+        .at(10.0, 10.0)
+        .energy(800.0)
+        .max_energy(1000.0)
+        .color(200, 200, 200)
+        .with_behavior(TestBehavior::Altruist)
+        .build();
+        
+    // Receiver
+    let e2 = EntityBuilder::new()
+        .at(10.2, 10.2)
+        .energy(10.0)
+        .max_energy(1000.0)
+        .color(200, 200, 200)
+        .build(); // No special behavior needed
+        
+    // Clone genotype to ensure compatibility if needed, though color is primary trigger
+    let mut e2_clone = e2.clone();
+    e2_clone.intel.genotype = e1.intel.genotype.clone();
+    
+    let (mut world, mut env) = world_builder
+        .with_entity(e1)
+        .with_entity(e2_clone)
+        .build();
+        
+    let e2_id = world.get_all_entities()[1].identity.id; // Assuming order preserved or we find by energy
 
-    // Force sharing behavior via brain connection
-    e1.intel
-        .genotype
-        .brain
-        .connections
-        .push(primordium_lib::model::brain::Connection {
-            from: 2, // Energy input
-            to: 33,  // Share output
-            weight: 10.0,
-            enabled: true,
-            innovation: 999,
-        });
-
-    let e2_id = e2.identity.id;
-    world.spawn_entity(e1);
-    world.spawn_entity(e2);
     let mut shared = false;
     for _ in 0..100 {
         world.update(&mut env).expect("Update failed");
@@ -86,7 +95,8 @@ async fn test_energy_sharing_between_allies() {
                 break;
             }
         }
-        // Keep E1 energy high and force share intent
+        
+        // Keep E1 energy high and force share intent (manual override still useful for deterministic forcing)
         for (_handle, (phys, met, intel, ident)) in world.ecs.query_mut::<(
             &mut primordium_lib::model::state::Physics,
             &mut primordium_lib::model::state::Metabolism,
@@ -104,40 +114,36 @@ async fn test_energy_sharing_between_allies() {
 
 #[tokio::test]
 async fn test_inter_tribe_predation() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    let mut world = World::new(0, config).expect("Failed to create world");
-    let mut env = Environment::default();
-    let mut e1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    let mut e2 = primordium_lib::model::lifecycle::create_entity(10.1, 10.1, 0);
-    e1.physics.r = 255;
-    e1.physics.g = 0;
-    e1.physics.b = 0;
-    e2.physics.r = 0;
-    e2.physics.g = 0;
-    e2.physics.b = 255;
-    e1.metabolism.trophic_potential = 1.0;
-    e1.metabolism.energy = 5000.0;
-    e2.metabolism.energy = 10.0;
-    e2.metabolism.trophic_potential = 0.0;
-    e1.intel.genotype.brain.connections.clear();
-    e1.intel
-        .genotype
-        .brain
-        .connections
-        .push(primordium_lib::model::brain::Connection {
-            from: 0,
-            to: 32, // Aggro output
-            weight: 10.0,
-            enabled: true,
-            innovation: 9999,
-        });
-    world.spawn_entity(e1);
-    world.spawn_entity(e2);
+    let e1 = EntityBuilder::new()
+        .at(10.0, 10.0)
+        .color(255, 0, 0)
+        .energy(5000.0)
+        .with_behavior(TestBehavior::Aggressive)
+        .build();
+    // Trophic potential needs manual set as builder defaults to 0.5 usually? 
+    // Actually builder just builds default entity. We need to set it.
+    let mut e1_mut = e1.clone();
+    e1_mut.metabolism.trophic_potential = 1.0;
+
+    let e2 = EntityBuilder::new()
+        .at(10.1, 10.1)
+        .color(0, 0, 255) // Different color = different tribe
+        .energy(10.0)
+        .build();
+    let mut e2_mut = e2.clone();
+    e2_mut.metabolism.trophic_potential = 0.0;
+
+    let (mut world, mut env) = WorldBuilder::new()
+        .with_entity(e1_mut)
+        .with_entity(e2_mut)
+        .build();
+
     for _ in 0..200 {
         world.update(&mut env).expect("Update failed");
         if world.get_population_count() == 1 {
             break;
         }
     }
+    // E2 should be eaten
+    assert_eq!(world.get_population_count(), 1, "Predator failed to eat prey");
 }
