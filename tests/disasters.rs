@@ -1,8 +1,8 @@
+use primordium_core::systems::environment as environment_system;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainType;
-use primordium_lib::model::systems::environment as environment_system;
 use primordium_lib::model::world::World;
 
 #[tokio::test]

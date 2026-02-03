@@ -1,7 +1,7 @@
+use primordium_core::systems::environment as environment_system;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::environment::{ClimateState, Environment, Era, ResourceState};
 use primordium_lib::model::history::PopulationStats;
-use primordium_lib::model::systems::environment as environment_system;
 
 #[tokio::test]
 async fn test_hardware_coupling_logic() {

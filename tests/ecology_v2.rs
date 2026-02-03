@@ -1,6 +1,6 @@
+use primordium_core::systems::ecological;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::food::Food;
-use primordium_lib::model::systems::ecological;
 use primordium_lib::model::world::World;
 use std::collections::HashSet;
 

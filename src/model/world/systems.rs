@@ -1,5 +1,8 @@
 use crate::model::environment::Environment;
-use crate::model::interaction::InteractionCommand;
+use crate::model::world::{EntityComponents, EntityDecision, SystemContext};
+use hecs;
+use primordium_core::interaction::InteractionCommand;
+use primordium_core::systems::{action, ecological, intel, social};
 use primordium_data::{Food, Position, Specialization};
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
@@ -8,8 +11,6 @@ use std::collections::HashMap;
 
 use crate::model::brain::BrainLogic;
 use crate::model::lifecycle;
-use crate::model::systems::{action, ecological, intel, social};
-use crate::model::world::{EntityComponents, EntityDecision, SystemContext};
 use social::ReproductionContext;
 
 pub fn perceive_and_decide_internal(

@@ -1,7 +1,7 @@
+use primordium_core::systems::action::{action_system, ActionContext, ActionOutput};
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::state::terrain::TerrainGrid;
-use primordium_lib::model::systems::action::{action_system, ActionContext};
 use primordium_lib::model::world::InternalEntitySnapshot;
 
 #[tokio::test]
@@ -68,7 +68,7 @@ async fn test_symbiosis_spring_force() {
     e1.velocity.vy = 0.0;
 
     {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e1, outputs, &mut ctx, &mut out);
         out
     };

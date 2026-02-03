@@ -1,3 +1,5 @@
+use primordium_core::systems::action::{action_system, ActionContext, ActionOutput};
+use primordium_core::systems::{civilization, intel};
 use primordium_data::AncestralTrait;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
@@ -21,7 +23,6 @@ async fn test_ancestral_trait_metabolism_buff() {
     let initial_energy = 100.0;
     e.metabolism.energy = initial_energy;
 
-    use primordium_lib::model::systems::action::{action_system, ActionContext};
     let mut ctx = ActionContext {
         env: &env,
         config: &config,
@@ -37,7 +38,7 @@ async fn test_ancestral_trait_metabolism_buff() {
 
     let outputs = [0.0; 12];
     {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e, outputs, &mut ctx, &mut out);
         out
     };
@@ -47,7 +48,7 @@ async fn test_ancestral_trait_metabolism_buff() {
     let mut e_normal = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     e_normal.metabolism.energy = initial_energy;
     {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e_normal, outputs, &mut ctx, &mut out);
         out
     };
@@ -74,7 +75,6 @@ async fn test_global_event_radiation_surge() {
         primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng());
     let original_dna = genotype.to_hex();
 
-    use primordium_lib::model::systems::intel;
     let mut rng = rand::thread_rng();
     intel::mutate_genotype(
         &mut genotype,
@@ -103,8 +103,7 @@ async fn test_civilization_leveling_outposts() {
         world.terrain.cells[idx].owner_id = Some(l_id);
     }
 
-    let outpost_counts =
-        primordium_lib::model::systems::civilization::count_outposts_by_lineage(&world.terrain);
+    let outpost_counts = civilization::count_outposts_by_lineage(&world.terrain);
     assert_eq!(outpost_counts.get(&l_id), Some(&5));
 
     world.lineage_registry.record_birth(l_id, 0, 0);

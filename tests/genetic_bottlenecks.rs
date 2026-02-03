@@ -1,3 +1,4 @@
+use primordium_core::systems::{intel, social};
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
@@ -21,7 +22,7 @@ async fn test_genetic_bottleneck_increases_mutation() {
     // but we can check if it results in higher genetic variance over multiple trials.
     // However, for a unit test, we just verify it doesn't crash and follows the logic.
     let mut rng = rand::thread_rng();
-    let mut ctx_small = primordium_lib::model::systems::social::ReproductionContext {
+    let mut ctx_small = social::ReproductionContext {
         tick: 1,
         config: &world.config,
         population: 1,
@@ -30,19 +31,18 @@ async fn test_genetic_bottleneck_increases_mutation() {
         rng: &mut rng,
         ancestral_genotype: None,
     };
-    let (child_small, _) =
-        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
-            &parent.position,
-            parent.metabolism.energy,
-            parent.metabolism.generation,
-            &parent.intel.genotype,
-            parent.intel.specialization,
-            &mut ctx_small,
-        );
+    let (child_small, _) = social::reproduce_asexual_parallel_components_decomposed(
+        &parent.position,
+        parent.metabolism.energy,
+        parent.metabolism.generation,
+        &parent.intel.genotype,
+        parent.intel.specialization,
+        &mut ctx_small,
+    );
 
     // 3. Large population (100) -> Should have base mutation
     let mut rng = rand::thread_rng();
-    let mut ctx_large = primordium_lib::model::systems::social::ReproductionContext {
+    let mut ctx_large = social::ReproductionContext {
         tick: 2,
         config: &world.config,
         population: 100,
@@ -51,15 +51,14 @@ async fn test_genetic_bottleneck_increases_mutation() {
         rng: &mut rng,
         ancestral_genotype: None,
     };
-    let (child_large, _) =
-        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
-            &parent.position,
-            parent.metabolism.energy,
-            parent.metabolism.generation,
-            &parent.intel.genotype,
-            parent.intel.specialization,
-            &mut ctx_large,
-        );
+    let (child_large, _) = social::reproduce_asexual_parallel_components_decomposed(
+        &parent.position,
+        parent.metabolism.energy,
+        parent.metabolism.generation,
+        &parent.intel.genotype,
+        parent.intel.specialization,
+        &mut ctx_large,
+    );
 
     assert_ne!(child_small.identity.id, child_large.identity.id);
 }
@@ -82,7 +81,7 @@ async fn test_genetic_drift_in_small_pop() {
     let mut rng = rand::thread_rng();
     for _ in 0..1000 {
         let mut test_genotype = parent_genotype.clone();
-        primordium_lib::model::systems::intel::mutate_genotype(
+        intel::mutate_genotype(
             &mut test_genotype,
             &config,
             population,

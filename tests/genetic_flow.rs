@@ -65,7 +65,7 @@ async fn test_genetic_surge() {
         .collect();
 
     // Simulate surge (same logic as in app/input.rs)
-    use primordium_lib::model::systems::intel;
+    use primordium_core::systems::intel;
     let mut rng = rand::thread_rng();
     for (_handle, (intel, _met, _phys)) in world.ecs.query_mut::<(
         &mut primordium_lib::model::state::Intel,

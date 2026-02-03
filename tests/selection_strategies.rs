@@ -1,3 +1,4 @@
+use primordium_core::systems::{intel, social};
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::lifecycle;
 
@@ -22,7 +23,7 @@ async fn test_r_strategy_fast_reproduction() {
 
     // Reproduce
     let mut rng = rand::thread_rng();
-    let mut ctx = primordium_lib::model::systems::social::ReproductionContext {
+    let mut ctx = social::ReproductionContext {
         tick: 60,
         config: &config,
         population: 1,
@@ -31,15 +32,14 @@ async fn test_r_strategy_fast_reproduction() {
         rng: &mut rng,
         ancestral_genotype: None,
     };
-    let (child, _) =
-        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
-            &r_parent.position,
-            r_parent.metabolism.energy,
-            r_parent.metabolism.generation,
-            &r_parent.intel.genotype,
-            r_parent.intel.specialization,
-            &mut ctx,
-        );
+    let (child, _) = social::reproduce_asexual_parallel_components_decomposed(
+        &r_parent.position,
+        r_parent.metabolism.energy,
+        r_parent.metabolism.generation,
+        &r_parent.intel.genotype,
+        r_parent.intel.specialization,
+        &mut ctx,
+    );
     r_parent.metabolism.energy *= 1.0 - r_parent.intel.genotype.reproductive_investment as f64;
 
     // Child should have 20% of 200 = 40 energy
@@ -76,7 +76,7 @@ async fn test_k_strategy_slow_reproduction() {
 
     // Reproduce
     let mut rng = rand::thread_rng();
-    let mut ctx = primordium_lib::model::systems::social::ReproductionContext {
+    let mut ctx = social::ReproductionContext {
         tick: 250,
         config: &config,
         population: 1,
@@ -85,15 +85,14 @@ async fn test_k_strategy_slow_reproduction() {
         rng: &mut rng,
         ancestral_genotype: None,
     };
-    let (child, _) =
-        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
-            &k_parent.position,
-            k_parent.metabolism.energy,
-            k_parent.metabolism.generation,
-            &k_parent.intel.genotype,
-            k_parent.intel.specialization,
-            &mut ctx,
-        );
+    let (child, _) = social::reproduce_asexual_parallel_components_decomposed(
+        &k_parent.position,
+        k_parent.metabolism.energy,
+        k_parent.metabolism.generation,
+        &k_parent.intel.genotype,
+        k_parent.intel.specialization,
+        &mut ctx,
+    );
     k_parent.metabolism.energy *= 1.0 - k_parent.intel.genotype.reproductive_investment as f64;
 
     // Child should have 80% of 400 = 320 energy
@@ -110,7 +109,7 @@ async fn test_maturity_body_size_coupling() {
     // Strategy R
     genotype.maturity_gene = 0.5;
     let mut rng = rand::thread_rng();
-    primordium_lib::model::systems::intel::mutate_genotype(
+    intel::mutate_genotype(
         &mut genotype,
         &config,
         100,
@@ -124,7 +123,7 @@ async fn test_maturity_body_size_coupling() {
 
     // Strategy K
     genotype.maturity_gene = 2.0;
-    primordium_lib::model::systems::intel::mutate_genotype(
+    intel::mutate_genotype(
         &mut genotype,
         &config,
         100,

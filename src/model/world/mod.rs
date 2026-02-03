@@ -108,7 +108,7 @@ pub struct World {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::systems::action;
+    use primordium_core::systems::action;
     #[tokio::test]
     async fn test_handle_movement_wall_bounce() {
         let mut config = AppConfig::default();

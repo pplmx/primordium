@@ -1,3 +1,4 @@
+use primordium_core::systems::action::{action_system, ActionContext, ActionOutput};
 use primordium_lib::model::brain::Connection;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::lifecycle;
@@ -65,8 +66,6 @@ async fn test_high_speed_metabolic_exhaustion() {
     e_fast.intel.genotype.max_speed = 3.0;
     e_fast.metabolism.energy = 200.0;
 
-    use primordium_lib::model::systems::action::{action_system, ActionContext};
-
     let terrain = primordium_lib::model::terrain::TerrainGrid::generate(100, 100, 42);
     let pressure = primordium_lib::model::pressure::PressureGrid::new(100, 100);
     let influence = primordium_lib::model::influence::InfluenceGrid::new(100, 100);
@@ -86,11 +85,11 @@ async fn test_high_speed_metabolic_exhaustion() {
     let outputs = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
     {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e_slow, outputs, &mut ctx, &mut out);
     }
     {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e_fast, outputs, &mut ctx, &mut out);
     }
 
@@ -113,7 +112,6 @@ async fn test_inertia_responsiveness_penalty() {
     e_heavy.intel.genotype.max_energy = 500.0;
     e_heavy.velocity.vx = 0.0;
 
-    use primordium_lib::model::systems::action::{action_system, ActionContext};
     let pressure = primordium_lib::model::pressure::PressureGrid::new(100, 100);
     let influence = primordium_lib::model::influence::InfluenceGrid::new(100, 100);
     let mut ctx = ActionContext {
@@ -131,11 +129,11 @@ async fn test_inertia_responsiveness_penalty() {
 
     let outputs = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
     {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e_light, outputs, &mut ctx, &mut out);
     }
     {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e_heavy, outputs, &mut ctx, &mut out);
     }
 

@@ -1,11 +1,12 @@
 use crate::app::state::App;
 use crate::model::lifecycle;
-use crate::model::systems::intel;
-use crate::model::terrain::TerrainType;
 use crate::ui::renderer::WorldWidget;
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use primordium_core::systems::intel;
+use primordium_data::TerrainType;
 use rand::Rng;
 use ratatui::style::Color;
+
 use std::fs;
 
 impl App {

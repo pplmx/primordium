@@ -1,6 +1,6 @@
+use primordium_core::systems::civilization;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::lifecycle;
-use primordium_lib::model::systems::civilization;
 use primordium_lib::model::terrain::{OutpostSpecialization, TerrainType};
 use primordium_lib::model::world::World;
 use uuid::Uuid;

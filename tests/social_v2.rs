@@ -1,4 +1,5 @@
 use primordium_core::config::{AppConfig, GameMode};
+use primordium_core::systems::action::{action_system, ActionContext, ActionOutput};
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
@@ -69,7 +70,6 @@ async fn test_metabolic_cost_of_signaling() {
     e_loud.metabolism.energy = 500.0;
 
     // Run action system directly with specific outputs
-    use primordium_lib::model::systems::action::{action_system, ActionContext};
     let terrain = primordium_lib::model::state::terrain::TerrainGrid::generate(100, 100, 42);
 
     // quiet: [x, y, speed, aggro, share, signal, emitA, emitB]
@@ -88,7 +88,7 @@ async fn test_metabolic_cost_of_signaling() {
         height: 100,
     };
     {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e_quiet, [0.0; 12], &mut ctx_q, &mut out);
         out
     };
@@ -106,7 +106,7 @@ async fn test_metabolic_cost_of_signaling() {
         width: 100,
         height: 100,
     };
-    let mut out_l = primordium_lib::model::systems::action::ActionOutput::default();
+    let mut out_l = ActionOutput::default();
     action_system(
         &mut e_loud,
         [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],

@@ -12,8 +12,8 @@ use crossterm::event::{self, Event, KeyEventKind};
 use std::time::{Duration, Instant};
 
 use crate::model::history::LiveEvent;
-use crate::model::systems::environment as environment_system;
 use crate::ui::tui::Tui;
+use primordium_core::systems::environment as environment_system;
 use ratatui::style::Color;
 use uuid::Uuid;
 

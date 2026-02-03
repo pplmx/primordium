@@ -10,10 +10,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::model::brain::BrainLogic;
-use crate::model::systems::{
+use crate::model::world::{systems, EntityComponents, SystemContext, World};
+use primordium_core::systems::{
     action, biological, civilization, ecological, environment, history, interaction, social, stats,
 };
-use crate::model::world::{systems, EntityComponents, SystemContext, World};
 
 impl World {
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {

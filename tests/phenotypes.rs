@@ -1,3 +1,4 @@
+use primordium_core::systems::social;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
@@ -18,7 +19,7 @@ async fn test_phenotype_inheritance_and_mutation() {
 
     // Test Asexual Reproduction (Mutation)
     let mut rng = rand::thread_rng();
-    let mut ctx = primordium_lib::model::systems::social::ReproductionContext {
+    let mut ctx = social::ReproductionContext {
         tick: 100,
         config: &config,
         population: 1,
@@ -27,15 +28,14 @@ async fn test_phenotype_inheritance_and_mutation() {
         rng: &mut rng,
         ancestral_genotype: None,
     };
-    let (child, _) =
-        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
-            &p1.position,
-            p1.metabolism.energy,
-            p1.metabolism.generation,
-            &p1.intel.genotype,
-            p1.intel.specialization,
-            &mut ctx,
-        );
+    let (child, _) = social::reproduce_asexual_parallel_components_decomposed(
+        &p1.position,
+        p1.metabolism.energy,
+        p1.metabolism.generation,
+        &p1.intel.genotype,
+        p1.intel.specialization,
+        &mut ctx,
+    );
 
     // Phenotype fields in Physics/Metabolism should have been synced during reproduction
     assert!(child.physics.sensing_range >= 3.0 && child.physics.sensing_range <= 15.0);

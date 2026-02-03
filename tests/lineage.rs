@@ -1,3 +1,4 @@
+use primordium_core::systems::social;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::history;
 use primordium_lib::model::lifecycle;
@@ -11,7 +12,7 @@ async fn test_lineage_inheritance() {
 
     // Asexual reproduction
     let mut rng = rand::thread_rng();
-    let mut ctx = primordium_lib::model::systems::social::ReproductionContext {
+    let mut ctx = social::ReproductionContext {
         tick: 100,
         config: &config,
         population: 1,
@@ -20,15 +21,14 @@ async fn test_lineage_inheritance() {
         rng: &mut rng,
         ancestral_genotype: None,
     };
-    let (child, _) =
-        primordium_lib::model::systems::social::reproduce_asexual_parallel_components_decomposed(
-            &parent.position,
-            parent.metabolism.energy,
-            parent.metabolism.generation,
-            &parent.intel.genotype,
-            parent.intel.specialization,
-            &mut ctx,
-        );
+    let (child, _) = social::reproduce_asexual_parallel_components_decomposed(
+        &parent.position,
+        parent.metabolism.energy,
+        parent.metabolism.generation,
+        &parent.intel.genotype,
+        parent.intel.specialization,
+        &mut ctx,
+    );
 
     assert_eq!(
         child.metabolism.lineage_id, original_lineage,

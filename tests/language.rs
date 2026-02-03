@@ -1,3 +1,4 @@
+use primordium_core::systems::action::{action_system, ActionContext, ActionOutput};
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
@@ -14,7 +15,6 @@ async fn test_semantic_pheromone_roundtrip() {
     // [movX, movY, speed, aggro, share, color, emitA, emitB, bond, dig, build, overmind]
     let outputs = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
-    use primordium_lib::model::systems::action::{action_system, ActionContext};
     let mut ctx = ActionContext {
         env: &env,
         config: &config,
@@ -28,7 +28,7 @@ async fn test_semantic_pheromone_roundtrip() {
         height: 100,
     };
     let res = {
-        let mut out = primordium_lib::model::systems::action::ActionOutput::default();
+        let mut out = ActionOutput::default();
         action_system(&mut e_emitter, outputs, &mut ctx, &mut out);
         out
     };

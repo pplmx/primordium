@@ -69,8 +69,8 @@ async fn test_outpost_construction() {
 
     let handle = world.spawn_entity(alpha);
 
+    use primordium_core::systems::interaction;
     use primordium_lib::model::state::interaction::InteractionCommand;
-    use primordium_lib::model::systems::interaction;
 
     let mut lineage_cons = Vec::new();
     let mut rng = rand::thread_rng();

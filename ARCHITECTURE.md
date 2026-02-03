@@ -115,7 +115,7 @@ src/
 2. **系统调用**: 推荐在调用方使用别名以增强语义：
 
     ```rust
-    use crate::model::systems::environment as environment_system;
+    use primordium_core::systems::environment as environment_system;
     environment_system::update_era(&mut self.env, ...);
     ```
 
