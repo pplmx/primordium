@@ -5,13 +5,17 @@ use std::collections::HashMap;
 pub trait BrainLogic {
     fn new_random() -> Self;
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self;
-    fn forward(&self, inputs: [f32; 29], last_hidden: [f32; 6]) -> ([f32; 12], [f32; 6]);
+    fn forward(
+        &self,
+        inputs: [f32; BRAIN_INPUTS],
+        last_hidden: [f32; BRAIN_MEMORY],
+    ) -> ([f32; BRAIN_OUTPUTS], [f32; BRAIN_MEMORY]);
     fn forward_internal(
         &self,
-        inputs: [f32; 29],
-        last_hidden: [f32; 6],
+        inputs: [f32; BRAIN_INPUTS],
+        last_hidden: [f32; BRAIN_MEMORY],
         activations: &mut primordium_data::Activations,
-    ) -> ([f32; 12], [f32; 6]);
+    ) -> ([f32; BRAIN_OUTPUTS], [f32; BRAIN_MEMORY]);
 
     fn learn(&mut self, activations: &primordium_data::Activations, reinforcement: f32);
     fn mutate_with_config<R: Rng>(
@@ -88,6 +92,12 @@ const OUTPUT_LABELS: [&str; 12] = [
     "OvermindEmit",
 ];
 
+pub const BRAIN_INPUTS: usize = INPUT_LABELS.len();
+pub const BRAIN_OUTPUTS: usize = OUTPUT_LABELS.len();
+pub const BRAIN_MEMORY: usize = 6;
+pub const BRAIN_HIDDEN_START: usize = BRAIN_INPUTS + BRAIN_OUTPUTS;
+pub const BRAIN_HIDDEN_END: usize = BRAIN_HIDDEN_START + 6;
+
 pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
     let mut nodes = Vec::new();
 
@@ -101,12 +111,12 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
 
     for (i, label) in OUTPUT_LABELS.iter().enumerate() {
         nodes.push(Node {
-            id: i + 29,
+            id: i + BRAIN_INPUTS,
             node_type: NodeType::Output,
             label: Some(label.to_string()),
         });
     }
-    for i in 41..47 {
+    for i in BRAIN_HIDDEN_START..BRAIN_HIDDEN_END {
         nodes.push(Node {
             id: i,
             node_type: NodeType::Hidden,
@@ -115,8 +125,8 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
     }
 
     let mut connections = Vec::new();
-    for i in 0..29 {
-        for h in 41..47 {
+    for i in 0..BRAIN_INPUTS {
+        for h in BRAIN_HIDDEN_START..BRAIN_HIDDEN_END {
             connections.push(Connection {
                 from: i,
                 to: h,
@@ -126,8 +136,8 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
             });
         }
     }
-    for h in 41..47 {
-        for o in 29..41 {
+    for h in BRAIN_HIDDEN_START..BRAIN_HIDDEN_END {
+        for o in BRAIN_INPUTS..BRAIN_HIDDEN_START {
             connections.push(Connection {
                 from: h,
                 to: o,
@@ -141,7 +151,7 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
     let mut brain = Brain {
         nodes,
         connections,
-        next_node_id: 47,
+        next_node_id: BRAIN_HIDDEN_END,
         learning_rate: 0.0,
         weight_deltas: HashMap::new(),
         node_idx_map: HashMap::new(),
@@ -204,21 +214,25 @@ impl BrainLogic for Brain {
         create_brain_random_with_rng(rng)
     }
 
-    fn forward(&self, inputs: [f32; 29], last_hidden: [f32; 6]) -> ([f32; 12], [f32; 6]) {
+    fn forward(
+        &self,
+        inputs: [f32; BRAIN_INPUTS],
+        last_hidden: [f32; BRAIN_MEMORY],
+    ) -> ([f32; BRAIN_OUTPUTS], [f32; BRAIN_MEMORY]) {
         let mut activations = primordium_data::Activations::default();
         self.forward_internal(inputs, last_hidden, &mut activations)
     }
 
     fn forward_internal(
         &self,
-        inputs: [f32; 29],
-        _last_hidden: [f32; 6],
+        inputs: [f32; BRAIN_INPUTS],
+        _last_hidden: [f32; BRAIN_MEMORY],
         activations: &mut primordium_data::Activations,
-    ) -> ([f32; 12], [f32; 6]) {
+    ) -> ([f32; BRAIN_OUTPUTS], [f32; BRAIN_MEMORY]) {
         let node_count = self.nodes.len();
         if self.node_idx_map.is_empty() {
-            let outputs = [0.0; 12];
-            let next_hidden = [0.0; 6];
+            let outputs = [0.0; BRAIN_OUTPUTS];
+            let next_hidden = [0.0; BRAIN_MEMORY];
             return (outputs, next_hidden);
         }
 
@@ -243,7 +257,7 @@ impl BrainLogic for Brain {
         for &node_id in &self.topological_order {
             let node_idx = *self.node_idx_map.get(&node_id).unwrap();
 
-            if node_id < 29 {
+            if node_id < BRAIN_INPUTS {
                 node_values[node_idx] = inputs[node_id];
                 continue;
             }
@@ -259,16 +273,16 @@ impl BrainLogic for Brain {
             node_values[node_idx] = node_values[node_idx].tanh();
         }
 
-        let mut outputs = [0.0; 12];
+        let mut outputs = [0.0; BRAIN_OUTPUTS];
         for (i, output) in outputs.iter_mut().enumerate() {
-            if let Some(&idx) = self.node_idx_map.get(&(i + 29)) {
+            if let Some(&idx) = self.node_idx_map.get(&(i + BRAIN_INPUTS)) {
                 *output = node_values[idx];
             }
         }
 
-        let mut next_hidden = [0.0; 6];
+        let mut next_hidden = [0.0; BRAIN_MEMORY];
         for (i, hidden) in next_hidden.iter_mut().enumerate() {
-            if let Some(&idx) = self.node_idx_map.get(&(i + 41)) {
+            if let Some(&idx) = self.node_idx_map.get(&(i + BRAIN_HIDDEN_START)) {
                 *hidden = node_values[idx];
             }
         }
@@ -554,7 +568,7 @@ impl BrainLogic for Brain {
             visited.insert(u, 1);
             if let Some(neighbors) = adj.get(&u) {
                 for &v in neighbors {
-                    if visited.get(&v).is_none() {
+                    if !visited.contains_key(&v) {
                         dfs(v, adj, visited, order);
                     }
                 }
@@ -563,13 +577,13 @@ impl BrainLogic for Brain {
             order.push(u);
         }
 
-        for i in 0..29 {
-            if visited.get(&i).is_none() {
+        for i in 0..BRAIN_INPUTS {
+            if !visited.contains_key(&i) {
                 dfs(i, &adj, &mut visited, &mut order);
             }
         }
         for node in &self.nodes {
-            if visited.get(&node.id).is_none() {
+            if !visited.contains_key(&node.id) {
                 dfs(node.id, &adj, &mut visited, &mut order);
             }
         }
