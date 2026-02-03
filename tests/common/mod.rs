@@ -1,3 +1,5 @@
+pub mod macros;
+
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
