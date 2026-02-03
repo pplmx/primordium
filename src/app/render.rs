@@ -283,70 +283,69 @@ impl App {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan));
 
-        let mut lines = Vec::new();
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(" ● ", Style::default().fg(Color::Rgb(100, 255, 100))),
-            ratatui::text::Span::raw("Worker / Adult"),
-            ratatui::text::Span::raw("   "),
-            ratatui::text::Span::styled(" · ", Style::default().fg(Color::Rgb(50, 127, 50))),
-            ratatui::text::Span::raw("Worker / Larva"),
-        ]));
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(" ▲ ", Style::default().fg(Color::Rgb(255, 50, 50))),
-            ratatui::text::Span::raw("Soldier / Adult"),
-            ratatui::text::Span::raw("  "),
-            ratatui::text::Span::styled(" △ ", Style::default().fg(Color::Rgb(127, 25, 25))),
-            ratatui::text::Span::raw("Soldier / Larva"),
-        ]));
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(" ◈ ", Style::default().fg(Color::Cyan)),
-            ratatui::text::Span::raw("Engineer / Adult"),
-            ratatui::text::Span::raw(" "),
-            ratatui::text::Span::styled(" ◇ ", Style::default().fg(Color::Rgb(0, 127, 127))),
-            ratatui::text::Span::raw("Engineer / Larva"),
-        ]));
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(" ◎ ", Style::default().fg(Color::Yellow)),
-            ratatui::text::Span::raw("Provider / Adult"),
-            ratatui::text::Span::raw(" "),
-            ratatui::text::Span::styled(" ○ ", Style::default().fg(Color::Rgb(127, 127, 0))),
-            ratatui::text::Span::raw("Provider / Larva"),
-        ]));
-        lines.push(ratatui::text::Line::from(""));
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(" † ", Style::default().fg(Color::Red)),
-            ratatui::text::Span::raw("Starving"),
-            ratatui::text::Span::raw("        "),
-            ratatui::text::Span::styled(" ✈ ", Style::default().fg(Color::DarkGray)),
-            ratatui::text::Span::raw("In Transit (P2P)"),
-        ]));
-        lines.push(ratatui::text::Line::from(""));
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(
+        let lines = vec![
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(" ● ", Style::default().fg(Color::Rgb(100, 255, 100))),
+                ratatui::text::Span::raw("Worker / Adult"),
+                ratatui::text::Span::raw("   "),
+                ratatui::text::Span::styled(" · ", Style::default().fg(Color::Rgb(50, 127, 50))),
+                ratatui::text::Span::raw("Worker / Larva"),
+            ]),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(" ▲ ", Style::default().fg(Color::Rgb(255, 50, 50))),
+                ratatui::text::Span::raw("Soldier / Adult"),
+                ratatui::text::Span::raw("  "),
+                ratatui::text::Span::styled(" △ ", Style::default().fg(Color::Rgb(127, 25, 25))),
+                ratatui::text::Span::raw("Soldier / Larva"),
+            ]),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(" ◈ ", Style::default().fg(Color::Cyan)),
+                ratatui::text::Span::raw("Engineer / Adult"),
+                ratatui::text::Span::raw(" "),
+                ratatui::text::Span::styled(" ◇ ", Style::default().fg(Color::Rgb(0, 127, 127))),
+                ratatui::text::Span::raw("Engineer / Larva"),
+            ]),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(" ◎ ", Style::default().fg(Color::Yellow)),
+                ratatui::text::Span::raw("Provider / Adult"),
+                ratatui::text::Span::raw(" "),
+                ratatui::text::Span::styled(" ○ ", Style::default().fg(Color::Rgb(127, 127, 0))),
+                ratatui::text::Span::raw("Provider / Larva"),
+            ]),
+            ratatui::text::Line::from(""),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(" † ", Style::default().fg(Color::Red)),
+                ratatui::text::Span::raw("Starving"),
+                ratatui::text::Span::raw("        "),
+                ratatui::text::Span::styled(" ✈ ", Style::default().fg(Color::DarkGray)),
+                ratatui::text::Span::raw("In Transit (P2P)"),
+            ]),
+            ratatui::text::Line::from(""),
+            ratatui::text::Line::from(vec![ratatui::text::Span::styled(
                 " Terrain: ",
                 Style::default().add_modifier(Modifier::BOLD),
-            ),
-        ]));
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(" ▲ ", Style::default().fg(Color::Rgb(100, 100, 100))),
-            ratatui::text::Span::raw("Mountain"),
-            ratatui::text::Span::raw("  "),
-            ratatui::text::Span::styled(" ≈ ", Style::default().fg(Color::Rgb(70, 130, 180))),
-            ratatui::text::Span::raw("River"),
-            ratatui::text::Span::raw("  "),
-            ratatui::text::Span::styled(" ♠ ", Style::default().fg(Color::Rgb(34, 139, 34))),
-            ratatui::text::Span::raw("Forest"),
-        ]));
-        lines.push(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(" █ ", Style::default().fg(Color::Rgb(60, 60, 60))),
-            ratatui::text::Span::raw("Wall"),
-            ratatui::text::Span::raw("      "),
-            ratatui::text::Span::styled(" ◊ ", Style::default().fg(Color::Rgb(50, 205, 50))),
-            ratatui::text::Span::raw("Oasis"),
-            ratatui::text::Span::raw("  "),
-            ratatui::text::Span::styled(" Ψ ", Style::default().fg(Color::Rgb(255, 69, 0))),
-            ratatui::text::Span::raw("Outpost"),
-        ]));
+            )]),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(" ▲ ", Style::default().fg(Color::Rgb(100, 100, 100))),
+                ratatui::text::Span::raw("Mountain"),
+                ratatui::text::Span::raw("  "),
+                ratatui::text::Span::styled(" ≈ ", Style::default().fg(Color::Rgb(70, 130, 180))),
+                ratatui::text::Span::raw("River"),
+                ratatui::text::Span::raw("  "),
+                ratatui::text::Span::styled(" ♠ ", Style::default().fg(Color::Rgb(34, 139, 34))),
+                ratatui::text::Span::raw("Forest"),
+            ]),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(" █ ", Style::default().fg(Color::Rgb(60, 60, 60))),
+                ratatui::text::Span::raw("Wall"),
+                ratatui::text::Span::raw("      "),
+                ratatui::text::Span::styled(" ◊ ", Style::default().fg(Color::Rgb(50, 205, 50))),
+                ratatui::text::Span::raw("Oasis"),
+                ratatui::text::Span::raw("  "),
+                ratatui::text::Span::styled(" Ψ ", Style::default().fg(Color::Rgb(255, 69, 0))),
+                ratatui::text::Span::raw("Outpost"),
+            ]),
+        ];
 
         f.render_widget(Paragraph::new(lines).block(block), legend_area);
     }
