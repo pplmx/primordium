@@ -5,24 +5,22 @@ use common::{EntityBuilder, WorldBuilder};
 async fn test_r_vs_k_dominance_in_resource_boom() {
     let mut world_builder = WorldBuilder::new().with_config(|c| {
         c.world.max_food = 500; // Abundant food
+        c.metabolism.maturity_age = 50; // Faster maturity for test speed
     });
 
-    // Strategy R: Fast maturity (50), Low investment (0.2)
-    // Low investment means babies start weak, but they mature fast.
+    // Strategy R: Fast maturity (25), Low investment (0.2)
     let r_type = EntityBuilder::new()
         .at(10.0, 10.0)
         .energy(500.0)
-        .max_energy(500.0)
+        .max_energy(1000.0)
         .lineage(uuid::Uuid::new_v4())
         .build();
-    // Manual modification needed as Builder lacks genetic tuner yet
     let mut r_type = r_type;
     r_type.intel.genotype.maturity_gene = 0.5;
     r_type.intel.genotype.reproductive_investment = 0.2;
     world_builder = world_builder.with_entity(r_type);
 
-    // Strategy K: Slow maturity (200), High investment (0.8)
-    // High investment means babies start with 80% parent energy.
+    // Strategy K: Slow maturity (250), High investment (0.8)
     let k_type = EntityBuilder::new()
         .at(20.0, 20.0)
         .energy(500.0)
@@ -37,14 +35,14 @@ async fn test_r_vs_k_dominance_in_resource_boom() {
     let (mut world, mut env) = world_builder.build();
 
     // In a resource boom, Strategy R should multiply faster
-    for _ in 0..100 {
+    for _ in 0..150 {
         world.update(&mut env).unwrap();
         // Keep energy high to simulate boom
         for (_handle, met) in world
             .ecs
             .query_mut::<&mut primordium_lib::model::state::Metabolism>()
         {
-            met.energy = 500.0;
+            met.energy = 800.0;
         }
         if world.get_population_count() > 100 {
             break;

@@ -1,23 +1,26 @@
+mod common;
+use common::{EntityBuilder, WorldBuilder};
 use primordium_core::systems::social;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::world::World;
 
 #[tokio::test]
 async fn test_phenotype_inheritance_and_mutation() {
-    let mut p1 = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let p1 = EntityBuilder::new()
+        .at(10.0, 10.0)
+        .energy(200.0)
+        .max_energy(400.0)
+        .build();
+
+    // Update fields manually as some aren't in builder yet
+    let mut p1 = p1;
     p1.physics.sensing_range = 10.0;
     p1.physics.max_speed = 2.0;
-    p1.metabolism.max_energy = 400.0;
-    // Update genotype to match
     p1.intel.genotype.sensing_range = 10.0;
     p1.intel.genotype.max_speed = 2.0;
-    p1.intel.genotype.max_energy = 400.0;
-    p1.intel.genotype.maturity_gene = 2.0; // Ensure max_energy is derived from a known state
+    p1.intel.genotype.maturity_gene = 2.0;
 
     let config = AppConfig::default();
 
-    // Test Asexual Reproduction (Mutation)
     let mut rng = rand::thread_rng();
     let mut ctx = social::ReproductionContext {
         tick: 100,
@@ -37,7 +40,6 @@ async fn test_phenotype_inheritance_and_mutation() {
         &mut ctx,
     );
 
-    // Phenotype fields in Physics/Metabolism should have been synced during reproduction
     assert!(child.physics.sensing_range >= 3.0 && child.physics.sensing_range <= 15.0);
     assert!(child.physics.max_speed >= 0.5 && child.physics.max_speed <= 3.0);
     assert!(child.metabolism.max_energy >= 100.0 && child.metabolism.max_energy <= 500.0);
@@ -45,62 +47,55 @@ async fn test_phenotype_inheritance_and_mutation() {
 
 #[tokio::test]
 async fn test_sensing_range_affects_perception() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    config.world.initial_food = 1;
-    config.evolution.drift_rate = 0.0;
-    let mut world = World::new(0, config).unwrap();
-    let mut env = Environment::default();
+    let (mut world, mut env) = WorldBuilder::new()
+        .with_config(|c| {
+            c.evolution.drift_rate = 0.0;
+        })
+        .with_food(22.0, 10.0, 0.0) // Distance 12.0 from (10,10)
+        .with_entity(EntityBuilder::new().at(10.0, 10.0).energy(1000.0).build())
+        .with_entity(EntityBuilder::new().at(30.0, 30.0).energy(1000.0).build())
+        .build();
 
-    // Clear existing food and place one food far away (distance 12.0)
-    world.ecs.clear();
-    use primordium_lib::model::state::food::Food;
-    world.ecs.spawn((
-        Food::new(22, 10, 0.0),
-        primordium_lib::model::state::Position { x: 22.0, y: 10.0 },
-        primordium_lib::model::state::MetabolicNiche(0.0),
-    )); // Entity at (10, 10)
+    // Modify ranges
+    let query = world.ecs.query_mut::<(
+        &mut primordium_lib::model::state::Physics,
+        &mut primordium_lib::model::state::Intel,
+        &primordium_lib::model::state::Position,
+    )>();
+    for (_h, (phys, intel, pos)) in query {
+        if pos.x < 15.0 {
+            phys.sensing_range = 5.0;
+            intel.genotype.sensing_range = 5.0;
+        } else {
+            phys.sensing_range = 15.0;
+            intel.genotype.sensing_range = 15.0;
+        }
+    }
 
-    // Entity A: Short range (5.0) - should NOT see food
-    let mut e_short = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    e_short.physics.sensing_range = 5.0;
-    e_short.intel.genotype.sensing_range = 5.0;
-    e_short.metabolism.energy = 1000.0; // Prevent death
-
-    // Entity B: Long range (15.0) - should SEE food
-    let mut e_long = primordium_lib::model::lifecycle::create_entity(30.0, 30.0, 0); // Move away to prevent collision/sharing
-    e_long.physics.sensing_range = 15.0;
-    e_long.intel.genotype.sensing_range = 15.0;
-    e_long.metabolism.energy = 1000.0;
-
-    world.spawn_entity(e_short);
-    world.spawn_entity(e_long);
-
-    // Update world to populate perception buffers
     world.update(&mut env).unwrap();
 
-    // We can't easily check private buffers, but we can verify the sensing range was used in the loop.
-    // The previous manual audit showed that nearby_indices uses sensing_range.
-    let mut entities = world.get_all_entities();
-    entities.sort_by(|a, b| {
-        a.physics
-            .sensing_range
-            .partial_cmp(&b.physics.sensing_range)
-            .unwrap()
-    });
+    let entities = world.get_all_entities();
+    let (mut short, mut long) = (None, None);
+    for e in entities {
+        if e.physics.sensing_range < 10.0 {
+            short = Some(e);
+        } else {
+            long = Some(e);
+        }
+    }
 
-    assert_eq!(entities[0].physics.sensing_range, 5.0);
-    assert_eq!(entities[1].physics.sensing_range, 15.0);
+    assert_eq!(short.unwrap().physics.sensing_range, 5.0);
+    assert_eq!(long.unwrap().physics.sensing_range, 15.0);
 }
 
 #[tokio::test]
 async fn test_hex_dna_contains_phenotype() {
-    let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
+    let e = EntityBuilder::new().build();
+    let mut e = e;
     e.intel.genotype.sensing_range = 12.34;
     e.intel.genotype.max_speed = 2.5;
 
     let hex = e.intel.genotype.to_hex();
-
     let restored = primordium_lib::model::state::entity::Genotype::from_hex(&hex).unwrap();
 
     assert_eq!(restored.sensing_range, 12.34);

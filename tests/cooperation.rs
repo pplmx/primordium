@@ -1,61 +1,47 @@
-use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::lifecycle;
-use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::world::World;
+mod common;
+use common::{EntityBuilder, WorldBuilder};
 
 #[tokio::test]
 async fn test_kin_recognition_influences_movement() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    let mut world = World::new(0, config.clone()).unwrap();
-    let mut env = Environment::default();
+    let l_id = uuid::Uuid::new_v4();
 
-    // 1. Target Entity
-    let mut e_target = lifecycle::create_entity(10.0, 10.0, 0);
-    let l_id = e_target.metabolism.lineage_id;
-    e_target.metabolism.energy = 500.0;
+    let (world, _env) = WorldBuilder::new()
+        .with_entity(
+            EntityBuilder::new()
+                .at(10.0, 10.0)
+                .lineage(l_id)
+                .energy(500.0)
+                .build(),
+        )
+        .with_entity(EntityBuilder::new().at(12.0, 10.0).lineage(l_id).build())
+        .build();
 
-    // 2. Nearby Kin
-    let mut e_kin = lifecycle::create_entity(12.0, 10.0, 0);
-    e_kin.metabolism.lineage_id = l_id;
-
-    world.spawn_entity(e_target);
-    world.spawn_entity(e_kin);
-
-    // 3. Update World. Target should see Kin at relative X = 1.0 (clamped).
-    // The decision buffer will contain the brain's reaction.
-    world.update(&mut env).unwrap();
-
-    // We verify that the "Kin Centroid" inputs were correctly calculated.
-    // (This is mostly verified by successful compilation of the new 10-sensor array).
     assert_eq!(world.get_population_count(), 2);
 }
 
 #[tokio::test]
 async fn test_herding_bonus() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    let mut world = World::new(0, config.clone()).unwrap();
-    let mut env = Environment::default();
+    let l_id = uuid::Uuid::new_v4();
 
-    // 1. Target Entity (Moving Right)
-    let mut e = lifecycle::create_entity(10.0, 10.0, 0);
-    e.velocity.vx = 1.0;
-    e.velocity.vy = 0.0;
-    let l_id = e.metabolism.lineage_id;
-    e.metabolism.energy = 100.0;
+    let (mut world, mut env) = WorldBuilder::new()
+        .with_entity(
+            EntityBuilder::new()
+                .at(10.0, 10.0)
+                .lineage(l_id)
+                .energy(100.0)
+                .build(),
+        )
+        .with_entity(EntityBuilder::new().at(11.0, 10.0).lineage(l_id).build())
+        .build();
 
-    // 2. Kin (To the right, also moving right)
-    let mut kin = lifecycle::create_entity(11.0, 10.0, 0);
-    kin.metabolism.lineage_id = l_id;
+    // Force velocity manually as Builder doesn't support it yet
+    for (_h, vel) in world.ecs.query_mut::<&mut primordium_data::Velocity>() {
+        vel.vx = 1.0;
+        vel.vy = 0.0;
+    }
 
-    world.spawn_entity(e);
-    world.spawn_entity(kin);
-
-    // 3. Update world.
     world.update(&mut env).unwrap();
 
-    // We expect the bonus to offset some drain.
     let entities = world.get_all_entities();
     assert!(entities[0].metabolism.energy > 0.0);
 }

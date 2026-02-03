@@ -1,7 +1,8 @@
+mod common;
+use common::EntityBuilder;
 use primordium_lib::model::brain;
 use primordium_lib::model::history::Legend;
 use primordium_lib::model::infra::lineage_tree::AncestryTree;
-use primordium_lib::model::lifecycle;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -9,7 +10,6 @@ async fn test_ancestry_tree_linking() {
     let p_id = Uuid::new_v4();
     let c_id = Uuid::new_v4();
 
-    // 1. Create a parent (Legend)
     let parent = Legend {
         id: p_id,
         parent_id: None,
@@ -26,17 +26,13 @@ async fn test_ancestry_tree_linking() {
         color_rgb: (255, 0, 0),
     };
 
-    // 2. Create a child (Living Entity)
-    let mut child = lifecycle::create_entity(10.0, 10.0, 100);
+    let mut child = EntityBuilder::new().at(10.0, 10.0).lineage(p_id).build();
     child.identity.id = c_id;
     child.identity.parent_id = Some(p_id);
     child.metabolism.generation = 2;
-    child.metabolism.lineage_id = p_id;
 
-    // 3. Build tree
     let tree = AncestryTree::build(&[parent], &[child]);
 
-    // 4. Verify graph structure
     assert_eq!(tree.graph.node_count(), 2);
     assert_eq!(tree.graph.edge_count(), 1);
 
