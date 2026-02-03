@@ -1,46 +1,29 @@
-use primordium_data::{Specialization, TerrainType};
-use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::lifecycle;
-use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::world::World;
+mod common;
+use common::{EntityBuilder, TestBehavior, WorldBuilder};
+use primordium_data::Specialization;
+use primordium_data::TerrainType;
 use uuid::Uuid;
 
 #[tokio::test]
 async fn test_coordinated_outpost_siege() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    let mut world = World::new(0, config).expect("Failed to create world");
-    let mut env = Environment::default();
-
-    // Lineage A: Outpost at (10, 10)
     let id_a = Uuid::new_v4();
-    let idx_a = world.terrain.index(10, 10);
-    world.terrain.set_cell_type(10, 10, TerrainType::Outpost);
-    world.terrain.cells[idx_a].owner_id = Some(id_a);
-    world.terrain.cells[idx_a].energy_store = 500.0;
+    let id_b = Uuid::new_v4();
+
+    let mut world_builder = WorldBuilder::new().with_outpost(10, 10, id_a);
 
     // Lineage B: Soldiers attacking at (11, 11)
-    let id_b = Uuid::new_v4();
     for i in 0..5 {
-        let mut soldier = lifecycle::create_entity(11.0 + (i as f64 * 0.1), 11.0, 0);
-        soldier.metabolism.lineage_id = id_b;
-        soldier.intel.specialization = Some(Specialization::Soldier);
-        soldier.metabolism.energy = 200.0;
-        // Force aggression against different lineage
-        soldier
-            .intel
-            .genotype
-            .brain
-            .connections
-            .push(primordium_lib::model::brain::Connection {
-                from: 5, // Tribe density
-                to: 32,  // Aggro
-                weight: 10.0,
-                enabled: true,
-                innovation: 5555,
-            });
-        world.spawn_entity(soldier);
+        let soldier = EntityBuilder::new()
+            .at(11.0 + (i as f64 * 0.1), 11.0)
+            .lineage(id_b)
+            .specialization(Specialization::Soldier)
+            .energy(200.0)
+            .with_behavior(TestBehavior::SiegeSoldier)
+            .build();
+        world_builder = world_builder.with_entity(soldier);
     }
+
+    let (mut world, mut env) = world_builder.build();
 
     // Run for multiple ticks
     for _ in 0..20 {
@@ -57,30 +40,26 @@ async fn test_coordinated_outpost_siege() {
 
 #[tokio::test]
 async fn test_soldier_guardian_prioritization() {
-    let mut config = AppConfig::default();
-    config.world.initial_population = 0;
-    let mut world = World::new(0, config).unwrap();
-    let mut env = Environment::default();
-
     let id_my = Uuid::new_v4();
     let id_enemy = Uuid::new_v4();
 
-    // 1. Setup our outpost
-    let idx = world.terrain.index(25, 25);
-    world.terrain.set_cell_type(25, 25, TerrainType::Outpost);
-    world.terrain.cells[idx].owner_id = Some(id_my);
+    let guardian = EntityBuilder::new()
+        .at(24.5, 24.5)
+        .lineage(id_my)
+        .specialization(Specialization::Soldier)
+        .build();
 
-    // 2. Spawn a guardian soldier
-    let mut guardian = lifecycle::create_entity(24.5, 24.5, 0);
-    guardian.metabolism.lineage_id = id_my;
-    guardian.intel.specialization = Some(Specialization::Soldier);
-    world.spawn_entity(guardian);
+    let enemy = EntityBuilder::new()
+        .at(25.5, 25.5)
+        .lineage(id_enemy)
+        .energy(50.0) // Weak
+        .build();
 
-    // 3. Spawn an enemy nearby
-    let mut enemy = lifecycle::create_entity(25.5, 25.5, 0);
-    enemy.metabolism.lineage_id = id_enemy;
-    enemy.metabolism.energy = 50.0; // Weak
-    world.spawn_entity(enemy);
+    let (mut world, mut env) = WorldBuilder::new()
+        .with_outpost(25, 25, id_my)
+        .with_entity(guardian)
+        .with_entity(enemy)
+        .build();
 
     // 4. Run update
     world.update(&mut env).unwrap();

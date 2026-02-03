@@ -1,6 +1,8 @@
 pub mod macros;
 
+use primordium_data::{Specialization, TerrainType};
 use primordium_lib::model::config::AppConfig;
+use primordium_lib::model::food::Food;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
@@ -12,6 +14,7 @@ pub struct WorldBuilder {
     config: AppConfig,
     entities: Vec<primordium_data::Entity>,
     seed: Option<u64>,
+    terrain_mods: Vec<Box<dyn FnOnce(&mut World)>>,
 }
 
 #[allow(dead_code)]
@@ -19,10 +22,12 @@ impl WorldBuilder {
     pub fn new() -> Self {
         let mut config = AppConfig::default();
         config.world.initial_population = 0; // Default to manual spawning
+        config.world.initial_food = 0; // Default to clean slate
         Self {
             config,
             entities: Vec::new(),
             seed: None,
+            terrain_mods: Vec::new(),
         }
     }
 
@@ -45,9 +50,61 @@ impl WorldBuilder {
         self
     }
 
+    pub fn with_terrain(mut self, x: u16, y: u16, terrain_type: TerrainType) -> Self {
+        self.terrain_mods.push(Box::new(move |world| {
+            world.terrain.set_cell_type(x, y, terrain_type);
+        }));
+        self
+    }
+
+    pub fn with_outpost(mut self, x: u16, y: u16, owner_id: Uuid) -> Self {
+        self.terrain_mods.push(Box::new(move |world| {
+            let idx = world.terrain.index(x, y);
+            world.terrain.set_cell_type(x, y, TerrainType::Outpost);
+            world.terrain.cells[idx].owner_id = Some(owner_id);
+            world.terrain.cells[idx].energy_store = 500.0;
+        }));
+        self
+    }
+
+    pub fn with_fertility(mut self, fertility: f32) -> Self {
+        self.terrain_mods.push(Box::new(move |world| {
+            for cell in &mut world.terrain.cells {
+                cell.fertility = fertility;
+            }
+        }));
+        self
+    }
+
+    pub fn with_food_spawn_logic(mut self) -> Self {
+        self.terrain_mods.push(Box::new(|world| {
+            world.food_dirty = true;
+        }));
+        self
+    }
+
+    pub fn with_food(mut self, x: f64, y: f64, nutrient_type: f32) -> Self {
+        self.terrain_mods.push(Box::new(move |world| {
+            world.ecs.spawn((
+                primordium_data::Position { x, y },
+                primordium_data::MetabolicNiche(nutrient_type),
+                Food::new(x as u16, y as u16, nutrient_type),
+            ));
+            world
+                .food_count
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            world.food_dirty = true;
+        }));
+        self
+    }
+
     pub fn build(self) -> (World, Environment) {
         let mut world = World::new(0, self.config).expect("Failed to create world in test builder");
         let env = Environment::default();
+
+        for modifier in self.terrain_mods {
+            modifier(&mut world);
+        }
 
         for e in self.entities {
             world.spawn_entity(e);
@@ -65,6 +122,9 @@ pub struct EntityBuilder {
     max_energy: f64,
     color: (u8, u8, u8),
     lineage_id: Option<Uuid>,
+    specialization: Option<Specialization>,
+    trophic_potential: f32,
+    metabolic_niche: f32,
     brain_connections: Vec<primordium_lib::model::brain::Connection>,
 }
 
@@ -77,6 +137,9 @@ impl EntityBuilder {
             max_energy: 100.0,
             color: (100, 100, 100),
             lineage_id: None,
+            specialization: None,
+            trophic_potential: 0.5,
+            metabolic_niche: 0.5,
             brain_connections: Vec::new(),
         }
     }
@@ -107,57 +170,52 @@ impl EntityBuilder {
         self
     }
 
+    pub fn specialization(mut self, spec: Specialization) -> Self {
+        self.specialization = Some(spec);
+        self
+    }
+
+    pub fn trophic(mut self, potential: f32) -> Self {
+        self.trophic_potential = potential;
+        self
+    }
+
+    pub fn niche(mut self, niche: f32) -> Self {
+        self.metabolic_niche = niche;
+        self
+    }
+
+    pub fn with_connection(mut self, from: usize, to: usize, weight: f32) -> Self {
+        self.brain_connections
+            .push(primordium_lib::model::brain::Connection {
+                from,
+                to,
+                weight,
+                enabled: true,
+                innovation: 9999 + self.brain_connections.len(),
+            });
+        self
+    }
+
     pub fn with_behavior(mut self, behavior: TestBehavior) -> Self {
         match behavior {
             TestBehavior::Aggressive => {
-                // Connect density/bias to Aggression (output 32)
-                self.brain_connections
-                    .push(primordium_lib::model::brain::Connection {
-                        from: 0, // Food DX (just a placeholder high input if food is near)
-                        to: 32,  // Aggro
-                        weight: 10.0,
-                        enabled: true,
-                        innovation: 9999,
-                    });
-                // Also connect bias/energy to ensure firing
-                self.brain_connections
-                    .push(primordium_lib::model::brain::Connection {
-                        from: 2, // Energy
-                        to: 32,  // Aggro
-                        weight: 10.0,
-                        enabled: true,
-                        innovation: 10000,
-                    });
+                self = self
+                    .with_connection(0, 32, 10.0)
+                    .with_connection(2, 32, 10.0);
             }
             TestBehavior::Altruist => {
-                // Connect Energy (2) to Share (33)
-                self.brain_connections
-                    .push(primordium_lib::model::brain::Connection {
-                        from: 2,
-                        to: 33,
-                        weight: 10.0,
-                        enabled: true,
-                        innovation: 10001,
-                    });
+                self = self.with_connection(2, 33, 10.0);
             }
             TestBehavior::BondBreaker => {
-                // Connect Energy (2) to Hidden (41) then to Bond (37->8)
-                self.brain_connections
-                    .push(primordium_lib::model::brain::Connection {
-                        from: 2,
-                        to: 41,
-                        weight: -10.0,
-                        enabled: true,
-                        innovation: 1,
-                    });
-                self.brain_connections
-                    .push(primordium_lib::model::brain::Connection {
-                        from: 41,
-                        to: 37,
-                        weight: 10.0,
-                        enabled: true,
-                        innovation: 2,
-                    });
+                self = self
+                    .with_connection(2, 41, -10.0)
+                    .with_connection(41, 37, 10.0);
+            }
+            TestBehavior::SiegeSoldier => {
+                self = self
+                    .specialization(Specialization::Soldier)
+                    .with_connection(5, 32, 10.0);
             }
         }
         self
@@ -167,14 +225,19 @@ impl EntityBuilder {
         let mut e = lifecycle::create_entity(self.x, self.y, 0);
         e.metabolism.energy = self.energy;
         e.metabolism.max_energy = self.max_energy;
+        e.metabolism.trophic_potential = self.trophic_potential;
         e.physics.r = self.color.0;
         e.physics.g = self.color.1;
         e.physics.b = self.color.2;
+        e.intel.specialization = self.specialization;
 
         if let Some(lid) = self.lineage_id {
             e.metabolism.lineage_id = lid;
             e.intel.genotype.lineage_id = lid;
         }
+
+        e.intel.genotype.metabolic_niche = self.metabolic_niche;
+        e.intel.genotype.trophic_potential = self.trophic_potential;
 
         if !self.brain_connections.is_empty() {
             e.intel.genotype.brain.connections = self.brain_connections;
@@ -192,4 +255,5 @@ pub enum TestBehavior {
     Aggressive,
     Altruist,
     BondBreaker,
+    SiegeSoldier,
 }
