@@ -226,13 +226,20 @@ impl AppConfig {
     #[must_use]
     pub fn load() -> Self {
         if let Ok(content) = fs::read_to_string("config.toml") {
-            if let Ok(config) = toml::from_str(&content) {
-                return config;
+            match toml::from_str(&content) {
+                Ok(config) => return config,
+                Err(e) => {
+                    eprintln!("Warning: Failed to parse config.toml: {}", e);
+                    eprintln!("Falling back to default configuration.");
+                }
             }
         }
         let default = Self::default();
-        if let Ok(toml_str) = toml::to_string(&default) {
-            let _ = fs::write("config.toml", toml_str);
+        // Don't overwrite existing malformed config to preserve user data
+        if !std::path::Path::new("config.toml").exists() {
+            if let Ok(toml_str) = toml::to_string(&default) {
+                let _ = fs::write("config.toml", toml_str);
+            }
         }
         default
     }

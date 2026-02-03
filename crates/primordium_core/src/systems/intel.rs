@@ -501,7 +501,7 @@ mod tests {
         let p2 = Brain::new_random_with_rng(&mut rng);
 
         let mut rng = ChaCha8Rng::seed_from_u64(111);
-        let child = crossover_brains(&p1, &p2, &mut rng);
+        let child = p1.crossover_with_rng(&p2, &mut rng);
 
         assert!(!child.nodes.is_empty());
         assert!(child.next_node_id >= p1.next_node_id.min(p2.next_node_id));
