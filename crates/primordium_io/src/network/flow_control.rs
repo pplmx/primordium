@@ -20,8 +20,11 @@ impl TokenBucket {
     }
 
     pub fn try_acquire(&self, amount: f64) -> bool {
-        let mut tokens = self.tokens.lock().unwrap();
-        let mut last_refill = self.last_refill.lock().unwrap();
+        let mut tokens = self.tokens.lock().expect("Token bucket mutex poisoned");
+        let mut last_refill = self
+            .last_refill
+            .lock()
+            .expect("Token bucket mutex poisoned");
 
         let now = Instant::now();
         let elapsed = now.duration_since(*last_refill).as_secs_f64();

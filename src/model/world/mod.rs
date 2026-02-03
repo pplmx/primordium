@@ -114,7 +114,7 @@ mod tests {
         let mut config = AppConfig::default();
         config.world.width = 10;
         config.world.height = 10;
-        let mut world = World::new(0, config).unwrap();
+        let mut world = World::new(0, config).expect("Failed to create world");
         world
             .terrain
             .set_cell_type(5, 5, crate::model::terrain::TerrainType::Wall);
