@@ -255,6 +255,28 @@ impl HistoryLogger {
         Ok(snapshots)
     }
 
+    pub fn get_snapshots_recent(&self, limit: usize) -> Result<Vec<(u64, PopulationStats)>> {
+        let file_path = format!("{}/live.jsonl", self.log_dir);
+        let file = match File::open(file_path) {
+            Ok(f) => f,
+            Err(_) => return Ok(vec![]),
+        };
+        let reader = BufReader::new(file);
+        let mut all_snapshots = Vec::new();
+        for l in reader.lines().map_while(Result::ok) {
+            if let Ok(LiveEvent::Snapshot { tick, stats, .. }) =
+                serde_json::from_str::<LiveEvent>(&l)
+            {
+                all_snapshots.push((tick, stats));
+            }
+        }
+        if all_snapshots.len() > limit {
+            Ok(all_snapshots.into_iter().rev().take(limit).collect())
+        } else {
+            Ok(all_snapshots)
+        }
+    }
+
     pub fn compute_legends_hash(legends: &[Legend]) -> Result<String> {
         let json = serde_json::to_string(legends)?;
         let mut hasher = Sha256::new();

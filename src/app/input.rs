@@ -25,7 +25,7 @@ impl App {
             KeyCode::Char('y') => {
                 self.show_archeology = !self.show_archeology;
                 if self.show_archeology {
-                    if let Ok(snaps) = self.world.logger.get_snapshots() {
+                    if let Ok(snaps) = self.world.logger.get_snapshots_recent(100) {
                         self.archeology_snapshots = snaps;
                         self.archeology_index = self.archeology_snapshots.len().saturating_sub(1);
                     }
