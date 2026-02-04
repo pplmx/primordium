@@ -242,6 +242,39 @@ impl SpatialHash {
         count
     }
 
+    /// Fast O(cell-count) kin count using pre-computed lineage density.
+    /// More efficient than callback-based iteration for high-density populations.
+    pub fn count_nearby_kin_fast(
+        &self,
+        x: f64,
+        y: f64,
+        radius: f64,
+        lineage_id: uuid::Uuid,
+    ) -> usize {
+        let mut count: usize = 0;
+        let min_cx = ((x - radius) / self.cell_size).floor() as i32;
+        let max_cx = ((x + radius) / self.cell_size).floor() as i32;
+        let min_cy = ((y - radius) / self.cell_size).floor() as i32;
+        let max_cy = ((y + radius) / self.cell_size).floor() as i32;
+
+        for cy in min_cy..=max_cy {
+            if cy < 0 || cy >= self.rows as i32 {
+                continue;
+            }
+            for cx in min_cx..=max_cx {
+                if cx < 0 || cx >= self.cols as i32 {
+                    continue;
+                }
+
+                let cell_idx = (cy as usize * self.cols) + cx as usize;
+                if let Some(&d) = self.lineage_density[cell_idx].get(&lineage_id) {
+                    count += d as usize;
+                }
+            }
+        }
+        count
+    }
+
     #[inline]
     pub fn query_into(&self, x: f64, y: f64, radius: f64, result: &mut Vec<usize>) {
         result.clear();

@@ -35,13 +35,12 @@ pub fn perceive_and_decide_internal(
         .zip(decision_buffer.par_iter_mut())
         .for_each(
             |((_handle, (identity, pos, _vel, phys, met, intel, health)), decision)| {
-                let mut nearby_kin = 0;
-                ctx.spatial_hash
-                    .query_callback(pos.x, pos.y, phys.sensing_range, |t_idx| {
-                        if ctx.snapshots[t_idx].lineage_id == met.lineage_id {
-                            nearby_kin += 1;
-                        }
-                    });
+                let nearby_kin = ctx.spatial_hash.count_nearby_kin_fast(
+                    pos.x,
+                    pos.y,
+                    phys.sensing_range,
+                    met.lineage_id,
+                );
 
                 let (speed_mod, sensing_mod, repro_mod) = intel::apply_grn_rules(
                     &intel.genotype,
