@@ -41,6 +41,15 @@ impl SpatialHash {
         if !x.is_finite() || !y.is_finite() {
             return None;
         }
+
+        // Check for i32 overflow before casting
+        if x.abs() > i32::MAX as f64 / self.cell_size {
+            return None;
+        }
+        if y.abs() > i32::MAX as f64 / self.cell_size {
+            return None;
+        }
+
         let cx = (x / self.cell_size) as i32;
         let cy = (y / self.cell_size) as i32;
         if cx < 0 || cx >= self.cols as i32 || cy < 0 || cy >= self.rows as i32 {

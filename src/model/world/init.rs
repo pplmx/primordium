@@ -26,9 +26,13 @@ impl World {
         let mut rng = if let Some(seed) = config.world.seed {
             ChaCha8Rng::seed_from_u64(seed)
         } else {
-            ChaCha8Rng::from_entropy()
+            ChaCha8Rng::seed_from_u64(0)
         };
-        let logger = HistoryLogger::new_at(log_dir)?;
+        let logger = HistoryLogger::new_at(log_dir)
+            .unwrap_or_else(|_| {
+                eprintln!("Warning: Failed to create history logger at '{}'. Using dummy logger (no logging will occur).", log_dir);
+                HistoryLogger::new_dummy()
+            });
         let mut lineage_registry = LineageRegistry::new();
         let mut ecs = hecs::World::new();
         for _ in 0..initial_population {
@@ -133,10 +137,8 @@ impl World {
     }
 
     pub fn load_persistent(&mut self) -> anyhow::Result<()> {
-        self.lineage_registry =
-            LineageRegistry::load(format!("{}/lineages.json", self.log_dir)).unwrap_or_default();
-        self.fossil_registry =
-            FossilRegistry::load(&format!("{}/fossils.json.gz", self.log_dir)).unwrap_or_default();
+        self.lineage_registry = LineageRegistry::load(format!("{}/lineages.json", self.log_dir))?;
+        self.fossil_registry = FossilRegistry::load(&format!("{}/fossils.json.gz", self.log_dir))?;
         Ok(())
     }
 

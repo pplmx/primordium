@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+fn default_rng() -> ChaCha8Rng {
+    ChaCha8Rng::seed_from_u64(0)
+}
+
 pub mod init;
 pub mod logic;
 pub mod state;
@@ -70,7 +74,7 @@ pub struct World {
     pub observer: WorldObserver,
     #[serde(skip, default)]
     pub best_legends: HashMap<uuid::Uuid, crate::model::history::Legend>,
-    #[serde(skip, default = "rand_chacha::ChaCha8Rng::from_entropy")]
+    #[serde(skip, default = "default_rng")]
     pub rng: ChaCha8Rng,
     #[serde(skip, default)]
     pub killed_ids: HashSet<uuid::Uuid>,
