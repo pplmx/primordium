@@ -10,7 +10,6 @@ use uuid::Uuid;
 
 type TerrainMod = Box<dyn FnOnce(&mut World)>;
 
-/// A builder for creating a configured simulation world for integration tests.
 #[allow(dead_code)]
 pub struct WorldBuilder {
     config: AppConfig,
@@ -23,8 +22,8 @@ pub struct WorldBuilder {
 impl WorldBuilder {
     pub fn new() -> Self {
         let mut config = AppConfig::default();
-        config.world.initial_population = 0; // Default to manual spawning
-        config.world.initial_food = 0; // Default to clean slate
+        config.world.initial_population = 0;
+        config.world.initial_food = 0;
         Self {
             config,
             entities: Vec::new(),
@@ -103,7 +102,6 @@ impl WorldBuilder {
     pub fn with_memory(mut self, lineage_id: Uuid, key: &str, value: f32) -> Self {
         let key = key.to_string();
         self.terrain_mods.push(Box::new(move |world| {
-            // Ensure lineage exists before setting memory, otherwise it's a no-op
             if !world.lineage_registry.lineages.contains_key(&lineage_id) {
                 world.lineage_registry.record_birth(lineage_id, 0, 0);
             }
@@ -115,8 +113,13 @@ impl WorldBuilder {
     }
 
     pub fn build(self) -> (World, Environment) {
+        let is_deterministic = self.config.world.deterministic;
         let mut world = World::new(0, self.config).expect("Failed to create world in test builder");
-        let env = Environment::default();
+        let mut env = Environment::default();
+
+        if is_deterministic {
+            env.tick_deterministic(0);
+        }
 
         for modifier in self.terrain_mods {
             modifier(&mut world);
@@ -130,7 +133,6 @@ impl WorldBuilder {
     }
 }
 
-/// A builder for creating entities with specific traits and behaviors.
 #[allow(dead_code)]
 pub struct EntityBuilder {
     x: f64,
@@ -144,6 +146,7 @@ pub struct EntityBuilder {
     metabolic_niche: f32,
     brain_connections: Vec<primordium_lib::model::brain::Connection>,
     rank: Option<f32>,
+    id: Option<Uuid>,
 }
 
 #[allow(dead_code)]
@@ -161,7 +164,13 @@ impl EntityBuilder {
             metabolic_niche: 0.5,
             brain_connections: Vec::new(),
             rank: None,
+            id: None,
         }
+    }
+
+    pub fn id(mut self, id: Uuid) -> Self {
+        self.id = Some(id);
+        self
     }
 
     pub fn at(mut self, x: f64, y: f64) -> Self {
@@ -248,6 +257,9 @@ impl EntityBuilder {
 
     pub fn build(self) -> primordium_data::Entity {
         let mut e = lifecycle::create_entity(self.x, self.y, 0);
+        if let Some(id) = self.id {
+            e.identity.id = id;
+        }
         e.metabolism.energy = self.energy;
         e.metabolism.max_energy = self.max_energy;
         e.metabolism.trophic_potential = self.trophic_potential;
@@ -268,7 +280,6 @@ impl EntityBuilder {
             e.intel.genotype.brain.connections = self.brain_connections;
         }
 
-        // Sync genotype max energy
         e.intel.genotype.max_energy = self.max_energy;
 
         if let Some(r) = self.rank {

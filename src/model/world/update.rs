@@ -9,8 +9,8 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::model::brain::BrainLogic;
 use crate::model::world::{systems, EntityComponents, SystemContext, World};
+use primordium_core::brain::BrainLogic;
 use primordium_core::systems::{
     action, biological, civilization, ecological, environment, history, interaction, social, stats,
 };
@@ -20,26 +20,90 @@ impl World {
         self.tick += 1;
         let world_seed = self.config.world.seed.unwrap_or(0);
 
-        self.update_environment_and_resources(env, world_seed);
+        if self.config.world.deterministic {
+            let seed = world_seed.wrapping_add(self.tick).wrapping_add(0x5EED);
+            self.rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+            env.tick_deterministic(self.tick);
+            self.update_environment_and_resources(env, seed);
+        } else {
+            self.update_environment_and_resources(env, world_seed);
+        }
+
+        let (handles, id_map) = self.build_tick_indices();
 
         self.pass_social_ranks();
         self.pass_spatial_indexing();
         let food_handles = self.pass_food_indexing();
-        self.capture_entity_snapshots();
+        self.capture_entity_snapshots_with_handles(&handles);
         self.pass_learning();
 
         self.influence.update(&self.entity_snapshots);
 
-        let overmind_broadcasts = self.pass_perception_and_action(env, &food_handles, world_seed);
+        let overmind_broadcasts = {
+            let mut query = self.ecs.query::<EntityComponents>();
+            let mut entity_data: Vec<_> = query.iter().collect();
+            entity_data.sort_by_key(|(_h, (i, ..))| i.id);
+
+            let mut interaction_commands_buffer = std::mem::take(&mut self.interaction_buffer);
+            let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
+
+            let result = {
+                let system_ctx = SystemContext {
+                    config: &self.config,
+                    ecs: &self.ecs,
+                    food_hash: &self.food_hash,
+                    spatial_hash: &self.spatial_hash,
+                    pheromones: &self.pheromones,
+                    sound: &self.sound,
+                    pressure: &self.pressure,
+                    influence: &self.influence,
+                    terrain: &self.terrain,
+                    tick: self.tick,
+                    registry: &self.lineage_registry,
+                    snapshots: &self.entity_snapshots,
+                    food_handles: &food_handles,
+                    world_seed,
+                };
+
+                systems::perceive_and_decide_internal(
+                    &system_ctx,
+                    env,
+                    self.pop_stats.biomass_c,
+                    &mut entity_data,
+                    &id_map,
+                    &mut interaction_commands_buffer,
+                    &mut decision_buffer,
+                );
+
+                let all_outputs = systems::calculate_actions_parallel(
+                    &system_ctx,
+                    env,
+                    &id_map,
+                    &mut entity_data,
+                    &mut decision_buffer,
+                );
+
+                systems::apply_actions_sequential(
+                    all_outputs,
+                    &mut self.pheromones,
+                    &mut self.sound,
+                    &mut self.pressure,
+                    env,
+                )
+            };
+
+            self.decision_buffer = decision_buffer;
+            self.interaction_buffer = interaction_commands_buffer;
+            result
+        };
 
         for (l_id, amount) in &overmind_broadcasts {
             self.lineage_registry
                 .set_memory_value(l_id, "overmind", *amount);
         }
 
-        let (mut events, new_babies) = self.pass_interactions(env, &food_handles);
+        let (mut events, new_babies) = self.pass_interactions(env, &food_handles, &handles);
 
-        let handles = self.get_sorted_handles();
         self.finalize_tick(env, &mut events, &handles, new_babies);
 
         self.update_grids_and_environment(env);
@@ -47,28 +111,44 @@ impl World {
         Ok(events)
     }
 
+    fn build_tick_indices(&mut self) -> (Vec<hecs::Entity>, HashMap<uuid::Uuid, usize>) {
+        let mut data: Vec<_> = self
+            .ecs
+            .query::<&Identity>()
+            .iter()
+            .map(|(h, i)| (h, i.id))
+            .collect();
+        data.sort_by_key(|d| d.1);
+
+        let mut handles = Vec::with_capacity(data.len());
+        let mut id_to_idx = HashMap::new();
+
+        for (idx, (handle, id)) in data.into_iter().enumerate() {
+            id_to_idx.insert(id, idx);
+            handles.push(handle);
+        }
+
+        (handles, id_to_idx)
+    }
+
     fn pass_social_ranks(&mut self) {
         let tick = self.tick;
         let config = &self.config;
         let mut query = self.ecs.query::<(&Metabolism, &mut Intel, &Identity)>();
         let mut data: Vec<_> = query.iter().collect();
-        // Sort by ID for deterministic parallel execution
         data.sort_by_key(|(_h, (.., ident))| ident.id);
 
-        data.par_iter_mut().for_each(|(_, (met, intel, _))| {
+        data.par_iter_mut().for_each(|(_, (met, intel, _ident))| {
             intel.rank = social::calculate_social_rank_components(met, intel, tick, config);
         });
     }
 
     fn pass_spatial_indexing(&mut self) {
-        let mut query = self
-            .ecs
-            .query::<(&Position, &Metabolism, &primordium_data::Identity)>();
+        let mut query = self.ecs.query::<EntityComponents>();
         let mut spatial_data_with_ids: Vec<_> = query
             .iter()
-            .map(|(_h, (pos, met, ident))| (pos.x, pos.y, met.lineage_id, ident.id))
+            .map(|(_h, (ident, pos, _, _, met, ..))| (pos.x, pos.y, met.lineage_id, ident.id))
             .collect();
-        // Sort by ID to ensure deterministic order in spatial hash cells
         spatial_data_with_ids.sort_by_key(|d| d.3);
 
         let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
@@ -90,7 +170,6 @@ impl World {
             .map(|(handle, (pos, food))| (pos.x, pos.y, handle, food.nutrient_type))
             .collect();
 
-        // Sort by position for food (since they don't have UUIDs)
         food_data.sort_by(|a, b| {
             a.0.partial_cmp(&b.0)
                 .unwrap_or(std::cmp::Ordering::Equal)
@@ -113,14 +192,15 @@ impl World {
     fn pass_learning(&mut self) {
         let mut query = self.ecs.query::<(&Metabolism, &mut Intel, &Identity)>();
         let mut data: Vec<_> = query.iter().collect();
-        // Sort by ID for deterministic learning updates
         data.sort_by_key(|(_h, (.., ident))| ident.id);
 
-        data.par_iter_mut().for_each(|(_, (met, intel, _))| {
+        data.par_iter_mut().for_each(|(_, (met, intel, _ident))| {
             let reinforcement = if met.energy > met.prev_energy {
                 0.1
-            } else {
+            } else if met.energy < met.prev_energy {
                 -0.05
+            } else {
+                0.0
             };
             intel
                 .genotype
@@ -129,102 +209,15 @@ impl World {
         });
     }
 
-    fn pass_perception_and_action(
-        &mut self,
-        env: &mut Environment,
-        food_handles: &[hecs::Entity],
-        world_seed: u64,
-    ) -> Vec<(uuid::Uuid, f32)> {
-        let mut query = self.ecs.query::<EntityComponents>();
-        let mut entity_data: Vec<_> = query.iter().collect();
-        entity_data.par_sort_by_key(|(_h, (i, ..))| i.id);
-
-        let id_map: HashMap<uuid::Uuid, usize> = entity_data
-            .iter()
-            .enumerate()
-            .map(|(idx, (_, (i, ..)))| (i.id, idx))
-            .collect();
-
-        let mut interaction_commands_buffer = std::mem::take(&mut self.interaction_buffer);
-        let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
-
-        {
-            let system_ctx = SystemContext {
-                config: &self.config,
-                ecs: &self.ecs,
-                food_hash: &self.food_hash,
-                spatial_hash: &self.spatial_hash,
-                pheromones: &self.pheromones,
-                sound: &self.sound,
-                pressure: &self.pressure,
-                influence: &self.influence,
-                terrain: &self.terrain,
-                tick: self.tick,
-                registry: &self.lineage_registry,
-                snapshots: &self.entity_snapshots,
-                food_handles,
-                world_seed,
-            };
-
-            systems::perceive_and_decide_internal(
-                &system_ctx,
-                env,
-                self.pop_stats.biomass_c,
-                &mut entity_data,
-                &id_map,
-                &mut interaction_commands_buffer,
-                &mut decision_buffer,
-            );
-        }
-
-        let all_outputs = {
-            let system_ctx = SystemContext {
-                config: &self.config,
-                ecs: &self.ecs,
-                food_hash: &self.food_hash,
-                spatial_hash: &self.spatial_hash,
-                pheromones: &self.pheromones,
-                sound: &self.sound,
-                pressure: &self.pressure,
-                influence: &self.influence,
-                terrain: &self.terrain,
-                tick: self.tick,
-                registry: &self.lineage_registry,
-                snapshots: &self.entity_snapshots,
-                food_handles,
-                world_seed,
-            };
-            systems::calculate_actions_parallel(
-                &system_ctx,
-                env,
-                &id_map,
-                &mut entity_data,
-                &mut decision_buffer,
-            )
-        };
-
-        let broadcasts = systems::apply_actions_sequential(
-            all_outputs,
-            &mut self.pheromones,
-            &mut self.sound,
-            &mut self.pressure,
-            env,
-        );
-
-        self.decision_buffer = decision_buffer;
-        self.interaction_buffer = interaction_commands_buffer;
-        broadcasts
-    }
-
     fn pass_interactions(
         &mut self,
         env: &mut Environment,
         food_handles: &[hecs::Entity],
+        handles: &[hecs::Entity],
     ) -> (Vec<LiveEvent>, Vec<Entity>) {
         let interaction_commands = std::mem::take(&mut self.interaction_buffer);
-        let handles = self.get_sorted_handles();
         let (interaction_events, new_babies) =
-            self.execute_interactions(env, interaction_commands, &handles, food_handles);
+            self.execute_interactions(env, interaction_commands, handles, food_handles);
 
         for ev in &interaction_events {
             let _ = self.logger.log_event(ev.clone());
@@ -240,10 +233,10 @@ impl World {
             },
         );
 
-        if self.config.world.deterministic {
-            env.tick_deterministic(self.tick);
-        } else {
+        if !self.config.world.deterministic {
             env.tick();
+        } else {
+            env.world_time = 500;
         }
 
         if self.tick.is_multiple_of(10) {
@@ -362,6 +355,7 @@ impl World {
             spatial_hash: &self.spatial_hash,
             rng: &mut self.rng,
             food_count: &self.food_count,
+            world_seed: self.config.world.seed.unwrap_or(0),
         };
 
         let result1 = interaction::process_interaction_commands_ecs(
@@ -442,13 +436,14 @@ impl World {
         entity_handles: &[hecs::Entity],
         new_babies: Vec<Entity>,
     ) {
-        let config = &self.config;
         let tick = self.tick;
+        self.capture_entity_snapshots();
+
         let active_pathogens = &self.active_pathogens;
         let spatial_hash = &self.spatial_hash;
         let killed_ids = &self.killed_ids;
+        let config = &self.config;
 
-        // 1. Parallel pass: Update systems and collect proposals
         let proposals: Vec<_> = {
             let mut query = self.ecs.query::<(
                 &Identity,
@@ -458,7 +453,6 @@ impl World {
                 &Physics,
             )>();
             let mut components: Vec<_> = query.iter().collect();
-            // Sort components by ID to ensure deterministic update order and RNG usage
             components.sort_by_key(|(_h, (ident, ..))| ident.id);
             let population_count = components.len();
 
@@ -466,10 +460,15 @@ impl World {
                 .par_iter_mut()
                 .map(|(handle, (identity, met, intel, health, phys))| {
                     let u = identity.id.as_u128();
-                    let seed = tick ^ (u >> 64) as u64 ^ (u as u64);
+                    let mut seed = tick
+                        .wrapping_add(config.world.seed.unwrap_or(0))
+                        .wrapping_mul(0x517CC1B727220A95);
+                    seed ^= (u >> 64) as u64;
+                    seed = seed.wrapping_mul(0x517CC1B727220A95);
+                    seed ^= u as u64;
+
                     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
 
-                    // a. Basic biological update
                     biological::biological_system_components(
                         met,
                         intel,
@@ -480,14 +479,12 @@ impl World {
                         &mut rng,
                     );
 
-                    // b. Infection check (Incoming from environment)
                     for p in active_pathogens {
                         if rng.gen_bool(0.005) {
                             biological::try_infect_components(health, p, &mut rng);
                         }
                     }
 
-                    // c. Infection Spread proposal (Outgoing to neighbors)
                     let mut infections = Vec::new();
                     if let Some(p) = &health.pathogen {
                         spatial_hash.query_callback(phys.x, phys.y, 2.0, |n_idx| {
@@ -498,7 +495,6 @@ impl World {
                         });
                     }
 
-                    // d. Death check
                     let is_dead = killed_ids.contains(&identity.id) || met.energy <= 0.0;
 
                     (*handle, infections, is_dead)
@@ -506,7 +502,6 @@ impl World {
                 .collect()
         };
 
-        // 2. Sequential pass: Apply proposals
         for (_handle, infections, _) in &proposals {
             for (n_handle, pathogen) in infections {
                 if let Ok(mut n_health) = self.ecs.get::<&mut Health>(*n_handle) {

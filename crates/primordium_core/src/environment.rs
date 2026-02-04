@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub enum Era {
     #[default]
-    Primordial, // chaotic adaptation
-    DawnOfLife,   // stable population
-    Flourishing,  // high diversity
-    DominanceWar, // high predation
-    ApexEra,      // peak fitness
+    Primordial,
+    DawnOfLife,
+    Flourishing,
+    DominanceWar,
+    ApexEra,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -50,14 +50,13 @@ impl ResourceState {
     }
 }
 
-/// Seasons that affect metabolism and food spawning
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub enum Season {
     #[default]
-    Spring, // Food ×1.5, Metabolism ×0.8
-    Summer, // Food ×1.0, Metabolism ×1.2
-    Fall,   // Food ×1.2, Metabolism ×1.0
-    Winter, // Food ×0.5, Metabolism ×1.5
+    Spring,
+    Summer,
+    Fall,
+    Winter,
 }
 
 impl Season {
@@ -71,7 +70,6 @@ impl Season {
         }
     }
 
-    /// Food spawn multiplier for this season
     #[must_use]
     pub fn food_multiplier(&self) -> f64 {
         match self {
@@ -82,7 +80,6 @@ impl Season {
         }
     }
 
-    /// Metabolism multiplier for this season
     #[must_use]
     pub fn metabolism_multiplier(&self) -> f64 {
         match self {
@@ -93,7 +90,6 @@ impl Season {
         }
     }
 
-    /// Get next season in the cycle
     #[must_use]
     pub fn next(&self) -> Season {
         match self {
@@ -121,30 +117,23 @@ impl TimeOfDay {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Environment {
     pub cpu_usage: f32,
     pub ram_usage_percent: f32,
     pub load_avg: f64,
-    // Event counters
     pub heat_wave_timer: u32,
     pub ice_age_timer: u32,
     pub abundance_timer: u32,
     pub radiation_timer: u32,
-    // Era System
     pub current_era: Era,
-    // Season System
     pub current_season: Season,
     pub season_tick: u64,
-    pub season_duration: u64, // Ticks per season (default: 10000)
-    // Circadian System
-    pub world_time: u64,      // 0 to day_cycle_ticks
-    pub day_cycle_ticks: u64, // Default: 2000
-    // NEW: God Mode Overrides
+    pub season_duration: u64,
+    pub world_time: u64,
+    pub day_cycle_ticks: u64,
     pub god_climate_override: Option<ClimateState>,
-    /// NEW: Phase 38 - Atmospheric Carbon Level (0.0 to 2000.0)
     pub carbon_level: f64,
-    /// NEW: Phase 56 - Atmospheric Oxygen Level (0.0 to 100.0, baseline 21.0)
     pub oxygen_level: f64,
 }
 
@@ -165,8 +154,8 @@ impl Default for Environment {
             world_time: 0,
             day_cycle_ticks: 2000,
             god_climate_override: None,
-            carbon_level: 300.0, // Baseline CO2
-            oxygen_level: 21.0,  // Baseline O2 (%)
+            carbon_level: 300.0,
+            oxygen_level: 21.0,
         }
     }
 }
@@ -174,28 +163,34 @@ impl Default for Environment {
 impl Environment {
     pub fn tick(&mut self) {
         self.world_time = (self.world_time + 1) % self.day_cycle_ticks;
-        // Natural carbon diffusion/decay
         self.carbon_level = (self.carbon_level * 0.9999 + 300.0 * 0.0001).clamp(0.0, 2000.0);
-        // Phase 56 Fix: Stronger natural oxygen buffer towards 21% for high populations
         self.oxygen_level = (self.oxygen_level * 0.9 + 21.0 * 0.1).clamp(5.0, 50.0);
     }
 
     pub fn tick_deterministic(&mut self, tick: u64) {
-        self.tick();
+        self.heat_wave_timer = 0;
+        self.ice_age_timer = 0;
+        self.abundance_timer = 0;
+        self.radiation_timer = 0;
+
+        self.current_era = Era::Primordial;
+        self.current_season = Season::Spring;
+        self.world_time = 500;
+
         let t = tick as f32 * 0.01;
         self.cpu_usage = 50.0 + (t.sin() * 20.0);
         self.ram_usage_percent = 60.0 + (t.cos() * 10.0);
+        self.carbon_level = 300.0;
+        self.oxygen_level = 21.0;
     }
 
     pub fn add_carbon(&mut self, amount: f64) {
         self.carbon_level = (self.carbon_level + amount).min(2000.0);
-        // Carbon displaces Oxygen slightly
         self.oxygen_level = (self.oxygen_level - amount * 0.001).max(5.0);
     }
 
     pub fn sequestrate_carbon(&mut self, amount: f64) {
         self.carbon_level = (self.carbon_level - amount).max(0.0);
-        // Photosynthesis produces Oxygen - Boosted for ecological balance
         self.oxygen_level = (self.oxygen_level + amount * 2.0).min(50.0);
     }
 
@@ -212,18 +207,15 @@ impl Environment {
         }
     }
 
-    /// Light level from 0.0 (darkest night) to 1.0 (brightest day)
     #[must_use]
     pub fn light_level(&self) -> f32 {
         let half_cycle = self.day_cycle_ticks as f32 / 2.0;
         let progress = (self.world_time as f32 % self.day_cycle_ticks as f32) / half_cycle;
 
         if progress < 1.0 {
-            // Day: peak at middle of day
             let x = progress - 0.5;
-            1.0 - (x * x * 4.0) // Simple parabolic arc
+            1.0 - (x * x * 4.0)
         } else {
-            // Night: very low light
             0.1
         }
     }
@@ -256,8 +248,6 @@ impl Environment {
             return over;
         }
 
-        // Carbon forcing (Global Warming)
-        // Baseline 300, at 800+ it pushes climate up
         let carbon_forcing = ((self.carbon_level - 300.0) / 100.0).max(0.0) as f32;
         let effective_cpu = self.cpu_usage + carbon_forcing * 10.0;
 
@@ -299,7 +289,6 @@ impl Environment {
             }
         };
 
-        // Apply Era-based selection pressure
         let era_mult = match self.current_era {
             Era::Primordial => 1.0,
             Era::DawnOfLife => 0.9,
@@ -308,14 +297,12 @@ impl Environment {
             Era::ApexEra => 1.2,
         };
 
-        // Apply circadian mult (rest at night)
         let circadian = if matches!(self.time_of_day(), TimeOfDay::Night) {
-            0.6 // 40% reduction at night
+            0.6
         } else {
             1.0
         };
 
-        // Apply season modifier
         let mut final_mult =
             base * era_mult * self.current_season.metabolism_multiplier() * circadian;
 
@@ -339,7 +326,6 @@ impl Environment {
         if self.is_abundance() {
             base *= 2.0;
         }
-        // Apply season modifier
         base * self.current_season.food_multiplier()
     }
 }
@@ -355,23 +341,19 @@ mod tests {
             ..Environment::default()
         };
 
-        // Initially day
         assert_eq!(env.time_of_day(), TimeOfDay::Day);
 
-        // Midday (ticks/4 = 25)
         env.world_time = 25;
         assert!(env.light_level() > 0.9);
 
-        // Progress to night
         for _ in 0..50 {
-            env.tick(); // Now 75
+            env.tick();
         }
         assert_eq!(env.time_of_day(), TimeOfDay::Night);
         assert_eq!(env.light_level(), 0.1);
 
-        // Reset to day
         for _ in 0..50 {
-            env.tick(); // Now 125 % 100 = 25
+            env.tick();
         }
         assert_eq!(env.time_of_day(), TimeOfDay::Day);
     }
@@ -383,11 +365,9 @@ mod tests {
             ..Environment::default()
         };
 
-        // Day metabolism
         env.world_time = 0;
         let day_met = env.metabolism_multiplier();
 
-        // Night metabolism
         env.world_time = 60;
         let night_met = env.metabolism_multiplier();
 

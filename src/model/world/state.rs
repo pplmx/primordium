@@ -28,46 +28,49 @@ pub struct EntityDecision {
 }
 
 impl World {
-    pub fn capture_entity_snapshots(&mut self) {
-        let mut query = self.ecs.query::<(
-            &primordium_data::Identity,
-            &primordium_data::Physics,
-            &primordium_data::Metabolism,
-            &primordium_data::Intel,
-            &primordium_data::Health,
-        )>();
-        let mut entity_data: Vec<_> = query.iter().collect();
-        entity_data.sort_by_key(|(_, (i, ..))| i.id);
-
+    pub fn capture_entity_snapshots_with_handles(&mut self, handles: &[hecs::Entity]) {
         self.entity_snapshots.clear();
-        for (_handle, (identity, physics, metabolism, intel, health)) in entity_data {
-            self.entity_snapshots.push(InternalEntitySnapshot {
-                id: identity.id,
-                lineage_id: metabolism.lineage_id,
-                x: physics.x,
-                y: physics.y,
-                energy: metabolism.energy,
-                birth_tick: metabolism.birth_tick,
-                offspring_count: metabolism.offspring_count,
-                generation: metabolism.generation,
-                max_energy: metabolism.max_energy,
-                r: physics.r,
-                g: physics.g,
-                b: physics.b,
-                rank: intel.rank,
-                status: lifecycle::calculate_status(
-                    metabolism,
-                    health,
-                    intel,
-                    self.config.brain.activation_threshold,
-                    self.tick,
-                    self.config.metabolism.maturity_age,
-                ),
-                genotype: Some(Arc::new(intel.genotype.clone())),
-            });
+        for &handle in handles {
+            if let Ok(mut query) = self.ecs.query_one::<EntityComponents>(handle) {
+                if let Some((identity, position, _velocity, physics, metabolism, intel, health)) =
+                    query.get()
+                {
+                    self.entity_snapshots.push(InternalEntitySnapshot {
+                        id: identity.id,
+                        lineage_id: metabolism.lineage_id,
+                        x: position.x,
+                        y: position.y,
+                        energy: metabolism.energy,
+                        birth_tick: metabolism.birth_tick,
+                        offspring_count: metabolism.offspring_count,
+                        generation: metabolism.generation,
+                        max_energy: metabolism.max_energy,
+                        r: physics.r,
+                        g: physics.g,
+                        b: physics.b,
+                        rank: intel.rank,
+                        status: lifecycle::calculate_status(
+                            metabolism,
+                            health,
+                            intel,
+                            self.config.brain.activation_threshold,
+                            self.tick,
+                            self.config.metabolism.maturity_age,
+                        ),
+                        genotype: Some(Arc::new(intel.genotype.clone())),
+                    });
+                }
+            }
         }
     }
 
+    pub fn capture_entity_snapshots(&mut self) {
+        let sorted_handles = self.get_sorted_handles();
+        self.capture_entity_snapshots_with_handles(&sorted_handles);
+    }
+}
+
+impl World {
     pub fn get_population_count(&self) -> usize {
         self.ecs
             .query::<&primordium_data::Identity>()
@@ -82,9 +85,9 @@ impl World {
     pub fn get_sorted_handles(&self) -> Vec<hecs::Entity> {
         let mut data: Vec<_> = self
             .ecs
-            .query::<&primordium_data::Identity>()
+            .query::<EntityComponents>()
             .iter()
-            .map(|(h, i)| (h, i.id))
+            .map(|(h, (i, ..))| (h, i.id))
             .collect();
         data.sort_by_key(|d| d.1);
         data.into_iter().map(|d| d.0).collect()
@@ -143,22 +146,14 @@ impl World {
     pub fn create_snapshot(&self, selected_id: Option<uuid::Uuid>) -> WorldSnapshot {
         let mut entities = Vec::new();
 
-        for (_handle, (identity, physics, metabolism, intel, health)) in self
-            .ecs
-            .query::<(
-                &primordium_data::Identity,
-                &primordium_data::Physics,
-                &primordium_data::Metabolism,
-                &primordium_data::Intel,
-                &primordium_data::Health,
-            )>()
-            .iter()
+        for (_handle, (identity, position, _velocity, physics, metabolism, intel, health)) in
+            self.ecs.query::<EntityComponents>().iter()
         {
             entities.push(EntitySnapshot {
                 id: identity.id,
                 name: lifecycle::get_name_components(&identity.id, metabolism),
-                x: physics.x,
-                y: physics.y,
+                x: position.x,
+                y: position.y,
                 r: physics.r,
                 g: physics.g,
                 b: physics.b,

@@ -9,10 +9,9 @@ use crate::systems::{biological, social};
 use crate::terrain::{TerrainGrid, TerrainType};
 use chrono::Utc;
 use primordium_data::{Entity, Health, Intel, Metabolism, Physics, Specialization};
+use rand::{Rng, SeedableRng};
 use std::collections::HashSet;
 use uuid::Uuid;
-
-use rand::Rng;
 
 pub struct InteractionContext<'a, R: Rng> {
     pub terrain: &'a mut TerrainGrid,
@@ -20,7 +19,6 @@ pub struct InteractionContext<'a, R: Rng> {
     pub pop_stats: &'a mut PopulationStats,
     pub lineage_registry: &'a mut LineageRegistry,
     pub fossil_registry: &'a mut FossilRegistry,
-    // logger removed
     pub config: &'a AppConfig,
     pub tick: u64,
     pub width: u16,
@@ -31,6 +29,7 @@ pub struct InteractionContext<'a, R: Rng> {
     pub spatial_hash: &'a crate::spatial_hash::SpatialHash,
     pub rng: &'a mut R,
     pub food_count: &'a std::sync::atomic::AtomicUsize,
+    pub world_seed: u64,
 }
 
 pub struct InteractionResult {
@@ -79,7 +78,18 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                 }
 
                 if let Some((tid, target_birth, target_offspring)) = target_info {
-                    if ctx.rng.gen_bool(success_chance as f64) {
+                    let u = tid.as_u128();
+                    let mut seed = ctx
+                        .tick
+                        .wrapping_add(ctx.world_seed)
+                        .wrapping_mul(0x517CC1B727220A95);
+                    seed ^= (u >> 64) as u64;
+                    seed = seed.wrapping_mul(0x517CC1B727220A95);
+                    seed ^= u as u64;
+                    seed ^= 0xDEADBEEF;
+
+                    let mut local_rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+                    if local_rng.gen::<f32>() < success_chance {
                         killed_ids.insert(tid);
                         crate::systems::stats::record_stat_death(
                             ctx.pop_stats,
@@ -247,7 +257,7 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                         if met.energy > energy_cost {
                             met.energy -= energy_cost;
                             ctx.terrain
-                                .set_cell_type(x as u16, y as u16, TerrainType::Plains);
+                                .set_cell_type(x as u16, y as u16, TerrainType::Barren);
                             social::increment_spec_meter_components(
                                 &mut intel,
                                 Specialization::Engineer,

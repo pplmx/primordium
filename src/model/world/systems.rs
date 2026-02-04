@@ -34,7 +34,7 @@ pub fn perceive_and_decide_internal(
         .par_iter_mut()
         .zip(decision_buffer.par_iter_mut())
         .for_each(
-            |((_handle, (_identity, pos, _vel, phys, met, intel, health)), decision)| {
+            |((_handle, (identity, pos, _vel, phys, met, intel, health)), decision)| {
                 let mut nearby_kin = 0;
                 ctx.spatial_hash
                     .query_callback(pos.x, pos.y, phys.sensing_range, |t_idx| {
@@ -126,6 +126,15 @@ pub fn perceive_and_decide_internal(
                     overmind_signal,
                 ];
 
+                let u = identity.id.as_u128();
+                let seed = ctx
+                    .world_seed
+                    .wrapping_add(ctx.tick)
+                    .wrapping_mul(0x517CC1B727220A95)
+                    ^ (u >> 64) as u64
+                    ^ u as u64;
+                let _local_rng = ChaCha8Rng::seed_from_u64(seed);
+
                 let (mut outputs, next_hidden) = intel.genotype.brain.forward_internal(
                     inputs,
                     intel.last_hidden,
@@ -159,7 +168,12 @@ pub fn perceive_and_decide_internal(
             |(i, (_handle, (identity, pos, _vel, phys, met, intel, health)))| {
                 let mut acc = Vec::new();
                 let u = identity.id.as_u128();
-                let seed = ctx.world_seed ^ (u >> 64) as u64 ^ (u as u64);
+                let seed = ctx
+                    .world_seed
+                    .wrapping_add(ctx.tick)
+                    .wrapping_mul(0x517CC1B727220A95)
+                    ^ (u >> 64) as u64
+                    ^ (u as u64);
                 let mut local_rng = ChaCha8Rng::seed_from_u64(seed);
 
                 let decision = &decision_buffer[i];
@@ -345,10 +359,8 @@ pub fn perceive_and_decide_internal(
                                 + (phys.g as i32 - target_snap.g as i32).abs()
                                 + (phys.b as i32 - target_snap.b as i32).abs();
 
-                            // Only attack if color distance is high OR (different lineage)
-                            // We prioritize lineage safety first.
                             if target_snap.lineage_id == met.lineage_id {
-                                return; // Never attack kin
+                                return;
                             }
 
                             if color_dist >= ctx.config.social.tribe_color_threshold {

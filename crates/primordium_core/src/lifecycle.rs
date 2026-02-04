@@ -41,9 +41,10 @@ pub fn get_name(entity: &Entity) -> String {
 }
 
 pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) -> Entity {
-    let genotype = crate::brain::create_genotype_random_with_rng(rng);
+    let mut genotype = crate::brain::create_genotype_random_with_rng(rng);
     let id_u128 = rng.gen::<u128>();
     let id = Uuid::from_u128(id_u128);
+    genotype.lineage_id = id;
     Entity {
         identity: primordium_data::Identity {
             id,
@@ -112,6 +113,10 @@ pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) ->
 pub fn create_entity(x: f64, y: f64, tick: u64) -> Entity {
     let mut rng = rand::thread_rng();
     create_entity_with_rng(x, y, tick, &mut rng)
+}
+
+pub fn create_entity_deterministic(x: f64, y: f64, tick: u64, rng: &mut impl Rng) -> Entity {
+    create_entity_with_rng(x, y, tick, rng)
 }
 
 pub fn calculate_status(
