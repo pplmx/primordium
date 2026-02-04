@@ -12,6 +12,7 @@ pub struct SpatialHash {
     pub cell_offsets: Vec<usize>,
     pub entity_indices: Vec<usize>,
     pub lineage_centroids: HashMap<uuid::Uuid, (f64, f64, usize)>,
+    pub lineage_density: Vec<HashMap<uuid::Uuid, f32>>,
 }
 
 impl SpatialHash {
@@ -27,6 +28,7 @@ impl SpatialHash {
             cell_offsets: vec![0; cols * rows + 1],
             entity_indices: Vec::new(),
             lineage_centroids: HashMap::new(),
+            lineage_density: vec![HashMap::new(); cols * rows],
         }
     }
 
@@ -103,6 +105,38 @@ impl SpatialHash {
             entry.2 += 1;
         }
         self.lineage_centroids = centroids;
+
+        self.lineage_density.clear();
+        self.lineage_density.resize(cell_count, HashMap::new());
+        for &(x, y, lid) in data {
+            if let Some(idx) = self.get_cell_idx(x, y) {
+                *self.lineage_density[idx].entry(lid).or_insert(0.0) += 1.0;
+            }
+        }
+    }
+
+    pub fn get_lineage_density(&self, x: f64, y: f64, lid: uuid::Uuid) -> f32 {
+        if let Some(idx) = self.get_cell_idx(x, y) {
+            let mut total = 0.0;
+            let cx = idx % self.cols;
+            let cy = idx / self.cols;
+
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let nx = cx as i32 + dx;
+                    let ny = cy as i32 + dy;
+                    if nx >= 0 && nx < self.cols as i32 && ny >= 0 && ny < self.rows as i32 {
+                        let n_idx = (ny as usize * self.cols) + nx as usize;
+                        if let Some(&d) = self.lineage_density[n_idx].get(&lid) {
+                            total += d;
+                        }
+                    }
+                }
+            }
+            total
+        } else {
+            0.0
+        }
     }
 
     pub fn get_lineage_centroid(&self, lid: &uuid::Uuid) -> Option<(f64, f64)> {
