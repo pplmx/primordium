@@ -161,12 +161,12 @@ pub fn perceive_and_decide_internal(
         );
 
     // Deterministic Command Collection
-    let all_cmds: Vec<Vec<InteractionCommand>> = entity_data
+    let all_cmds_flat: Vec<InteractionCommand> = entity_data
         .par_iter_mut()
         .enumerate()
-        .map(
-            |(i, (_handle, (identity, pos, _vel, phys, met, intel, health)))| {
-                let mut acc = Vec::new();
+        .fold(
+            Vec::new,
+            |mut acc, (i, (_handle, (identity, pos, _vel, phys, met, intel, health)))| {
                 let u = identity.id.as_u128();
                 let seed = ctx
                     .world_seed
@@ -216,62 +216,62 @@ pub fn perceive_and_decide_internal(
                     ) {
                         if let Some(&p_idx) = id_map.get(&p_id) {
                             let partner_snap = &ctx.snapshots[p_idx];
-                            let partner_genotype = partner_snap.genotype.as_ref().unwrap();
+                            if let Some(partner_genotype) = partner_snap.genotype.as_ref() {
+                                if met.energy > ctx.config.metabolism.reproduction_threshold
+                                    && partner_snap.energy
+                                        > ctx.config.metabolism.reproduction_threshold
+                                {
+                                    acc.push(InteractionCommand::Bond {
+                                        target_idx: i,
+                                        partner_id: p_id,
+                                    });
 
-                            if met.energy > ctx.config.metabolism.reproduction_threshold
-                                && partner_snap.energy
-                                    > ctx.config.metabolism.reproduction_threshold
-                            {
-                                acc.push(InteractionCommand::Bond {
-                                    target_idx: i,
-                                    partner_id: p_id,
-                                });
+                                    let mut repro_ctx = ReproductionContext {
+                                        tick: ctx.tick,
+                                        config: ctx.config,
+                                        population: pop_len,
+                                        traits: ctx.registry.get_traits(&met.lineage_id),
+                                        is_radiation_storm: env.is_radiation_storm(),
+                                        rng: &mut local_rng,
+                                        ancestral_genotype: ctx
+                                            .registry
+                                            .lineages
+                                            .get(&met.lineage_id)
+                                            .and_then(|r| r.max_fitness_genotype.as_ref()),
+                                    };
 
-                                let mut repro_ctx = ReproductionContext {
-                                    tick: ctx.tick,
-                                    config: ctx.config,
-                                    population: pop_len,
-                                    traits: ctx.registry.get_traits(&met.lineage_id),
-                                    is_radiation_storm: env.is_radiation_storm(),
-                                    rng: &mut local_rng,
-                                    ancestral_genotype: ctx
-                                        .registry
-                                        .lineages
-                                        .get(&met.lineage_id)
-                                        .and_then(|r| r.max_fitness_genotype.as_ref()),
-                                };
+                                    let mut modified_genotype = intel.genotype.clone();
+                                    modified_genotype.reproductive_investment = (modified_genotype
+                                        .reproductive_investment
+                                        * decision.grn_repro_mod)
+                                        .clamp(0.1, 0.9);
 
-                                let mut modified_genotype = intel.genotype.clone();
-                                modified_genotype.reproductive_investment = (modified_genotype
-                                    .reproductive_investment
-                                    * decision.grn_repro_mod)
-                                    .clamp(0.1, 0.9);
-
-                                let (baby, dist) =
-                                    social::reproduce_sexual_parallel_components_decomposed(
-                                        pos,
-                                        met.energy,
-                                        met.generation,
-                                        &modified_genotype,
-                                        &Position {
-                                            x: partner_snap.x,
-                                            y: partner_snap.y,
-                                        },
-                                        partner_snap.energy,
-                                        partner_snap.generation,
-                                        partner_genotype,
-                                        &mut repro_ctx,
-                                    );
-                                acc.push(InteractionCommand::Birth {
-                                    parent_idx: i,
-                                    baby: Box::new(baby),
-                                    genetic_distance: dist,
-                                });
-                                acc.push(InteractionCommand::TransferEnergy {
-                                    target_idx: p_idx,
-                                    amount: -(partner_snap.energy
-                                        * partner_genotype.reproductive_investment as f64),
-                                });
+                                    let (baby, dist) =
+                                        social::reproduce_sexual_parallel_components_decomposed(
+                                            pos,
+                                            met.energy,
+                                            met.generation,
+                                            &modified_genotype,
+                                            &Position {
+                                                x: partner_snap.x,
+                                                y: partner_snap.y,
+                                            },
+                                            partner_snap.energy,
+                                            partner_snap.generation,
+                                            partner_genotype,
+                                            &mut repro_ctx,
+                                        );
+                                    acc.push(InteractionCommand::Birth {
+                                        parent_idx: i,
+                                        baby: Box::new(baby),
+                                        genetic_distance: dist,
+                                    });
+                                    acc.push(InteractionCommand::TransferEnergy {
+                                        target_idx: p_idx,
+                                        amount: -(partner_snap.energy
+                                            * partner_genotype.reproductive_investment as f64),
+                                    });
+                                }
                             }
                         }
                         let self_energy = met.energy;
@@ -379,29 +379,13 @@ pub fn perceive_and_decide_internal(
                                     multiplier *= ctx.config.social.soldier_damage_mult;
                                 }
 
-                                let mut allies = 0;
-                                ctx.spatial_hash.query_callback(
+                                let allies = ctx.spatial_hash.get_lineage_density(
                                     target_snap.x,
                                     target_snap.y,
-                                    2.0,
-                                    |n_idx| {
-                                        if n_idx != t_idx {
-                                            let n_snap = &ctx.snapshots[n_idx];
-                                            let n_color_dist = (target_snap.r as i32
-                                                - n_snap.r as i32)
-                                                .abs()
-                                                + (target_snap.g as i32 - n_snap.g as i32).abs()
-                                                + (target_snap.b as i32 - n_snap.b as i32).abs();
-                                            if n_color_dist
-                                                < ctx.config.social.tribe_color_threshold
-                                            {
-                                                allies += 1;
-                                            }
-                                        }
-                                    },
-                                );
+                                    target_snap.lineage_id,
+                                ) as f64;
 
-                                let defense_mult = (1.0 - allies as f64 * 0.15).max(0.4);
+                                let defense_mult = (1.0 - allies * 0.15).max(0.4);
                                 let success_chance = (multiplier * defense_mult).min(1.0) as f32;
 
                                 let competition_mult = (1.0
@@ -530,11 +514,12 @@ pub fn perceive_and_decide_internal(
                 acc
             },
         )
-        .collect();
+        .reduce(Vec::new, |mut a, b| {
+            a.extend(b);
+            a
+        });
 
-    for cmds in all_cmds {
-        interaction_commands.extend(cmds);
-    }
+    interaction_commands.extend(all_cmds_flat);
 
     interaction_commands.sort_by_key(|cmd| match cmd {
         InteractionCommand::Kill { attacker_idx, .. } => *attacker_idx,
