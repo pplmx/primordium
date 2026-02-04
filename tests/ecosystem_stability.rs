@@ -19,18 +19,23 @@ async fn test_overgrazing_feedback_loop() {
 
 #[tokio::test]
 async fn test_hunter_competition_impact() {
+    // Clean up log directories from previous test runs
+    let _ = std::fs::remove_dir_all("logs_test_stability");
+    let _ = std::fs::remove_dir_all("logs_test_stability1");
+    let _ = std::fs::remove_dir_all("logs_test_stability2");
+
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
-    let log_dir = "logs_test_stability";
-    let _ = std::fs::remove_dir_all(log_dir);
-    let mut world = World::new_at(0, config.clone(), log_dir).expect("Failed to create world");
+    config.world.deterministic = true;
+    let log_dir1 = "logs_test_stability1";
+    let _ = std::fs::remove_dir_all(log_dir1);
+    let mut world = World::new_at(0, config.clone(), log_dir1).expect("Failed to create world");
     let mut env = Environment::default();
 
     let mut hunter = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     hunter.metabolism.trophic_potential = 1.0;
     hunter.metabolism.energy = 500.0;
     hunter.metabolism.max_energy = 1000.0;
-    // Force aggression
     hunter
         .intel
         .genotype
@@ -51,28 +56,55 @@ async fn test_hunter_competition_impact() {
     prey.intel.genotype.brain.connections.clear();
     prey.physics.r = 0;
 
+    // Low competition scenario: 1 hunter + 1 prey
     world.spawn_entity(hunter.clone());
     world.spawn_entity(prey.clone());
     assert_eq!(world.get_population_count(), 2);
 
-    world.pop_stats.biomass_c = 0.0;
-    world.update(&mut env).unwrap();
+    for _ in 0..60 {
+        world.update(&mut env).unwrap();
+    }
+
     let entities1 = world.get_all_entities();
-    println!("Pop after update: {}", entities1.len());
     let hunter_after1 = entities1
         .iter()
         .find(|e| e.metabolism.trophic_potential > 0.9)
         .expect("Hunter missing");
     let energy1 = hunter_after1.metabolism.energy;
 
-    let mut world2 = World::new_at(0, config, log_dir).expect("Failed to create world");
-    world2.spawn_entity(hunter);
-    world2.spawn_entity(prey);
+    // High competition scenario: 40 hunters + 1 prey (spread out to avoid hunters killing each other)
+    let log_dir2 = "logs_test_stability2";
+    let _ = std::fs::remove_dir_all(log_dir2);
+    let mut world2 = World::new_at(0, config, log_dir2).expect("Failed to create world");
+    world2.spawn_entity(prey.clone());
 
-    world2.pop_stats.biomass_c = 20000.0;
-    world2.update(&mut env).unwrap();
+    for i in 0..40 {
+        let mut competitor = primordium_lib::model::lifecycle::create_entity(
+            20.0 + (i % 20) as f64 * 2.0,
+            20.0 + (i / 20) as f64 * 2.0,
+            0,
+        );
+        competitor.metabolism.trophic_potential = 1.0;
+        competitor.metabolism.energy = 500.0;
+        competitor.metabolism.max_energy = 1000.0;
+        competitor.intel.genotype.brain.connections.push(
+            primordium_lib::model::brain::Connection {
+                from: 2,
+                to: 32,
+                weight: 10.0,
+                enabled: true,
+                innovation: 999,
+            },
+        );
+        world2.spawn_entity(competitor);
+    }
+    assert_eq!(world2.get_population_count(), 41);
+
+    for _ in 0..60 {
+        world2.update(&mut env).unwrap();
+    }
+
     let entities2 = world2.get_all_entities();
-    println!("Pop after update (world2): {}", entities2.len());
     let hunter_after2 = entities2
         .iter()
         .find(|e| e.metabolism.trophic_potential > 0.9)
@@ -81,7 +113,7 @@ async fn test_hunter_competition_impact() {
 
     assert!(
         energy2 < energy1,
-        "High competition should reduce energy gain from kill. Energy1: {}, Energy2: {}",
+        "High competition should reduce energy gain from kill. Energy1 (1 hunter): {}, Energy2 (40 hunters): {}",
         energy1,
         energy2
     );

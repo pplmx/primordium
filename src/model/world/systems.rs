@@ -206,7 +206,7 @@ pub fn perceive_and_decide_internal(
                     }
                 }
 
-                if outputs[8] > 0.5 {
+                if outputs[8] > ctx.config.social.sharing_threshold {
                     if let Some(p_id) = social::handle_symbiosis_components(
                         i,
                         ctx.snapshots,
@@ -278,7 +278,7 @@ pub fn perceive_and_decide_internal(
                         let partner_energy = ctx.snapshots[i].energy;
                         if self_energy > partner_energy + 2.0 {
                             let diff = self_energy - partner_energy;
-                            let amount = diff * 0.05;
+                            let amount = diff * ctx.config.social.sharing_fraction;
                             if amount > 0.1 {
                                 if let Some(p_id) = social::handle_symbiosis_components(
                                     i,
@@ -312,7 +312,7 @@ pub fn perceive_and_decide_internal(
                         let partner_energy = partner_snap.energy;
                         if self_energy > partner_energy + 2.0 {
                             let diff = self_energy - partner_energy;
-                            let amount = diff * 0.05;
+                            let amount = diff * ctx.config.social.sharing_fraction;
                             if amount > 0.1 {
                                 acc.push(InteractionCommand::TransferEnergy {
                                     target_idx: p_idx,
@@ -327,7 +327,9 @@ pub fn perceive_and_decide_internal(
                     }
                 }
 
-                if outputs[4] > 0.5 && met.energy > met.max_energy * 0.7 {
+                if outputs[4] > ctx.config.social.aggression_threshold
+                    && met.energy > met.max_energy * 0.7
+                {
                     ctx.spatial_hash.query_callback(pos.x, pos.y, 3.0, |t_idx| {
                         let target_snap = &ctx.snapshots[t_idx];
                         if i != t_idx {
@@ -336,15 +338,17 @@ pub fn perceive_and_decide_internal(
                                 + (phys.b as i32 - target_snap.b as i32).abs();
 
                             if color_dist < ctx.config.social.tribe_color_threshold
-                                && target_snap.energy < target_snap.max_energy * 0.5
+                                && target_snap.energy
+                                    < target_snap.max_energy
+                                        * ctx.config.social.energy_sharing_low_threshold as f64
                             {
                                 acc.push(InteractionCommand::TransferEnergy {
                                     target_idx: t_idx,
-                                    amount: met.energy * 0.1,
+                                    amount: met.energy * ctx.config.social.sharing_fraction,
                                 });
                                 acc.push(InteractionCommand::TransferEnergy {
                                     target_idx: i,
-                                    amount: -met.energy * 0.1,
+                                    amount: -(met.energy * ctx.config.social.sharing_fraction),
                                 });
                             }
                         }
@@ -385,7 +389,9 @@ pub fn perceive_and_decide_internal(
                                     target_snap.lineage_id,
                                 ) as f64;
 
-                                let defense_mult = (1.0 - allies * 0.15).max(0.4);
+                                let defense_mult = (1.0
+                                    - allies * ctx.config.social.defense_per_ally_reduction)
+                                    .max(ctx.config.social.min_defense_multiplier);
                                 let success_chance = (multiplier * defense_mult).min(1.0) as f32;
 
                                 let competition_mult = (1.0

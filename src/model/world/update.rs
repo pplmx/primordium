@@ -16,6 +16,19 @@ use primordium_core::systems::{
 };
 
 impl World {
+    /// Advances the simulation by one tick.
+    ///
+    /// This is the main simulation loop that updates all systems:
+    /// - Environment and resource propagation
+    /// - Entity perception and neural decision-making
+    /// - Interactions (predation, reproduction, social)
+    /// - Spatial indexing and statistics
+    ///
+    /// # Arguments
+    /// * `env` - Mutable reference to the environment (climate, oxygen, carbon)
+    ///
+    /// # Returns
+    /// Vector of live events (births, deaths, fossilizations) that occurred this tick
     pub fn update(&mut self, env: &mut Environment) -> anyhow::Result<Vec<LiveEvent>> {
         self.tick += 1;
         let world_seed = self.config.world.seed.unwrap_or(0);
@@ -44,6 +57,17 @@ impl World {
             let mut entity_data: Vec<_> = query.iter().collect();
             entity_data.sort_by_key(|(_h, (i, ..))| i.id);
 
+            let current_biomass_c = entity_data
+                .iter()
+                .filter_map(|(_, (_, _, _, _, met, _, _))| {
+                    if met.trophic_potential > 0.6 {
+                        Some(met.energy)
+                    } else {
+                        None
+                    }
+                })
+                .sum::<f64>();
+
             let mut interaction_commands_buffer = std::mem::take(&mut self.interaction_buffer);
             let mut decision_buffer = std::mem::take(&mut self.decision_buffer);
 
@@ -68,7 +92,7 @@ impl World {
                 systems::perceive_and_decide_internal(
                     &system_ctx,
                     env,
-                    self.pop_stats.biomass_c,
+                    current_biomass_c,
                     &mut entity_data,
                     &id_map,
                     &mut interaction_commands_buffer,

@@ -6,6 +6,15 @@ use primordium_data::{
 use rand::Rng;
 
 impl World {
+    /// Spawns a new entity into the simulation world.
+    ///
+    /// Initializes the entity's brain topology and adds it to the ECS component manager.
+    ///
+    /// # Arguments
+    /// * `e` - The entity to spawn (with all components populated)
+    ///
+    /// # Returns
+    /// The ECS entity handle that can be used to reference this entity
     pub fn spawn_entity(&mut self, mut e: Entity) -> hecs::Entity {
         crate::model::brain::BrainLogic::initialize_node_idx_map(&mut e.intel.genotype.brain);
         self.ecs.spawn((

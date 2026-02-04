@@ -84,6 +84,10 @@ pub struct SocialConfig {
     pub specialization_threshold: f32,
     pub silo_energy_capacity: f32,
     pub outpost_energy_capacity: f32,
+    pub aggression_threshold: f32,
+    pub energy_sharing_low_threshold: f32,
+    pub defense_per_ally_reduction: f64,
+    pub min_defense_multiplier: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -194,6 +198,10 @@ impl Default for AppConfig {
                 specialization_threshold: 100.0,
                 silo_energy_capacity: 5000.0,
                 outpost_energy_capacity: 1000.0,
+                aggression_threshold: 0.5,
+                energy_sharing_low_threshold: 0.5,
+                defense_per_ally_reduction: 0.15,
+                min_defense_multiplier: 0.4,
             },
             terraform: TerraformConfig {
                 dig_cost: 10.0,

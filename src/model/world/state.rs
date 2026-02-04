@@ -71,6 +71,7 @@ impl World {
 }
 
 impl World {
+    /// Returns the current number of entities in the simulation.
     pub fn get_population_count(&self) -> usize {
         self.ecs
             .query::<&primordium_data::Identity>()
@@ -78,6 +79,7 @@ impl World {
             .count()
     }
 
+    /// Returns the current number of food items in the simulation.
     pub fn get_food_count(&self) -> usize {
         self.ecs.query::<&Food>().iter().count()
     }
