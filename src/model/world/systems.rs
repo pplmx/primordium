@@ -53,14 +53,12 @@ pub fn perceive_and_decide_internal(
 
                 let eff_sensing_range = phys.sensing_range * sensing_mod;
 
-                let (best_idx_f, dx_f, dy_f, f_type) =
-                    ecological::sense_nearest_food_ecs_decomposed(
-                        pos,
-                        eff_sensing_range,
-                        ctx.ecs,
-                        ctx.food_hash,
-                        ctx.food_handles,
-                    );
+                let (best_idx_f, dx_f, dy_f, f_type) = ecological::sense_nearest_food_data(
+                    pos,
+                    eff_sensing_range,
+                    ctx.food_hash,
+                    ctx.food_data,
+                );
                 let sensed_food = best_idx_f.map(|idx| (idx, dx_f, dy_f, f_type));
                 let nearby_count = ctx
                     .spatial_hash

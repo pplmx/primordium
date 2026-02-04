@@ -46,7 +46,7 @@ impl World {
 
         self.pass_social_ranks();
         self.pass_spatial_indexing();
-        let food_handles = self.pass_food_indexing();
+        let (food_handles, food_data) = self.pass_food_indexing();
         self.capture_entity_snapshots_with_handles(&handles);
         self.pass_learning();
 
@@ -86,6 +86,7 @@ impl World {
                     registry: &self.lineage_registry,
                     snapshots: &self.entity_snapshots,
                     food_handles: &food_handles,
+                    food_data: &food_data,
                     world_seed,
                 };
 
@@ -186,7 +187,7 @@ impl World {
         self.spatial_data_buffer = spatial_data;
     }
 
-    fn pass_food_indexing(&mut self) -> Vec<hecs::Entity> {
+    fn pass_food_indexing(&mut self) -> (Vec<hecs::Entity>, Vec<(f64, f64, f32)>) {
         let mut food_data: Vec<_> = self
             .ecs
             .query::<(&Position, &Food)>()
@@ -203,14 +204,16 @@ impl World {
 
         let mut handles = Vec::new();
         let mut positions = Vec::new();
-        for (x, y, handle, _) in food_data {
+        let mut nutrition_data = Vec::new();
+        for (x, y, handle, nutrient_type) in food_data {
             handles.push(handle);
             positions.push((x, y));
+            nutrition_data.push((x, y, nutrient_type));
         }
 
         self.food_hash
             .build_parallel(&positions, self.width, self.height);
-        handles
+        (handles, nutrition_data)
     }
 
     fn pass_learning(&mut self) {

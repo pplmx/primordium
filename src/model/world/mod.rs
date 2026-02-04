@@ -38,6 +38,7 @@ pub struct SystemContext<'a> {
     pub registry: &'a LineageRegistry,
     pub snapshots: &'a [crate::model::snapshot::InternalEntitySnapshot],
     pub food_handles: &'a [hecs::Entity],
+    pub food_data: &'a [(f64, f64, f32)],
     pub world_seed: u64,
 }
 

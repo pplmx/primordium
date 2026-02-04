@@ -199,6 +199,37 @@ pub fn sense_nearest_food_ecs_decomposed(
     (best_idx, dx_food, dy_food, f_type)
 }
 
+pub fn sense_nearest_food_data(
+    position: &primordium_data::Position,
+    sensing_range: f64,
+    food_hash: &SpatialHash,
+    food_data: &[(f64, f64, f32)],
+) -> (Option<usize>, f64, f64, f32) {
+    let mut dx_food = 0.0;
+    let mut dy_food = 0.0;
+    let mut f_type = 0.5;
+    let mut min_dist_sq = f64::MAX;
+    let mut best_idx = None;
+    let range_sq = sensing_range * sensing_range;
+
+    food_hash.query_callback(position.x, position.y, sensing_range, |f_idx| {
+        if let Some(&(fx, fy, fty)) = food_data.get(f_idx) {
+            let dx = fx - position.x;
+            let dy = fy - position.y;
+            let dist_sq = dx * dx + dy * dy;
+            if dist_sq < min_dist_sq && dist_sq < range_sq {
+                min_dist_sq = dist_sq;
+                dx_food = dx;
+                dy_food = dy;
+                f_type = fty;
+                best_idx = Some(f_idx);
+            }
+        }
+    });
+
+    (best_idx, dx_food, dy_food, f_type)
+}
+
 /// Sense the nearest food within a radius (using components).
 pub fn sense_nearest_food_components(
     physics: &primordium_data::Physics,

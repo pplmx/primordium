@@ -230,12 +230,14 @@ impl World {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn prepare_spatial_hash(
         &mut self,
     ) -> (
         HashMap<uuid::Uuid, usize>,
         Vec<hecs::Entity>,
         Vec<hecs::Entity>,
+        Vec<(f64, f64, f32)>,
     ) {
         let mut query = self.ecs.query::<(
             &primordium_data::Identity,
@@ -266,15 +268,17 @@ impl World {
 
         let mut food_handles = Vec::new();
         let mut food_positions = Vec::new();
-        for (handle, (pos, _)) in self.ecs.query::<(&Physics, &Food)>().iter() {
+        let mut food_data = Vec::new();
+        for (handle, (pos, food)) in self.ecs.query::<(&Physics, &Food)>().iter() {
             food_handles.push(handle);
             food_positions.push((pos.x, pos.y));
+            food_data.push((pos.x, pos.y, food.nutrient_type));
         }
 
         self.food_hash
             .build_parallel(&food_positions, self.width, self.height);
 
         self.spatial_data_buffer = spatial_data;
-        (entity_id_map, entity_handles, food_handles)
+        (entity_id_map, entity_handles, food_handles, food_data)
     }
 }
