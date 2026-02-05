@@ -151,7 +151,98 @@ src/
     * **P2P Altruism**: 实现了跨 Universe 的利他救济协议，支持繁荣文明对异域同族的远程能量支援。
 * **Phase 64**: **Genetic Memory & Atavistic Recall**。引入了谱系级遗传记忆系统。每个谱系自动归档其"历史最优"基因型。挣扎中的个体有 1% 的概率回归祖先成功的神经架构（返祖回溯）。
 * **Phase 66 Step 2**: **Entity ECS Migration & Persistence Bridge**.
-    * **Data Consolidation**: 移除了冗余的 `World.food` 向量，将食物实体完全迁移至 `hecs` ECS 系统，实现单一数据源（Single Source of Truth）。
-    * **Persistence Bridge**: 解决了 `hecs::World` 默认无法序列化的限制。引入了持久化桥接机制，通过在保存前提取组件快照并在加载后重建 ECS 实体，确保了生物与食物的持久化支持。
-    * **Simulation Determinism**: 修复了非确定性的 UUID 生成逻辑。所有实体与谱系 ID 现由种子化 RNG 生成，确保了仿真在确定性模式下的完全可重现性。
-    * **Observability**: 增强了 Silicon Scribe (LLM 观察者) 的启发式叙事逻辑，引入了气候突变与时代更迭的宏观事件检测。
+    *   **Data Consolidation**: 移除了冗余的 `World.food` 向量，将食物实体完全迁移至 `hecs` ECS 系统，实现单一数据源（Single Source of Truth）。
+    *   **Persistence Bridge**: 解决了 `hecs::hecs::World` 默认无法序列化的限制。引入了持久化桥接机制，通过在保存前提取组件快照并在加载后重建 ECS 实体，确保了生物与食物的持久化支持。
+    *   **Simulation Determinism**: 修复了非确定性的 UUID 生成逻辑。所有实体与谱系 ID 现由种子化 RNG 生成，确保了仿真在确定性模式下的完全可重现性。
+    *   **Observability**: 增强了 Silicon Scribe (LLM 观察者) 的启发式叙事逻辑，引入了气候突变与时代更迭的宏观事件检测。
+
+## 性能特征与优化方向
+
+### 热路径分析
+
+基于性能基准测试，以下是最关键的执行路径：
+
+1. **SpatialHash 查询** (`systems/ecological.rs:food_hash.query_callback`)
+   - 频率：每实体每 tick 执行（10,000+ 实体 × 帧数）
+   - 当前优化：使用预计算的空间索引 + O(cell_count) 查询
+   - 注意：避免 HashMap-based kin counting（会导致 52% 性能下降）
+
+2. **感知与决策循环** (`world/systems.rs:perceive_and_decide_internal`)
+   - 频率：每实体每 tick 执行，Rayon 并行化
+   - 数据依赖：需要 SpatialHash、PheromoneGrid、SoundGrid、LineageRegistry、快照数据
+   - 优化策略：使用 `EntitySnapshot` 避免并行竞争，批量提取组件 + 预热查询缓存
+
+3. **神经网络推理** (`brain.rs:forward_internal`)
+   - 频率：每实体每 tick 执行
+   - 优化点：
+     - 激活值缓冲区交换（Activations::0 / Activations::1）避免每次分配
+     - 预计算输入节点值的内存位置（fast_forward_order）
+     - 受保护的神经簇减少变异开销
+
+4. **社会等级计算** (`social.rs:compute_ranks`)
+   - 频率：每 tick 执行
+   - 复杂度：O(种群数)
+   - 优化策略：使用 `PowerGrid` 提供缓存的邻近评分（O(1) 查找）
+
+### 性能基准
+
+使用 `cargo test --test performance_benchmark -- --ignored` 运行基准测试：
+
+- **Spatial Hash**:
+  - 10,000 实体，查询 100,000 次：平均 ~0.5μs/查询
+  - 构建时间：10,000 实体 ~5ms
+
+- **Brain Forward**:
+  - 10,000 次前向传播 ~30ms（平均 3μs/次）
+
+- **Full Tick**:
+  - 100 实体/200x200 world：~3ms/tick
+  - 500 实体：~10ms/tick
+  - 1,000 实体：~20ms/tick
+  - 2,000 实体：~33ms/tick
+
+### 热路径优化指南
+
+当需要优化性能时，请遵循以下原则：
+
+1. **测量优先**：先使用已有基准测试测量，避免过早优化
+2. **消除 ECS 开销**：避免在热路径中频繁调用 `world.get()`，使用预提取的组件数据
+3. **空间局部性**：利用 SpatialHash 的 O(1) 细胞查询特性
+4. **并行友好**：确保系统中的并行迭代是真正的 CPU 密集计算工作负载
+5. **内存布局**：使用连续内存布局（如 `EntitySnapshot` 数组）提高缓存命中率
+
+### 已知性能陷阱
+
+❌ **避免的操作**：
+- 在感知循环中调用 `hecs::World::<T>::get()` - 使用预提取快照
+- HashMap 基于 lineage 计数相似度 - 使用回调迭代或 `lineage_density`
+- 为每个 tick 分配新的 `Vec` - 重用内存缓冲区
+
+✅ **推荐的模式**：
+- 在 `World::prepare_*` 阶段提取数据，在系统阶段只读访问
+- 使用 Rayon 并行 iter_mut 处理 CPU 密集型计算
+- 使用 `std::mem::swap` 交换缓冲区而非分配
+- 预计算 sin/cos（如有圆形感知）
+
+### 确定性模式
+
+**目的**：使仿真结果可重现，用于调试、测试和科学验证
+
+**启用方式**：
+```rust
+let mut config = AppConfig::default();
+config.world.deterministic = true;
+config.world.seed = Some(42);  // 必须提供固定种子
+```
+
+**保证**：
+- UUID 生成：使用 `ChaCha8Rng::seed_from_u64(world_seed ^ tick ^ entity_id_hash)`
+- 随机数：所有随机数源继承 `world_seed`
+- 浮点数：使用固定的 mock 指标（sin/cos 波形）
+- 执行顺序：确定性线程池排序 + 固定迭代顺序
+
+**性能影响**：
+- 环境更新使用 mock 数据，略微影响硬件耦合效果
+- 但不改变核心模拟性能（entity 感知与决策不受影响）
+
+验证确定性的测试：`tests/determinism_suite.rs`

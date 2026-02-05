@@ -1,23 +1,113 @@
 #!/bin/sh
 # husky-rs commit-msg hook
 
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 颜色和图标定义
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+# BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+print_header() {
+    echo ""
+    echo "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo "${CYAN}  📝 $1${NC}"
+    echo "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+print_success() { echo "${GREEN}✓${NC} $1"; }
+print_error() { echo "${RED}✗${NC} $1"; }
+print_warning() { echo "${YELLOW}⚠${NC} $1"; }
+print_info() { echo "${CYAN}ℹ${NC}  $1"; }
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 主逻辑
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 commit_msg_file="$1"
 commit_msg=$(cat "$commit_msg_file")
+first_line=$(echo "$commit_msg" | head -n 1)
 
-# 1. Check minimum message length
-if [ ${#commit_msg} -lt 10 ]; then
-    echo "❌ Commit message too short (minimum 10 characters)"
+print_header "Commit Message Validation"
+
+# 1. 检查是否为空
+if [ -z "$first_line" ]; then
+    print_error "Commit message is empty"
     exit 1
 fi
 
-# 2. Check for conventional commits format (with optional scope)
-# Allowed: feat(ui): add button, fix: bug, docs(readme): update
-if ! echo "$commit_msg" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|ci|perf|revert)(\(.+\))?: .+$"; then
-    echo "❌ Commit message must follow conventional commits format"
-    echo "   Format: <type>(<scope>): <subject>"
-    echo "   Example: feat(ui): add sidebar legend"
-    echo "   Example: fix: resolved memory leak in world update"
+# 2. 检查最小长度
+MIN_LENGTH=10
+if [ ${#first_line} -lt $MIN_LENGTH ]; then
+    echo ""
+    print_error "Commit subject too short (${#first_line} chars, minimum $MIN_LENGTH)"
+    print_info "Current: ${YELLOW}$first_line${NC}"
+    echo ""
     exit 1
 fi
 
-echo "✓ Commit message valid"
+# 3. 检查最大长度（警告）
+MAX_LENGTH=72
+if [ ${#first_line} -gt $MAX_LENGTH ]; then
+    echo ""
+    print_warning "Commit subject exceeds $MAX_LENGTH characters (${#first_line} chars)"
+    print_info "Consider shortening for better readability"
+fi
+
+# 4. Conventional Commits 格式检查
+CONVENTIONAL_REGEX="^(feat|fix|docs|style|refactor|test|chore|ci|perf|revert|build)(\(.+\))?: .+"
+
+if ! echo "$first_line" | grep -qE "$CONVENTIONAL_REGEX"; then
+    echo ""
+    print_error "Commit message must follow Conventional Commits format"
+    echo ""
+    print_info "Format: ${CYAN}<type>${NC}${YELLOW}(scope)${NC}: ${GREEN}<subject>${NC}"
+    echo ""
+    echo "  ${CYAN}Available Types:${NC}"
+    echo "    ${YELLOW}feat${NC}     │ New feature"
+    echo "    ${YELLOW}fix${NC}      │ Bug fix"
+    echo "    ${YELLOW}docs${NC}     │ Documentation changes"
+    echo "    ${YELLOW}style${NC}    │ Code style (formatting, missing semicolons, etc.)"
+    echo "    ${YELLOW}refactor${NC} │ Code refactoring"
+    echo "    ${YELLOW}test${NC}     │ Adding or updating tests"
+    echo "    ${YELLOW}chore${NC}    │ Maintenance tasks"
+    echo "    ${YELLOW}perf${NC}     │ Performance improvements"
+    echo "    ${YELLOW}ci${NC}       │ CI/CD configuration changes"
+    echo "    ${YELLOW}build${NC}    │ Build system or dependencies"
+    echo "    ${YELLOW}revert${NC}   │ Revert previous commit"
+    echo ""
+    echo "  ${CYAN}Examples:${NC}"
+    echo "    ${GREEN}feat(auth): add OAuth2 login support${NC}"
+    echo "    ${GREEN}fix: resolve memory leak in event loop${NC}"
+    echo "    ${GREEN}docs(readme): update installation guide${NC}"
+    echo "    ${GREEN}test(api): add integration tests for users endpoint${NC}"
+    echo ""
+    print_info "Your message: ${RED}$first_line${NC}"
+    echo ""
+    exit 1
+fi
+
+# 5. 检查主题格式（可选规则）
+subject=$(echo "$first_line" | sed -E 's/^[a-z]+(\([^)]+\))?: //')
+
+# 检查是否以大写字母开头（建议小写）
+first_char=$(echo "$subject" | cut -c1)
+if echo "$first_char" | grep -q '[A-Z]'; then
+    echo ""
+    print_warning "Subject should start with lowercase letter"
+    print_info "Current:   ${YELLOW}$subject${NC}"
+    print_info "Suggested: ${GREEN}$(echo "$subject" | sed 's/^./\L&/')${NC}"
+fi
+
+# 检查是否以句号结尾
+if echo "$first_line" | grep -q '\.$'; then
+    echo ""
+    print_warning "Subject should not end with a period"
+fi
+
+# 成功
+echo ""
+print_success "${GREEN}Commit message is valid!${NC}"
+echo ""

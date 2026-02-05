@@ -2,15 +2,92 @@ pub use primordium_data::{Brain, Connection, Genotype, Node, NodeType};
 use rand::Rng;
 use std::collections::HashMap;
 
+/// Trait defining the core logic for neural network brains in Primordium.
+///
+/// This trait provides methods for creating brains, running forward passes,
+/// learning through Hebbian plasticity, mutation, crossover, and topological evolution.
+///
+/// # Brain Architecture
+/// - Inputs: 29 nodes (sensory inputs like Energy, Kin centroid, etc.)
+/// - Outputs: 12 nodes (actions like MoveX, Speed, Aggro, etc.)
+/// - Hidden nodes: Dynamic, starting with 6 but can grow through topological mutations
+///
+/// # Examples
+/// ```no_run
+/// use primordium_core::brain::BrainLogic;
+///
+/// let brain = Brain::new_random();
+/// let inputs = [0.0; 29];
+/// let hidden = [0.0; 6];
+/// let (outputs, next_hidden) = brain.forward(inputs, hidden);
+/// ```
 pub trait BrainLogic {
+    /// Creates a new random brain using the thread RNG.
+    ///
+    /// Convenience method that internally calls `new_random_with_rng` with `thread_rng`.
+    /// Use this when deterministic behavior is not required.
     fn new_random() -> Self;
+
+    /// Creates a new random brain using the provided RNG.
+    ///
+    /// # Parameters
+    /// - `rng`: Random number generator instance for reproducible behavior
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use rand::SeedableRng;
+    /// use rand_chacha::ChaCha8Rng;
+    /// use primordium_core::brain::BrainLogic;
+    ///
+    /// let mut rng = ChaCha8Rng::seed_from_u64(42);
+    /// let brain = Brain::new_random_with_rng(&mut rng);
+    /// ```
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self;
+
+    /// Runs the neural network forward pass to compute outputs and next hidden state.
+    ///
+    /// This is the primary interface for brain decision-making. Given sensory inputs
+    /// and previous hidden state, it returns action outputs and hidden activations.
+    ///
+    /// # Parameters
+    /// - `inputs`: Array of 29 input values representing sensory perception
+    /// - `last_hidden`: Array of 6 hidden activations from the previous tick (memory)
+    ///
+    /// # Returns
+    /// A tuple containing `(outputs, next_hidden)` where:
+    /// - `outputs`: Array of 12 action decisions (MoveX, MoveY, Speed, Aggro, etc.)
+    /// - `next_hidden`: Array of 6 hidden values to be fed back as memory next tick
+    ///
+    /// # Performance
+    /// This method allocates a new activation buffer on each call. For hot path
+    /// performance in perception loops, use `forward_internal` with a pre-allocated
+    /// activations buffer.
     #[must_use]
     fn forward(
         &self,
         inputs: [f32; BRAIN_INPUTS],
         last_hidden: [f32; BRAIN_MEMORY],
     ) -> ([f32; BRAIN_OUTPUTS], [f32; BRAIN_MEMORY]);
+
+    /// Internal forward pass using a pre-allocated activations buffer.
+    ///
+    /// Optimized version of `forward` that reuses memory. This is intended for
+    /// batch processing in the perception loop where many entities are evaluated
+    /// in parallel via Rayon.
+    ///
+    /// # Parameters
+    /// - `inputs`: Array of 29 input values representing sensory perception
+    /// - `last_hidden`: Array of 6 hidden activations from the previous tick
+    /// - `activations`: Mutable reference to pre-allocated activation buffer
+    ///
+    /// # Returns
+    /// A tuple containing `(outputs, next_hidden)` - see the `forward` method
+    /// for details on the return values.
+    ///
+    /// # Performance Notes
+    /// - This method uses `std::mem::swap` for zero-allocation activation history
+    /// - Optimized lookup via `node_idx_map` and `fast_forward_order`
+    /// - Recurrent connections handled separately from forward pass
     #[must_use]
     fn forward_internal(
         &self,
@@ -19,29 +96,256 @@ pub trait BrainLogic {
         activations: &mut primordium_data::Activations,
     ) -> ([f32; BRAIN_OUTPUTS], [f32; BRAIN_MEMORY]);
 
+    /// Applies Hebbian learning to update connection weights.
+    ///
+    /// Strengthens or weakens connections based on pre/post-synaptic activity
+    /// and reinforcement signals. Implements lifetime plasticity for real-time
+    /// adaptation to environmental rewards/punishments.
+    ///
+    /// # Parameters
+    /// - `activations`: Activation values from a forward pass
+    /// - `reinforcement`: Learning signal (positive = reward, negative = punishment)
+    ///
+    /// # Formula
+    /// `delta_weight = learning_rate * reinforcement * pre_activation * post_activation`
+    ///
+    /// # Notes
+    /// - Weights are clamped to [-5.0, 5.0] to prevent runaway growth
+    /// - Weight deltas are tracked for pruning decisions
     fn learn(&mut self, activations: &primordium_data::Activations, reinforcement: f32);
+
+    /// Mutates the brain topology and connection weights.
+    ///
+    /// Evolves the brain by modifying weights and potentially adding new nodes
+    /// or connections. Supports specialization protection for critical brain
+    /// regions (e.g., Soldier aggression outputs).
+    ///
+    /// # Parameters
+    /// - `config`: App configuration with mutation rates and amounts
+    /// - `specialization`: Optional caste specialization (Soldier, Engineer, Provider)
+    /// - `rng`: Random number generator for deterministic mutation
+    ///
+    /// # Mutation Types
+    /// - Weight jitter: Random perturbation of existing connection weights
+    /// - Add connection: New forward connection between existing nodes
+    /// - Add node: Splits an existing connection to insert a new hidden node
+    /// - Pruning: Removes weak connections below threshold
+    ///
+    /// # Specialization
+    /// When a caste is specified, connections to role-critical outputs receive
+    /// 0.1x mutation amount, preserving specialized behavior.
     fn mutate_with_config<R: Rng>(
         &mut self,
         config: &crate::config::AppConfig,
         specialization: Option<primordium_data::Specialization>,
         rng: &mut R,
     );
+
+    /// Computes genetic distance between two brains for speciation.
+    ///
+    /// Combines weight difference, disjoint connection count, and learning rate
+    /// difference into a single compatibility score used for NEAT-style speciation.
+    ///
+    /// # Parameters
+    /// - `other`: Brain to compare against
+    ///
+    /// # Returns
+    /// Compatibility score where lower values indicate more similarity.
+    /// Threshold ~3.0 is typical for speciation.
+    ///
+    /// # Formula
+    /// `distance = (weight_diff / matching) + (disjoint * 0.5) + lr_diff`
     fn genotype_distance(&self, other: &Brain) -> f32;
+
+    /// Computes overall distance between two brains.
+    ///
+    /// Alias for `genotype_distance`. Returns the NEAT compatibility score.
     fn distance(&self, other: &Brain) -> f32;
+
+    /// Performs sexual crossover of two brains using the provided RNG.
+    ///
+    /// Creates a child brain by selecting connections from either parent based
+    /// on a 50% probability. Innovation IDs ensure proper genetic inheritance
+    /// across generations.
+    ///
+    /// # Parameters
+    /// - `other`: Parent brain to crossover with
+    /// - `rng`: Random number generator for deterministic crossover
+    ///
+    /// # Returns
+    /// A new brain combining genetic traits from both parents.
+    ///
+    /// # Algorithm
+    /// - Innovation IDs identify homologous and disjoint connections
+    /// - Homologous (matching): Randomly select from either parent
+    /// - Non-homologous: Inherit from the parent who owns the innovation
     fn crossover_with_rng<R: Rng>(&self, other: &Brain, rng: &mut R) -> Brain;
+
+    /// Performs sexual crossover of two brains using thread RNG.
+    ///
+    /// Convenience method that uses `thread_rng`. Use `crossover_with_rng`
+    /// for deterministic crossover in tests.
     fn crossover(&self, other: &Brain) -> Brain;
+
+    /// Remodels brain topology for adult-stage behaviors.
+    ///
+    /// Ensures adult organisms have neural connections for advanced behaviors:
+    /// - Bond (friendship formation)
+    /// - Dig (terrain modification)
+    /// - Build (structure construction)
+    /// - OvermindEmit (broadcast to kin)
+    /// - Aggression, Share, Color, etc.
+    ///
+    /// # Parameters
+    /// - `rng`: Random number generator for deterministic remodeling
+    ///
+    /// # Behavior
+    /// - Connects hidden nodes to any missing adult output nodes
+    /// - Increases learning rate by +0.05 (capped at 0.5)
+    /// - Reinitializes node index map for topological optimization
     fn remodel_for_adult_with_rng<R: Rng>(&mut self, rng: &mut R);
+
+    /// Rebuilds internal data structures for topological optimization.
+    ///
+    /// Computes:
+    /// - `node_idx_map`: Translation from node IDs to array indices
+    /// - `topological_order`: DFS-based topological sort
+    /// - `forward_connections`: Chronological connection indices (from_rank < to_rank)
+    /// - `recurrent_connections`: Backwards connection indices (from_rank >= to_rank)
+    /// - `fast_forward_order`: Optimized traversal order
+    /// - `fast_incoming`: Pre-computed incoming connections per node
+    ///
+    /// Must be called after topological mutations (add_node, add_connection).
     fn initialize_node_idx_map(&mut self);
 }
 
+/// Trait defining the genetic interface for organism genotypes.
+///
+/// A genotype combines a neural network brain with physiological traits
+/// (sensing range, speed, energy, tropic level, metabolism specialization, etc.).
+/// This trait handles genetic operations: creation, crossover, distance measuring,
+/// and serialization to/from the HexDNA format used for P2P migration.
 pub trait GenotypeLogic {
+    /// Creates a random genotype using the thread RNG.
+    ///
+    /// Generates a random brain with 29 inputs, 12 outputs, 6 initial hidden nodes,
+    /// and random physiological traits within their valid ranges.
     fn new_random() -> Self;
+
+    /// Creates a random genotype using the provided RNG.
+    ///
+    /// # Parameters
+    /// - `rng`: Random number generator for reproducible genotype generation
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use rand::SeedableRng;
+    /// use rand_chacha::ChaCha8Rng;
+    /// use primordium_core::brain::GenotypeLogic;
+    ///
+    /// let mut rng = ChaCha8Rng::seed_from_u64(42);
+    /// let genotype = Genotype::new_random_with_rng(&mut rng);
+    /// ```
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self;
+
+    /// Performs sexual crossover between two genotypes.
+    ///
+    /// Creates a child genotype by crossing over brain circuits and selecting
+    /// physiological traits randomly from either parent (50% probability).
+    ///
+    /// # Parameters
+    /// - `other`: Parent genotype to crossover with
+    /// - `rng`: Random number generator for deterministic crossover
+    ///
+    /// # Returns
+    /// A child genotype combining genetic traits from both parents:
+    /// - Brain: Crossover via BrainLogic::crossover_with_rng (NEAT-style)
+    /// - Physiological traits (sensing_range, max_speed, etc.): Randomly inherited
     fn crossover_with_rng<R: Rng>(&self, other: &Genotype, rng: &mut R) -> Genotype;
+
+    /// Performs sexual crossover between two genotypes using thread RNG.
+    ///
+    /// Convenience method that uses `thread_rng`. Use `crossover_with_rng`
+    /// for deterministic crossover in tests.
     fn crossover(&self, other: &Genotype) -> Genotype;
+
+    /// Computes genetic distance between two genotypes.
+    ///
+    /// Delegates to the brain's distance calculation. Primarily used for
+    /// species identification and mating compatibility decisions.
+    ///
+    /// # Parameters
+    /// - `other`: Genotype to compare against
+    ///
+    /// # Returns
+    /// Genetic compatibility score (lower = more similar).
     fn distance(&self, other: &Genotype) -> f32;
+
+    /// Computes relatedness between two genotypes (0.0 to 1.0).
+    ///
+    /// Converts genetic distance to a relatedness score using a clamped
+    /// linear transformation. Values closer to 1.0 indicate stronger
+    /// kinship.
+    ///
+    /// # Parameters
+    /// - `other`: Genotype to compare against
+    ///
+    /// # Returns
+    /// Relatedness score in range [0.0, 1.0] where 1.0 = identical genetics.
+    ///
+    /// # Formula
+    /// `relatedness = clamp(1.0 - (distance / 10.0), 0.0, 1.0)`
     fn relatedness(&self, other: &Genotype) -> f32;
+
+    /// Serializes this genotype to the HexDNA string format.
+    ///
+    /// HexDNA is a portable text encoding used for:
+    /// - Entity export/import via TUI commands (C/V keys)
+    /// - P2P entity migration between simulation instances
+    /// - Fossil record archival
+    ///
+    /// # Returns
+    /// Base16-encoded JSON string containing the full genotype
+    /// (brain topology + all physiological traits).
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use primordium_core::brain::GenotypeLogic;
+    ///
+    /// let genotype = Genotype::new_random();
+    /// let hex_dna = genotype.to_hex();  // "7b22627261696e223a...
+    /// ```
     fn to_hex(&self) -> String;
+
+    /// Deserializes a genotype from the HexDNA string format.
+    ///
+    /// Parses a Base16-encoded JSON string into a Genotype instance.
+    /// This is the inverse of `to_hex` and is used for entity import
+    /// and P2P migrant acceptance.
+    ///
+    /// # Parameters
+    /// - `hex_str`: HexDNA string (Base16-encoded JSON)
+    ///
+    /// # Returns
+    /// `Ok(Genotype)` if parsing succeeds, `Err` if the string is
+    /// malformed or contains invalid genotype data.
+    ///
+    /// # Errors
+    /// Returns a `anyhow::Error` if:
+    /// - The hex string is not valid Base16
+    /// - The decoded data is not valid JSON
+    /// - The JSON does not match the Genotype schema
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use primordium_core::brain::GenotypeLogic;
+    ///
+    /// let hex_dna = "7b22627261696e223a...";  // HexDNA string
+    /// match Genotype::from_hex(hex_dna) {
+    ///     Ok(genotype) => println!("Imported entity"),
+    ///     Err(e) => println!("Invalid DNA: {}", e),
+    /// }
+    /// ```
     fn from_hex(hex_str: &str) -> anyhow::Result<Self>
     where
         Self: Sized;

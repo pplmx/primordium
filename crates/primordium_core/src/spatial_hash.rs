@@ -3,6 +3,42 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
 #[derive(Clone, Default)]
+/// Spatial indexing structure for efficient spatial queries on entity positions.
+///
+/// Implements a grid-based uniform spatial hash using offset-indexed entity lists.
+/// Enables O(1) spatial cell lookup and efficient range queries for perception,
+/// collision detection, and neighbor operations.
+///
+/// # Performance Characteristics
+/// - Nearest neighbor queries: O(cell_entity_count)
+/// - Construction: O(entity_count / grid_cells) with Rayon parallelism
+/// - Memory: O(entity_count) for entity indices + O(grid_cells) for metadata
+///
+/// # Fields
+/// - `cell_size`: Width/height of each grid cell in world units
+/// - `width/height`: World dimensions in world units
+/// - `cols/rows`: Grid dimensions (# cells horizontally/vertically)
+/// - `cell_offsets`: Offset indices into `entity_indices` for each cell
+/// - `entity_indices`: Compact storage of all entity indices, sorted by cell
+/// - `lineage_centroids`: Cached kin centroids per lineage
+/// - `lineage_density`: Per-cell lineage density maps
+///
+/// # Implementation Notes
+/// - Uses "offset array" pattern (like compressed sparse rows)
+/// - `cell_offsets[i]..cell_offsets[i+1]` contains all entities in cell i
+/// - Thread-safe construction using AtomicUsize counters
+/// - Overflow protection via i32 boundary checks
+///
+/// # Examples
+/// ```no_run
+/// use primordium_core::spatial_hash::SpatialHash;
+///
+/// let mut spatial = SpatialHash::new(10.0, 100, 100);  // 10x10 cells
+/// let positions = vec![(15.0, 15.0), (25.0, 25.0), (85.0, 85.0)];
+/// spatial.build_parallel(&positions, 100, 100);
+///
+/// let entities_in_cell = spatial.get_cell_entities(2, 2);
+/// ```
 pub struct SpatialHash {
     pub cell_size: f64,
     pub width: u16,
@@ -16,6 +52,22 @@ pub struct SpatialHash {
 }
 
 impl SpatialHash {
+    /// Creates a new spatial hash with the specified parameters.
+    ///
+    /// # Parameters
+    /// - `cell_size`: Width/height of each grid cell in world units (影响着空间索引的粒度，越细粒度越精确但内存开销越大)
+    /// - `width`: World width in world units
+    /// - `height`: World height in world units
+    ///
+    /// # Returns
+    /// An initialized `SpatialHash` with empty cell data structures.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use primordium_core::spatial_hash::SpatialHash;
+    ///
+    /// let spatial = SpatialHash::new(10.0, 100, 100);  // 10x10 cells
+    /// ```
     pub fn new(cell_size: f64, width: u16, height: u16) -> Self {
         let cols = (width as f64 / cell_size).ceil() as usize;
         let rows = (height as f64 / cell_size).ceil() as usize;
@@ -32,10 +84,31 @@ impl SpatialHash {
         }
     }
 
+    /// Creates a spatial hash with default size (10.0 cell_size, 100x100 world).
+    ///
+    /// Convenience constructor for quick initialization in tests.
     pub fn new_empty() -> Self {
         Self::new(5.0, 100, 100)
     }
 
+    /// Computes the cell index for a given world coordinate.
+    ///
+    /// Transforms world (x, y) coordinates into a flat cell index for lookup
+    /// in the offset array. Handles edge cases:
+    /// - Non-finite coordinates return None
+    /// - Coordinates outside world bounds return None
+    /// - Overflow protection via i32 boundary checks
+    ///
+    /// # Parameters
+    /// - `x`: World X coordinate
+    /// - `y`: World Y coordinate
+    ///
+    /// # Returns
+    /// `Some(cell_index)` if coordinate is valid and in bounds, `None` otherwise.
+    ///
+    /// # Performance
+    /// - Marked `#[inline]` for hot path optimization
+    /// - Called once per entity during build and during lookup operations
     #[inline]
     pub fn get_cell_idx(&self, x: f64, y: f64) -> Option<usize> {
         if !x.is_finite() || !y.is_finite() {

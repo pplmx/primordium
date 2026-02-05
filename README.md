@@ -137,6 +137,22 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 - **Strict Quality Gate**: 100% Clippy compliance and 40+ tests ensuring digital stability.
 - **Spatial Hashing**: Optimized lock-free sensory lookups for high-density populations.
 
+**Performance Scale**:
+| Entity Count | Tick Time (avg) | Recommendations |
+|-------------|----------------|----------------|
+| 100-500 | <5ms | Any hardware setup |
+| 500-1,000 | <15ms | Modern multi-core CPU preferred |
+| 1,000-5,000 | <50ms | Requires 4+ cores, 32GB+ RAM suggested |
+| 5,000-10,000+ | <100ms | Needs 8+ cores, 64GB+ RAM, SSD storage |
+
+**Memory Usage**:
+- Base: ~50MB (program overhead)
+- Per entity: ~5KB (including brain, activations, snapshot copy)
+- 10,000 entities: ~50MB base + ~50MB data = ~100MB total resident memory
+
+**Performance Regression Gate**:
+New code changes must not exceed 1500ms average tick time for the perf_gate test (100 entities, 200 ticks). Run with `cargo test --test perf_gate` to verify.
+
 
 ---
 

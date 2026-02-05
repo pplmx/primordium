@@ -223,4 +223,41 @@ Primordium supports **Interstellar Migration**. Travel off the edge while "Onlin
 - [History & Archeology](../docs/wiki/HISTORY.md)
 
 ---
+
+## 🔬 Debugging & Testing
+
+### Deterministic Mode
+
+Purpose: Enable reproducible simulation runs for debugging and scientific repeatability.
+
+**How to Use**:
+
+1. Enable deterministic mode via code:
+```rust
+let mut config = AppConfig::default();
+config.world.deterministic = true;
+config.world.seed = Some(42);  // Required - must provide a fixed seed
+```
+
+2. Or via config file if available.
+
+**What Gets Determinized**:
+- Entity and Lineage ID generation (seeded RNG)
+- Random numbers in mutation, movement, decisions
+- Climate data (CPU/RAM) - replaced with predictable synthetic values (sin/cos waves)
+- Thread parallel execution order with deterministic sorting
+
+**What Is NOT Deterministic**:
+- System thread scheduling timing
+- Actual hardware metrics (CPU/RAM usage still detected but not used for simulation)
+
+**Verification**:
+Run deterministic consistency tests:
+```bash
+cargo test --test determinism_suite
+```
+
+This ensures two runs with the same seed produce identical evolution.
+
 *Last Updated: 2026-01-27*
+
