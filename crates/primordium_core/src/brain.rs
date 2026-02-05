@@ -5,11 +5,13 @@ use std::collections::HashMap;
 pub trait BrainLogic {
     fn new_random() -> Self;
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self;
+    #[must_use]
     fn forward(
         &self,
         inputs: [f32; BRAIN_INPUTS],
         last_hidden: [f32; BRAIN_MEMORY],
     ) -> ([f32; BRAIN_OUTPUTS], [f32; BRAIN_MEMORY]);
+    #[must_use]
     fn forward_internal(
         &self,
         inputs: [f32; BRAIN_INPUTS],
