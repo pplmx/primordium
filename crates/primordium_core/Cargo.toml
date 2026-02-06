@@ -22,3 +22,5 @@ flate2 = "1.0"
 petgraph = "0.6"
 chrono = "0.4"
 rkyv = { version = "0.7", features = ["validation", "uuid"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"

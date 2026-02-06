@@ -8,6 +8,7 @@
 //! - Environmental systems (terrain, climate, resources)
 //! - Social and ecological interactions
 //! - Spatial indexing and performance optimizations
+//! - Metrics collection and structured logging
 //!
 //! ## Architecture
 //!
@@ -26,7 +27,7 @@
 //! // Create a new brain with default topology
 //! let brain = Brain::new_random();
 //!
-//! // Process inputs to get outputs  
+//! // Process inputs to get outputs
 //! let inputs = [0.5; 29];
 //! let hidden = [0.0; 6];
 //! let (outputs, _) = brain.forward(inputs, hidden);
@@ -52,6 +53,8 @@ pub mod lifecycle;
 pub mod lineage_registry;
 /// Ancestry tree construction and visualization
 pub mod lineage_tree;
+/// Performance metrics collection and logging
+pub mod metrics;
 /// Pathogen simulation with contagion and immunity
 pub mod pathogen;
 /// Pheromone grid for chemical communication
@@ -71,5 +74,6 @@ pub mod terrain;
 
 pub use brain::{BrainLogic, GenotypeLogic};
 pub use influence::{InfluenceGrid, InfluenceSource};
+pub use metrics::{init_logging, Metrics};
 pub use primordium_data::{Connection, Node, NodeType};
 pub use terrain::TerrainLogic;
