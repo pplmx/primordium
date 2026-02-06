@@ -1,6 +1,8 @@
 use anyhow::Result;
+use crossterm::event::Event;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use sysinfo::System;
@@ -11,6 +13,12 @@ use crate::model::environment::{ClimateState, Environment};
 use crate::model::terrain::TerrainType;
 use crate::model::world::World;
 use primordium_data::GeneType;
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct InputEvent {
+    pub tick: u64,
+    pub event: Event,
+}
 
 pub struct App {
     pub running: bool,
@@ -76,6 +84,10 @@ pub struct App {
 
     pub hof_query_rx: Option<std::sync::mpsc::Receiver<Vec<(Uuid, u32, bool)>>>,
     pub cached_hall_of_fame: Vec<(Uuid, u32, bool)>,
+
+    pub input_log: Vec<InputEvent>,
+    pub replay_queue: VecDeque<InputEvent>,
+    pub replay_mode: bool,
 }
 
 impl App {
@@ -155,6 +167,9 @@ impl App {
             network: None,
             hof_query_rx: None,
             cached_hall_of_fame: Vec::new(),
+            input_log: Vec::new(),
+            replay_queue: VecDeque::new(),
+            replay_mode: false,
         })
     }
 
@@ -179,6 +194,25 @@ impl App {
         let world = crate::model::persistence::load_world("save.json")?;
         self.world = world;
         self.tick_count = self.world.tick;
+        Ok(())
+    }
+
+    pub fn save_recording(&self) -> Result<()> {
+        let timestamp = chrono::Utc::now().format("%Y-%m-%d_%H-%M-%S");
+        let filename = format!("logs/input_trace_{}.json", timestamp);
+        std::fs::create_dir_all("logs")?;
+        let data = serde_json::to_string_pretty(&self.input_log)?;
+        std::fs::write(&filename, data)?;
+        tracing::info!("Input trace saved to {}", filename);
+        Ok(())
+    }
+
+    pub fn load_replay(&mut self, path: &str) -> Result<()> {
+        let data = std::fs::read_to_string(path)?;
+        let log: Vec<InputEvent> = serde_json::from_str(&data)?;
+        self.replay_queue = VecDeque::from(log);
+        self.replay_mode = true;
+        tracing::info!("Replay loaded: {} events", self.replay_queue.len());
         Ok(())
     }
 

@@ -60,15 +60,42 @@ impl App {
                 self.update_hardware_metrics();
             }
 
-            while event::poll(Duration::ZERO)? {
-                match event::read()? {
-                    Event::Key(key) if key.kind == KeyEventKind::Press => {
-                        self.handle_key(key);
+            if self.replay_mode {
+                while let Some(evt) = self.replay_queue.front() {
+                    if evt.tick <= self.world.tick {
+                        if let Some(evt) = self.replay_queue.pop_front() {
+                            match evt.event {
+                                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                                    self.handle_key(key);
+                                }
+                                Event::Mouse(mouse) => {
+                                    self.handle_mouse(mouse);
+                                }
+                                _ => {}
+                            }
+                        }
+                    } else {
+                        break;
                     }
-                    Event::Mouse(mouse) => {
-                        self.handle_mouse(mouse);
+                }
+            } else {
+                while event::poll(Duration::ZERO)? {
+                    let evt = event::read()?;
+                    if !self.screensaver {
+                        self.input_log.push(crate::app::state::InputEvent {
+                            tick: self.world.tick,
+                            event: evt.clone(),
+                        });
                     }
-                    _ => {}
+                    match evt {
+                        Event::Key(key) if key.kind == KeyEventKind::Press => {
+                            self.handle_key(key);
+                        }
+                        Event::Mouse(mouse) => {
+                            self.handle_mouse(mouse);
+                        }
+                        _ => {}
+                    }
                 }
             }
 
@@ -96,6 +123,9 @@ impl App {
         if shutdown.load(Ordering::SeqCst) {
             tracing::info!("Saving state before exit...");
             self.save_state()?;
+            if !self.input_log.is_empty() {
+                let _ = self.save_recording();
+            }
         }
 
         Ok(())

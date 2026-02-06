@@ -24,6 +24,9 @@ struct Args {
 
     #[arg(long)]
     relay: Option<String>,
+
+    #[arg(long)]
+    replay: Option<String>,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -87,6 +90,14 @@ async fn main() -> Result<()> {
 
             if let Some(url) = args.relay {
                 app.connect(&url);
+            }
+
+            if let Some(path) = args.replay {
+                if let Err(e) = app.load_replay(&path) {
+                    eprintln!("Failed to load replay: {}", e);
+                } else {
+                    println!("Replay loaded from {}", path);
+                }
             }
 
             // Override game mode from CLI

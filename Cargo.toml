@@ -65,7 +65,7 @@ rkyv = { version = "0.7", features = ["validation", "uuid"] }
 
 # Terminal UI (non-WASM only in practice, but listed here)
 ratatui = "0.29"
-crossterm = "0.28"
+crossterm = { version = "0.28", features = ["serde"] }
 sysinfo = "0.30"
 tokio-tungstenite = "0.21"
 quinn = "0.10"
