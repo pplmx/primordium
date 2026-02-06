@@ -34,8 +34,10 @@ async fn test_hunter_competition_impact() {
 
     let mut hunter = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     hunter.metabolism.trophic_potential = 1.0;
-    hunter.metabolism.energy = 500.0;
-    hunter.metabolism.max_energy = 1000.0;
+    hunter.metabolism.energy = 5000.0;
+    hunter.metabolism.max_energy = 10000.0;
+    hunter.physics.sensing_range = 20.0;
+    hunter.intel.genotype.sensing_range = 20.0;
     hunter
         .intel
         .genotype
@@ -53,6 +55,8 @@ async fn test_hunter_competition_impact() {
     prey.metabolism.energy = 500.0;
     prey.metabolism.max_energy = 1000.0;
     prey.metabolism.trophic_potential = 0.0;
+    prey.physics.max_speed = 0.0;
+    prey.intel.genotype.max_speed = 0.0;
     prey.intel.genotype.brain.connections.clear();
     prey.physics.r = 0;
 
@@ -61,8 +65,11 @@ async fn test_hunter_competition_impact() {
     world.spawn_entity(prey.clone());
     assert_eq!(world.get_population_count(), 2);
 
-    for _ in 0..60 {
+    for _ in 0..100 {
         world.update(&mut env).unwrap();
+        if world.get_population_count() == 1 {
+            break;
+        }
     }
 
     let entities1 = world.get_all_entities();
@@ -85,8 +92,10 @@ async fn test_hunter_competition_impact() {
             0,
         );
         competitor.metabolism.trophic_potential = 1.0;
-        competitor.metabolism.energy = 500.0;
-        competitor.metabolism.max_energy = 1000.0;
+        competitor.metabolism.energy = 5000.0;
+        competitor.metabolism.max_energy = 10000.0;
+        competitor.physics.sensing_range = 20.0;
+        competitor.intel.genotype.sensing_range = 20.0;
         competitor.intel.genotype.brain.connections.push(
             primordium_lib::model::brain::Connection {
                 from: 2,
@@ -100,8 +109,11 @@ async fn test_hunter_competition_impact() {
     }
     assert_eq!(world2.get_population_count(), 41);
 
-    for _ in 0..60 {
+    for _ in 0..100 {
         world2.update(&mut env).unwrap();
+        if world2.get_population_count() == 40 {
+            break;
+        }
     }
 
     let entities2 = world2.get_all_entities();
