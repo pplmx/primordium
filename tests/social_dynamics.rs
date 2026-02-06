@@ -131,7 +131,7 @@ async fn test_inter_tribe_predation() {
         c.world.disaster_chance = 0.0;
         c.metabolism.reproduction_threshold = 1000000.0;
     });
-    let e1 = EntityBuilder::new()
+    let mut e1 = EntityBuilder::new()
         .id(id1)
         .at(10.0, 10.0)
         .color(255, 0, 0)
@@ -140,24 +140,22 @@ async fn test_inter_tribe_predation() {
         .with_behavior(TestBehavior::Aggressive)
         .lineage(Uuid::from_u128(777))
         .build();
+    e1.metabolism.trophic_potential = 1.0;
+    e1.physics.sensing_range = 20.0;
+    e1.intel.genotype.sensing_range = 20.0;
 
-    let mut e1_mut = e1.clone();
-    e1_mut.metabolism.trophic_potential = 1.0;
-
-    let e2 = EntityBuilder::new()
+    let mut e2 = EntityBuilder::new()
         .id(id2)
         .at(10.1, 10.1)
         .color(0, 0, 255)
-        .energy(10.0)
+        .energy(100.0)
         .lineage(Uuid::from_u128(888))
         .build();
-    let mut e2_mut = e2.clone();
-    e2_mut.metabolism.trophic_potential = 0.0;
+    e2.metabolism.trophic_potential = 0.0;
+    e2.physics.max_speed = 0.0;
+    e2.intel.genotype.max_speed = 0.0;
 
-    let (mut world, mut env) = world_builder
-        .with_entity(e1_mut)
-        .with_entity(e2_mut)
-        .build();
+    let (mut world, mut env) = world_builder.with_entity(e1).with_entity(e2).build();
 
     for _ in 0..200 {
         world.update(&mut env).expect("Update failed");
