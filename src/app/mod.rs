@@ -2,13 +2,17 @@ pub mod help;
 pub mod input;
 pub mod onboarding;
 pub mod render;
+pub mod shutdown;
 pub mod state;
 
+pub use shutdown::ShutdownManager;
 pub use state::App;
 
 use anyhow::Result;
 use chrono::Utc;
 use crossterm::event::{self, Event, KeyEventKind};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::model::history::LiveEvent;
@@ -21,8 +25,28 @@ impl App {
     pub async fn run(&mut self, tui: &mut Tui) -> Result<()> {
         let mut last_tick = Instant::now();
         let tick_rate = Duration::from_millis(16);
+        let mut last_config_check = Instant::now();
 
-        while self.running {
+        // Setup shutdown handler
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let shutdown_clone = shutdown.clone();
+        tokio::spawn(async move {
+            tokio::signal::ctrl_c().await.ok();
+            tracing::info!("Ctrl+C received, initiating graceful shutdown...");
+            shutdown_clone.store(true, Ordering::SeqCst);
+        });
+
+        while self.running && !shutdown.load(Ordering::SeqCst) {
+            // Check for config reload every 2 seconds
+            if last_config_check.elapsed() >= Duration::from_secs(2) {
+                if let Ok(reloaded) = self.check_config_reload() {
+                    if reloaded {
+                        tracing::info!("Configuration hot-reloaded successfully");
+                    }
+                }
+                last_config_check = Instant::now();
+            }
+
             let effective_tick_rate =
                 Duration::from_secs_f64(tick_rate.as_secs_f64() / self.time_scale);
 
@@ -54,6 +78,13 @@ impl App {
                 last_tick = Instant::now();
             }
         }
+
+        // Perform graceful shutdown
+        if shutdown.load(Ordering::SeqCst) {
+            tracing::info!("Saving state before exit...");
+            self.save_state()?;
+        }
+
         Ok(())
     }
 

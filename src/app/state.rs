@@ -18,6 +18,8 @@ pub struct App {
     pub tick_count: u64,
     pub world: World,
     pub config: AppConfig,
+    pub config_path: String,
+    pub config_last_modified: Option<std::time::SystemTime>,
     // FPS & Timing
     pub fps: f64,
     pub frame_count: u64,
@@ -97,6 +99,10 @@ impl App {
         };
 
         let latest_snapshot = Some(world.create_snapshot(None));
+        let config_path = "config.toml".to_string();
+        let config_last_modified = std::fs::metadata(&config_path)
+            .ok()
+            .and_then(|m| m.modified().ok());
 
         Ok(Self {
             running: true,
@@ -104,6 +110,8 @@ impl App {
             tick_count: world.tick,
             world,
             config,
+            config_path,
+            config_last_modified,
             fps: 0.0,
             frame_count: 0,
             last_fps_update: Instant::now(),
@@ -169,5 +177,38 @@ impl App {
         self.world = world;
         self.tick_count = self.world.tick;
         Ok(())
+    }
+
+    pub fn check_config_reload(&mut self) -> Result<bool> {
+        if let Ok(metadata) = std::fs::metadata(&self.config_path) {
+            if let Ok(modified) = metadata.modified() {
+                if let Some(last) = self.config_last_modified {
+                    if modified > last {
+                        tracing::info!("Config file changed, reloading...");
+                        let new_config = AppConfig::load();
+
+                        // Only update non-critical config values
+                        // Don't change world dimensions or initial population
+                        self.config.metabolism = new_config.metabolism;
+                        self.config.evolution = new_config.evolution;
+                        self.config.brain = new_config.brain;
+                        self.config.social = new_config.social;
+                        self.config.terraform = new_config.terraform;
+                        self.config.ecosystem = new_config.ecosystem;
+                        self.config.target_fps = new_config.target_fps;
+
+                        self.config_last_modified = Some(modified);
+
+                        self.event_log.push_back((
+                            "Configuration reloaded from config.toml".to_string(),
+                            ratatui::style::Color::Green,
+                        ));
+
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        Ok(false)
     }
 }
