@@ -84,15 +84,12 @@ impl App {
         let config = AppConfig::load();
 
         let world = if std::path::Path::new("save.json").exists() {
-            if let Ok(data) = std::fs::read_to_string("save.json") {
-                if let Ok(mut w) = serde_json::from_str::<World>(&data) {
-                    w.post_load();
-                    w
-                } else {
+            match crate::model::persistence::load_world("save.json") {
+                Ok(w) => w,
+                Err(e) => {
+                    tracing::error!("Failed to load save file: {}", e);
                     World::new(config.world.initial_population, config.clone())?
                 }
-            } else {
-                World::new(config.world.initial_population, config.clone())?
             }
         } else {
             World::new(config.world.initial_population, config.clone())?
@@ -164,16 +161,12 @@ impl App {
     }
 
     pub fn save_state(&mut self) -> Result<()> {
-        self.world.prepare_for_save();
-        let data = serde_json::to_string_pretty(&self.world)?;
-        std::fs::write("save.json", data)?;
+        crate::model::persistence::save_world(&mut self.world, "save.json")?;
         Ok(())
     }
 
     pub fn load_state(&mut self) -> Result<()> {
-        let data = std::fs::read_to_string("save.json")?;
-        let mut world: World = serde_json::from_str(&data)?;
-        world.post_load();
+        let world = crate::model::persistence::load_world("save.json")?;
         self.world = world;
         self.tick_count = self.world.tick;
         Ok(())

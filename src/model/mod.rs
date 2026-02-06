@@ -48,6 +48,7 @@ pub mod influence {
 }
 pub mod migration;
 pub mod observer;
+pub mod persistence;
 pub mod world;
 
 pub mod infra;
