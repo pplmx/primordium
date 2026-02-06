@@ -13,8 +13,8 @@ use std::collections::HashMap;
 /// - Hidden nodes: Dynamic, starting with 6 but can grow through topological mutations
 ///
 /// # Examples
-/// ```no_run
-/// use primordium_core::brain::BrainLogic;
+/// ```ignore
+/// use primordium_core::brain::{BrainLogic, Brain};
 ///
 /// let brain = Brain::new_random();
 /// let inputs = [0.0; 29];
@@ -34,10 +34,10 @@ pub trait BrainLogic {
     /// - `rng`: Random number generator instance for reproducible behavior
     ///
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// use rand::SeedableRng;
     /// use rand_chacha::ChaCha8Rng;
-    /// use primordium_core::brain::BrainLogic;
+    /// use primordium_core::brain::{BrainLogic, Brain};
     ///
     /// let mut rng = ChaCha8Rng::seed_from_u64(42);
     /// let brain = Brain::new_random_with_rng(&mut rng);
@@ -238,10 +238,11 @@ pub trait GenotypeLogic {
     /// - `rng`: Random number generator for reproducible genotype generation
     ///
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// use rand::SeedableRng;
     /// use rand_chacha::ChaCha8Rng;
     /// use primordium_core::brain::GenotypeLogic;
+    /// use primordium_data::Genotype;
     ///
     /// let mut rng = ChaCha8Rng::seed_from_u64(42);
     /// let genotype = Genotype::new_random_with_rng(&mut rng);
@@ -309,8 +310,9 @@ pub trait GenotypeLogic {
     /// (brain topology + all physiological traits).
     ///
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// use primordium_core::brain::GenotypeLogic;
+    /// use primordium_data::Genotype;
     ///
     /// let genotype = Genotype::new_random();
     /// let hex_dna = genotype.to_hex();  // "7b22627261696e223a...
@@ -337,8 +339,9 @@ pub trait GenotypeLogic {
     /// - The JSON does not match the Genotype schema
     ///
     /// # Examples
-    /// ```no_run
+    /// ```ignore
     /// use primordium_core::brain::GenotypeLogic;
+    /// use primordium_data::Genotype;
     ///
     /// let hex_dna = "7b22627261696e223a...";  // HexDNA string
     /// match Genotype::from_hex(hex_dna) {

@@ -1,6 +1,40 @@
+//! Configuration management for simulation parameters.
+//!
+//! This module provides strongly-typed configuration structures that map to
+//! the `config.toml` file. All simulation parameters can be customized through
+//! this configuration system.
+//!
+//! ## Configuration Hierarchy
+//!
+//! 1. Default values (hardcoded in `Default` impl)
+//! 2. `config.toml` file (overrides defaults)
+//! 3. Environment variables (future enhancement)
+//!
+//! ## Example `config.toml`
+//!
+//! ```toml
+//! [world]
+//! width = 100
+//! height = 50
+//! initial_population = 100
+//! seed = 42
+//! deterministic = true
+//!
+//! [metabolism]
+//! base_move_cost = 1.0
+//! reproduction_threshold = 150.0
+//!
+//! [evolution]
+//! mutation_rate = 0.1
+//! ```
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 
+/// World-level simulation configuration.
+///
+/// Defines the fundamental parameters of the simulation world including
+/// dimensions, initial population, and hardware-coupled environmental triggers.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorldConfig {
     pub width: u16,
@@ -19,6 +53,10 @@ pub struct WorldConfig {
     pub power_grid_interval: u64,
 }
 
+/// Entity metabolism and energy management configuration.
+///
+/// Controls energy costs, consumption rates, and life-cycle thresholds
+/// that govern entity survival and reproduction.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MetabolismConfig {
     pub base_move_cost: f64,

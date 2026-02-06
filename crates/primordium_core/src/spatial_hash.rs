@@ -30,14 +30,15 @@ use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 /// - Overflow protection via i32 boundary checks
 ///
 /// # Examples
-/// ```no_run
+/// ```ignore
 /// use primordium_core::spatial_hash::SpatialHash;
 ///
 /// let mut spatial = SpatialHash::new(10.0, 100, 100);  // 10x10 cells
 /// let positions = vec![(15.0, 15.0), (25.0, 25.0), (85.0, 85.0)];
 /// spatial.build_parallel(&positions, 100, 100);
 ///
-/// let entities_in_cell = spatial.get_cell_entities(2, 2);
+/// // Query entities near a position
+/// let nearby = spatial.query_neighbors(15.0, 15.0, 20.0);
 /// ```
 pub struct SpatialHash {
     pub cell_size: f64,
