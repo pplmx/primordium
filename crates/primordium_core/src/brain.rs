@@ -1055,4 +1055,345 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_brain_new_random_creates_valid_brain() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        assert!(!brain.nodes.is_empty(), "Brain should have nodes");
+        assert!(
+            !brain.connections.is_empty(),
+            "Brain should have connections"
+        );
+
+        let input_count = brain
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Input)
+            .count();
+        let output_count = brain
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Output)
+            .count();
+
+        assert_eq!(
+            input_count, BRAIN_INPUTS,
+            "Should have correct number of inputs"
+        );
+        assert_eq!(
+            output_count, BRAIN_OUTPUTS,
+            "Should have correct number of outputs"
+        );
+    }
+
+    #[test]
+    fn test_brain_forward_produces_valid_outputs() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        let inputs = [0.5; BRAIN_INPUTS];
+        let hidden = [0.0; BRAIN_MEMORY];
+        let (outputs, next_hidden) = brain.forward(inputs, hidden);
+
+        assert_eq!(
+            outputs.len(),
+            BRAIN_OUTPUTS,
+            "Should produce correct number of outputs"
+        );
+        assert_eq!(
+            next_hidden.len(),
+            BRAIN_MEMORY,
+            "Should produce correct number of hidden states"
+        );
+
+        for (i, &val) in outputs.iter().enumerate() {
+            assert!(!val.is_nan(), "Output {} should not be NaN", i);
+            assert!(!val.is_infinite(), "Output {} should not be infinite", i);
+        }
+    }
+
+    #[test]
+    fn test_brain_forward_with_zeros() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        let inputs = [0.0; BRAIN_INPUTS];
+        let hidden = [0.0; BRAIN_MEMORY];
+        let (outputs, _next_hidden) = brain.forward(inputs, hidden);
+
+        for (i, &val) in outputs.iter().enumerate() {
+            assert!(
+                !val.is_nan(),
+                "Output {} should not be NaN with zero inputs",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_brain_forward_with_extreme_values() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        let inputs = [1.0; BRAIN_INPUTS];
+        let hidden = [1.0; BRAIN_MEMORY];
+        let (outputs, _next_hidden) = brain.forward(inputs, hidden);
+
+        for (i, &val) in outputs.iter().enumerate() {
+            assert!(
+                !val.is_nan(),
+                "Output {} should not be NaN with extreme inputs",
+                i
+            );
+            assert!(
+                !val.is_infinite(),
+                "Output {} should not be infinite with extreme inputs",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_brain_forward_deterministic() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain1 = Brain::new_random_with_rng(&mut rng);
+        let brain2 = brain1.clone();
+
+        let inputs = [0.5; BRAIN_INPUTS];
+        let hidden = [0.0; BRAIN_MEMORY];
+        let (outputs1, _) = brain1.forward(inputs, hidden);
+        let (outputs2, _) = brain2.forward(inputs, hidden);
+
+        assert_eq!(outputs1, outputs2, "Forward pass should be deterministic");
+    }
+
+    #[test]
+    fn test_brain_mutation_does_not_panic() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let mut brain = Brain::new_random_with_rng(&mut rng);
+
+        let config = crate::config::AppConfig::default();
+        // Mutation should not panic, even if it doesn't always change structure
+        brain.mutate_with_config(&config, None, &mut rng);
+
+        // Verify brain is still valid after mutation
+        assert!(
+            !brain.nodes.is_empty(),
+            "Brain should still have nodes after mutation"
+        );
+        assert!(
+            !brain.connections.is_empty(),
+            "Brain should still have connections after mutation"
+        );
+    }
+
+    #[test]
+    fn test_brain_to_hex_roundtrip() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        let hex = brain.to_hex();
+        let restored = Brain::from_hex(&hex).expect("Should deserialize successfully");
+
+        assert_eq!(
+            brain.nodes.len(),
+            restored.nodes.len(),
+            "Node count should match"
+        );
+        assert_eq!(
+            brain.connections.len(),
+            restored.connections.len(),
+            "Connection count should match"
+        );
+
+        for (orig, rest) in brain.nodes.iter().zip(restored.nodes.iter()) {
+            assert_eq!(orig.id, rest.id, "Node IDs should match");
+            assert_eq!(orig.node_type, rest.node_type, "Node types should match");
+        }
+    }
+
+    #[test]
+    fn test_brain_serialization_preserves_weights() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        let hex = brain.to_hex();
+        let restored = Brain::from_hex(&hex).expect("Should deserialize successfully");
+
+        for (orig, rest) in brain.connections.iter().zip(restored.connections.iter()) {
+            assert!(
+                (orig.weight - rest.weight).abs() < f32::EPSILON,
+                "Connection weights should match: {} vs {}",
+                orig.weight,
+                rest.weight
+            );
+        }
+    }
+
+    #[test]
+    fn test_brain_clone_preserves_structure() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain1 = Brain::new_random_with_rng(&mut rng);
+        let brain2 = brain1.clone();
+
+        assert_eq!(
+            brain1.nodes.len(),
+            brain2.nodes.len(),
+            "Node count should match after clone"
+        );
+        assert_eq!(
+            brain1.connections.len(),
+            brain2.connections.len(),
+            "Connection count should match after clone"
+        );
+    }
+
+    #[test]
+    fn test_brain_has_required_nodes() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        let has_inputs = (0..BRAIN_INPUTS).all(|i| brain.nodes.iter().any(|n| n.id == i));
+        assert!(has_inputs, "Brain should have all input nodes");
+
+        let has_outputs = (BRAIN_INPUTS..BRAIN_INPUTS + BRAIN_OUTPUTS)
+            .all(|i| brain.nodes.iter().any(|n| n.id == i));
+        assert!(has_outputs, "Brain should have all output nodes");
+    }
+
+    #[test]
+    fn test_brain_hidden_nodes_have_valid_ids() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        for node in &brain.nodes {
+            if node.node_type == NodeType::Hidden {
+                // Hidden nodes should have IDs greater than input and output nodes
+                assert!(
+                    node.id >= BRAIN_INPUTS + BRAIN_OUTPUTS,
+                    "Hidden node ID should be >= {}, got {}",
+                    BRAIN_INPUTS + BRAIN_OUTPUTS,
+                    node.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_brain_connections_are_valid() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let brain = Brain::new_random_with_rng(&mut rng);
+
+        for conn in &brain.connections {
+            assert!(
+                brain.nodes.iter().any(|n| n.id == conn.from),
+                "Connection from={} should have valid source",
+                conn.from
+            );
+            assert!(
+                brain.nodes.iter().any(|n| n.id == conn.to),
+                "Connection to={} should have valid target",
+                conn.to
+            );
+            assert!(!conn.weight.is_nan(), "Connection weight should not be NaN");
+        }
+    }
+
+    #[test]
+    fn test_genotype_new_random() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let genotype = Genotype::new_random_with_rng(&mut rng);
+
+        assert!(
+            genotype.sensing_range >= 3.0 && genotype.sensing_range <= 15.0,
+            "Sensing range should be in valid bounds"
+        );
+        assert!(
+            genotype.max_speed >= 0.5 && genotype.max_speed <= 3.0,
+            "Max speed should be in valid bounds"
+        );
+        assert!(
+            genotype.max_energy >= 100.0 && genotype.max_energy <= 500.0,
+            "Max energy should be in valid bounds"
+        );
+    }
+
+    #[test]
+    fn test_genotype_to_hex_roundtrip() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let genotype = Genotype::new_random_with_rng(&mut rng);
+
+        let hex = genotype.to_hex();
+        let restored = Genotype::from_hex(&hex).expect("Should deserialize");
+
+        assert!(
+            (genotype.sensing_range - restored.sensing_range).abs() < f64::EPSILON,
+            "Sensing range should match"
+        );
+        assert!(
+            (genotype.max_speed - restored.max_speed).abs() < f64::EPSILON,
+            "Max speed should match"
+        );
+        assert!(
+            (genotype.max_energy - restored.max_energy).abs() < f64::EPSILON,
+            "Max energy should match"
+        );
+    }
+
+    #[test]
+    fn test_genotype_crossover() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let p1 = Genotype::new_random_with_rng(&mut rng);
+        let p2 = Genotype::new_random_with_rng(&mut rng);
+
+        let mut rng = ChaCha8Rng::seed_from_u64(123);
+        let child = p1.crossover_with_rng(&p2, &mut rng);
+
+        assert!(
+            child.sensing_range >= 3.0 && child.sensing_range <= 15.0,
+            "Child sensing range should be valid"
+        );
+        assert!(
+            child.max_speed >= 0.5 && child.max_speed <= 3.0,
+            "Child max speed should be valid"
+        );
+        assert!(
+            child.max_energy >= 100.0 && child.max_energy <= 500.0,
+            "Child max energy should be valid"
+        );
+    }
+
+    #[test]
+    fn test_genotype_distance() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let g1 = Genotype::new_random_with_rng(&mut rng);
+        let g2 = Genotype::new_random_with_rng(&mut rng);
+
+        let distance = g1.distance(&g2);
+        assert!(distance >= 0.0, "Distance should be non-negative");
+
+        let self_distance = g1.distance(&g1);
+        assert!(self_distance < 0.01, "Distance to self should be near zero");
+    }
+
+    #[test]
+    fn test_genotype_relatedness() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let g1 = Genotype::new_random_with_rng(&mut rng);
+        let g2 = Genotype::new_random_with_rng(&mut rng);
+
+        let relatedness = g1.relatedness(&g2);
+        assert!(
+            (0.0..=1.0).contains(&relatedness),
+            "Relatedness should be in [0, 1]"
+        );
+
+        let self_relatedness = g1.relatedness(&g1);
+        assert!(
+            self_relatedness > 0.99,
+            "Self-relatedness should be near 1.0"
+        );
+    }
 }
