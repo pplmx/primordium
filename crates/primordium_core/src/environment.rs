@@ -135,6 +135,8 @@ pub struct Environment {
     pub god_climate_override: Option<ClimateState>,
     pub carbon_level: f64,
     pub oxygen_level: f64,
+    /// Memory usage of the Primordium process in MB
+    pub app_memory_usage_mb: f32,
 }
 
 impl Default for Environment {
@@ -156,6 +158,7 @@ impl Default for Environment {
             god_climate_override: None,
             carbon_level: 300.0,
             oxygen_level: 21.0,
+            app_memory_usage_mb: 0.0,
         }
     }
 }

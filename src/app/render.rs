@@ -96,7 +96,10 @@ impl App {
             let ram_gauge = Gauge::default()
                 .gauge_style(Style::default().fg(Color::Cyan))
                 .percent(self.env.ram_usage_percent as u16)
-                .label(format!("RAM: {:.1}%", self.env.ram_usage_percent));
+                .label(format!(
+                    "RAM: {:.1}% (App: {:.0}MB)",
+                    self.env.ram_usage_percent, self.env.app_memory_usage_mb
+                ));
             f.render_widget(ram_gauge, line2[0]);
             f.render_widget(
                 Paragraph::new(format!(

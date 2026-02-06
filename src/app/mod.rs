@@ -19,6 +19,7 @@ use crate::model::history::LiveEvent;
 use crate::ui::tui::Tui;
 use primordium_core::systems::environment as environment_system;
 use ratatui::style::Color;
+use sysinfo::Pid;
 use uuid::Uuid;
 
 impl App {
@@ -95,6 +96,14 @@ impl App {
         if !self.config.world.deterministic {
             self.sys.refresh_cpu();
             self.sys.refresh_memory();
+            self.sys.refresh_processes();
+
+            let pid = Pid::from_u32(std::process::id());
+            if let Some(process) = self.sys.process(pid) {
+                // memory() returns bytes, convert to MB
+                self.env.app_memory_usage_mb = process.memory() as f32 / 1024.0 / 1024.0;
+            }
+
             let cpu_usage = self.sys.global_cpu_info().cpu_usage();
             self.env.cpu_usage = cpu_usage;
             self.env.ram_usage_percent =
