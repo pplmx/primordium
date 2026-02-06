@@ -21,6 +21,14 @@ impl App {
                 }
             }
             KeyCode::Char('b') => self.show_brain = !self.show_brain,
+            KeyCode::Char('B') => {
+                if self.backup_state().is_ok() {
+                    self.event_log.push_back((
+                        "World state BACKED UP to backups/".to_string(),
+                        Color::Green,
+                    ));
+                }
+            }
             KeyCode::Char('a') => self.show_ancestry = !self.show_ancestry,
             KeyCode::Char('y') => {
                 self.show_archeology = !self.show_archeology;
@@ -83,6 +91,17 @@ impl App {
                         Color::Magenta,
                     ));
                 }
+            }
+            KeyCode::Char('P') if self.show_archeology => {
+                self.auto_play_history = !self.auto_play_history;
+                self.event_log.push_back((
+                    if self.auto_play_history {
+                        "Replay: Auto-Play ON".to_string()
+                    } else {
+                        "Replay: Auto-Play OFF".to_string()
+                    },
+                    Color::Cyan,
+                ));
             }
             KeyCode::Char('A') => {
                 let entities = self.world.get_all_entities();

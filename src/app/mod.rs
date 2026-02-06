@@ -76,6 +76,18 @@ impl App {
                 if !self.paused {
                     self.update_world()?;
                 }
+
+                if self.show_archeology
+                    && self.auto_play_history
+                    && self.frame_count.is_multiple_of(10)
+                {
+                    if self.archeology_index + 1 < self.archeology_snapshots.len() {
+                        self.archeology_index += 1;
+                    } else {
+                        self.auto_play_history = false;
+                    }
+                }
+
                 last_tick = Instant::now();
             }
         }

@@ -57,6 +57,7 @@ pub struct App {
     pub help_tab: u8, // 0=Controls, 1=Symbols, 2=Concepts, 3=Eras
     // Phase 40: Archeology View
     pub show_archeology: bool,
+    pub auto_play_history: bool, // NEW: Replay functionality
     pub archeology_snapshots: Vec<(u64, crate::model::history::PopulationStats)>,
     pub archeology_index: usize,
     pub selected_fossil_index: usize, // NEW
@@ -135,6 +136,7 @@ impl App {
             show_legend: false,
             help_tab: 0,
             show_archeology: false,
+            auto_play_history: false,
             archeology_snapshots: Vec::new(),
             archeology_index: 0,
             selected_fossil_index: 0,
@@ -162,6 +164,14 @@ impl App {
 
     pub fn save_state(&mut self) -> Result<()> {
         crate::model::persistence::save_world(&mut self.world, "save.json")?;
+        Ok(())
+    }
+
+    pub fn backup_state(&mut self) -> Result<()> {
+        let timestamp = chrono::Utc::now().format("%Y-%m-%d_%H-%M-%S");
+        let filename = format!("backups/world_{}.json", timestamp);
+        std::fs::create_dir_all("backups")?;
+        crate::model::persistence::save_world(&mut self.world, &filename)?;
         Ok(())
     }
 
