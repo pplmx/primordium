@@ -127,6 +127,7 @@ impl World {
             food_count: std::sync::atomic::AtomicUsize::new(initial_food),
             last_persistence_error: None,
             spatial_data_buffer: Vec::new(),
+            spatial_sort_buffer: Vec::new(),
             food_positions_buffer: Vec::new(),
         })
     }

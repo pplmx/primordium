@@ -113,6 +113,8 @@ pub struct World {
     #[serde(skip, default)]
     pub spatial_data_buffer: Vec<(f64, f64, uuid::Uuid)>,
     #[serde(skip, default)]
+    pub spatial_sort_buffer: Vec<(f64, f64, uuid::Uuid, uuid::Uuid)>,
+    #[serde(skip, default)]
     pub food_positions_buffer: Vec<(f64, f64)>,
 }
 

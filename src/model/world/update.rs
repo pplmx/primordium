@@ -170,21 +170,25 @@ impl World {
 
     fn pass_spatial_indexing(&mut self) {
         let mut query = self.ecs.query::<EntityComponents>();
-        let mut spatial_data_with_ids: Vec<_> = query
-            .iter()
-            .map(|(_h, (ident, pos, _, _, met, ..))| (pos.x, pos.y, met.lineage_id, ident.id))
-            .collect();
+        let mut spatial_data_with_ids = std::mem::take(&mut self.spatial_sort_buffer);
+        spatial_data_with_ids.clear();
+        spatial_data_with_ids.extend(
+            query
+                .iter()
+                .map(|(_h, (ident, pos, _, _, met, ..))| (pos.x, pos.y, met.lineage_id, ident.id)),
+        );
         spatial_data_with_ids.sort_by_key(|d| d.3);
 
         let mut spatial_data = std::mem::take(&mut self.spatial_data_buffer);
         spatial_data.clear();
-        for (x, y, lid, _) in spatial_data_with_ids {
-            spatial_data.push((x, y, lid));
+        for (x, y, lid, _) in &spatial_data_with_ids {
+            spatial_data.push((*x, *y, *lid));
         }
 
         self.spatial_hash
             .build_with_lineage(&spatial_data, self.width, self.height);
         self.spatial_data_buffer = spatial_data;
+        self.spatial_sort_buffer = spatial_data_with_ids;
     }
 
     fn pass_food_indexing(&mut self) -> (Vec<hecs::Entity>, Vec<(f64, f64, f32)>) {

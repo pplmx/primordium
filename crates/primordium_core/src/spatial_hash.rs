@@ -180,17 +180,19 @@ impl SpatialHash {
         }
 
         // Deterministic sequential centroid calculation
-        let mut centroids = HashMap::new();
+        self.lineage_centroids.clear();
         for &(x, y, lid) in data {
-            let entry = centroids.entry(lid).or_insert((0.0, 0.0, 0));
+            let entry = self.lineage_centroids.entry(lid).or_insert((0.0, 0.0, 0));
             entry.0 += x;
             entry.1 += y;
             entry.2 += 1;
         }
-        self.lineage_centroids = centroids;
 
-        self.lineage_density.clear();
-        self.lineage_density.resize(cell_count, HashMap::new());
+        if self.lineage_density.len() != cell_count {
+            self.lineage_density = vec![HashMap::new(); cell_count];
+        } else {
+            self.lineage_density.par_iter_mut().for_each(|m| m.clear());
+        }
         for &(x, y, lid) in data {
             if let Some(idx) = self.get_cell_idx(x, y) {
                 *self.lineage_density[idx].entry(lid).or_insert(0.0) += 1.0;
