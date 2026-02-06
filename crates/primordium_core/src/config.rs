@@ -152,6 +152,9 @@ pub struct EcosystemConfig {
     pub predation_energy_gain_fraction: f64,
     pub predation_competition_scale: f64,
     pub predation_min_efficiency: f64,
+    pub spawn_rate_limit_enabled: bool,
+    pub max_entities_per_tick: usize,
+    pub max_food_per_tick: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -262,6 +265,9 @@ impl Default for AppConfig {
                 predation_energy_gain_fraction: 0.5,
                 predation_competition_scale: 10000.0,
                 predation_min_efficiency: 0.5,
+                spawn_rate_limit_enabled: false,
+                max_entities_per_tick: 10,
+                max_food_per_tick: 5,
             },
             target_fps: 60,
             game_mode: GameMode::Standard,
@@ -370,6 +376,14 @@ impl AppConfig {
         anyhow::ensure!(
             self.ecosystem.base_spawn_chance >= 0.0 && self.ecosystem.base_spawn_chance <= 1.0,
             "Base spawn chance must be in [0.0, 1.0]"
+        );
+        anyhow::ensure!(
+            self.ecosystem.max_entities_per_tick > 0,
+            "Max entities per tick must be positive"
+        );
+        anyhow::ensure!(
+            self.ecosystem.max_food_per_tick > 0,
+            "Max food per tick must be positive"
         );
 
         // Target FPS validation

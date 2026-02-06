@@ -39,8 +39,16 @@ pub fn spawn_food_ecs(ctx: &mut SpawnFoodContext, rng: &mut impl Rng) {
         .food_count_ptr
         .load(std::sync::atomic::Ordering::Relaxed);
 
-    if food_count < ctx.config.world.max_food {
-        for _ in 0..3 {
+    let can_spawn = food_count < ctx.config.world.max_food;
+
+    if can_spawn {
+        let spawn_attempts = if ctx.config.ecosystem.spawn_rate_limit_enabled {
+            ctx.config.ecosystem.max_food_per_tick
+        } else {
+            3
+        };
+
+        for _ in 0..spawn_attempts {
             let x = rng.gen_range(1..ctx.width - 1);
             let y = rng.gen_range(1..ctx.height - 1);
             let terrain_mod = ctx.terrain.food_spawn_modifier(f64::from(x), f64::from(y));
@@ -62,7 +70,6 @@ pub fn spawn_food_ecs(ctx: &mut SpawnFoodContext, rng: &mut impl Rng) {
                 ));
                 ctx.food_count_ptr
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                break;
             }
         }
     }
@@ -81,8 +88,14 @@ pub fn spawn_food(
     let food_spawn_mult = env.food_spawn_multiplier();
     let base_spawn_chance =
         config.ecosystem.base_spawn_chance as f64 * food_spawn_mult * env.light_level() as f64;
+    let spawn_attempts = if config.ecosystem.spawn_rate_limit_enabled {
+        config.ecosystem.max_food_per_tick
+    } else {
+        3
+    };
+
     if food.len() < config.world.max_food {
-        for _ in 0..3 {
+        for _ in 0..spawn_attempts {
             let x = rng.gen_range(1..width - 1);
             let y = rng.gen_range(1..height - 1);
             let terrain_mod = terrain.food_spawn_modifier(f64::from(x), f64::from(y));
@@ -294,5 +307,77 @@ mod tests {
         let config = crate::config::AppConfig::default();
         spawn_food(&mut food, &env, &terrain, &config, 20, 20, &mut rng);
         assert_eq!(food.len(), initial_count);
+    }
+
+    #[test]
+    fn test_spawn_food_rate_limiting() {
+        let mut food = vec![];
+        let env = Environment::default();
+        let terrain = TerrainGrid::generate(50, 50, 42);
+        let mut rng = rand::thread_rng();
+
+        let mut config = crate::config::AppConfig::default();
+        config.ecosystem.spawn_rate_limit_enabled = true;
+        config.ecosystem.max_food_per_tick = 3;
+        config.ecosystem.base_spawn_chance = 100.0;
+
+        spawn_food(&mut food, &env, &terrain, &config, 50, 50, &mut rng);
+
+        assert!(
+            food.len() <= config.ecosystem.max_food_per_tick,
+            "Food count {} should not exceed limit {}",
+            food.len(),
+            config.ecosystem.max_food_per_tick
+        );
+    }
+
+    #[test]
+    fn test_spawn_food_no_limiting_when_disabled() {
+        let mut food: Vec<Food> = vec![];
+        let env = Environment {
+            world_time: 500,
+            ..Default::default()
+        };
+        let terrain = TerrainGrid::generate(50, 50, 42);
+        let mut rng = rand::thread_rng();
+
+        let mut config = crate::config::AppConfig::default();
+        config.ecosystem.spawn_rate_limit_enabled = false;
+        config.ecosystem.max_food_per_tick = 3;
+        config.ecosystem.base_spawn_chance = 100.0;
+        config.world.max_food = 1000;
+
+        spawn_food(&mut food, &env, &terrain, &config, 50, 50, &mut rng);
+
+        assert_eq!(
+            food.len(),
+            1,
+            "With rate limiting disabled and high spawn chance, 1 food should be spawned"
+        );
+    }
+
+    #[test]
+    fn test_spawn_food_uses_max_food_per_tick_when_rate_limiting_enabled() {
+        let mut food: Vec<Food> = vec![];
+        let env = Environment {
+            world_time: 500,
+            ..Default::default()
+        };
+        let terrain = TerrainGrid::generate(50, 50, 42);
+        let mut rng = rand::thread_rng();
+
+        let mut config = crate::config::AppConfig::default();
+        config.ecosystem.spawn_rate_limit_enabled = true;
+        config.ecosystem.max_food_per_tick = 10;
+        config.ecosystem.base_spawn_chance = 100.0;
+        config.world.max_food = 1000;
+
+        spawn_food(&mut food, &env, &terrain, &config, 50, 50, &mut rng);
+
+        assert_eq!(
+            food.len(),
+            1,
+            "With rate limiting enabled and high spawn chance, 1 food should be spawned"
+        );
     }
 }

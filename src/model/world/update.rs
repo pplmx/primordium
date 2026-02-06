@@ -591,18 +591,38 @@ impl World {
             }
         }
 
-        self.ecs.spawn_batch(new_babies.into_iter().map(|baby| {
-            (
-                baby.identity,
-                baby.position,
-                baby.velocity,
-                baby.appearance,
-                baby.physics,
-                baby.metabolism,
-                baby.health,
-                baby.intel,
-            )
-        }));
+        let babies_to_spawn: Vec<Entity> = if self.config.ecosystem.spawn_rate_limit_enabled {
+            let limit = self.config.ecosystem.max_entities_per_tick;
+            let original_count = new_babies.len();
+            let limited_babies = new_babies.into_iter().take(limit).collect::<Vec<Entity>>();
+            let final_count = limited_babies.len();
+
+            if original_count > limit {
+                tracing::debug!(
+                    "Entity spawn rate limit applied: {} babies spawned (limited from {})",
+                    final_count,
+                    original_count
+                );
+            }
+
+            limited_babies
+        } else {
+            new_babies
+        };
+
+        self.ecs
+            .spawn_batch(babies_to_spawn.into_iter().map(|baby| {
+                (
+                    baby.identity,
+                    baby.position,
+                    baby.velocity,
+                    baby.appearance,
+                    baby.physics,
+                    baby.metabolism,
+                    baby.health,
+                    baby.intel,
+                )
+            }));
 
         if !self.eaten_food_indices.is_empty() {
             self.food_dirty = true;
