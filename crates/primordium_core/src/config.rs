@@ -35,7 +35,7 @@ use std::fs;
 ///
 /// Defines the fundamental parameters of the simulation world including
 /// dimensions, initial population, and hardware-coupled environmental triggers.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct WorldConfig {
     pub width: u16,
     pub height: u16,
@@ -57,7 +57,7 @@ pub struct WorldConfig {
 ///
 /// Controls energy costs, consumption rates, and life-cycle thresholds
 /// that govern entity survival and reproduction.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct MetabolismConfig {
     pub base_move_cost: f64,
     pub base_idle_cost: f64,
@@ -72,7 +72,7 @@ pub struct MetabolismConfig {
     pub metamorphosis_trigger_maturity: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct EvolutionConfig {
     pub mutation_rate: f32,
     pub mutation_amount: f32,
@@ -87,14 +87,15 @@ pub struct EvolutionConfig {
     pub crowding_normalization: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub enum GameMode {
+    #[default]
     Standard,
     Cooperative,
     BattleRoyale,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct BrainConfig {
     pub hidden_node_cost: f64,
     pub connection_cost: f64,
@@ -106,7 +107,7 @@ pub struct BrainConfig {
     pub pruning_threshold: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SocialConfig {
     pub rank_weights: [f32; 4],
     pub soldier_damage_mult: f64,
@@ -128,7 +129,7 @@ pub struct SocialConfig {
     pub min_defense_multiplier: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TerraformConfig {
     pub dig_cost: f64,
     pub build_cost: f64,
@@ -139,7 +140,7 @@ pub struct TerraformConfig {
     pub build_oxygen_cost: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct EcosystemConfig {
     pub carbon_emission_rate: f64,
     pub sequestration_rate: f64,
@@ -269,11 +270,131 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
+    /// Validates all configuration parameters.
+    ///
+    /// Returns `Ok(())` if all parameters are valid, or `Err` with a description
+    /// of the first validation failure.
+    ///
+    /// # Validation Rules
+    /// - World dimensions must be positive and reasonable (< 1000)
+    /// - Population and food counts must be within sensible bounds
+    /// - Rates and multipliers must be non-negative
+    /// - Percentages must be in valid range [0.0, 1.0] where applicable
+    pub fn validate(&self) -> anyhow::Result<()> {
+        // World validation
+        anyhow::ensure!(self.world.width > 0, "World width must be positive");
+        anyhow::ensure!(self.world.width <= 1000, "World width too large (max 1000)");
+        anyhow::ensure!(self.world.height > 0, "World height must be positive");
+        anyhow::ensure!(
+            self.world.height <= 1000,
+            "World height too large (max 1000)"
+        );
+        anyhow::ensure!(
+            self.world.initial_population <= 10000,
+            "Initial population too large (max 10000)"
+        );
+        anyhow::ensure!(
+            self.world.max_food <= 10000,
+            "Max food too large (max 10000)"
+        );
+
+        // Metabolism validation
+        anyhow::ensure!(
+            self.metabolism.base_move_cost >= 0.0,
+            "Base move cost must be non-negative"
+        );
+        anyhow::ensure!(
+            self.metabolism.base_idle_cost >= 0.0,
+            "Base idle cost must be non-negative"
+        );
+        anyhow::ensure!(
+            self.metabolism.reproduction_threshold > 0.0,
+            "Reproduction threshold must be positive"
+        );
+        anyhow::ensure!(
+            self.metabolism.food_value > 0.0,
+            "Food value must be positive"
+        );
+
+        // Evolution validation
+        anyhow::ensure!(
+            self.evolution.mutation_rate >= 0.0 && self.evolution.mutation_rate <= 1.0,
+            "Mutation rate must be in [0.0, 1.0]"
+        );
+        anyhow::ensure!(
+            self.evolution.mutation_amount >= 0.0,
+            "Mutation amount must be non-negative"
+        );
+        anyhow::ensure!(
+            self.evolution.drift_rate >= 0.0 && self.evolution.drift_rate <= 1.0,
+            "Drift rate must be in [0.0, 1.0]"
+        );
+
+        // Brain validation
+        anyhow::ensure!(
+            self.brain.hidden_node_cost >= 0.0,
+            "Hidden node cost must be non-negative"
+        );
+        anyhow::ensure!(
+            self.brain.connection_cost >= 0.0,
+            "Connection cost must be non-negative"
+        );
+        anyhow::ensure!(
+            self.brain.learning_rate_max >= 0.0 && self.brain.learning_rate_max <= 1.0,
+            "Learning rate max must be in [0.0, 1.0]"
+        );
+
+        // Social validation
+        anyhow::ensure!(
+            self.social.sharing_threshold >= 0.0 && self.social.sharing_threshold <= 1.0,
+            "Sharing threshold must be in [0.0, 1.0]"
+        );
+        anyhow::ensure!(
+            self.social.sharing_fraction >= 0.0 && self.social.sharing_fraction <= 1.0,
+            "Sharing fraction must be in [0.0, 1.0]"
+        );
+        anyhow::ensure!(
+            self.social.aggression_threshold >= 0.0 && self.social.aggression_threshold <= 1.0,
+            "Aggression threshold must be in [0.0, 1.0]"
+        );
+
+        // Ecosystem validation
+        anyhow::ensure!(
+            self.ecosystem.carbon_emission_rate >= 0.0,
+            "Carbon emission rate must be non-negative"
+        );
+        anyhow::ensure!(
+            self.ecosystem.sequestration_rate >= 0.0,
+            "Sequestration rate must be non-negative"
+        );
+        anyhow::ensure!(
+            self.ecosystem.base_spawn_chance >= 0.0 && self.ecosystem.base_spawn_chance <= 1.0,
+            "Base spawn chance must be in [0.0, 1.0]"
+        );
+
+        // Target FPS validation
+        anyhow::ensure!(self.target_fps > 0, "Target FPS must be positive");
+        anyhow::ensure!(self.target_fps <= 240, "Target FPS too high (max 240)");
+
+        Ok(())
+    }
+
+    /// Loads and validates configuration from `config.toml`.
+    ///
+    /// If the file doesn't exist or is invalid, returns default configuration.
+    /// Logs warnings for invalid values.
     #[must_use]
     pub fn load() -> Self {
         if let Ok(content) = fs::read_to_string("config.toml") {
-            match toml::from_str(&content) {
-                Ok(config) => return config,
+            match toml::from_str::<Self>(&content) {
+                Ok(config) => {
+                    if let Err(e) = config.validate() {
+                        eprintln!("Warning: Invalid configuration values: {}", e);
+                        eprintln!("Falling back to default configuration.");
+                    } else {
+                        return config;
+                    }
+                }
                 Err(e) => {
                     eprintln!("Warning: Failed to parse config.toml: {}", e);
                     eprintln!("Falling back to default configuration.");
@@ -301,5 +422,80 @@ impl AppConfig {
         hasher.update(format!("{:?}", self.terraform).as_bytes());
         hasher.update(format!("{:?}", self.ecosystem).as_bytes());
         hex::encode(hasher.finalize())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config_validates() {
+        let config = AppConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_invalid_world_width() {
+        let config = AppConfig {
+            world: WorldConfig {
+                width: 0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_invalid_world_height() {
+        let config = AppConfig {
+            world: WorldConfig {
+                height: 1001,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_invalid_mutation_rate() {
+        let config = AppConfig {
+            evolution: EvolutionConfig {
+                mutation_rate: 1.5,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_negative_mutation_amount() {
+        let config = AppConfig {
+            evolution: EvolutionConfig {
+                mutation_amount: -0.1,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_invalid_target_fps() {
+        let config = AppConfig {
+            target_fps: 0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_fingerprint_consistency() {
+        let config1 = AppConfig::default();
+        let config2 = AppConfig::default();
+        assert_eq!(config1.fingerprint(), config2.fingerprint());
     }
 }
