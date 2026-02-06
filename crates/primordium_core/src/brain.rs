@@ -993,13 +993,25 @@ impl GenotypeLogic for Genotype {
     }
 
     fn to_hex(&self) -> String {
-        let bytes = serde_json::to_vec(self).unwrap_or_default();
-        hex::encode(bytes)
+        match serde_json::to_vec(self) {
+            Ok(bytes) => hex::encode(bytes),
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to serialize genotype to JSON");
+                String::new()
+            }
+        }
     }
 
     fn from_hex(hex_str: &str) -> anyhow::Result<Self> {
-        let bytes = hex::decode(hex_str)?;
-        let genotype = serde_json::from_slice(&bytes)?;
+        let bytes =
+            hex::decode(hex_str).map_err(|e| anyhow::anyhow!("Invalid hex encoding: {}", e))?;
+
+        if bytes.is_empty() {
+            return Err(anyhow::anyhow!("Empty hex string"));
+        }
+
+        let genotype = serde_json::from_slice(&bytes)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize genotype: {}", e))?;
         Ok(genotype)
     }
 }
