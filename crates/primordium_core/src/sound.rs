@@ -174,3 +174,22 @@ impl SoundGrid {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sound_propagation() {
+        let mut grid = SoundGrid::new(10, 10);
+        grid.deposit(5.0, 5.0, 100.0);
+        grid.update();
+
+        let center = grid.get_cell(5, 5);
+        let neighbor = grid.get_cell(6, 5);
+
+        assert!(center < 100.0, "Sound should decay");
+        assert!(neighbor > 0.0, "Sound should propagate");
+        assert!(center > neighbor, "Center should be louder");
+    }
+}
