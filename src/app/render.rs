@@ -175,3 +175,139 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::config::AppConfig;
+    use crate::model::environment::Environment;
+    use crate::model::world::World;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+    use std::collections::VecDeque;
+    use std::time::Instant;
+    use sysinfo::System;
+
+    fn create_test_app() -> App {
+        let config = AppConfig::default();
+        let world = World::new(0, config.clone()).unwrap();
+        let mut app = App {
+            running: true,
+            paused: false,
+            tick_count: 0,
+            world,
+            config: config.clone(),
+            config_path: "config.toml".to_string(),
+            config_last_modified: None,
+            fps: 60.0,
+            frame_count: 0,
+            last_fps_update: Instant::now(),
+            time_scale: 1.0,
+            sys: System::new_all(),
+            env: Environment::default(),
+            cpu_history: VecDeque::new(),
+            pop_history: VecDeque::new(),
+            o2_history: VecDeque::new(),
+            show_brain: false,
+            selected_entity: None,
+            focused_gene: None,
+            brush_type: primordium_data::TerrainType::Plains,
+            social_brush: 0,
+            is_social_brush: false,
+            show_ancestry: false,
+            last_climate: None,
+            last_anchor_time: Instant::now(),
+            anchor_interval: std::time::Duration::from_secs(3600),
+            is_anchoring: false,
+            screensaver: false,
+            cinematic_mode: false,
+            show_help: false,
+            show_legend: true,
+            help_tab: 0,
+            show_archeology: false,
+            auto_play_history: false,
+            archeology_snapshots: Vec::new(),
+            archeology_index: 0,
+            selected_fossil_index: 0,
+            onboarding_step: None,
+            view_mode: 0,
+            last_world_rect: ratatui::layout::Rect::default(),
+            last_sidebar_rect: ratatui::layout::Rect::default(),
+            gene_editor_offset: 0,
+            event_log: VecDeque::new(),
+            network_state: primordium_net::NetworkState::default(),
+            latest_snapshot: None,
+            network: None,
+            hof_query_rx: None,
+            cached_hall_of_fame: Vec::new(),
+            input_log: Vec::new(),
+            replay_queue: VecDeque::new(),
+            replay_mode: false,
+        };
+        app.latest_snapshot = Some(app.world.create_snapshot(None));
+        app
+    }
+
+    #[tokio::test]
+    async fn test_app_draw_no_panic() {
+        let mut app = create_test_app();
+        let backend = TestBackend::new(100, 50);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                app.draw(f);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        assert!(buffer.area.width > 0);
+        assert!(buffer.area.height > 0);
+    }
+
+    #[tokio::test]
+    async fn test_draw_help_overlay() {
+        let mut app = create_test_app();
+        app.show_help = true;
+        let backend = TestBackend::new(100, 50);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                app.draw(f);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let help_found = buffer.content().iter().any(|c| {
+            c.symbol().contains('H')
+                || c.symbol().contains('e')
+                || c.symbol().contains('l')
+                || c.symbol().contains('p')
+        });
+        assert!(help_found);
+    }
+
+    #[tokio::test]
+    async fn test_draw_sidebar_brain() {
+        let mut app = create_test_app();
+        app.show_brain = true;
+        let backend = TestBackend::new(100, 50);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                app.draw(f);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let found = buffer.content().iter().any(|c| {
+            c.symbol().contains('H')
+                || c.symbol().contains('a')
+                || c.symbol().contains('l')
+                || c.symbol().contains('l')
+        });
+        assert!(found);
+    }
+}

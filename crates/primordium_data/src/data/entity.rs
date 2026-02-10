@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
+/// World position of an entity.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Position {
@@ -12,14 +13,17 @@ pub struct Position {
     pub y: f64,
 }
 
+/// Metabolism niche specialization.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct MetabolicNiche(pub f32);
 
+/// Energy level of an entity.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Energy(pub f64);
 
+/// Velocity of an entity.
 #[derive(
     Clone, Debug, Serialize, Deserialize, Default, Archive, RkyvSerialize, RkyvDeserialize,
 )]
@@ -29,6 +33,7 @@ pub struct Velocity {
     pub vy: f64,
 }
 
+/// Visual appearance of an entity.
 #[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Appearance {
@@ -49,6 +54,7 @@ impl Default for Appearance {
     }
 }
 
+/// Unique identification of an entity.
 #[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Identity {
@@ -56,6 +62,7 @@ pub struct Identity {
     pub parent_id: Option<Uuid>,
 }
 
+/// Physical properties and state of an entity.
 #[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Physics {
@@ -73,6 +80,7 @@ pub struct Physics {
     pub max_speed: f64,
 }
 
+/// Metabolic state and history of an entity.
 #[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Metabolism {
@@ -93,6 +101,7 @@ pub struct Metabolism {
     pub migration_id: Option<Uuid>,
 }
 
+/// Pathogen state for infection simulation.
 #[derive(Debug, Clone, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Pathogen {
@@ -104,6 +113,7 @@ pub struct Pathogen {
     pub behavior_manipulation: Option<(usize, f32)>,
 }
 
+/// Health and immunity state of an entity.
 #[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Health {
@@ -160,6 +170,7 @@ pub struct Intel {
     pub ancestral_traits: HashSet<AncestralTrait>,
 }
 
+/// A complete organism entity.
 #[derive(Clone, Debug, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize)]
 #[archive(check_bytes)]
 pub struct Entity {
@@ -174,6 +185,7 @@ pub struct Entity {
     pub intel: Intel,
 }
 
+/// Enumeration of possible entity life stages and states.
 #[derive(
     Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Archive, RkyvSerialize, RkyvDeserialize,
 )]

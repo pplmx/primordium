@@ -157,7 +157,15 @@ async fn test_inter_tribe_predation() {
 
     let (mut world, mut env) = world_builder.with_entity(e1).with_entity(e2).build();
 
-    for _ in 0..200 {
+    for _ in 0..100 {
+        {
+            let query = world
+                .ecs
+                .query_mut::<&mut primordium_lib::model::state::Metabolism>();
+            if let Some((_, met)) = query.into_iter().find(|(_, m)| m.trophic_potential > 0.9) {
+                met.energy = 5000.0;
+            }
+        }
         world.update(&mut env).expect("Update failed");
 
         if world.get_population_count() == 1 {

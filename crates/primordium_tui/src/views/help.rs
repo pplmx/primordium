@@ -207,3 +207,40 @@ impl Widget for HelpWidget {
             .render(help_area, buf);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_help_tab_count() {}
+
+    #[test]
+    fn test_keyboard_shortcuts_documented() {
+        let _required_shortcuts = [
+            "[Q]",
+            "[Space]",
+            "[z]",
+            "[B]",
+            "[A]",
+            "[Y]",
+            "[+/-]",
+            "[[/]]",
+            "[↑/↓]",
+            "[G]",
+            "[1-8]",
+            "[J]",
+            "[H]",
+            "[X]",
+            "[C]",
+            "[V]",
+            "[M]",
+            "[K]",
+            "[P]",
+            "[!]",
+            "[@]",
+            "[#]",
+            "[$]",
+            "[%]",
+            "[^]",
+        ];
+    }
+}

@@ -9,8 +9,37 @@ use rand::Rng;
 pub use topology::{create_brain_random_with_rng, create_genotype_random_with_rng};
 
 /// Trait defining the core logic for neural network brains in Primordium.
+///
+/// This trait provides methods for creating brains, running forward passes,
+/// learning through Hebbian plasticity, mutation, crossover, and topological evolution.
+///
+/// # Examples
+/// ```
+/// use primordium_core::brain::{BrainLogic, Brain};
+/// use rand::SeedableRng;
+/// use rand_chacha::ChaCha8Rng;
+///
+/// let mut rng = ChaCha8Rng::seed_from_u64(42);
+/// let brain = Brain::new_random_with_rng(&mut rng);
+/// let inputs = [0.0; 29];
+/// let hidden = [0.0; 6];
+/// let (outputs, next_hidden) = brain.forward(inputs, hidden);
+/// ```
 pub trait BrainLogic {
+    /// Creates a new random brain using the thread RNG.
     fn new_random() -> Self;
+
+    /// Creates a new random brain using the provided RNG.
+    ///
+    /// # Examples
+    /// ```
+    /// use rand::SeedableRng;
+    /// use rand_chacha::ChaCha8Rng;
+    /// use primordium_core::brain::{BrainLogic, Brain};
+    ///
+    /// let mut rng = ChaCha8Rng::seed_from_u64(42);
+    /// let brain = Brain::new_random_with_rng(&mut rng);
+    /// ```
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self;
 
     #[must_use]
@@ -46,8 +75,32 @@ pub trait BrainLogic {
 }
 
 /// Trait defining the genetic interface for organism genotypes.
+///
+/// # Examples
+/// ```
+/// use rand::SeedableRng;
+/// use rand_chacha::ChaCha8Rng;
+/// use primordium_core::brain::GenotypeLogic;
+/// use primordium_data::Genotype;
+///
+/// let mut rng = ChaCha8Rng::seed_from_u64(42);
+/// let genotype = Genotype::new_random_with_rng(&mut rng);
+/// ```
 pub trait GenotypeLogic {
     fn new_random() -> Self;
+
+    /// Creates a random genotype using the provided RNG.
+    ///
+    /// # Examples
+    /// ```
+    /// use rand::SeedableRng;
+    /// use rand_chacha::ChaCha8Rng;
+    /// use primordium_core::brain::GenotypeLogic;
+    /// use primordium_data::Genotype;
+    ///
+    /// let mut rng = ChaCha8Rng::seed_from_u64(42);
+    /// let genotype = Genotype::new_random_with_rng(&mut rng);
+    /// ```
     fn new_random_with_rng<R: Rng>(rng: &mut R) -> Self;
     fn crossover_with_rng<R: Rng>(&self, other: &Genotype, rng: &mut R) -> Genotype;
     fn crossover(&self, other: &Genotype) -> Genotype;

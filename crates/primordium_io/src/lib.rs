@@ -9,21 +9,21 @@
 //! - Historical data logging
 //! - Network communication protocols
 
-/// Error types for I/O operations
+/// Error types and result aliases for I/O operations
 pub mod error;
-/// Historical event logging and fossil records
+/// Historical event logging, fossil records, and simulation history storage
 pub mod history;
-/// Lineage tracking and persistence
+/// Lineage tracking, dynastic success metrics, and shared memory persistence
 pub mod lineage;
-/// Network communication protocols
+/// P2P network communication protocols and message types
 pub mod network;
-/// Serialization and persistence utilities
+/// Core persistence utilities and save file management
 pub mod persistence;
-/// Entity and lineage registries
+/// In-memory and on-disk registries for entities and lineages
 pub mod registry;
-/// Robust serialization utilities with validation
+/// Validated serialization helpers for JSON and HexDNA formats
 pub mod serialization;
-/// Storage backends and file management
+/// Abstract storage backends including file-system and future database integrations
 pub mod storage;
 
 pub use error::{IoError, Result};

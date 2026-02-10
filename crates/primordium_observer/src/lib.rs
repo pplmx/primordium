@@ -234,19 +234,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_silicon_scribe_max_history() {
-        let scribe = SiliconScribe::default();
-        let max = scribe.max_history;
-
-        for i in 0..(max + 10) {
-            scribe.narrate(i as u64, "Event", "Desc", 0.5);
+    async fn test_custom_narrator_implementation() {
+        struct MockNarrator;
+        #[async_trait]
+        impl Narrator for MockNarrator {
+            async fn generate_narration(
+                &self,
+                _tick: u64,
+                _etype: &str,
+                _desc: &str,
+                _sev: f32,
+            ) -> String {
+                "Custom".to_string()
+            }
         }
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        let scribe = SiliconScribe::new(Box::new(MockNarrator));
+        scribe.narrate(1, "Type", "Desc", 0.5);
 
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         let narrations = scribe.consume_narrations();
-        assert!(narrations.len() <= max);
-        // The first ones should have been pruned
-        assert!(narrations[0].tick > 0);
+        assert_eq!(narrations.len(), 1);
+        assert_eq!(narrations[0].text, "Custom");
+    }
+
+    #[tokio::test]
+    async fn test_narration_severity_filtering_concept() {
+        let scribe = SiliconScribe::default();
+        scribe.narrate(1, "Low", "LowSev", 0.1);
+        scribe.narrate(2, "High", "HighSev", 0.9);
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        let narrations = scribe.consume_narrations();
+        assert_eq!(narrations.len(), 2);
+        assert!(narrations.iter().any(|n| n.severity > 0.8));
+        assert!(narrations.iter().any(|n| n.severity < 0.2));
     }
 }

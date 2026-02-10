@@ -49,8 +49,10 @@ pub fn forward_internal(
             continue;
         }
 
-        if node_idx < brain.fast_incoming.len() {
-            for &(from_idx, conn_idx) in &brain.fast_incoming[node_idx] {
+        if node_idx < brain.incoming_offsets.len() - 1 {
+            let start = brain.incoming_offsets[node_idx];
+            let end = brain.incoming_offsets[node_idx + 1];
+            for &(from_idx, conn_idx) in &brain.incoming_flat[start..end] {
                 node_values[node_idx] += node_values[from_idx] * brain.connections[conn_idx].weight;
             }
         }

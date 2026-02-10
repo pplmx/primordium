@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 pub fn brain_crossover_with_rng<R: Rng>(brain: &Brain, other: &Brain, rng: &mut R) -> Brain {
     let mut child_nodes = brain.nodes.clone();
-    let mut child_connections = Vec::new();
-    let mut map2 = HashMap::new();
+    let mut child_connections = Vec::with_capacity(brain.connections.len());
+    let mut map2 = HashMap::with_capacity(other.connections.len());
     for c in &other.connections {
         map2.insert(c.innovation, c);
     }
@@ -59,7 +59,8 @@ pub fn brain_crossover_with_rng<R: Rng>(brain: &Brain, other: &Brain, rng: &mut 
         recurrent_connections: Vec::new(),
         incoming_forward_connections: HashMap::new(),
         fast_forward_order: Vec::new(),
-        fast_incoming: Vec::new(),
+        incoming_flat: Vec::new(),
+        incoming_offsets: Vec::new(),
     };
     child.initialize_node_idx_map();
     child

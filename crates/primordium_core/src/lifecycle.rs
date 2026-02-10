@@ -6,18 +6,21 @@ use uuid::Uuid;
 pub fn get_name_components(id: &Uuid, metabolism: &Metabolism) -> String {
     let id_str = id.to_string();
     let bytes = id_str.as_bytes();
-    let syllables = [
+
+    const SYLLABLES: [&str; 25] = [
         "ae", "ba", "co", "da", "el", "fa", "go", "ha", "id", "jo", "ka", "lu", "ma", "na", "os",
         "pe", "qu", "ri", "sa", "tu", "vi", "wu", "xi", "yo", "ze",
     ];
-    let prefix = [
+    const PREFIXES: [&str; 25] = [
         "Aethel", "Bel", "Cor", "Dag", "Eld", "Fin", "Grom", "Had", "Ith", "Jor", "Kael", "Luv",
         "Mor", "Nar", "Oth", "Pyr", "Quas", "Rhun", "Syl", "Tor", "Val", "Wun", "Xer", "Yor",
         "Zan",
     ];
-    let p_idx = (bytes[0] as usize) % prefix.len();
-    let s1_idx = (bytes[1] as usize) % syllables.len();
-    let s2_idx = (bytes[2] as usize) % syllables.len();
+
+    let p_idx = (bytes[0] as usize) % PREFIXES.len();
+    let s1_idx = (bytes[1] as usize) % SYLLABLES.len();
+    let s2_idx = (bytes[2] as usize) % SYLLABLES.len();
+
     let tp = metabolism.trophic_potential;
     let role_prefix = if tp < 0.25 {
         "H-"
@@ -30,10 +33,16 @@ pub fn get_name_components(id: &Uuid, metabolism: &Metabolism) -> String {
     } else {
         "C-"
     };
-    format!(
-        "{}{}{}{}-Gen{}",
-        role_prefix, prefix[p_idx], syllables[s1_idx], syllables[s2_idx], metabolism.generation
-    )
+
+    let mut name = String::with_capacity(32);
+    name.push_str(role_prefix);
+    name.push_str(PREFIXES[p_idx]);
+    name.push_str(SYLLABLES[s1_idx]);
+    name.push_str(SYLLABLES[s2_idx]);
+    name.push_str("-Gen");
+    name.push_str(&metabolism.generation.to_string());
+
+    name
 }
 
 pub fn get_name(entity: &Entity) -> String {

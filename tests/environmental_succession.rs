@@ -88,9 +88,11 @@ async fn test_biodiversity_hotspots() {
         world.update(&mut env).unwrap();
     }
 
+    assert!(world.get_population_count() > 0, "Population died out!");
     assert!(
         world.pop_stats.biodiversity_hotspots >= 1,
-        "Should detect at least one biodiversity hotspot, got {}",
-        world.pop_stats.biodiversity_hotspots
+        "Should detect at least one biodiversity hotspot, got {} (Pop: {})",
+        world.pop_stats.biodiversity_hotspots,
+        world.get_population_count()
     );
 }

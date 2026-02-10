@@ -71,7 +71,10 @@ pub struct Brain {
     pub fast_forward_order: Vec<usize>,
     #[serde(skip, default = "Vec::new")]
     #[with(rkyv::with::Skip)]
-    pub fast_incoming: Vec<Vec<(usize, usize)>>,
+    pub incoming_flat: Vec<(usize, usize)>,
+    #[serde(skip, default = "Vec::new")]
+    #[with(rkyv::with::Skip)]
+    pub incoming_offsets: Vec<usize>,
 }
 
 #[derive(

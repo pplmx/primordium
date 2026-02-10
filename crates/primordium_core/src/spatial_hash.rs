@@ -65,7 +65,7 @@ impl SpatialHash {
     /// An initialized `SpatialHash` with empty cell data structures.
     ///
     /// # Examples
-    /// ```no_run
+    /// ```
     /// use primordium_core::spatial_hash::SpatialHash;
     ///
     /// let spatial = SpatialHash::new(10.0, 100, 100);  // 10x10 cells
@@ -191,14 +191,23 @@ impl SpatialHash {
 
         if self.lineage_density.len() != cell_count {
             self.lineage_density = vec![HashMap::new(); cell_count];
-        } else {
-            self.lineage_density.par_iter_mut().for_each(|m| m.clear());
         }
-        for &(x, y, lid) in data {
-            if let Some(idx) = self.get_cell_idx(x, y) {
-                *self.lineage_density[idx].entry(lid).or_insert(0.0) += 1.0;
-            }
-        }
+
+        let cell_offsets = &self.cell_offsets;
+        let entity_indices = &self.entity_indices;
+
+        self.lineage_density
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(cell_idx, map)| {
+                map.clear();
+                let start = cell_offsets[cell_idx];
+                let end = cell_offsets[cell_idx + 1];
+                for &entity_idx in &entity_indices[start..end] {
+                    let lid = data[entity_idx].2;
+                    *map.entry(lid).or_insert(0.0) += 1.0;
+                }
+            });
     }
 
     pub fn get_lineage_density(&self, x: f64, y: f64, lid: uuid::Uuid) -> f32 {

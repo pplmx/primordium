@@ -65,7 +65,8 @@ pub fn create_brain_random_with_rng<R: Rng>(rng: &mut R) -> Brain {
         recurrent_connections: Vec::new(),
         incoming_forward_connections: HashMap::new(),
         fast_forward_order: Vec::new(),
-        fast_incoming: Vec::new(),
+        incoming_flat: Vec::new(),
+        incoming_offsets: Vec::new(),
     };
     brain.initialize_node_idx_map();
     brain
@@ -188,18 +189,21 @@ pub fn initialize_node_idx_map(brain: &mut Brain) {
         }
     }
 
-    let mut fast_incoming = vec![Vec::new(); brain.nodes.len()];
-    for (to_id, conn_indices) in &incoming {
-        if let Some(&to_idx) = brain.node_idx_map.get(to_id) {
-            let mut inputs = Vec::with_capacity(conn_indices.len());
+    let mut incoming_flat = Vec::new();
+    let mut incoming_offsets = Vec::with_capacity(brain.nodes.len() + 1);
+    incoming_offsets.push(0);
+
+    for node_idx in 0..brain.nodes.len() {
+        let to_id = brain.nodes[node_idx].id;
+        if let Some(conn_indices) = incoming.get(&to_id) {
             for &conn_idx in conn_indices {
                 let conn = &brain.connections[conn_idx];
                 if let Some(&from_idx) = brain.node_idx_map.get(&conn.from) {
-                    inputs.push((from_idx, conn_idx));
+                    incoming_flat.push((from_idx, conn_idx));
                 }
             }
-            fast_incoming[to_idx] = inputs;
         }
+        incoming_offsets.push(incoming_flat.len());
     }
 
     brain.topological_order = order;
@@ -207,5 +211,6 @@ pub fn initialize_node_idx_map(brain: &mut Brain) {
     brain.recurrent_connections = recurrent;
     brain.incoming_forward_connections = incoming;
     brain.fast_forward_order = fast_forward_order;
-    brain.fast_incoming = fast_incoming;
+    brain.incoming_flat = incoming_flat;
+    brain.incoming_offsets = incoming_offsets;
 }
