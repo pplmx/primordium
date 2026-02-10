@@ -30,30 +30,30 @@ async fn test_lineage_registry_cleanup_on_extinction() {
     // Update stats - lineage should be there
     let entities = world.get_all_entities();
     let food_count = world.get_food_count();
-    history::update_population_stats(
-        &mut world.pop_stats,
-        &entities,
+    history::update_population_stats(history::StatsContext {
+        stats: &mut world.pop_stats,
+        entities: &entities,
         food_count,
-        0.0,
-        0.0,
-        0.1,
-        &world.terrain,
-    );
+        top_fitness: 0.0,
+        carbon_level: 0.0,
+        mutation_scale: 0.1,
+        terrain: &world.terrain,
+    });
     assert_eq!(world.pop_stats.lineage_counts.get(&l_id), Some(&1));
 
     // Kill the population
     world.ecs.clear();
     let entities = world.get_all_entities();
     let food_count = world.get_food_count();
-    history::update_population_stats(
-        &mut world.pop_stats,
-        &entities,
+    history::update_population_stats(history::StatsContext {
+        stats: &mut world.pop_stats,
+        entities: &entities,
         food_count,
-        0.0,
-        0.0,
-        0.1,
-        &world.terrain,
-    );
+        top_fitness: 0.0,
+        carbon_level: 0.0,
+        mutation_scale: 0.1,
+        terrain: &world.terrain,
+    });
 
     // Registry should show 0 or be empty for that ID
     assert_eq!(world.pop_stats.lineage_counts.get(&l_id), None);

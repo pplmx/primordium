@@ -15,9 +15,9 @@ async fn test_phenotype_inheritance_and_mutation() {
     let mut p1 = p1;
     p1.physics.sensing_range = 10.0;
     p1.physics.max_speed = 2.0;
-    p1.intel.genotype.sensing_range = 10.0;
-    p1.intel.genotype.max_speed = 2.0;
-    p1.intel.genotype.maturity_gene = 2.0;
+    std::sync::Arc::make_mut(&mut p1.intel.genotype).sensing_range = 10.0;
+    std::sync::Arc::make_mut(&mut p1.intel.genotype).max_speed = 2.0;
+    std::sync::Arc::make_mut(&mut p1.intel.genotype).maturity_gene = 2.0;
 
     let config = AppConfig::default();
 
@@ -32,12 +32,14 @@ async fn test_phenotype_inheritance_and_mutation() {
         ancestral_genotype: None,
     };
     let (child, _) = social::reproduce_asexual_parallel_components_decomposed(
-        &p1.position,
-        p1.metabolism.energy,
-        p1.metabolism.generation,
-        &p1.intel.genotype,
-        p1.intel.specialization,
-        &mut ctx,
+        social::AsexualReproductionContext {
+            pos: &p1.position,
+            energy: p1.metabolism.energy,
+            generation: p1.metabolism.generation,
+            genotype: &p1.intel.genotype,
+            specialization: p1.intel.specialization,
+            ctx: &mut ctx,
+        },
     );
 
     assert!(child.physics.sensing_range >= 3.0 && child.physics.sensing_range <= 15.0);
@@ -65,10 +67,10 @@ async fn test_sensing_range_affects_perception() {
     for (_h, (phys, intel, pos)) in query {
         if pos.x < 15.0 {
             phys.sensing_range = 5.0;
-            intel.genotype.sensing_range = 5.0;
+            std::sync::Arc::make_mut(&mut intel.genotype).sensing_range = 5.0;
         } else {
             phys.sensing_range = 15.0;
-            intel.genotype.sensing_range = 15.0;
+            std::sync::Arc::make_mut(&mut intel.genotype).sensing_range = 15.0;
         }
     }
 
@@ -92,8 +94,8 @@ async fn test_sensing_range_affects_perception() {
 async fn test_hex_dna_contains_phenotype() {
     let e = EntityBuilder::new().build();
     let mut e = e;
-    e.intel.genotype.sensing_range = 12.34;
-    e.intel.genotype.max_speed = 2.5;
+    std::sync::Arc::make_mut(&mut e.intel.genotype).sensing_range = 12.34;
+    std::sync::Arc::make_mut(&mut e.intel.genotype).max_speed = 2.5;
 
     let hex = e.intel.genotype.to_hex();
     let restored = primordium_lib::model::state::entity::Genotype::from_hex(&hex).unwrap();

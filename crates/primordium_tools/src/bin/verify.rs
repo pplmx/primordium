@@ -1,6 +1,7 @@
 use clap::Parser;
-use primordium_lib::model::history::{HistoryLogger, Legend};
-use primordium_lib::model::infra::blockchain::AnchorRecord;
+use primordium_core::blockchain::AnchorRecord;
+use primordium_core::history::Legend;
+use primordium_io::history::HistoryLogger;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -62,4 +63,24 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn test_args_parsing_defaults() {
+        let args = Args::parse_from(["verify"]);
+        assert_eq!(args.input, "logs/legends.json");
+        assert_eq!(args.anchors, "logs/anchors.jsonl");
+    }
+
+    #[test]
+    fn test_args_parsing_custom() {
+        let args = Args::parse_from(["verify", "-i", "my_legends.json", "-a", "my_anchors.jsonl"]);
+        assert_eq!(args.input, "my_legends.json");
+        assert_eq!(args.anchors, "my_anchors.jsonl");
+    }
 }

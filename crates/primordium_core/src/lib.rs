@@ -20,18 +20,26 @@
 //!
 //! ## Example
 //!
-//! ```ignore
+//! ```
 //! use primordium_core::brain::BrainLogic;
 //! use primordium_data::Brain;
+//! use rand::SeedableRng;
+//! use rand_chacha::ChaCha8Rng;
 //!
 //! // Create a new brain with default topology
-//! let brain = Brain::new_random();
+//! let mut rng = ChaCha8Rng::seed_from_u64(42);
+//! let brain = Brain::new_random_with_rng(&mut rng);
 //!
 //! // Process inputs to get outputs
 //! let inputs = [0.5; 29];
 //! let hidden = [0.0; 6];
 //! let (outputs, _) = brain.forward(inputs, hidden);
 //! ```
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
 /// Neural network brain implementation with NEAT-lite topology
 pub mod brain;
@@ -77,3 +85,4 @@ pub use influence::{InfluenceGrid, InfluenceSource};
 pub use metrics::{init_logging, Metrics};
 pub use primordium_data::{Connection, Node, NodeType};
 pub use terrain::TerrainLogic;
+pub mod blockchain;

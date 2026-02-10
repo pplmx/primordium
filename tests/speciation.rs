@@ -2,6 +2,7 @@ mod common;
 use common::{EntityBuilder, WorldBuilder};
 use primordium_lib::model::brain::{Connection, GenotypeLogic};
 use primordium_lib::model::state::entity::Genotype;
+use std::sync::Arc;
 
 #[tokio::test]
 async fn test_longitudinal_genetic_divergence() {
@@ -25,7 +26,6 @@ async fn test_longitudinal_genetic_divergence() {
     }
 
     // Seed Population B (Right side) - Separated by distance
-    // In a 100x100 world, 80.0 is far enough to be effectively isolated if sensing is small
     for i in 0..10 {
         let e = EntityBuilder::new()
             .at(80.0 + i as f64, 80.0)
@@ -37,9 +37,8 @@ async fn test_longitudinal_genetic_divergence() {
 
     let (mut world, mut env) = world_builder.build();
 
-    // Run for 2000 ticks to allow divergence (approx 40 generations)
+    // Run for 2000 ticks to allow divergence
     for _ in 0..2000 {
-        // Boost energy to ensure survival and reproduction
         for (_h, met) in world
             .ecs
             .query_mut::<&mut primordium_lib::model::state::Metabolism>()
@@ -49,13 +48,13 @@ async fn test_longitudinal_genetic_divergence() {
         world.update(&mut env).expect("Update failed");
 
         if world.get_population_count() > 300 {
-            break; // Stop if saturated
+            break;
         }
     }
 
-    // Collect genotypes from left and right populations
-    let mut left_genomes: Vec<Genotype> = Vec::new();
-    let mut right_genomes: Vec<Genotype> = Vec::new();
+    // Collect genotypes
+    let mut left_genomes: Vec<Arc<Genotype>> = Vec::new();
+    let mut right_genomes: Vec<Arc<Genotype>> = Vec::new();
 
     for (_h, (phys, intel)) in world
         .ecs
@@ -72,12 +71,9 @@ async fn test_longitudinal_genetic_divergence() {
         }
     }
 
-    assert!(!left_genomes.is_empty(), "Left population went extinct");
-    assert!(!right_genomes.is_empty(), "Right population went extinct");
+    assert!(!left_genomes.is_empty());
+    assert!(!right_genomes.is_empty());
 
-    // Calculate genetic distance between populations by sampling pairs
-    // Comparing averages cancels out drift if it's symmetric around 0.
-    // We need to measure the distance between individuals across the barrier.
     let mut total_distance = 0.0;
     let mut samples = 0;
 
@@ -99,24 +95,16 @@ async fn test_longitudinal_genetic_divergence() {
     } else {
         0.0
     };
-    println!("Average Genetic Distance (Left vs Right): {}", avg_dist);
 
-    // With high mutation rate, individuals should diverge significantly from each other
-    assert!(
-        avg_dist > 0.5,
-        "Populations did not diverge genetically (Dist: {})",
-        avg_dist
-    );
+    assert!(avg_dist > 0.5);
 }
 
 #[tokio::test]
 async fn test_reproductive_isolation_emergence() {
     let world_builder = WorldBuilder::new().with_seed(42).with_config(|c| {
-        // High speciation threshold encourages discrimination
         c.evolution.speciation_threshold = 2.0;
     });
 
-    // Create two genetically distinct entities manually
     let id_a = uuid::Uuid::new_v4();
     let id_b = uuid::Uuid::new_v4();
 
@@ -125,33 +113,39 @@ async fn test_reproductive_isolation_emergence() {
         .energy(500.0)
         .lineage(id_a)
         .build();
-    e1.intel.genotype.brain.connections = vec![Connection {
-        from: 0,
-        to: 29,
-        weight: 5.0,
-        enabled: true,
-        innovation: 1,
-    }];
+    {
+        let brain = &mut Arc::make_mut(&mut e1.intel.genotype).brain;
+        brain.connections = vec![Connection {
+            from: 0,
+            to: 29,
+            weight: 5.0,
+            enabled: true,
+            innovation: 1,
+        }];
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
+    }
 
     let mut e2 = EntityBuilder::new()
         .at(10.0, 10.0)
         .energy(500.0)
         .lineage(id_b)
         .build();
-    e2.intel.genotype.brain.connections = vec![Connection {
-        from: 0,
-        to: 29,
-        weight: -5.0,
-        enabled: true,
-        innovation: 1,
-    }];
+    {
+        let brain = &mut Arc::make_mut(&mut e2.intel.genotype).brain;
+        brain.connections = vec![Connection {
+            from: 0,
+            to: 29,
+            weight: -5.0,
+            enabled: true,
+            innovation: 1,
+        }];
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
+    }
 
-    // Use distance() instead of genetic_distance()
     let dist = e1.intel.genotype.distance(&e2.intel.genotype);
-    assert!(
-        dist > 1.0,
-        "Genetic distance between distinct species should be high"
-    );
+    assert!(dist > 1.0);
 
     let (_world, _env) = world_builder.build();
 }

@@ -312,29 +312,35 @@ pub enum OutpostAction {
     },
 }
 
-#[allow(clippy::too_many_arguments)]
+pub struct OutpostContext<'a> {
+    pub entity_handles: &'a [hecs::Entity],
+    pub spatial_hash: &'a SpatialHash,
+    pub snapshots: &'a [crate::snapshot::InternalEntitySnapshot],
+    pub width: u16,
+    pub silo_cap: f32,
+    pub outpost_cap: f32,
+}
+
 pub fn handle_outposts_ecs(
     terrain: &mut TerrainGrid,
     world: &mut hecs::World,
-    entity_handles: &[hecs::Entity],
-    spatial_hash: &SpatialHash,
-    snapshots: &[crate::snapshot::InternalEntitySnapshot],
-    width: u16,
-    silo_cap: f32,
-    outpost_cap: f32,
+    ctx: &OutpostContext<'_>,
 ) {
     let outpost_indices: Vec<usize> = terrain.outpost_indices.iter().copied().collect();
 
     let actions: Vec<OutpostAction> = outpost_indices
         .par_iter()
         .fold(Vec::new, |mut acc: Vec<OutpostAction>, &idx| {
-            let (ox, oy) = ((idx % width as usize) as f64, (idx / width as usize) as f64);
+            let (ox, oy) = (
+                (idx % ctx.width as usize) as f64,
+                (idx / ctx.width as usize) as f64,
+            );
             let owner_id = terrain.cells[idx].owner_id;
             let stored = terrain.cells[idx].energy_store;
             let spec = terrain.cells[idx].outpost_spec;
 
-            spatial_hash.query_callback(ox, oy, 3.0, |e_idx| {
-                let snap = &snapshots[e_idx];
+            ctx.spatial_hash.query_callback(ox, oy, 3.0, |e_idx| {
+                let snap = &ctx.snapshots[e_idx];
                 if Some(snap.lineage_id) == owner_id {
                     match spec {
                         OutpostSpecialization::Silo => {
@@ -388,7 +394,7 @@ pub fn handle_outposts_ecs(
                 amount,
                 outpost_idx,
             } => {
-                let handle = entity_handles[entity_idx];
+                let handle = ctx.entity_handles[entity_idx];
                 if let Ok(mut met) = world.get::<&mut Metabolism>(handle) {
                     let actual_transfer = if amount > 0.0 {
                         amount.min(terrain.cells[outpost_idx].energy_store as f64)
@@ -404,8 +410,8 @@ pub fn handle_outposts_ecs(
 
     for &idx in &outpost_indices {
         let max_cap = match terrain.cells[idx].outpost_spec {
-            OutpostSpecialization::Silo => silo_cap,
-            _ => outpost_cap,
+            OutpostSpecialization::Silo => ctx.silo_cap,
+            _ => ctx.outpost_cap,
         };
         // Apply passive decay (entropy) to all outposts
         let decay = if terrain.cells[idx].owner_id.is_some() {

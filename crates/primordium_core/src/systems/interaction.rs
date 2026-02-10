@@ -356,7 +356,9 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                     met.has_metamorphosed = true;
                     met.max_energy *= ctx.config.metabolism.adult_energy_multiplier;
                     met.peak_energy = met.max_energy;
-                    intel.genotype.brain.remodel_for_adult_with_rng(ctx.rng);
+                    std::sync::Arc::make_mut(&mut intel.genotype)
+                        .brain
+                        .remodel_for_adult_with_rng(ctx.rng);
                     phys.max_speed *= ctx.config.metabolism.adult_speed_multiplier;
                     phys.sensing_range *= ctx.config.metabolism.adult_sensing_multiplier;
                     if let Ok(identity) = world.get::<&primordium_data::Identity>(handle) {
@@ -385,8 +387,8 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                     phys.g = new_color.1;
                     phys.b = new_color.2;
                     let new_lineage_id = Uuid::from_u128(ctx.rng.gen());
-                    intel.genotype.lineage_id = new_lineage_id;
-                    met.lineage_id = intel.genotype.lineage_id;
+                    std::sync::Arc::make_mut(&mut intel.genotype).lineage_id = new_lineage_id;
+                    met.lineage_id = new_lineage_id;
                     ctx.lineage_registry
                         .record_birth(met.lineage_id, met.generation, ctx.tick);
                     if let Ok(identity) = world.get::<&primordium_data::Identity>(handle) {

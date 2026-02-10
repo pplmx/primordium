@@ -22,12 +22,14 @@ async fn test_lineage_inheritance() {
         ancestral_genotype: None,
     };
     let (child, _) = social::reproduce_asexual_parallel_components_decomposed(
-        &parent.position,
-        parent.metabolism.energy,
-        parent.metabolism.generation,
-        &parent.intel.genotype,
-        parent.intel.specialization,
-        &mut ctx,
+        social::AsexualReproductionContext {
+            pos: &parent.position,
+            energy: parent.metabolism.energy,
+            generation: parent.metabolism.generation,
+            genotype: &parent.intel.genotype,
+            specialization: parent.intel.specialization,
+            ctx: &mut ctx,
+        },
     );
 
     assert_eq!(
@@ -64,15 +66,15 @@ async fn test_lineage_population_stats() {
     // Update stats
     let entities = world.get_all_entities();
     let food_count = world.get_food_count();
-    history::update_population_stats(
-        &mut world.pop_stats,
-        &entities,
+    history::update_population_stats(history::StatsContext {
+        stats: &mut world.pop_stats,
+        entities: &entities,
         food_count,
-        0.0,
-        0.0,
-        0.1,
-        &world.terrain,
-    );
+        top_fitness: 0.0,
+        carbon_level: 0.0,
+        mutation_scale: 0.1,
+        terrain: &world.terrain,
+    });
 
     assert_eq!(world.pop_stats.lineage_counts.get(&l1), Some(&2));
     assert_eq!(world.pop_stats.lineage_counts.get(&l2), Some(&1));

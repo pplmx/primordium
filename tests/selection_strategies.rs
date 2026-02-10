@@ -9,8 +9,8 @@ async fn test_r_strategy_fast_reproduction() {
 
     // 1. R-Strategist (Fast maturity, low investment)
     let mut r_parent = lifecycle::create_entity(10.0, 10.0, 0);
-    r_parent.intel.genotype.maturity_gene = 0.5; // Matures at tick 50
-    r_parent.intel.genotype.reproductive_investment = 0.2; // Gives 20% energy
+    std::sync::Arc::make_mut(&mut r_parent.intel.genotype).maturity_gene = 0.5; // Matures at tick 50
+    std::sync::Arc::make_mut(&mut r_parent.intel.genotype).reproductive_investment = 0.2; // Gives 20% energy
     r_parent.metabolism.energy = 200.0;
 
     // Check maturity at tick 60
@@ -33,12 +33,14 @@ async fn test_r_strategy_fast_reproduction() {
         ancestral_genotype: None,
     };
     let (child, _) = social::reproduce_asexual_parallel_components_decomposed(
-        &r_parent.position,
-        r_parent.metabolism.energy,
-        r_parent.metabolism.generation,
-        &r_parent.intel.genotype,
-        r_parent.intel.specialization,
-        &mut ctx,
+        social::AsexualReproductionContext {
+            pos: &r_parent.position,
+            energy: r_parent.metabolism.energy,
+            generation: r_parent.metabolism.generation,
+            genotype: &r_parent.intel.genotype,
+            specialization: r_parent.intel.specialization,
+            ctx: &mut ctx,
+        },
     );
     r_parent.metabolism.energy *= 1.0 - r_parent.intel.genotype.reproductive_investment as f64;
 
@@ -54,8 +56,8 @@ async fn test_k_strategy_slow_reproduction() {
 
     // 1. K-Strategist (Slow maturity, high investment)
     let mut k_parent = lifecycle::create_entity(10.0, 10.0, 0);
-    k_parent.intel.genotype.maturity_gene = 2.0; // Matures at tick 200
-    k_parent.intel.genotype.reproductive_investment = 0.8; // Gives 80% energy
+    std::sync::Arc::make_mut(&mut k_parent.intel.genotype).maturity_gene = 2.0; // Matures at tick 200
+    std::sync::Arc::make_mut(&mut k_parent.intel.genotype).reproductive_investment = 0.8; // Gives 80% energy
     k_parent.metabolism.energy = 400.0;
 
     // Check maturity at tick 150 - should NOT be mature
@@ -86,12 +88,14 @@ async fn test_k_strategy_slow_reproduction() {
         ancestral_genotype: None,
     };
     let (child, _) = social::reproduce_asexual_parallel_components_decomposed(
-        &k_parent.position,
-        k_parent.metabolism.energy,
-        k_parent.metabolism.generation,
-        &k_parent.intel.genotype,
-        k_parent.intel.specialization,
-        &mut ctx,
+        social::AsexualReproductionContext {
+            pos: &k_parent.position,
+            energy: k_parent.metabolism.energy,
+            generation: k_parent.metabolism.generation,
+            genotype: &k_parent.intel.genotype,
+            specialization: k_parent.intel.specialization,
+            ctx: &mut ctx,
+        },
     );
     k_parent.metabolism.energy *= 1.0 - k_parent.intel.genotype.reproductive_investment as f64;
 
@@ -103,35 +107,40 @@ async fn test_k_strategy_slow_reproduction() {
 #[tokio::test]
 async fn test_maturity_body_size_coupling() {
     let config = AppConfig::default();
-    let mut genotype =
-        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng());
+    let mut genotype = std::sync::Arc::new(
+        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng()),
+    );
 
     // Strategy R
-    genotype.maturity_gene = 0.5;
+    std::sync::Arc::make_mut(&mut genotype).maturity_gene = 0.5;
     let mut rng = rand::thread_rng();
     intel::mutate_genotype(
         &mut genotype,
-        &config,
-        100,
-        false,
-        None,
+        &intel::MutationParams {
+            config: &config,
+            population: 100,
+            is_radiation_storm: false,
+            specialization: None,
+            ancestral_genotype: None,
+            stress_factor: 0.0,
+        },
         &mut rng,
-        None,
-        0.0,
     );
     let r_max = genotype.max_energy;
 
     // Strategy K
-    genotype.maturity_gene = 2.0;
+    std::sync::Arc::make_mut(&mut genotype).maturity_gene = 2.0;
     intel::mutate_genotype(
         &mut genotype,
-        &config,
-        100,
-        false,
-        None,
+        &intel::MutationParams {
+            config: &config,
+            population: 100,
+            is_radiation_storm: false,
+            specialization: None,
+            ancestral_genotype: None,
+            stress_factor: 0.0,
+        },
         &mut rng,
-        None,
-        0.0,
     );
     let k_max = genotype.max_energy;
 

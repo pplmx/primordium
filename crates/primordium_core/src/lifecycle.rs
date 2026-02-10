@@ -92,7 +92,7 @@ pub fn create_entity_with_rng<R: Rng>(x: f64, y: f64, tick: u64, rng: &mut R) ->
             immunity: 0.0,
         },
         intel: Intel {
-            genotype,
+            genotype: std::sync::Arc::new(genotype),
             last_hidden: [0.0; 6],
             last_aggression: 0.0,
             last_share_intent: 0.0,

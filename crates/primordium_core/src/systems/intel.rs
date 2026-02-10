@@ -19,30 +19,32 @@ pub fn mutate_brain<R: Rng>(
     brain.mutate_with_config(config, specialization, rng);
 }
 
-pub fn apply_grn_rules(
-    genotype: &primordium_data::Genotype,
-    metabolism: &primordium_data::Metabolism,
-    oxygen_level: f64,
-    carbon_level: f64,
-    nearby_kin: usize,
-    tick: u64,
-) -> (f64, f64, f32) {
+pub struct GrnContext<'a> {
+    pub genotype: &'a primordium_data::Genotype,
+    pub metabolism: &'a primordium_data::Metabolism,
+    pub oxygen_level: f64,
+    pub carbon_level: f64,
+    pub nearby_kin: usize,
+    pub tick: u64,
+}
+
+pub fn apply_grn_rules(ctx: GrnContext) -> (f64, f64, f32) {
     let mut speed_mod = 1.0;
     let mut sensing_mod = 1.0;
     let mut repro_mod = 1.0;
 
-    let energy_ratio = (metabolism.energy / metabolism.max_energy) as f32;
-    let age_ratio = ((tick - metabolism.birth_tick) as f32 / 2000.0).min(1.0);
+    let energy_ratio = (ctx.metabolism.energy / ctx.metabolism.max_energy) as f32;
+    let age_ratio = ((ctx.tick - ctx.metabolism.birth_tick) as f32 / 2000.0).min(1.0);
 
-    for rule in &genotype.regulatory_rules {
+    for rule in &ctx.genotype.regulatory_rules {
         use primordium_data::{GeneType, RegulatoryOperator, RegulatorySensor};
         let sensor_value = match rule.sensor {
-            RegulatorySensor::Oxygen => (oxygen_level / 21.0) as f32,
-            RegulatorySensor::Carbon => (carbon_level / 1000.0) as f32,
+            RegulatorySensor::Oxygen => (ctx.oxygen_level / 21.0) as f32,
+            RegulatorySensor::Carbon => (ctx.carbon_level / 1000.0) as f32,
             RegulatorySensor::EnergyRatio => energy_ratio,
-            RegulatorySensor::NearbyKin => (nearby_kin as f32 / 10.0).min(1.0),
+            RegulatorySensor::NearbyKin => (ctx.nearby_kin as f32 / 10.0).min(1.0),
             RegulatorySensor::AgeRatio => age_ratio,
-            RegulatorySensor::Clock => (tick % 1000) as f32 / 1000.0,
+            RegulatorySensor::Clock => (ctx.tick % 1000) as f32 / 1000.0,
         };
 
         let triggered = match rule.operator {
@@ -63,53 +65,61 @@ pub fn apply_grn_rules(
     (speed_mod, sensing_mod, repro_mod)
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn mutate_genotype<R: Rng>(
-    genotype: &mut primordium_data::Genotype,
-    config: &crate::config::AppConfig,
-    population: usize,
-    is_radiation_storm: bool,
-    specialization: Option<primordium_data::Specialization>,
-    rng: &mut R,
-    ancestral_genotype: Option<&primordium_data::Genotype>,
-    stress_factor: f32,
-) {
-    let mut effective_mutation_rate = config.evolution.mutation_rate;
-    let mut effective_mutation_amount = config.evolution.mutation_amount;
+pub struct MutationParams<'a> {
+    pub config: &'a crate::config::AppConfig,
+    pub population: usize,
+    pub is_radiation_storm: bool,
+    pub specialization: Option<primordium_data::Specialization>,
+    pub ancestral_genotype: Option<&'a primordium_data::Genotype>,
+    pub stress_factor: f32,
+}
 
-    if is_radiation_storm {
+pub fn mutate_genotype<R: Rng>(
+    genotype_arc: &mut std::sync::Arc<primordium_data::Genotype>,
+    params: &MutationParams<'_>,
+    rng: &mut R,
+) {
+    let genotype = std::sync::Arc::make_mut(genotype_arc);
+    let mut effective_mutation_rate = params.config.evolution.mutation_rate;
+    let mut effective_mutation_amount = params.config.evolution.mutation_amount;
+
+    if params.is_radiation_storm {
         effective_mutation_rate *= 5.0;
         effective_mutation_amount *= 2.0;
     }
 
-    if let Some(ancestral) = ancestral_genotype {
-        let recall_chance = 0.01 + (stress_factor * 0.05); // Up to 6% chance under high stress
+    if let Some(ancestral) = params.ancestral_genotype {
+        let recall_chance = 0.01 + (params.stress_factor * 0.05);
         if rng.gen_bool(recall_chance as f64) {
             genotype.brain = ancestral.brain.clone();
             genotype.sensing_range = ancestral.sensing_range;
             genotype.max_speed = ancestral.max_speed;
             genotype.maturity_gene = ancestral.maturity_gene;
-            // Re-initialize map after brain replacement
             crate::brain::BrainLogic::initialize_node_idx_map(&mut genotype.brain);
         }
     }
 
-    if config.evolution.population_aware && population > 0 {
-        if population < config.evolution.bottleneck_threshold {
-            let scaling = (config.evolution.bottleneck_threshold as f32
-                / (population as f32).max(1.0))
+    if params.config.evolution.population_aware && params.population > 0 {
+        if params.population < params.config.evolution.bottleneck_threshold {
+            let scaling = (params.config.evolution.bottleneck_threshold as f32
+                / (params.population as f32).max(1.0))
             .min(3.0);
             effective_mutation_rate *= scaling;
             effective_mutation_amount *= scaling;
-        } else if population > config.evolution.stasis_threshold {
+        } else if params.population > params.config.evolution.stasis_threshold {
             effective_mutation_rate *= 0.5;
         }
     }
 
-    let mut brain_config = config.clone();
+    let mut brain_config = params.config.clone();
     brain_config.evolution.mutation_rate = effective_mutation_rate;
     brain_config.evolution.mutation_amount = effective_mutation_amount;
-    mutate_brain(&mut genotype.brain, &brain_config, specialization, rng);
+    mutate_brain(
+        &mut genotype.brain,
+        &brain_config,
+        params.specialization,
+        rng,
+    );
 
     if rng.gen::<f32>() < effective_mutation_rate {
         genotype.sensing_range = (genotype.sensing_range
@@ -214,7 +224,7 @@ pub fn mutate_genotype<R: Rng>(
         genotype.regulatory_rules.remove(idx);
     }
 
-    if population < 10 && population > 0 && rng.gen_bool(0.05) {
+    if params.population < 10 && params.population > 0 && rng.gen_bool(0.05) {
         match rng.gen_range(0..5) {
             0 => genotype.trophic_potential = rng.gen_range(0.0..1.0),
             1 => genotype.metabolic_niche = rng.gen_range(0.0..1.0),
@@ -310,22 +320,34 @@ mod tests {
         AppConfig::default()
     }
 
+    fn count_weight_differences(b1: &Brain, b2: &Brain) -> usize {
+        let mut differences = 0;
+        for (c1, c2) in b1.connections.iter().zip(b2.connections.iter()) {
+            if (c1.weight - c2.weight).abs() > 0.001 {
+                differences += 1;
+            }
+        }
+        differences
+    }
+
     #[test]
     fn test_mutate_genotype_respects_clamping_bounds() {
         let mut rng = ChaCha8Rng::seed_from_u64(12345);
         let config = create_test_config();
-        let mut genotype = create_test_genotype();
+        let mut genotype = std::sync::Arc::new(create_test_genotype());
 
         for _ in 0..100 {
             mutate_genotype(
                 &mut genotype,
-                &config,
-                100,
-                false,
-                None,
+                &MutationParams {
+                    config: &config,
+                    population: 100,
+                    is_radiation_storm: false,
+                    specialization: None,
+                    ancestral_genotype: None,
+                    stress_factor: 0.0,
+                },
                 &mut rng,
-                None,
-                0.0,
             );
         }
 
@@ -346,32 +368,36 @@ mod tests {
         let mut rng2 = ChaCha8Rng::seed_from_u64(999);
         let config = create_test_config();
 
-        let mut genotype_bottleneck = create_test_genotype();
+        let mut genotype_bottleneck = std::sync::Arc::new(create_test_genotype());
         let original_brain_bottleneck = genotype_bottleneck.brain.clone();
 
-        let mut genotype_large = create_test_genotype();
+        let mut genotype_large = std::sync::Arc::new(create_test_genotype());
         let original_brain_large = genotype_large.brain.clone();
 
         mutate_genotype(
             &mut genotype_bottleneck,
-            &config,
-            5,
-            false,
-            None,
+            &MutationParams {
+                config: &config,
+                population: 5,
+                is_radiation_storm: false,
+                specialization: None,
+                ancestral_genotype: None,
+                stress_factor: 0.0,
+            },
             &mut rng1,
-            None,
-            0.0,
         );
 
         mutate_genotype(
             &mut genotype_large,
-            &config,
-            1000,
-            false,
-            None,
+            &MutationParams {
+                config: &config,
+                population: 1000,
+                is_radiation_storm: false,
+                specialization: None,
+                ancestral_genotype: None,
+                stress_factor: 0.0,
+            },
             &mut rng2,
-            None,
-            0.0,
         );
 
         let bottleneck_changes =
@@ -387,32 +413,41 @@ mod tests {
         let mut rng2 = ChaCha8Rng::seed_from_u64(777);
         let config = create_test_config();
 
-        let mut genotype_normal = create_test_genotype();
-        let mut genotype_storm = create_test_genotype();
+        let mut genotype_normal = std::sync::Arc::new(create_test_genotype());
+        let mut genotype_storm = std::sync::Arc::new(create_test_genotype());
 
         mutate_genotype(
             &mut genotype_normal,
-            &config,
-            100,
-            false,
-            None,
+            &MutationParams {
+                config: &config,
+                population: 100,
+                is_radiation_storm: false,
+                specialization: None,
+                ancestral_genotype: None,
+                stress_factor: 0.0,
+            },
             &mut rng1,
-            None,
-            0.0,
         );
 
         mutate_genotype(
             &mut genotype_storm,
-            &config,
-            100,
-            true,
-            None,
+            &MutationParams {
+                config: &config,
+                population: 100,
+                is_radiation_storm: true,
+                specialization: None,
+                ancestral_genotype: None,
+                stress_factor: 0.0,
+            },
             &mut rng2,
-            None,
-            0.0,
         );
 
-        assert!(!genotype_storm.brain.connections.is_empty());
+        let normal_changes =
+            count_weight_differences(&create_test_genotype().brain, &genotype_normal.brain);
+        let storm_changes =
+            count_weight_differences(&create_test_genotype().brain, &genotype_storm.brain);
+
+        assert!(storm_changes >= normal_changes);
     }
 
     #[test]
@@ -422,14 +457,25 @@ mod tests {
         let mut drift_occurred = false;
         for seed in 0..500 {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
-            let mut genotype = create_test_genotype();
+            let mut genotype = std::sync::Arc::new(create_test_genotype());
             let original_trophic = genotype.trophic_potential;
             let original_niche = genotype.metabolic_niche;
             let original_mate = genotype.mate_preference;
             let original_maturity = genotype.maturity_gene;
             let original_pairing = genotype.pairing_bias;
 
-            mutate_genotype(&mut genotype, &config, 5, false, None, &mut rng, None, 0.0);
+            mutate_genotype(
+                &mut genotype,
+                &MutationParams {
+                    config: &config,
+                    population: 5,
+                    is_radiation_storm: false,
+                    specialization: None,
+                    ancestral_genotype: None,
+                    stress_factor: 0.0,
+                },
+                &mut rng,
+            );
 
             let trophic_drift = (genotype.trophic_potential - original_trophic).abs() > 0.3;
             let niche_drift = (genotype.metabolic_niche - original_niche).abs() > 0.3;
@@ -456,90 +502,28 @@ mod tests {
         let mut recall_occurred = false;
         for seed in 0..500 {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
-            let mut genotype = create_test_genotype();
-            genotype.brain.learning_rate = 0.0;
+            let mut genotype = std::sync::Arc::new(create_test_genotype());
+            std::sync::Arc::make_mut(&mut genotype).brain.learning_rate = 0.0;
 
             mutate_genotype(
                 &mut genotype,
-                &config,
-                100,
-                false,
-                None,
+                &MutationParams {
+                    config: &config,
+                    population: 100,
+                    is_radiation_storm: false,
+                    specialization: None,
+                    ancestral_genotype: Some(&ancestral),
+                    stress_factor: 1.0, // Full stress for max chance
+                },
                 &mut rng,
-                Some(&ancestral),
-                1.0, // Full stress for max chance
             );
 
-            if (genotype.brain.learning_rate - 0.999).abs() < 0.01 {
+            if (genotype.brain.learning_rate - 0.999).abs() < 0.001 {
                 recall_occurred = true;
                 break;
             }
         }
 
         assert!(recall_occurred);
-    }
-
-    #[test]
-    fn test_crossover_genotypes_produces_valid_offspring() {
-        let mut rng = ChaCha8Rng::seed_from_u64(123);
-        let p1 = create_test_genotype();
-        let p2 = create_test_genotype();
-
-        let child = crossover_genotypes(&p1, &p2, &mut rng);
-
-        assert_eq!(child.lineage_id, p1.lineage_id);
-        assert!(child.sensing_range == p1.sensing_range || child.sensing_range == p2.sensing_range);
-        assert!(child.max_speed == p1.max_speed || child.max_speed == p2.max_speed);
-        assert!(!child.brain.nodes.is_empty());
-        assert!(!child.brain.connections.is_empty());
-    }
-
-    #[test]
-    fn test_crossover_brains_preserves_innovation_alignment() {
-        let mut rng = ChaCha8Rng::seed_from_u64(456);
-        let p1 = Brain::new_random_with_rng(&mut rng);
-        let mut rng = ChaCha8Rng::seed_from_u64(789);
-        let p2 = Brain::new_random_with_rng(&mut rng);
-
-        let mut rng = ChaCha8Rng::seed_from_u64(111);
-        let child = p1.crossover_with_rng(&p2, &mut rng);
-
-        assert!(!child.nodes.is_empty());
-        assert!(child.next_node_id >= p1.next_node_id.min(p2.next_node_id));
-
-        for conn in &child.connections {
-            assert!(child.nodes.iter().any(|n| n.id == conn.from),);
-            assert!(child.nodes.iter().any(|n| n.id == conn.to),);
-        }
-    }
-
-    #[test]
-    fn test_crossover_determinism_with_same_seed() {
-        let p1 = create_test_genotype();
-        let p2 = create_test_genotype();
-
-        let mut rng1 = ChaCha8Rng::seed_from_u64(42);
-        let child1 = crossover_genotypes(&p1, &p2, &mut rng1);
-
-        let mut rng2 = ChaCha8Rng::seed_from_u64(42);
-        let child2 = crossover_genotypes(&p1, &p2, &mut rng2);
-
-        assert_eq!(child1.sensing_range, child2.sensing_range);
-        assert_eq!(child1.max_speed, child2.max_speed);
-        assert_eq!(child1.trophic_potential, child2.trophic_potential);
-        assert_eq!(
-            child1.brain.connections.len(),
-            child2.brain.connections.len()
-        );
-    }
-
-    fn count_weight_differences(b1: &Brain, b2: &Brain) -> usize {
-        let mut differences = 0;
-        for (c1, c2) in b1.connections.iter().zip(b2.connections.iter()) {
-            if (c1.weight - c2.weight).abs() > 0.001 {
-                differences += 1;
-            }
-        }
-        differences
     }
 }

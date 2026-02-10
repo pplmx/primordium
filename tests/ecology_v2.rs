@@ -8,14 +8,14 @@ use std::collections::HashSet;
 async fn test_metabolic_niche_efficiency() {
     // 1. Green Specialist (niche = 0.0, Herbivore-leaning)
     let mut green_forager = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    green_forager.intel.genotype.metabolic_niche = 0.0;
+    std::sync::Arc::make_mut(&mut green_forager.intel.genotype).metabolic_niche = 0.0;
     green_forager.metabolism.trophic_potential = 0.0;
     green_forager.metabolism.energy = 100.0;
     green_forager.metabolism.max_energy = 500.0;
 
     // 2. Blue Specialist (niche = 1.0, Herbivore-leaning)
     let mut blue_forager = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    blue_forager.intel.genotype.metabolic_niche = 1.0;
+    std::sync::Arc::make_mut(&mut blue_forager.intel.genotype).metabolic_niche = 1.0;
     blue_forager.metabolism.trophic_potential = 0.0;
     blue_forager.metabolism.energy = 100.0;
     blue_forager.metabolism.max_energy = 500.0;
@@ -122,12 +122,12 @@ async fn test_niche_partitioning_coexistence() {
 
     // 2. Two specialized entities
     let mut green_spec = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    green_spec.intel.genotype.metabolic_niche = 0.0;
+    std::sync::Arc::make_mut(&mut green_spec.intel.genotype).metabolic_niche = 0.0;
     green_spec.metabolism.trophic_potential = 0.0;
     green_spec.metabolism.energy = 100.0;
 
     let mut blue_spec = primordium_lib::model::lifecycle::create_entity(15.0, 15.0, 0);
-    blue_spec.intel.genotype.metabolic_niche = 1.0;
+    std::sync::Arc::make_mut(&mut blue_spec.intel.genotype).metabolic_niche = 1.0;
     blue_spec.metabolism.trophic_potential = 0.0;
     blue_spec.metabolism.energy = 100.0;
 

@@ -124,14 +124,19 @@ async fn test_soldier_damage_bonus() {
     world.tick = 1000; // Ensure mature
 
     // FORCE AGGRESSION VIA BRAIN
-    soldier.intel.genotype.brain.connections.clear();
-    soldier.intel.genotype.brain.connections.push(Connection {
-        from: 2,
-        to: 32, // Aggro
-        weight: 10.0,
-        enabled: true,
-        innovation: 9999,
-    });
+    {
+        let brain = &mut std::sync::Arc::make_mut(&mut soldier.intel.genotype).brain;
+        brain.connections.clear();
+        brain.connections.push(Connection {
+            from: 2,
+            to: 32, // Aggro
+            weight: 10.0,
+            enabled: true,
+            innovation: 9999,
+        });
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
+    }
 
     soldier.intel.rank = 0.9;
     soldier.metabolism.offspring_count = 20; // Boost calculated rank
@@ -142,7 +147,12 @@ async fn test_soldier_damage_bonus() {
     let mut victim = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     victim.metabolism.energy = 200.0; // Strong victim
                                       // Ensure victim doesn't attack back
-    victim.intel.genotype.brain.connections.clear();
+    {
+        let brain = &mut std::sync::Arc::make_mut(&mut victim.intel.genotype).brain;
+        brain.connections.clear();
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
+    }
     // Different tribe
     soldier.physics.r = 255;
     victim.physics.r = 0;

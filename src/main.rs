@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use primordium_lib::app::App;
-use primordium_lib::ui::tui::Tui;
+use primordium_tui::Tui;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

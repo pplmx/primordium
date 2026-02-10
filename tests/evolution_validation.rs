@@ -29,8 +29,8 @@ async fn test_r_vs_k_dominance_in_resource_boom() {
         .with_behavior(TestBehavior::Altruist)
         .build();
     let mut r_type = r_type;
-    r_type.intel.genotype.maturity_gene = 0.5;
-    r_type.intel.genotype.reproductive_investment = 0.2;
+    std::sync::Arc::make_mut(&mut r_type.intel.genotype).maturity_gene = 0.5;
+    std::sync::Arc::make_mut(&mut r_type.intel.genotype).reproductive_investment = 0.2;
     world_builder = world_builder.with_entity(r_type);
 
     let k_type = EntityBuilder::new()
@@ -42,8 +42,8 @@ async fn test_r_vs_k_dominance_in_resource_boom() {
         .with_behavior(TestBehavior::Aggressive)
         .build();
     let mut k_type = k_type;
-    k_type.intel.genotype.maturity_gene = 5.0;
-    k_type.intel.genotype.reproductive_investment = 0.8;
+    std::sync::Arc::make_mut(&mut k_type.intel.genotype).maturity_gene = 5.0;
+    std::sync::Arc::make_mut(&mut k_type.intel.genotype).reproductive_investment = 0.8;
     world_builder = world_builder.with_entity(k_type);
 
     let (mut world, mut env) = world_builder.build();

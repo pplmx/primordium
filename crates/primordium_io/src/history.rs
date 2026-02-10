@@ -232,9 +232,19 @@ impl HistoryLogger {
         Ok(legends)
     }
 
-    pub fn get_ancestry_tree(&self, living: &[Entity]) -> Result<AncestryTree> {
+    pub fn get_ancestry_tree_from_genotypes(
+        &self,
+        living: &[std::sync::Arc<primordium_data::Genotype>],
+    ) -> Result<AncestryTree> {
         let legends = self.get_all_legends()?;
-        Ok(AncestryTree::build(&legends, living))
+        let raw_genotypes: Vec<_> = living.iter().map(|g| (**g).clone()).collect();
+        Ok(AncestryTree::build(&legends, &raw_genotypes))
+    }
+
+    pub fn get_ancestry_tree(&self, living: &[Entity]) -> Result<AncestryTree> {
+        let genotypes: Vec<_> = living.iter().map(|e| (*e.intel.genotype).clone()).collect();
+        let legends = self.get_all_legends()?;
+        Ok(AncestryTree::build(&legends, &genotypes))
     }
 
     pub fn get_snapshots(&self) -> Result<Vec<(u64, PopulationStats)>> {

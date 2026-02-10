@@ -1,0 +1,22 @@
+[package]
+name = "primordium_tools"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+petgraph = "0.6"
+primordium_core = { path = "../primordium_core" }
+primordium_io = { path = "../primordium_io" }
+
+[[bin]]
+name = "analyze"
+path = "src/bin/analyze.rs"
+
+[[bin]]
+name = "verify"
+path = "src/bin/verify.rs"

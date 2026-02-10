@@ -1,0 +1,16 @@
+[package]
+name = "primordium_tui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["serde"] }
+primordium_data = { path = "../primordium_data" }
+primordium_core = { path = "../primordium_core" }
+primordium_net = { path = "../primordium_net" }
+uuid = { version = "1.0" }
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+

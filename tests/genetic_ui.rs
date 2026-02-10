@@ -10,9 +10,9 @@ async fn test_genetic_edit_application() {
 
     let mut entity = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     let id = entity.identity.id;
-    entity.intel.genotype.sensing_range = 10.0;
-    entity.intel.genotype.max_speed = 1.0;
-    entity.intel.genotype.trophic_potential = 0.0;
+    std::sync::Arc::make_mut(&mut entity.intel.genotype).sensing_range = 10.0;
+    std::sync::Arc::make_mut(&mut entity.intel.genotype).max_speed = 1.0;
+    std::sync::Arc::make_mut(&mut entity.intel.genotype).trophic_potential = 0.0;
 
     world.spawn_entity(entity);
 

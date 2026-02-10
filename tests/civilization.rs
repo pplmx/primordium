@@ -1,65 +1,9 @@
-use primordium_core::systems::action::{action_system, ActionContext, ActionOutput};
 use primordium_core::systems::{civilization, intel};
-use primordium_data::AncestralTrait;
+use primordium_data::TerrainType;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::state::environment::Environment;
-use primordium_lib::model::state::terrain::TerrainType;
+use primordium_lib::model::environment::Environment;
 use primordium_lib::model::world::World;
 use uuid::Uuid;
-
-#[tokio::test]
-async fn test_ancestral_trait_metabolism_buff() {
-    let config = AppConfig::default();
-    let world = World::new(0, config.clone()).unwrap();
-    let env = Environment::default();
-
-    let l_id = Uuid::new_v4();
-    let mut e = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    e.metabolism.lineage_id = l_id;
-    e.intel
-        .ancestral_traits
-        .insert(AncestralTrait::HardenedMetabolism);
-
-    let initial_energy = 100.0;
-    e.metabolism.energy = initial_energy;
-
-    let mut ctx = ActionContext {
-        env: &env,
-        config: &config,
-        terrain: &world.terrain,
-        influence: &world.influence,
-        snapshots: &[],
-        entity_id_map: &std::collections::HashMap::new(),
-        spatial_hash: &world.spatial_hash,
-        pressure: &world.pressure,
-        width: 100,
-        height: 50,
-    };
-
-    let outputs = [0.0; 12];
-    {
-        let mut out = ActionOutput::default();
-        action_system(&mut e, outputs, &mut ctx, &mut out);
-        out
-    };
-
-    let drain_with_trait = initial_energy - e.metabolism.energy;
-
-    let mut e_normal = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
-    e_normal.metabolism.energy = initial_energy;
-    {
-        let mut out = ActionOutput::default();
-        action_system(&mut e_normal, outputs, &mut ctx, &mut out);
-        out
-    };
-
-    let drain_normal = initial_energy - e_normal.metabolism.energy;
-
-    assert!(
-        drain_with_trait < drain_normal,
-        "HardenedMetabolism should reduce energy drain"
-    );
-}
 
 #[tokio::test]
 async fn test_global_event_radiation_surge() {
@@ -71,20 +15,23 @@ async fn test_global_event_radiation_surge() {
 
     assert!(env.is_radiation_storm());
 
-    let mut genotype =
-        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng());
+    let mut genotype = std::sync::Arc::new(
+        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng()),
+    );
     let original_dna = genotype.to_hex();
 
     let mut rng = rand::thread_rng();
     intel::mutate_genotype(
         &mut genotype,
-        &world.config,
-        100,
-        true,
-        None,
+        &intel::MutationParams {
+            config: &world.config,
+            population: 100,
+            is_radiation_storm: true,
+            specialization: None,
+            ancestral_genotype: None,
+            stress_factor: 0.0,
+        },
         &mut rng,
-        None,
-        0.0,
     );
 
     assert_ne!(genotype.to_hex(), original_dna);

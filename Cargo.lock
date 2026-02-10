@@ -1853,7 +1853,9 @@ dependencies = [
  "primordium_core",
  "primordium_data",
  "primordium_io",
+ "primordium_net",
  "primordium_observer",
+ "primordium_tui",
  "proptest",
  "proptest-derive",
  "quinn",
@@ -1872,6 +1874,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.21.0",
  "toml",
+ "tower",
  "tower-http 0.5.2",
  "tracing",
  "tracing-subscriber",
@@ -1885,6 +1888,7 @@ name = "primordium_core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "atomic_float",
  "chrono",
  "criterion",
@@ -1897,6 +1901,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "ratatui",
  "rayon",
+ "reqwest",
  "rkyv",
  "serde",
  "serde_json",
@@ -1945,12 +1950,68 @@ dependencies = [
 ]
 
 [[package]]
+name = "primordium_net"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "primordium_observer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "primordium_data",
+ "serde",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "primordium_server"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "futures",
+ "primordium_net",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "primordium_tools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "petgraph 0.6.5",
+ "primordium_core",
+ "primordium_io",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "primordium_tui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crossterm",
+ "primordium_core",
+ "primordium_data",
+ "primordium_net",
+ "ratatui",
  "serde",
  "tokio",
  "uuid",

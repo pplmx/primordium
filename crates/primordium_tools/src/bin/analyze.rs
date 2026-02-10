@@ -1,6 +1,7 @@
 use clap::Parser;
 use petgraph::graph::DiGraph;
-use primordium_lib::model::history::{Legend, LiveEvent};
+use primordium_core::history::{Legend, LiveEvent};
+use primordium_core::lineage_tree::AncestryTree;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -12,7 +13,7 @@ struct Args {
     #[arg(short, long, default_value = "logs/live.jsonl")]
     live_log: String,
 
-    #[arg(short, long, default_value = "logs/legends.json")]
+    #[arg(short = 'L', long, default_value = "logs/legends.json")]
     legends_log: String,
 
     #[arg(short, long, default_value = "report.md")]
@@ -77,7 +78,6 @@ fn main() -> anyhow::Result<()> {
 
     // Export Tree if requested
     if args.tree {
-        use primordium_lib::model::infra::lineage_tree::AncestryTree;
         let tree = AncestryTree::build(&legends, &[]);
         let dot = tree.to_dot();
         let tree_path = "logs/tree.dot";
@@ -127,4 +127,27 @@ fn main() -> anyhow::Result<()> {
     println!("Report generated: {}", args.output);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn test_args_parsing_defaults() {
+        let args = Args::parse_from(["analyze"]);
+        assert_eq!(args.live_log, "logs/live.jsonl");
+        assert_eq!(args.legends_log, "logs/legends.json");
+        assert_eq!(args.output, "report.md");
+        assert!(!args.tree);
+    }
+
+    #[test]
+    fn test_args_parsing_custom() {
+        let args = Args::parse_from(["analyze", "-l", "test.jsonl", "-o", "out.md", "--tree"]);
+        assert_eq!(args.live_log, "test.jsonl");
+        assert_eq!(args.output, "out.md");
+        assert!(args.tree);
+    }
 }

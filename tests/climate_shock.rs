@@ -36,7 +36,12 @@ async fn test_neural_topology_catatonic_metabolism() {
 
     let mut catatonic = lifecycle::create_entity(10.0, 10.0, 0);
     // Clear all connections - brain can't do anything
-    catatonic.intel.genotype.brain.connections.clear();
+    {
+        let brain = &mut std::sync::Arc::make_mut(&mut catatonic.intel.genotype).brain;
+        brain.connections.clear();
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
+    }
     catatonic.metabolism.energy = 100.0;
     let _h = world.spawn_entity(catatonic);
 
@@ -66,19 +71,21 @@ async fn test_neural_topology_recursive_loop_bloat() {
     recursive.metabolism.energy = 50.0;
 
     // Create 100 internal recursive connections (hidden-to-hidden) to maximize "Brain Bloat" cost
-    for i in 0..100 {
-        recursive
-            .intel
-            .genotype
-            .brain
-            .connections
-            .push(primordium_lib::model::brain::Connection {
-                from: 41 + (i % 6),
-                to: 41 + ((i + 1) % 6),
-                weight: 1.0,
-                enabled: true,
-                innovation: 10000 + i,
-            });
+    {
+        let brain = &mut std::sync::Arc::make_mut(&mut recursive.intel.genotype).brain;
+        for i in 0..100 {
+            brain
+                .connections
+                .push(primordium_lib::model::brain::Connection {
+                    from: 41 + (i % 6),
+                    to: 41 + ((i + 1) % 6),
+                    weight: 1.0,
+                    enabled: true,
+                    innovation: 10000 + i,
+                });
+        }
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
     }
 
     world.spawn_entity(recursive);

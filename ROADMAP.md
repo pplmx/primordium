@@ -18,26 +18,149 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 ---
 
-## 🎯 Immediate Priorities (Top 10)
+## 🎯 Immediate Priorities
 
 > **"Focus is not saying yes; it is saying no to the hundred other good ideas."**
 
-These tasks are the critical path to the next major version of Primordium.
+### Completed Milestones ✅
 
-1. **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite* ✅ (Complete - Core/Data/Observer crates, Trait-based behaviors)
-2. **Phase 66: Data-Oriented Core (ECS Refactor)** - *Performance Foundation* ✅ (Food migrated, Parallel SpatialHash, Entity ECS Mirror, Perception Fusion, Rank Heatmaps, Gene Regulatory Networks, Influence Maps)
-3. **Phase 66.5: Cognitive Hygiene & Resilience** - *Long-term Stability* ✅ (Done - Renaming, Neural Pruning, Zero-Allocation Optimizations, Buffer Pooling, Regulatory System)
-4. **T2: Engineering Excellence (CI/CD + Determinism)** - *Safety Net* ✅ (CI + Release workflows, Zero-Allocation Core, Parallel Scaling verified)
-5. **Phase 65: The Silicon Scribe (LLM Integration)** - *User Engagement* ✅ (Foundation - Heuristic narration via primordium_observer)
-6. **Phase 64: Genetic Memory & Evolutionary Rewind** - *Core Simulation Depth* ✅
-7. **Phase 66.7: Neural & Social Correction** - *CRITICAL FIX* ✅ (Deterministic Innovation IDs, Parallel Interaction Application, Intelligent Terraforming)
-8. **Phase 66 Step 2: Entity ECS Migration** - *Performance* ✅ (Completed - Entity split into components, logic uses granular queries)
-9. **Phase 66 Step 3: System Parallelism** - *Performance* ✅ (Completed - World::update refactored to use pipelined queries)
-10. **Phase 66 Step 4: Zero-Copy Serialization** - *Performance* ✅ (Completed - Implemented rkyv persistence in primordium_io)
-11. **T1: Architectural Decoupling (Workspace Refactor)** - *Critical Pre-requisite* ✅ (Completed - Extracted primordium_io and decoupled Core)
-12. **Phase 68: The Song of Entropy (Audio)** - *Immersion*
-13. **Phase 69: Visual Synthesis (ASCII Raytracing)** - *Visual Polish*
-14. **Phase 70: The Galactic Federation (Central Server)** - *Online Universe*
+| # | Milestone | Status |
+|---|-----------|--------|
+| 1 | T1: Architectural Decoupling (Workspace Refactor) | ✅ Core/Data/IO/Observer crates |
+| 2 | Phase 66: Data-Oriented Core (ECS Refactor) | ✅ Full pipeline |
+| 3 | Phase 66.5: Cognitive Hygiene & Resilience | ✅ Neural Pruning, Zero-Alloc |
+| 4 | T2: Engineering Excellence (CI/CD + Determinism) | ✅ CI + Release workflows |
+| 5 | Phase 65: The Silicon Scribe (Foundation) | ✅ Heuristic narration |
+| 6 | Phase 64: Genetic Memory & Evolutionary Rewind | ✅ |
+| 7 | Phase 66.7: Neural & Social Correction | ✅ |
+| 8 | Phase 66 Step 2-4: ECS + Parallelism + rkyv | ✅ |
+
+### Next Up
+
+1. **🔥 Engineering Sprint (50 Tasks)** — 代码质量、重构、测试、架构 (详见下方)
+2. **Phase 68: The Song of Entropy (Audio)** — *Immersion*
+3. **Phase 69: Visual Synthesis (ASCII Raytracing)** — *Visual Polish*
+4. **Phase 70: The Galactic Federation (Central Server)** — *Online Universe*
+
+---
+
+## 🔥 Engineering Sprint — 50 Tasks (2026-02-10)
+
+> **基线状态**: Clippy 0 warnings ✅ | Tests 全部通过 ✅ | 无 TODO/FIXME ✅ | 无 unsafe ✅ | src/ 无 unwrap() ✅
+>
+> **执行协议**: 每个任务完成后必须通过验证门:
+> ```bash
+> cargo fmt --all
+> cargo clippy --fix --workspace --all-targets --all-features --allow-dirty --allow-staged
+> cargo fix --workspace --all-targets --all-features --allow-dirty --allow-staged
+> cargo test --workspace --all-features
+> ```
+
+### Tier 1: Clippy 抑制清零 (P0 — 代码纯度) [Task 1-8]
+
+> **目标**: 消除所有 `#[allow(...)]` 抑制，让 Clippy 真正做到零妥协。
+
+| # | 任务 | 文件 | 方案 |
+|---|------|------|------|
+| 1 | 消除 3× `too_many_arguments` | `core/systems/action.rs:40,154,331` | 引入 `MovementContext`, `BondContext`, `TerraformContext` 结构体 |
+| 2 | 消除 1× `too_many_arguments` | `core/systems/intel.rs:66` | 引入 `PerceptionContext` 结构体 |
+| 3 | 消除 1× `too_many_arguments` | `core/systems/social.rs:258` | 引入 `SocialContext` 结构体 |
+| 4 | 消除 1× `too_many_arguments` | `core/systems/stats.rs:179` | 引入 `StatsContext` 结构体 |
+| 5 | 消除 1× `too_many_arguments` | `core/systems/civilization.rs:315` | 引入 `CivContext` 结构体 |
+| 6 | 消除 `type_complexity` | `src/model/world/state.rs:233` | 引入类型别名 `type SnapshotResult = ...` |
+| 7 | 消除 `dead_code` | `core/metrics.rs:16` | 移除未使用字段或通过 pub 暴露 |
+| 8 | Mutex `.unwrap()` 安全化 | `core/metrics.rs:63` | 改为 `.lock().map_err(...)` 或 `parking_lot::Mutex` |
+
+### Tier 2: 巨型函数/文件拆分 (P0 — 可维护性) [Task 9-16]
+
+> **目标**: 将所有 >250 行函数和 >700 行文件拆分至合理粒度。
+
+| # | 任务 | 当前规模 | 拆分方案 |
+|---|------|----------|----------|
+| 9 | 拆分 `generate_commands_for_entity` | 354 行 · `src/model/world/systems.rs` | → `generate_eat_cmds`, `generate_bond_cmds`, `generate_predation_cmds`, `generate_reproduction_cmds` |
+| 10 | 拆分 `World::finalize_tick` | 297 行 · `src/model/world/update.rs` | → `process_deaths`, `process_births`, `finalize_snapshots`, `finalize_civilization`, `finalize_stats` |
+| 11 | 拆分 `App::draw` | 260 行 · `src/app/render.rs` | → `draw_status_bar`, `draw_sparklines`, `draw_world_canvas`, `draw_sidebar`, `draw_overlay` |
+| 12 | 拆分 brain.rs 为模块目录 | 1411 行 · `core/brain.rs` | → `brain/mod.rs`, `brain/topology.rs`, `brain/forward.rs`, `brain/crossover.rs`, `brain/mutation.rs` |
+| 13 | 拆分 terrain.rs 为模块目录 | 773 行 · `core/terrain.rs` | → `terrain/mod.rs`, `terrain/generation.rs`, `terrain/succession.rs`, `terrain/disasters.rs` |
+| 14 | 拆分 input.rs 为模块目录 | 718 行 · `src/app/input.rs` | → `input/mod.rs`, `input/normal.rs`, `input/terrain_edit.rs`, `input/genetic_edit.rs` |
+| 15 | 拆分 primordium_data/lib.rs | 695 行 · `crates/primordium_data/src/lib.rs` | → `data/entity.rs`, `data/genotype.rs`, `data/terrain.rs`, `data/environment.rs` |
+| 16 | 拆分 systems.rs 主函数 | 673 行 · `src/model/world/systems.rs` | → 将 `perceive_and_decide_*` 与 `generate_commands_*` 分离为子模块 |
+
+### Tier 3: 测试覆盖补全 (P1 — 质量保障) [Task 17-26]
+
+> **目标**: 消除所有测试盲区，实现关键路径 100% 覆盖。
+
+| # | 任务 | 模块 | 测试类型 |
+|---|------|------|----------|
+| 17 | primordium_observer 单元测试 | `crates/primordium_observer/` | 当前 0 测试 → 叙事生成、事件过滤 |
+| 18 | 启用 7 个 ignored doc-tests | `core/brain.rs`, `core/spatial_hash.rs`, `core/lib.rs` | 修复编译依赖，移除 `ignore` |
+| 19 | render.rs 快照测试 | `src/app/render.rs` | 使用 `ratatui::backend::TestBackend` 验证输出 |
+| 20 | input.rs 按键处理测试 | `src/app/input.rs` | 模拟 `KeyEvent` 验证状态转换 |
+| 21 | help.rs 内容完整性测试 | `src/app/help.rs` | 验证所有快捷键均有文档条目 |
+| 22 | server/main.rs 路由测试 | `src/server/main.rs` | 使用 `axum::test` 验证 WebSocket + REST |
+| 23 | bin/analyze.rs CLI 测试 | `src/bin/analyze.rs` | 验证 CLI 参数解析及输出格式 |
+| 24 | bin/verify.rs 验证逻辑测试 | `src/bin/verify.rs` | 验证区块链锚定检查逻辑 |
+| 25 | client/manager.rs 测试 | `src/client/manager.rs` | 网络管理状态机测试 (cfg wasm32 mock) |
+| 26 | ui/renderer.rs 抽象层测试 | `src/ui/renderer.rs` | 渲染 trait 实现一致性测试 |
+
+### Tier 4: 架构解耦 — T1 续篇 (P1 — 长期健康) [Task 27-31]
+
+> **目标**: 完成 ROADMAP T1 中规划的完整 Workspace 拆分。
+
+| # | 任务 | 新 Crate | 来源 |
+|---|------|----------|------|
+| 27 | 提取 `primordium_net` | P2P 协议 + 消息类型 | `src/model/infra/network.rs` 协议部分 |
+| 28 | 提取 `primordium_tui` | TUI 渲染实现 | `src/ui/tui/` + `src/app/render.rs` |
+| 29 | 提取 `primordium_tools` | CLI 工具链 | `src/bin/analyze.rs` + `src/bin/verify.rs` |
+| 30 | 提取 `primordium_server` | 中继服务器 | `src/server/main.rs` |
+| 31 | `primordium_core` no_std 审计 | 核心引擎 | 添加 `#![cfg_attr(not(test), no_std)]` 兼容 |
+
+### Tier 5: 热路径性能优化 (P2 — 吞吐量) [Task 32-37]
+
+> **目标**: 消除热路径上的不必要内存分配和拷贝。
+
+| # | 任务 | 位置 | 方案 |
+|---|------|------|------|
+| 32 | 减少 state.rs 22 处 clone() | `src/model/world/state.rs` | 优先使用 `&` 引用传递，`Cow<>` 延迟克隆 |
+| 33 | 减少 update.rs 15 处 clone() | `src/model/world/update.rs` | 用 `std::mem::take` / `swap` 替代 |
+| 34 | Config 全局改引用传递 | 全 workspace | `config.clone()` → `&config` |
+| 35 | Arc genotype 优化 | `state.rs:60` | `Arc::new(genotype.clone())` → 评估 `Arc::clone` |
+| 36 | Server proposal 消除拷贝 | `src/server/main.rs:224` | 使用 `Arc<Proposal>` 共享所有权 |
+| 37 | Brain crossover 优化 | `core/brain.rs` | 评估 11 处 clone() 可否减少 |
+
+### Tier 6: 文档完善 — T4 (P2 — 知识传承) [Task 38-42]
+
+> **目标**: 所有公开 API 有 doc comments，`cargo doc` 零警告。
+
+| # | 任务 | Crate | 要求 |
+|---|------|-------|------|
+| 38 | primordium_data doc comments | `crates/primordium_data/` | 所有 pub struct/enum/fn 添加 `///` |
+| 39 | primordium_io doc comments | `crates/primordium_io/` | 所有 pub API 添加 `///` |
+| 40 | primordium_observer doc comments | `crates/primordium_observer/` | SiliconScribe + pub API |
+| 41 | 更新 ARCHITECTURE.md | 项目根目录 | 反映当前 4-crate workspace 结构 |
+| 42 | CI 添加 `cargo doc` 检查 | `.github/workflows/ci.yml` | 添加 `cargo doc --no-deps --workspace -D warnings` |
+
+### Tier 7: 高级测试 — T3 (P2 — 深度保障) [Task 43-46]
+
+> **目标**: 建立面向未来的深度测试基础设施。
+
+| # | 任务 | 框架 | 覆盖范围 |
+|---|------|------|----------|
+| 43 | proptest 往返测试 | `proptest` | `Genotype::to_hex` ↔ `from_hex` 100% 往返 |
+| 44 | 确定性快照比对 | `determinism_suite.rs` | 多种子下 100 tick 输出完全一致 |
+| 45 | 长跑稳定性测试 | `#[ignore]` test | 1000+ ticks × 500 实体，检测内存泄漏/数值漂移 |
+| 46 | 并发压力 fuzzing | `loom` 或 `shuttle` | SpatialHash + PheromoneGrid 多线程竞争条件 |
+
+### Tier 8: 新功能推进 (P3 — 演进) [Task 47-50]
+
+> **目标**: 为下一代功能奠定基础。
+
+| # | 任务 | Phase | 描述 |
+|---|------|-------|------|
+| 47 | Silicon Scribe 叙事扩展 | Phase 65 | 添加 3+ 叙事模板 (战争、迁徙、文明跃升) |
+| 48 | 输入录制回放完善 | Phase 67 | 基于已有 `replay` 功能，添加回放 UI 控制 |
+| 49 | 音频系统 trait 设计 | Phase 68 | 定义 `AudioDriver` trait + 事件→声音映射接口 |
+| 50 | mdBook 文档站搭建 | T4 | 框架搭建 + 现有 MD 文档编译为静态站 |
 
 ---
 
@@ -732,5 +855,5 @@ Primordium is an experiment in **emergent complexity**. You provide the rules, t
 
 Every run is unique. Every lineage is precious. Every extinction teaches us something.
 
-*Last updated: 2026-01-27*
+*Last updated: 2026-02-10*
 *Version: 0.0.1*

@@ -7,20 +7,7 @@
 //! - Serialization/deserialization (JSON, rkyv)
 //! - Persistence and storage management
 //! - Historical data logging
-//! - Network communication
-//!
-//! ## Error Handling
-//!
-//! All operations return `Result<T, IoError>` for explicit error handling:
-//!
-//! ```ignore
-//! use primordium_io::{IoError, Result};
-//!
-//! fn load_data(path: &str) -> Result<Data> {
-//!     persistence::load_rkyv(path)
-//!         .map_err(|e| IoError::not_found(path).with_context("loading data"))
-//! }
-//! ```
+//! - Network communication protocols
 
 /// Error types for I/O operations
 pub mod error;

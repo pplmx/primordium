@@ -18,9 +18,6 @@ async fn test_genetic_bottleneck_increases_mutation() {
     parent.metabolism.energy = 500.0;
 
     // 2. Small population (1) -> Should have high effective mutation
-    // We can't easily measure effective_mutation_rate directly as it's internal to mutate_genotype,
-    // but we can check if it results in higher genetic variance over multiple trials.
-    // However, for a unit test, we just verify it doesn't crash and follows the logic.
     let mut rng = rand::thread_rng();
     let mut ctx_small = social::ReproductionContext {
         tick: 1,
@@ -32,12 +29,14 @@ async fn test_genetic_bottleneck_increases_mutation() {
         ancestral_genotype: None,
     };
     let (child_small, _) = social::reproduce_asexual_parallel_components_decomposed(
-        &parent.position,
-        parent.metabolism.energy,
-        parent.metabolism.generation,
-        &parent.intel.genotype,
-        parent.intel.specialization,
-        &mut ctx_small,
+        social::AsexualReproductionContext {
+            pos: &parent.position,
+            energy: parent.metabolism.energy,
+            generation: parent.metabolism.generation,
+            genotype: &parent.intel.genotype,
+            specialization: parent.intel.specialization,
+            ctx: &mut ctx_small,
+        },
     );
 
     // 3. Large population (100) -> Should have base mutation
@@ -52,12 +51,14 @@ async fn test_genetic_bottleneck_increases_mutation() {
         ancestral_genotype: None,
     };
     let (child_large, _) = social::reproduce_asexual_parallel_components_decomposed(
-        &parent.position,
-        parent.metabolism.energy,
-        parent.metabolism.generation,
-        &parent.intel.genotype,
-        parent.intel.specialization,
-        &mut ctx_large,
+        social::AsexualReproductionContext {
+            pos: &parent.position,
+            energy: parent.metabolism.energy,
+            generation: parent.metabolism.generation,
+            genotype: &parent.intel.genotype,
+            specialization: parent.intel.specialization,
+            ctx: &mut ctx_large,
+        },
     );
 
     assert_ne!(child_small.identity.id, child_large.identity.id);
@@ -72,8 +73,9 @@ async fn test_genetic_drift_in_small_pop() {
     // Force a small population context
     let population = 5;
 
-    let parent_genotype =
-        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng());
+    let parent_genotype = std::sync::Arc::new(
+        primordium_lib::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng()),
+    );
     let original_tp = parent_genotype.trophic_potential;
 
     // Run many mutations to trigger the 5% drift chance
@@ -83,13 +85,15 @@ async fn test_genetic_drift_in_small_pop() {
         let mut test_genotype = parent_genotype.clone();
         intel::mutate_genotype(
             &mut test_genotype,
-            &config,
-            population,
-            false,
-            None,
+            &intel::MutationParams {
+                config: &config,
+                population,
+                is_radiation_storm: false,
+                specialization: None,
+                ancestral_genotype: None,
+                stress_factor: 0.0,
+            },
             &mut rng,
-            None,
-            0.0,
         );
         if (test_genotype.trophic_potential - original_tp).abs() > 0.001 {
             drift_occurred = true;

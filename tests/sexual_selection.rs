@@ -20,7 +20,8 @@ async fn test_mate_preference_rejection() {
         &mut primordium_lib::model::state::Intel,
     )>() {
         if met.trophic_potential > 0.1 {
-            intel.genotype.mate_preference = 1.0; // Prefers Carnivores
+            std::sync::Arc::make_mut(&mut intel.genotype).mate_preference = 1.0;
+            // Prefers Carnivores
         }
     }
 
@@ -48,7 +49,8 @@ async fn test_mate_preference_acceptance() {
         &mut primordium_lib::model::state::Intel,
     )>() {
         if met.energy > 600.0 {
-            intel.genotype.mate_preference = 1.0; // Prefers Carnivores
+            std::sync::Arc::make_mut(&mut intel.genotype).mate_preference = 1.0;
+            // Prefers Carnivores
         }
     }
 

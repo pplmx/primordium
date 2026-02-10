@@ -18,7 +18,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 // Re-use the shared network protocol from the main library
-use primordium_lib::model::infra::network::{NetMessage, PeerInfo, TradeProposal};
+use primordium_net::{NetMessage, PeerInfo, TradeProposal};
 
 /// Server state tracking connected peers and their info
 struct AppState {
@@ -28,7 +28,7 @@ struct AppState {
     peers: Arc<Mutex<HashMap<Uuid, PeerInfo>>>,
     /// Total migrations processed by server
     total_migrations: Arc<Mutex<usize>>,
-    active_trades: Arc<Mutex<HashMap<Uuid, TradeProposal>>>,
+    active_trades: Arc<Mutex<HashMap<Uuid, Arc<TradeProposal>>>>,
 }
 
 #[tokio::main]
@@ -221,7 +221,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     }
                     NetMessage::TradeOffer(proposal) => {
                         if let Ok(mut trades) = active_trades_clone.lock() {
-                            trades.insert(proposal.id, proposal.clone());
+                            trades.insert(proposal.id, Arc::new(proposal));
                         } else {
                             tracing::warn!("Failed to lock trades mutex for trade offer");
                         }
@@ -333,5 +333,69 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
     if let Some(msg_str) = disconnect_peer_list_msg {
         let _ = tx.send(msg_str);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::{Request, StatusCode};
+    use tower::util::ServiceExt;
+
+    fn create_app() -> Router {
+        let (tx, _rx) = broadcast::channel(100);
+        let app_state = Arc::new(AppState {
+            tx,
+            peers: Arc::new(Mutex::new(HashMap::new())),
+            total_migrations: Arc::new(Mutex::new(0)),
+            active_trades: Arc::new(Mutex::new(HashMap::new())),
+        });
+
+        Router::new()
+            .route("/api/peers", get(get_peers))
+            .route("/api/stats", get(get_stats))
+            .with_state(app_state)
+    }
+
+    #[tokio::test]
+    async fn test_get_peers_empty() {
+        let app = create_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/peers")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(&body[..], b"[]");
+    }
+
+    #[tokio::test]
+    async fn test_get_stats() {
+        let app = create_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/stats")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let stats: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(stats["online_count"], 0);
+        assert_eq!(stats["total_migrations"], 0);
     }
 }

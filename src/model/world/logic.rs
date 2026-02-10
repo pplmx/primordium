@@ -1,32 +1,27 @@
 use crate::model::environment::Environment;
 use crate::model::world::World;
-use primordium_data::{
-    Entity, Food, GeneType, Identity, Intel, MetabolicNiche, Metabolism, Physics, Position,
-};
+use primordium_data::{Entity, Food, GeneType, Identity, Intel, Metabolism, Physics, Position};
 use rand::Rng;
 
 impl World {
-    /// Spawns a new entity into the simulation world.
-    ///
-    /// Initializes the entity's brain topology and adds it to the ECS component manager.
-    ///
-    /// # Arguments
-    /// * `e` - The entity to spawn (with all components populated)
-    ///
-    /// # Returns
-    /// The ECS entity handle that can be used to reference this entity
-    pub fn spawn_entity(&mut self, mut e: Entity) -> hecs::Entity {
-        crate::model::brain::BrainLogic::initialize_node_idx_map(&mut e.intel.genotype.brain);
-        self.ecs.spawn((
-            e.identity,
-            e.position,
-            e.velocity,
-            e.appearance,
-            e.physics,
-            e.metabolism,
-            e.health,
-            e.intel,
-        ))
+    pub fn reincarnate_selected(&mut self, entity_id: uuid::Uuid) {
+        let mut query = self
+            .ecs
+            .query::<(&mut Intel, &mut Physics, &mut Metabolism, &Identity)>();
+        for (_handle, (intel, phys, met, identity)) in query.iter() {
+            if identity.id == entity_id {
+                intel.genotype = std::sync::Arc::new(
+                    crate::model::brain::create_genotype_random_with_rng(&mut rand::thread_rng()),
+                );
+                crate::model::brain::BrainLogic::initialize_node_idx_map(
+                    &mut std::sync::Arc::make_mut(&mut intel.genotype).brain,
+                );
+                phys.sensing_range = intel.genotype.sensing_range;
+                phys.max_speed = intel.genotype.max_speed;
+                met.max_energy = intel.genotype.max_energy;
+                break;
+            }
+        }
     }
 
     pub fn apply_genetic_edit(&mut self, entity_id: uuid::Uuid, gene: GeneType, delta: f32) {
@@ -35,39 +30,71 @@ impl World {
             .query::<(&Identity, &mut Intel, &mut Metabolism, &mut Physics)>();
         for (_handle, (identity, intel, met, phys)) in query.iter() {
             if identity.id == entity_id {
+                let genotype = std::sync::Arc::make_mut(&mut intel.genotype);
                 match gene {
                     GeneType::Trophic => {
-                        intel.genotype.trophic_potential =
-                            (intel.genotype.trophic_potential + delta).clamp(0.0, 1.0);
-                        met.trophic_potential = intel.genotype.trophic_potential;
+                        genotype.trophic_potential =
+                            (genotype.trophic_potential + delta).clamp(0.0, 1.0);
+                        met.trophic_potential = genotype.trophic_potential;
                     }
                     GeneType::Sensing => {
-                        intel.genotype.sensing_range =
-                            (intel.genotype.sensing_range + delta as f64).clamp(3.0, 30.0);
-                        phys.sensing_range = intel.genotype.sensing_range;
+                        genotype.sensing_range =
+                            (genotype.sensing_range + delta as f64).clamp(3.0, 30.0);
+                        phys.sensing_range = genotype.sensing_range;
                     }
                     GeneType::Speed => {
-                        intel.genotype.max_speed =
-                            (intel.genotype.max_speed + delta as f64).clamp(0.1, 5.0);
-                        phys.max_speed = intel.genotype.max_speed;
+                        genotype.max_speed = (genotype.max_speed + delta as f64).clamp(0.1, 5.0);
+                        phys.max_speed = genotype.max_speed;
                     }
                     GeneType::ReproInvest => {
-                        intel.genotype.reproductive_investment =
-                            (intel.genotype.reproductive_investment + delta).clamp(0.1, 0.9);
+                        genotype.reproductive_investment =
+                            (genotype.reproductive_investment + delta).clamp(0.1, 0.9);
                     }
                     GeneType::Maturity => {
-                        intel.genotype.maturity_gene =
-                            (intel.genotype.maturity_gene + delta).clamp(0.1, 5.0);
+                        genotype.maturity_gene = (genotype.maturity_gene + delta).clamp(0.1, 5.0);
                     }
                     GeneType::MaxEnergy => {
-                        intel.genotype.max_energy =
-                            (intel.genotype.max_energy + delta as f64).clamp(50.0, 2000.0);
-                        met.max_energy = intel.genotype.max_energy;
+                        genotype.max_energy =
+                            (genotype.max_energy + delta as f64).clamp(50.0, 2000.0);
+                        met.max_energy = genotype.max_energy;
                     }
                 }
                 break;
             }
         }
+    }
+
+    pub fn apply_relief(&mut self, lineage_id: uuid::Uuid, amount: f32) {
+        let mut targets = Vec::new();
+        {
+            let mut query = self.ecs.query::<&Metabolism>();
+            for (h, met) in query.iter() {
+                if met.lineage_id == lineage_id {
+                    targets.push(h);
+                }
+            }
+        }
+        if !targets.is_empty() {
+            let per_target = amount as f64 / targets.len() as f64;
+            for h in targets {
+                if let Ok(mut met) = self.ecs.get::<&mut Metabolism>(h) {
+                    met.energy = (met.energy + per_target).min(met.max_energy);
+                }
+            }
+        }
+    }
+
+    pub fn spawn_entity(&mut self, entity: Entity) -> hecs::Entity {
+        self.ecs.spawn((
+            entity.identity,
+            entity.position,
+            entity.velocity,
+            entity.appearance,
+            entity.physics,
+            entity.metabolism,
+            entity.health,
+            entity.intel,
+        ))
     }
 
     pub fn apply_trade(
@@ -81,68 +108,49 @@ impl World {
         let sign = if incoming { 1.0 } else { -1.0 };
         match resource {
             TradeResource::Energy => {
-                let query = self.ecs.query_mut::<&mut Metabolism>();
-                let mut components: Vec<_> = query.into_iter().collect();
-                let count = (components.len() / 10).max(1);
-                let amount_per = (amount * sign) / count as f32;
-                for (_handle, met) in components.iter_mut().take(count) {
-                    met.energy = (met.energy + amount_per as f64).clamp(0.0, met.max_energy);
+                let pop = self.get_population_count();
+                if pop > 0 {
+                    let amount_per = (amount as f64 * sign) / pop as f64;
+                    for (_handle, met) in self.ecs.query_mut::<&mut Metabolism>() {
+                        met.energy = (met.energy + amount_per).min(met.max_energy);
+                    }
                 }
             }
             TradeResource::Oxygen => {
-                env.oxygen_level = (env.oxygen_level + (amount * sign) as f64).clamp(0.0, 50.0);
+                env.oxygen_level = (env.oxygen_level + (amount as f64 * sign)).clamp(0.0, 100.0);
             }
             TradeResource::SoilFertility => {
-                self.terrain.add_global_fertility(amount * sign);
+                self.terrain.add_global_fertility(amount * sign as f32);
             }
             TradeResource::Biomass => {
                 if incoming {
-                    let spawn_count = (amount.max(0.0) as usize).min(100);
-                    for _ in 0..spawn_count {
-                        let fx = self.rng.gen_range(1..self.width - 1);
-                        let fy = self.rng.gen_range(1..self.height - 1);
-                        let n_type = self.rng.gen_range(0.0..1.0);
+                    let mut rng = rand::thread_rng();
+                    for _ in 0..(amount as usize).min(100) {
+                        let fx = rng.gen_range(1..self.width - 1);
+                        let fy = rng.gen_range(1..self.height - 1);
+                        let n_type = rng.gen_range(0.0..1.0);
                         self.ecs.spawn((
+                            Food::new(fx, fy, n_type),
                             Position {
                                 x: fx as f64,
                                 y: fy as f64,
                             },
-                            MetabolicNiche(n_type),
-                            Food::new(fx, fy, n_type),
+                            primordium_data::MetabolicNiche(n_type),
                         ));
-                        self.food_count
-                            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     }
+                    self.food_dirty = true;
                 } else {
-                    let mut food_entities = Vec::new();
-                    for (handle, _) in self.ecs.query::<&Food>().iter() {
-                        food_entities.push(handle);
+                    let mut handles = Vec::new();
+                    for (h, _) in self.ecs.query::<&Food>().iter() {
+                        handles.push(h);
+                        if handles.len() >= amount as usize {
+                            break;
+                        }
                     }
-                    let remove_count = (amount.max(0.0) as usize).min(food_entities.len());
-                    for &handle in food_entities.iter().take(remove_count) {
-                        let _ = self.ecs.despawn(handle);
-                        self.food_count
-                            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                    for h in handles {
+                        let _ = self.ecs.despawn(h);
                     }
-                }
-                self.food_dirty = true;
-            }
-        }
-    }
-
-    pub fn apply_relief(&mut self, lineage_id: uuid::Uuid, amount: f32) {
-        let mut members = Vec::new();
-        for (handle, met) in self.ecs.query::<&Metabolism>().iter() {
-            if met.lineage_id == lineage_id {
-                members.push(handle);
-            }
-        }
-
-        if !members.is_empty() {
-            let amount_per = amount as f64 / members.len() as f64;
-            for handle in members {
-                if let Ok(mut met) = self.ecs.get::<&mut Metabolism>(handle) {
-                    met.energy = (met.energy + amount_per).min(met.max_energy);
+                    self.food_dirty = true;
                 }
             }
         }
@@ -151,7 +159,10 @@ impl World {
     pub fn clear_research_deltas(&mut self, entity_id: uuid::Uuid) {
         for (_handle, (identity, intel)) in self.ecs.query_mut::<(&Identity, &mut Intel)>() {
             if identity.id == entity_id {
-                intel.genotype.brain.weight_deltas.clear();
+                std::sync::Arc::make_mut(&mut intel.genotype)
+                    .brain
+                    .weight_deltas
+                    .clear();
                 break;
             }
         }
@@ -166,23 +177,41 @@ impl World {
         hasher.update(self.tick.to_le_bytes());
 
         // 2. Entities (Sorted by ID)
-        let mut entities: Vec<_> = self.get_all_entities();
-        entities.sort_by_key(|e| e.identity.id);
-        for e in entities {
-            hasher.update(e.identity.id.as_bytes());
+        let mut entity_data: Vec<_> = self
+            .ecs
+            .query::<(
+                &primordium_data::Identity,
+                &primordium_data::Position,
+                &primordium_data::Metabolism,
+                &primordium_data::Intel,
+            )>()
+            .iter()
+            .map(|(_, (id, pos, met, intel))| {
+                (
+                    id.id,
+                    pos.x,
+                    pos.y,
+                    met.energy,
+                    intel.genotype.lineage_id,
+                    intel.genotype.sensing_range,
+                    intel.genotype.max_speed,
+                    intel.genotype.max_energy,
+                )
+            })
+            .collect();
+
+        entity_data.sort_by_key(|e| e.0);
+        for (id, x, y, energy, lineage_id, sensing_range, max_speed, max_energy) in entity_data {
+            hasher.update(id.as_bytes());
             // Use bits for float stability in hash
-            hasher.update(e.position.x.to_bits().to_le_bytes());
-            hasher.update(e.position.y.to_bits().to_le_bytes());
-            hasher.update(e.metabolism.energy.to_bits().to_le_bytes());
+            hasher.update(x.to_bits().to_le_bytes());
+            hasher.update(y.to_bits().to_le_bytes());
+            hasher.update(energy.to_bits().to_le_bytes());
 
-            hasher.update(e.intel.genotype.lineage_id.as_bytes());
-            hasher.update(e.intel.genotype.sensing_range.to_bits().to_le_bytes());
-            hasher.update(e.intel.genotype.max_speed.to_bits().to_le_bytes());
-            hasher.update(e.intel.genotype.max_energy.to_bits().to_le_bytes());
-
-            for val in &e.intel.last_hidden {
-                hasher.update(val.to_bits().to_le_bytes());
-            }
+            hasher.update(lineage_id.as_bytes());
+            hasher.update(sensing_range.to_bits().to_le_bytes());
+            hasher.update(max_speed.to_bits().to_le_bytes());
+            hasher.update(max_energy.to_bits().to_le_bytes());
         }
 
         // 3. Food (Sorted by position)
@@ -205,26 +234,11 @@ impl World {
         for cell in &self.terrain.cells {
             hasher.update((cell.terrain_type as u8).to_le_bytes());
             hasher.update(cell.fertility.to_bits().to_le_bytes());
-            if let Some(owner) = cell.owner_id {
-                hasher.update(owner.as_bytes());
-            }
         }
 
         // 5. Environment
         hasher.update(env.carbon_level.to_bits().to_le_bytes());
         hasher.update(env.oxygen_level.to_bits().to_le_bytes());
-        hasher.update((env.current_era as u32).to_le_bytes());
-
-        // 6. Grid States (Pheromones and Sound)
-        for cell in &self.pheromones.cells {
-            hasher.update(cell.food_strength.to_bits().to_le_bytes());
-            hasher.update(cell.danger_strength.to_bits().to_le_bytes());
-            hasher.update(cell.sig_a_strength.to_bits().to_le_bytes());
-            hasher.update(cell.sig_b_strength.to_bits().to_le_bytes());
-        }
-        for cell in &self.sound.cells {
-            hasher.update(cell.to_bits().to_le_bytes());
-        }
 
         hex::encode(hasher.finalize())
     }

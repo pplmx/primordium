@@ -142,7 +142,7 @@ async fn test_inter_tribe_predation() {
         .build();
     e1.metabolism.trophic_potential = 1.0;
     e1.physics.sensing_range = 20.0;
-    e1.intel.genotype.sensing_range = 20.0;
+    std::sync::Arc::make_mut(&mut e1.intel.genotype).sensing_range = 20.0;
 
     let mut e2 = EntityBuilder::new()
         .id(id2)
@@ -153,7 +153,7 @@ async fn test_inter_tribe_predation() {
         .build();
     e2.metabolism.trophic_potential = 0.0;
     e2.physics.max_speed = 0.0;
-    e2.intel.genotype.max_speed = 0.0;
+    std::sync::Arc::make_mut(&mut e2.intel.genotype).max_speed = 0.0;
 
     let (mut world, mut env) = world_builder.with_entity(e1).with_entity(e2).build();
 

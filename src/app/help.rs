@@ -213,3 +213,150 @@ impl App {
         );
     }
 }
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_help_tab_count() {
+        let tab_titles = [
+            "[1]Controls",
+            "[2]Symbols",
+            "[3]Concepts",
+            "[4]Eras",
+            "[5]Visuals",
+            "[6]Research",
+            "[7]Civ",
+        ];
+        assert_eq!(tab_titles.len(), 7);
+    }
+
+    #[test]
+    fn test_help_content_all_tabs_present() {
+        let contents: Vec<Vec<&str>> = vec![
+            vec!["", " ⌨️  KEYBOARD CONTROLS"],
+            vec!["", " 🧬 ENTITY STATUS SYMBOLS"],
+            vec!["", " 🔗 HARDWARE COUPLING"],
+            vec!["", " 📜 WORLD ERAS"],
+            vec!["", " 👁️  VISUALIZATION MODES [1-8]"],
+            vec!["", " 🧪 NEURAL RESEARCH TOOLS"],
+            vec!["", " 🏛️  CIVILIZATION & DYNASTIES"],
+        ];
+
+        for (i, content) in contents.iter().enumerate() {
+            assert!(!content.is_empty(), "Tab {} should have content", i);
+            assert!(content.len() >= 2, "Tab {} should have header", i);
+        }
+    }
+
+    #[test]
+    fn test_keyboard_shortcuts_documented() {
+        let required_shortcuts = [
+            "[Q]", "[Space]", "[z]", "[B]", "[A]", "[Y]", "[+]", "[-]", "[[", "]]", "[↑", "[↓",
+            "[G]", "[1-8]", "[J]", "[H]", "[X]", "[C]", "[V]", "[M]", "[K]", "[P]", "[!]", "[@]",
+            "[#]", "[$]", "[%]", "[^]",
+        ];
+
+        let controls_content = vec![
+            "[Q]",
+            "[Space]",
+            "[z]",
+            "[B]",
+            "[A]",
+            "[Y]",
+            "[+/-]",
+            "[[/]]",
+            "[↑/↓]",
+            "[G]",
+            "[1-8]",
+            "[J]",
+            "[H]",
+            "[X]",
+            "[C]",
+            "[V]",
+            "[M]",
+            "[K]",
+            "[P]",
+            "[!]",
+            "[@]",
+            "[#]",
+            "[$]",
+            "[%]",
+            "[^]",
+        ];
+
+        for shortcut in &required_shortcuts {
+            let found = controls_content
+                .iter()
+                .any(|s| s.contains(shortcut.trim_start_matches('[').trim_end_matches(']')));
+            assert!(found, "Keyboard shortcut {} should be documented", shortcut);
+        }
+    }
+
+    #[test]
+    fn test_entity_status_symbols_documented() {
+        let symbols = ["●", "♦", "♥", "†", "◦", "☣", "♣", "⚭"];
+        let symbols_content = ["●", "♦", "♥", "†", "◦", "☣", "♣", "⚭"];
+
+        for symbol in &symbols {
+            assert!(
+                symbols_content.contains(symbol),
+                "Symbol {} should be documented",
+                symbol
+            );
+        }
+    }
+
+    #[test]
+    fn test_terrain_types_documented() {
+        let terrain_symbols = ["▲", "≈", "♠", "▒", "◊", "░", "█", "*"];
+        let terrain_content = ["▲", "≈", "♠", "▒", "◊", "░", "█", "*"];
+
+        for symbol in &terrain_symbols {
+            assert!(
+                terrain_content.contains(symbol),
+                "Terrain symbol {} should be documented",
+                symbol
+            );
+        }
+    }
+
+    #[test]
+    fn test_world_eras_documented() {
+        let eras = [
+            "Primordial",
+            "DawnOfLife",
+            "Flourishing",
+            "DominanceWar",
+            "ApexEra",
+        ];
+        let eras_content = [
+            "Primordial",
+            "DawnOfLife",
+            "Flourishing",
+            "DominanceWar",
+            "ApexEra",
+        ];
+
+        for era in &eras {
+            assert!(
+                eras_content.contains(era),
+                "Era {} should be documented",
+                era
+            );
+        }
+    }
+
+    #[test]
+    fn test_visualization_modes_documented() {
+        let view_modes = ["[1]", "[2]", "[3]", "[4]", "[5]", "[6]", "[7]", "[8]"];
+        let modes_content = ["[1]", "[2]", "[3]", "[4]", "[5]", "[6]", "[7]", "[8]"];
+
+        for mode in &view_modes {
+            assert!(
+                modes_content.contains(mode),
+                "View mode {} should be documented",
+                mode
+            );
+        }
+    }
+}

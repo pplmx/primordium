@@ -5,6 +5,17 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 impl App {
+    pub fn advance_onboarding(&mut self) {
+        if let Some(ref mut step) = self.onboarding_step {
+            if *step >= 2 {
+                let _ = std::fs::write(".primordium_onboarded", "1");
+                self.onboarding_step = None;
+            } else {
+                *step += 1;
+            }
+        }
+    }
+
     pub fn render_onboarding(&self, f: &mut Frame) {
         let step = match self.onboarding_step {
             Some(s) => s,

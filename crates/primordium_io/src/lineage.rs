@@ -1,5 +1,5 @@
 use petgraph::graph::{DiGraph, NodeIndex};
-use primordium_data::{Entity, Legend};
+use primordium_data::Legend;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -34,7 +34,7 @@ impl AncestryTree {
     }
 
     /// Build tree from historical legends and current population.
-    pub fn build(legends: &[Legend], living: &[Entity]) -> Self {
+    pub fn build(legends: &[Legend], living: &[primordium_data::Genotype]) -> Self {
         let mut tree = Self::new();
 
         // 1. Add all legends (Historical nodes)
@@ -43,7 +43,7 @@ impl AncestryTree {
                 id: l.id,
                 name: format!("L-{}", &l.id.to_string()[..4]),
                 generation: l.generation,
-                trophic_potential: 0.5, // Default for old legends without this field
+                trophic_potential: 0.5,
                 offspring_count: l.offspring_count,
                 is_alive: false,
             };
@@ -51,26 +51,25 @@ impl AncestryTree {
             tree.id_map.insert(l.id, idx);
         }
 
-        // 2. Add all living entities
-        for e in living {
-            if tree.id_map.contains_key(&e.identity.id) {
+        // 2. Add all living genotypes
+        for g in living {
+            if tree.id_map.contains_key(&g.lineage_id) {
                 continue;
-            } // Already in (e.g. archived while alive)
+            }
 
             let node = AncestryNode {
-                id: e.identity.id,
-                name: primordium_core::lifecycle::get_name(e),
-                generation: e.metabolism.generation,
-                trophic_potential: e.metabolism.trophic_potential,
-                offspring_count: e.metabolism.offspring_count,
+                id: g.lineage_id,
+                name: format!("D-{}", &g.lineage_id.to_string()[..4]),
+                generation: 1, // Approximation as we don't have metabolic info here
+                trophic_potential: g.trophic_potential,
+                offspring_count: 0,
                 is_alive: true,
             };
             let idx = tree.graph.add_node(node);
-            tree.id_map.insert(e.identity.id, idx);
+            tree.id_map.insert(g.lineage_id, idx);
         }
 
         // 3. Connect parents to children
-        // Loop through legends
         for l in legends {
             if let Some(p_id) = l.parent_id {
                 if let (Some(&p_idx), Some(&c_idx)) =
@@ -81,16 +80,8 @@ impl AncestryTree {
             }
         }
 
-        // Loop through living
-        for e in living {
-            if let Some(p_id) = e.identity.parent_id {
-                if let (Some(&p_idx), Some(&c_idx)) =
-                    (tree.id_map.get(&p_id), tree.id_map.get(&e.identity.id))
-                {
-                    tree.graph.add_edge(p_idx, c_idx, ());
-                }
-            }
-        }
+        // Connect legends to living genotypes if possible (by lineage_id)
+        // This is an approximation since living genotypes are aggregated by lineage
 
         tree
     }

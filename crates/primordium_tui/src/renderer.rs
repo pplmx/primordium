@@ -4,8 +4,8 @@ use ratatui::style::Color;
 use ratatui::widgets::{Block, Borders, Widget};
 use std::collections::HashMap;
 
-use crate::model::snapshot::{EntitySnapshot, WorldSnapshot};
-use crate::model::terrain::{TerrainLogic, TerrainType};
+use primordium_core::snapshot::{EntitySnapshot, WorldSnapshot};
+use primordium_core::terrain::{TerrainLogic, TerrainType};
 use primordium_data::EntityStatus;
 
 pub struct WorldWidget<'a> {
@@ -327,5 +327,95 @@ impl<'a> Widget for WorldWidget<'a> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use primordium_core::snapshot::EntitySnapshot;
+    use primordium_data::Specialization;
+
+    fn create_dummy_entity() -> EntitySnapshot {
+        EntitySnapshot {
+            id: uuid::Uuid::new_v4(),
+            name: "Test".to_string(),
+            x: 0.0,
+            y: 0.0,
+            r: 0,
+            g: 0,
+            b: 0,
+            energy: 100.0,
+            max_energy: 100.0,
+            generation: 1,
+            age: 0,
+            offspring: 0,
+            lineage_id: uuid::Uuid::new_v4(),
+            rank: 0.0,
+            status: EntityStatus::Foraging,
+            trophic_potential: 0.5,
+            bonded_to: None,
+            last_vocalization: 0.0,
+            last_activations: std::collections::HashMap::new(),
+            weight_deltas: std::collections::HashMap::new(),
+            genotype_hex: None,
+            specialization: None,
+            is_larva: false,
+        }
+    }
+
+    #[test]
+    fn test_color_for_status() {
+        let mut entity = create_dummy_entity();
+
+        // Starving
+        assert_eq!(
+            WorldWidget::color_for_status(&entity, EntityStatus::Starving),
+            Color::Rgb(255, 0, 0)
+        );
+
+        // Normal
+        assert_eq!(
+            WorldWidget::color_for_status(&entity, EntityStatus::Foraging),
+            Color::Rgb(100, 255, 100)
+        );
+
+        // Specialization
+        entity.specialization = Some(Specialization::Soldier);
+        assert_eq!(
+            WorldWidget::color_for_status(&entity, EntityStatus::Foraging),
+            Color::Rgb(255, 50, 50)
+        );
+    }
+
+    #[test]
+    fn test_symbol_for_status() {
+        let mut entity = create_dummy_entity();
+
+        // Adult Foraging
+        assert_eq!(WorldWidget::symbol_for_status(&entity), '●');
+
+        // Larva Foraging
+        entity.is_larva = true;
+        assert_eq!(WorldWidget::symbol_for_status(&entity), '·');
+
+        // Starving
+        entity.status = EntityStatus::Starving;
+        assert_eq!(WorldWidget::symbol_for_status(&entity), '†');
+
+        // Soldier
+        entity.status = EntityStatus::Foraging;
+        entity.is_larva = false;
+        entity.specialization = Some(Specialization::Soldier);
+        assert_eq!(WorldWidget::symbol_for_status(&entity), '▲');
+    }
+
+    #[test]
+    fn test_terrain_mappings() {
+        assert_eq!(WorldWidget::symbol_for_terrain(TerrainType::Mountain), '▲');
+        assert_eq!(
+            WorldWidget::color_for_terrain(TerrainType::River),
+            Color::Rgb(70, 130, 180)
+        );
     }
 }

@@ -91,10 +91,29 @@ pub struct App {
 }
 
 impl App {
+    pub fn load_config() -> AppConfig {
+        let config_path = "config.toml";
+        if let Ok(content) = std::fs::read_to_string(config_path) {
+            match AppConfig::from_toml(&content) {
+                Ok(config) => return config,
+                Err(e) => {
+                    eprintln!("Warning: Failed to load {}: {}", config_path, e);
+                }
+            }
+        }
+        let default = AppConfig::default();
+        if !std::path::Path::new(config_path).exists() {
+            if let Ok(toml_str) = toml::to_string(&default) {
+                let _ = std::fs::write(config_path, toml_str);
+            }
+        }
+        default
+    }
+
     pub fn new() -> Result<Self> {
         let mut sys = System::new_all();
         sys.refresh_all();
-        let config = AppConfig::load();
+        let config = Self::load_config();
 
         let world = if std::path::Path::new("save.json").exists() {
             match crate::model::persistence::load_world("save.json") {
@@ -217,33 +236,30 @@ impl App {
     }
 
     pub fn check_config_reload(&mut self) -> Result<bool> {
-        if let Ok(metadata) = std::fs::metadata(&self.config_path) {
-            if let Ok(modified) = metadata.modified() {
-                if let Some(last) = self.config_last_modified {
-                    if modified > last {
-                        tracing::info!("Config file changed, reloading...");
-                        let new_config = AppConfig::load();
+        let config_path = &self.config_path;
+        if let Ok(metadata) = std::fs::metadata(config_path) {
+            let modified = metadata.modified()?;
+            if Some(modified) != self.config_last_modified {
+                let new_config = Self::load_config();
 
-                        // Only update non-critical config values
-                        // Don't change world dimensions or initial population
-                        self.config.metabolism = new_config.metabolism;
-                        self.config.evolution = new_config.evolution;
-                        self.config.brain = new_config.brain;
-                        self.config.social = new_config.social;
-                        self.config.terraform = new_config.terraform;
-                        self.config.ecosystem = new_config.ecosystem;
-                        self.config.target_fps = new_config.target_fps;
+                // Only update non-critical config values
+                // Don't change world dimensions or initial population
+                self.config.metabolism = new_config.metabolism;
+                self.config.evolution = new_config.evolution;
+                self.config.brain = new_config.brain;
+                self.config.social = new_config.social;
+                self.config.terraform = new_config.terraform;
+                self.config.ecosystem = new_config.ecosystem;
+                self.config.target_fps = new_config.target_fps;
 
-                        self.config_last_modified = Some(modified);
+                self.config_last_modified = Some(modified);
 
-                        self.event_log.push_back((
-                            "Configuration reloaded from config.toml".to_string(),
-                            ratatui::style::Color::Green,
-                        ));
+                self.event_log.push_back((
+                    "Configuration reloaded from config.toml".to_string(),
+                    ratatui::style::Color::Green,
+                ));
 
-                        return Ok(true);
-                    }
-                }
+                return Ok(true);
             }
         }
         Ok(false)

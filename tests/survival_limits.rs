@@ -28,13 +28,16 @@ async fn test_death_by_brain_bloat() {
     e.metabolism.energy = 100.0;
 
     for i in 0..500 {
-        e.intel.genotype.brain.connections.push(Connection {
-            from: 0,
-            to: 25,
-            weight: 1.0,
-            enabled: true,
-            innovation: 1000 + i,
-        });
+        std::sync::Arc::make_mut(&mut e.intel.genotype)
+            .brain
+            .connections
+            .push(Connection {
+                from: 0,
+                to: 25,
+                weight: 1.0,
+                enabled: true,
+                innovation: 1000 + i,
+            });
     }
 
     world.spawn_entity(e);
@@ -58,12 +61,12 @@ async fn test_high_speed_metabolic_exhaustion() {
 
     let mut e_slow = lifecycle::create_entity(10.0, 10.0, 0);
     e_slow.physics.max_speed = 0.5;
-    e_slow.intel.genotype.max_speed = 0.5;
+    std::sync::Arc::make_mut(&mut e_slow.intel.genotype).max_speed = 0.5;
     e_slow.metabolism.energy = 200.0;
 
     let mut e_fast = lifecycle::create_entity(20.0, 20.0, 0);
     e_fast.physics.max_speed = 3.0;
-    e_fast.intel.genotype.max_speed = 3.0;
+    std::sync::Arc::make_mut(&mut e_fast.intel.genotype).max_speed = 3.0;
     e_fast.metabolism.energy = 200.0;
 
     let terrain = primordium_lib::model::terrain::TerrainGrid::generate(100, 100, 42);
@@ -104,12 +107,12 @@ async fn test_inertia_responsiveness_penalty() {
 
     let mut e_light = lifecycle::create_entity(10.0, 10.0, 0);
     e_light.metabolism.max_energy = 100.0;
-    e_light.intel.genotype.max_energy = 100.0;
+    std::sync::Arc::make_mut(&mut e_light.intel.genotype).max_energy = 100.0;
     e_light.velocity.vx = 0.0;
 
     let mut e_heavy = lifecycle::create_entity(20.0, 20.0, 0);
     e_heavy.metabolism.max_energy = 500.0;
-    e_heavy.intel.genotype.max_energy = 500.0;
+    std::sync::Arc::make_mut(&mut e_heavy.intel.genotype).max_energy = 500.0;
     e_heavy.velocity.vx = 0.0;
 
     let pressure = primordium_lib::model::pressure::PressureGrid::new(100, 100);

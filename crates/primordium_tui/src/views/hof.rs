@@ -1,8 +1,7 @@
-use crate::app::state::App;
 use ratatui::prelude::*;
 use ratatui::widgets::*;
 
-pub fn draw_hall_of_fame(f: &mut Frame, app: &App, area: Rect) {
+pub fn draw_hall_of_fame(f: &mut Frame, has_storage: bool, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0)])
@@ -18,7 +17,7 @@ pub fn draw_hall_of_fame(f: &mut Frame, app: &App, area: Rect) {
         .block(Block::default().borders(Borders::ALL));
     f.render_widget(title, chunks[0]);
 
-    if let Some(_storage) = app.world.logger.storage.as_ref() {
+    if has_storage {
         let placeholder = Paragraph::new("Fetching data from SQLite...")
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));

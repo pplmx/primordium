@@ -54,8 +54,10 @@ impl World {
         entity.metabolism.generation = generation;
 
         let genotype = primordium_data::Genotype::from_hex(&dna)?;
-        entity.intel.genotype = genotype;
-        crate::model::brain::BrainLogic::initialize_node_idx_map(&mut entity.intel.genotype.brain);
+        entity.intel.genotype = std::sync::Arc::new(genotype);
+        crate::model::brain::BrainLogic::initialize_node_idx_map(
+            &mut std::sync::Arc::make_mut(&mut entity.intel.genotype).brain,
+        );
         // Sync phenotype
         entity.physics.sensing_range = entity.intel.genotype.sensing_range;
         entity.physics.max_speed = entity.intel.genotype.max_speed;

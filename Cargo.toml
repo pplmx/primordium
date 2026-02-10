@@ -21,10 +21,6 @@ crate-type = ["cdylib", "rlib"]
 name = "primordium"
 path = "src/main.rs"
 
-[[bin]]
-name = "server"
-path = "src/server/main.rs"
-
 # ============================================================================
 # Common Dependencies
 # ============================================================================
@@ -32,6 +28,8 @@ path = "src/server/main.rs"
 primordium_data = { path = "crates/primordium_data" }
 primordium_core = { path = "crates/primordium_core" }
 primordium_observer = { path = "crates/primordium_observer" }
+primordium_net = { path = "crates/primordium_net" }
+primordium_tui = { path = "crates/primordium_tui" }
 primordium_io = { path = "crates/primordium_io" }
 # Error handling
 anyhow = "1.0"
@@ -79,6 +77,8 @@ rcgen = "0.13"
 husky-rs = "0.2.2"
 proptest = "1.4"
 proptest-derive = "0.4"
+tower = { version = "0.5", features = ["util"] }
+
 
 # ============================================================================
 # WASM-specific Dependencies

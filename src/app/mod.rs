@@ -16,8 +16,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::model::history::LiveEvent;
-use crate::ui::tui::Tui;
 use primordium_core::systems::environment as environment_system;
+use primordium_tui::Tui;
 use ratatui::style::Color;
 use sysinfo::Pid;
 use uuid::Uuid;

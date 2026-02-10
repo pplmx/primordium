@@ -15,7 +15,7 @@ async fn test_collective_memory_reinforcement() {
     let l_id = Uuid::new_v4();
     let mut e1 = lifecycle::create_entity(10.0, 10.0, 0);
     e1.metabolism.lineage_id = l_id;
-    e1.intel.genotype.lineage_id = l_id;
+    std::sync::Arc::make_mut(&mut e1.intel.genotype).lineage_id = l_id;
     world.spawn_entity(e1);
 
     world.lineage_registry.record_birth(l_id, 0, 0);
@@ -43,7 +43,7 @@ async fn test_engineer_biological_irrigation_pressure() {
     eng.velocity.vx = 0.0;
     eng.velocity.vy = 0.0;
     eng.physics.max_speed = 0.0;
-    eng.intel.genotype.max_speed = 0.0;
+    std::sync::Arc::make_mut(&mut eng.intel.genotype).max_speed = 0.0;
     eng.intel.specialization = Some(Specialization::Engineer);
     eng.metabolism.has_metamorphosed = true;
     world.spawn_entity(eng);

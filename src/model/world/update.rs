@@ -1,19 +1,16 @@
 use crate::model::environment::Environment;
 use crate::model::history::LiveEvent;
 use crate::model::interaction::InteractionCommand;
-use chrono::Utc;
 use hecs;
-use primordium_data::{Entity, Food, Health, Identity, Intel, Metabolism, Physics, Position};
-use rand::{Rng, SeedableRng};
+use primordium_data::{Entity, Food, Identity, Intel, Metabolism, Physics, Position};
+use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::model::world::{systems, EntityComponents, SystemContext, World};
 use primordium_core::brain::BrainLogic;
-use primordium_core::systems::{
-    action, biological, civilization, ecological, environment, history, interaction, social, stats,
-};
+use primordium_core::systems::{action, biological, ecological, environment, social};
 
 impl World {
     /// Advances the simulation by one tick.
@@ -233,8 +230,7 @@ impl World {
             } else {
                 0.0
             };
-            intel
-                .genotype
+            std::sync::Arc::make_mut(&mut intel.genotype)
                 .brain
                 .learn(&intel.last_activations, reinforcement as f32);
         });
@@ -310,7 +306,7 @@ impl World {
             .cells
             .iter()
             .filter(|c| {
-                c.terrain_type == crate::model::terrain::TerrainType::Forest && c.owner_id.is_some()
+                c.terrain_type == primordium_data::TerrainType::Forest && c.owner_id.is_some()
             })
             .count();
 
@@ -341,7 +337,7 @@ impl World {
             food_positions.clear();
             for (_handle, (pos, _)) in self
                 .ecs
-                .query::<(&Position, &crate::model::food::Food)>()
+                .query::<(&Position, &primordium_data::Food)>()
                 .iter()
             {
                 food_positions.push((pos.x, pos.y));
@@ -370,7 +366,7 @@ impl World {
                 )
             });
 
-        let mut interaction_ctx = interaction::InteractionContext {
+        let mut interaction_ctx = primordium_core::systems::interaction::InteractionContext {
             terrain: &mut self.terrain,
             env,
             pop_stats: &mut self.pop_stats,
@@ -389,19 +385,20 @@ impl World {
             world_seed: self.config.world.seed.unwrap_or(0),
         };
 
-        let result1 = interaction::process_interaction_commands_ecs(
+        let result1 = primordium_core::systems::interaction::process_interaction_commands_ecs(
             &mut self.ecs,
             entity_handles,
             state_cmds,
             &mut interaction_ctx,
         );
 
-        let interaction_result = interaction::process_interaction_commands_ecs(
-            &mut self.ecs,
-            entity_handles,
-            struct_cmds,
-            &mut interaction_ctx,
-        );
+        let interaction_result =
+            primordium_core::systems::interaction::process_interaction_commands_ecs(
+                &mut self.ecs,
+                entity_handles,
+                struct_cmds,
+                &mut interaction_ctx,
+            );
 
         let mut all_events = result1.events;
         all_events.extend(interaction_result.events);
@@ -417,7 +414,7 @@ impl World {
         (all_events, interaction_result.new_babies)
     }
 
-    fn update_rank_grid(&mut self) {
+    pub fn update_rank_grid(&mut self) {
         let width = self.width as usize;
         let height = self.height as usize;
 
@@ -458,304 +455,5 @@ impl World {
             rank_grid[idx] += val;
         }
         self.cached_rank_grid = Arc::new(rank_grid);
-    }
-
-    fn finalize_tick(
-        &mut self,
-        env: &mut Environment,
-        events: &mut Vec<LiveEvent>,
-        entity_handles: &[hecs::Entity],
-        new_babies: Vec<Entity>,
-    ) {
-        let tick = self.tick;
-        self.capture_entity_snapshots();
-
-        let active_pathogens = &self.active_pathogens;
-        let spatial_hash = &self.spatial_hash;
-        let killed_ids = &self.killed_ids;
-        let config = &self.config;
-
-        let proposals: Vec<_> = {
-            let mut query = self.ecs.query::<(
-                &Identity,
-                &mut Metabolism,
-                &mut Intel,
-                &mut Health,
-                &Physics,
-            )>();
-            let mut components: Vec<_> = query.iter().collect();
-            components.sort_by_key(|(_h, (ident, ..))| ident.id);
-            let population_count = components.len();
-
-            components
-                .par_iter_mut()
-                .map(|(handle, (identity, met, intel, health, phys))| {
-                    let u = identity.id.as_u128();
-                    let mut seed = tick
-                        .wrapping_add(config.world.seed.unwrap_or(0))
-                        .wrapping_mul(0x517CC1B727220A95);
-                    seed ^= (u >> 64) as u64;
-                    seed = seed.wrapping_mul(0x517CC1B727220A95);
-                    seed ^= u as u64;
-
-                    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
-
-                    biological::biological_system_components(
-                        met,
-                        intel,
-                        health,
-                        phys,
-                        population_count,
-                        config,
-                        &mut rng,
-                    );
-
-                    for p in active_pathogens {
-                        if rng.gen_bool(0.005) {
-                            biological::try_infect_components(health, p, &mut rng);
-                        }
-                    }
-
-                    let mut infections = Vec::new();
-                    if let Some(p) = &health.pathogen {
-                        spatial_hash.query_callback(phys.x, phys.y, 2.0, |n_idx| {
-                            let n_handle = entity_handles[n_idx];
-                            if n_handle != *handle {
-                                infections.push((n_handle, p.clone()));
-                            }
-                        });
-                    }
-
-                    let is_dead = killed_ids.contains(&identity.id) || met.energy <= 0.0;
-
-                    (*handle, infections, is_dead)
-                })
-                .collect()
-        };
-
-        for (_handle, infections, _) in &proposals {
-            for (n_handle, pathogen) in infections {
-                if let Ok(mut n_health) = self.ecs.get::<&mut Health>(*n_handle) {
-                    biological::try_infect_components(&mut n_health, pathogen, &mut self.rng);
-                }
-            }
-        }
-
-        let mut dead_handles = Vec::new();
-        for (handle, _, is_dead) in proposals {
-            if is_dead {
-                dead_handles.push(handle);
-            }
-        }
-
-        for handle in dead_handles {
-            let (dead_info, extra) = {
-                if let (Ok(met), Ok(identity)) = (
-                    self.ecs.get::<&Metabolism>(handle),
-                    self.ecs.get::<&Identity>(handle),
-                ) {
-                    let info = ((*met).clone(), (*identity).clone());
-                    let extra = if let (Ok(phys), Ok(intel)) = (
-                        self.ecs.get::<&Physics>(handle),
-                        self.ecs.get::<&Intel>(handle),
-                    ) {
-                        Some(((*phys).clone(), (*intel).clone()))
-                    } else {
-                        None
-                    };
-                    (Some(info), extra)
-                } else {
-                    (None, None)
-                }
-            };
-
-            if let Some((met, identity)) = dead_info {
-                self.lineage_registry.record_death(met.lineage_id);
-
-                if let Some((phys, intel)) = extra {
-                    if let Some(legend) =
-                        social::archive_if_legend_components(&identity, &met, &intel, &phys, tick)
-                    {
-                        let _ = self.logger.archive_legend(legend.clone());
-                        history::update_best_legend(
-                            &mut self.lineage_registry,
-                            &mut self.best_legends,
-                            legend,
-                        );
-                    }
-                    let fertilize_amount = (met.max_energy
-                        * self.config.ecosystem.corpse_fertility_mult as f64)
-                        as f32
-                        / 100.0;
-                    self.terrain.fertilize(phys.x, phys.y, fertilize_amount);
-                    self.terrain
-                        .add_biomass(phys.x, phys.y, fertilize_amount * 10.0);
-                }
-                let _ = self.ecs.despawn(handle);
-            }
-        }
-
-        let babies_to_spawn: Vec<Entity> = if self.config.ecosystem.spawn_rate_limit_enabled {
-            let limit = self.config.ecosystem.max_entities_per_tick;
-            let original_count = new_babies.len();
-            let limited_babies = new_babies.into_iter().take(limit).collect::<Vec<Entity>>();
-            let final_count = limited_babies.len();
-
-            if original_count > limit {
-                tracing::debug!(
-                    "Entity spawn rate limit applied: {} babies spawned (limited from {})",
-                    final_count,
-                    original_count
-                );
-            }
-
-            limited_babies
-        } else {
-            new_babies
-        };
-
-        self.ecs
-            .spawn_batch(babies_to_spawn.into_iter().map(|baby| {
-                (
-                    baby.identity,
-                    baby.position,
-                    baby.velocity,
-                    baby.appearance,
-                    baby.physics,
-                    baby.metabolism,
-                    baby.health,
-                    baby.intel,
-                )
-            }));
-
-        if !self.eaten_food_indices.is_empty() {
-            self.food_dirty = true;
-        }
-
-        self.killed_ids.clear();
-        self.eaten_food_indices.clear();
-
-        if self.tick.is_multiple_of(self.config.world.fossil_interval) {
-            let outpost_counts = civilization::count_outposts_by_lineage(&self.terrain);
-            self.lineage_registry.check_goals(
-                self.tick,
-                &self.social_grid,
-                self.width,
-                self.height,
-                &outpost_counts,
-            );
-            self.lineage_registry.prune();
-            let _ = self.logger.save_lineages_async(
-                self.lineage_registry.clone(),
-                format!("{}/lineages.json", self.log_dir),
-            );
-            let _ = self.logger.save_fossils_async(
-                self.fossil_registry.clone(),
-                format!("{}/fossils.json.gz", self.log_dir),
-            );
-            let _ = self
-                .logger
-                .sync_to_storage_async(self.lineage_registry.clone(), self.fossil_registry.clone());
-            let snap_ev = LiveEvent::Snapshot {
-                tick: self.tick,
-                stats: self.pop_stats.clone(),
-                timestamp: Utc::now().to_rfc3339(),
-            };
-            if let Some(ref storage) = self.logger.storage {
-                let snapshot = self.create_snapshot(None);
-                let world_data =
-                    rkyv::to_bytes::<crate::model::snapshot::WorldSnapshot, 4096>(&snapshot)
-                        .map(|v| v.to_vec())
-                        .unwrap_or_default();
-                storage.save_snapshot(
-                    self.tick,
-                    self.pop_stats.population as u32,
-                    env.carbon_level,
-                    self.pop_stats.biomass_h + self.pop_stats.biomass_c,
-                    world_data,
-                );
-            }
-
-            let _ = self.logger.log_event(snap_ev.clone());
-            events.push(snap_ev);
-            history::handle_fossilization(
-                &self.lineage_registry,
-                &mut self.fossil_registry,
-                &mut self.best_legends,
-                self.tick,
-            );
-            self.lineage_registry.prune();
-        }
-
-        civilization::handle_outposts_ecs(
-            &mut self.terrain,
-            &mut self.ecs,
-            entity_handles,
-            &self.spatial_hash,
-            &self.entity_snapshots,
-            self.width,
-            self.config.social.silo_energy_capacity,
-            self.config.social.outpost_energy_capacity,
-        );
-
-        civilization::resolve_contested_ownership(
-            &mut self.terrain,
-            self.width,
-            self.height,
-            &self.spatial_hash,
-            &self.entity_snapshots,
-            &self.lineage_registry,
-        );
-        civilization::resolve_outpost_upgrades(
-            &mut self.terrain,
-            self.width,
-            self.height,
-            &self.spatial_hash,
-            &self.entity_snapshots,
-            &self.lineage_registry,
-        );
-
-        if self
-            .tick
-            .is_multiple_of(self.config.world.power_grid_interval)
-        {
-            civilization::resolve_power_grid(
-                &mut self.terrain,
-                self.width,
-                self.height,
-                &self.lineage_registry,
-            );
-        }
-
-        let snapshot = self.create_snapshot(None);
-        self.cached_terrain = snapshot.terrain;
-        self.cached_pheromones = snapshot.pheromones;
-        self.cached_sound = snapshot.sound;
-        self.cached_pressure = snapshot.pressure;
-        self.cached_influence = snapshot.influence;
-        self.cached_social_grid = snapshot.social_grid;
-        self.cached_rank_grid = snapshot.rank_grid;
-
-        stats::update_stats(
-            tick,
-            &snapshot.entities,
-            snapshot.food.len(),
-            env.carbon_level,
-            1.0,
-            &mut self.pop_stats,
-            &mut self.hall_of_fame,
-            &self.terrain,
-        );
-
-        history::handle_fossilization(
-            &self.lineage_registry,
-            &mut self.fossil_registry,
-            &mut self.best_legends,
-            tick,
-        );
-
-        if tick.is_multiple_of(10) {
-            self.update_rank_grid();
-        }
     }
 }

@@ -270,17 +270,20 @@ impl EntityBuilder {
 
         if let Some(lid) = self.lineage_id {
             e.metabolism.lineage_id = lid;
-            e.intel.genotype.lineage_id = lid;
+            std::sync::Arc::make_mut(&mut e.intel.genotype).lineage_id = lid;
         }
 
-        e.intel.genotype.metabolic_niche = self.metabolic_niche;
-        e.intel.genotype.trophic_potential = self.trophic_potential;
+        std::sync::Arc::make_mut(&mut e.intel.genotype).metabolic_niche = self.metabolic_niche;
+        std::sync::Arc::make_mut(&mut e.intel.genotype).trophic_potential = self.trophic_potential;
 
         if !self.brain_connections.is_empty() {
-            e.intel.genotype.brain.connections = self.brain_connections;
+            let brain = &mut std::sync::Arc::make_mut(&mut e.intel.genotype).brain;
+            brain.connections = self.brain_connections;
+            use primordium_lib::model::brain::BrainLogic;
+            brain.initialize_node_idx_map();
         }
 
-        e.intel.genotype.max_energy = self.max_energy;
+        std::sync::Arc::make_mut(&mut e.intel.genotype).max_energy = self.max_energy;
 
         if let Some(r) = self.rank {
             e.intel.rank = r;

@@ -28,21 +28,26 @@ async fn test_larval_gating_logic() {
     larva.metabolism.energy = 100.0;
 
     // Force brain outputs: Dig (index 38), Build (index 39)
-    for i in 0..26 {
-        larva.intel.genotype.brain.connections.push(Connection {
-            from: i,
-            to: 38,
-            weight: 1.0,
-            enabled: true,
-            innovation: 10000 + i,
-        });
-        larva.intel.genotype.brain.connections.push(Connection {
-            from: i,
-            to: 39,
-            weight: 1.0,
-            enabled: true,
-            innovation: 11000 + i,
-        });
+    {
+        let brain = &mut std::sync::Arc::make_mut(&mut larva.intel.genotype).brain;
+        for i in 0..26 {
+            brain.connections.push(Connection {
+                from: i,
+                to: 38,
+                weight: 1.0,
+                enabled: true,
+                innovation: 10000 + i,
+            });
+            brain.connections.push(Connection {
+                from: i,
+                to: 39,
+                weight: 1.0,
+                enabled: true,
+                innovation: 11000 + i,
+            });
+        }
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
     }
 
     world.spawn_entity(larva);
@@ -66,9 +71,14 @@ async fn test_metamorphosis_transition_and_remodeling() {
     let mut larva = lifecycle::create_entity(5.0, 5.0, 0);
     larva.metabolism.has_metamorphosed = false;
     larva.metabolism.birth_tick = 0;
-    larva.intel.genotype.maturity_gene = 1.0;
+    std::sync::Arc::make_mut(&mut larva.intel.genotype).maturity_gene = 1.0;
 
-    larva.intel.genotype.brain.connections.retain(|c| c.to < 34);
+    {
+        let brain = &mut std::sync::Arc::make_mut(&mut larva.intel.genotype).brain;
+        brain.connections.retain(|c| c.to < 34);
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
+    }
 
     let initial_max_energy = larva.metabolism.max_energy;
     let initial_speed = larva.physics.max_speed;

@@ -13,9 +13,7 @@ pub struct Metrics {
     tick_count: AtomicU64,
     entity_count: AtomicU64,
     food_count: AtomicU64,
-    #[allow(dead_code)]
-    tick_durations: Mutex<Vec<Duration>>,
-    counters: Mutex<HashMap<String, AtomicU64>>,
+    pub counters: Mutex<HashMap<String, AtomicU64>>,
     start_time: Instant,
 }
 
@@ -33,7 +31,6 @@ impl Metrics {
             tick_count: AtomicU64::new(0),
             entity_count: AtomicU64::new(0),
             food_count: AtomicU64::new(0),
-            tick_durations: Mutex::new(Vec::with_capacity(1000)),
             counters: Mutex::new(HashMap::new()),
             start_time: Instant::now(),
         }
@@ -60,7 +57,7 @@ impl Metrics {
 
     /// Increments a named counter.
     pub fn increment_counter(&self, name: &str) {
-        let mut counters = self.counters.lock().unwrap();
+        let mut counters = self.counters.lock().unwrap_or_else(|e| e.into_inner());
         counters
             .entry(name.to_string())
             .or_insert_with(|| AtomicU64::new(0))

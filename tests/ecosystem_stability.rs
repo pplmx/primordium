@@ -37,27 +37,34 @@ async fn test_hunter_competition_impact() {
     hunter.metabolism.energy = 5000.0;
     hunter.metabolism.max_energy = 10000.0;
     hunter.physics.sensing_range = 20.0;
-    hunter.intel.genotype.sensing_range = 20.0;
-    hunter
-        .intel
-        .genotype
-        .brain
-        .connections
-        .push(primordium_lib::model::brain::Connection {
-            from: 2,
-            to: 32,
-            weight: 10.0,
-            enabled: true,
-            innovation: 999,
-        });
+    std::sync::Arc::make_mut(&mut hunter.intel.genotype).sensing_range = 20.0;
+    {
+        let brain = &mut std::sync::Arc::make_mut(&mut hunter.intel.genotype).brain;
+        brain
+            .connections
+            .push(primordium_lib::model::brain::Connection {
+                from: 2,
+                to: 32,
+                weight: 10.0,
+                enabled: true,
+                innovation: 999,
+            });
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
+    }
 
     let mut prey = primordium_lib::model::lifecycle::create_entity(10.5, 10.5, 0);
     prey.metabolism.energy = 500.0;
     prey.metabolism.max_energy = 1000.0;
     prey.metabolism.trophic_potential = 0.0;
     prey.physics.max_speed = 0.0;
-    prey.intel.genotype.max_speed = 0.0;
-    prey.intel.genotype.brain.connections.clear();
+    std::sync::Arc::make_mut(&mut prey.intel.genotype).max_speed = 0.0;
+    {
+        let brain = &mut std::sync::Arc::make_mut(&mut prey.intel.genotype).brain;
+        brain.connections.clear();
+        use primordium_lib::model::brain::BrainLogic;
+        brain.initialize_node_idx_map();
+    }
     prey.physics.r = 0;
 
     // Low competition scenario: 1 hunter + 1 prey
@@ -95,16 +102,21 @@ async fn test_hunter_competition_impact() {
         competitor.metabolism.energy = 5000.0;
         competitor.metabolism.max_energy = 10000.0;
         competitor.physics.sensing_range = 20.0;
-        competitor.intel.genotype.sensing_range = 20.0;
-        competitor.intel.genotype.brain.connections.push(
-            primordium_lib::model::brain::Connection {
-                from: 2,
-                to: 32,
-                weight: 10.0,
-                enabled: true,
-                innovation: 999,
-            },
-        );
+        std::sync::Arc::make_mut(&mut competitor.intel.genotype).sensing_range = 20.0;
+        {
+            let brain = &mut std::sync::Arc::make_mut(&mut competitor.intel.genotype).brain;
+            brain
+                .connections
+                .push(primordium_lib::model::brain::Connection {
+                    from: 2,
+                    to: 32,
+                    weight: 10.0,
+                    enabled: true,
+                    innovation: 999,
+                });
+            use primordium_lib::model::brain::BrainLogic;
+            brain.initialize_node_idx_map();
+        }
         world2.spawn_entity(competitor);
     }
     assert_eq!(world2.get_population_count(), 41);

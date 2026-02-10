@@ -29,7 +29,6 @@
 //! ```
 
 use serde::{Deserialize, Serialize};
-use std::fs;
 
 /// World-level simulation configuration.
 ///
@@ -397,32 +396,10 @@ impl AppConfig {
     ///
     /// If the file doesn't exist or is invalid, returns default configuration.
     /// Logs warnings for invalid values.
-    #[must_use]
-    pub fn load() -> Self {
-        if let Ok(content) = fs::read_to_string("config.toml") {
-            match toml::from_str::<Self>(&content) {
-                Ok(config) => {
-                    if let Err(e) = config.validate() {
-                        eprintln!("Warning: Invalid configuration values: {}", e);
-                        eprintln!("Falling back to default configuration.");
-                    } else {
-                        return config;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Warning: Failed to parse config.toml: {}", e);
-                    eprintln!("Falling back to default configuration.");
-                }
-            }
-        }
-        let default = Self::default();
-        // Don't overwrite existing malformed config to preserve user data
-        if !std::path::Path::new("config.toml").exists() {
-            if let Ok(toml_str) = toml::to_string(&default) {
-                let _ = fs::write("config.toml", toml_str);
-            }
-        }
-        default
+    pub fn from_toml(content: &str) -> anyhow::Result<Self> {
+        let config = toml::from_str::<Self>(content)?;
+        config.validate()?;
+        Ok(config)
     }
 
     #[must_use]

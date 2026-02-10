@@ -229,3 +229,80 @@ impl NetworkManager {
         self.state.lock().map(|s| s.clone()).unwrap_or_default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    #[test]
+    fn test_handle_incoming_handshake() {
+        let state = Arc::new(Mutex::new(NetworkState::default()));
+        let pending = Arc::new(Mutex::new(Vec::new()));
+        let client_id = Uuid::new_v4();
+
+        NetworkManager::handle_incoming_message(
+            &state,
+            &pending,
+            NetMessage::Handshake { client_id },
+        );
+
+        let s = state.lock().unwrap();
+        assert_eq!(s.client_id, Some(client_id));
+    }
+
+    #[test]
+    fn test_handle_incoming_peer_list() {
+        let state = Arc::new(Mutex::new(NetworkState::default()));
+        let pending = Arc::new(Mutex::new(Vec::new()));
+        let mut peers = Vec::new();
+        let peer_id = Uuid::new_v4();
+        peers.push(crate::model::infra::network::PeerInfo {
+            peer_id,
+            entity_count: 10,
+            migrations_sent: 0,
+            migrations_received: 0,
+        });
+
+        NetworkManager::handle_incoming_message(
+            &state,
+            &pending,
+            NetMessage::PeerList {
+                peers: peers.clone(),
+            },
+        );
+
+        let s = state.lock().unwrap();
+        assert_eq!(s.peers.len(), 1);
+        assert_eq!(s.peers[0].entity_count, 10);
+    }
+
+    #[test]
+    fn test_handle_incoming_migrate_entity() {
+        let state = Arc::new(Mutex::new(NetworkState::default()));
+        let pending = Arc::new(Mutex::new(Vec::new()));
+
+        let msg = NetMessage::MigrateEntity {
+            migration_id: Uuid::new_v4(),
+            dna: "DNA".to_string(),
+            energy: 100.0,
+            generation: 1,
+            species_name: "Name".to_string(),
+            fingerprint: "Fingerprint".to_string(),
+            checksum: "Checksum".to_string(),
+        };
+
+        NetworkManager::handle_incoming_message(&state, &pending, msg.clone());
+
+        let s = state.lock().unwrap();
+        assert_eq!(s.migrations_received, 1);
+
+        let p = pending.lock().unwrap();
+        assert_eq!(p.len(), 1);
+        if let NetMessage::MigrateEntity { dna, .. } = &p[0] {
+            assert_eq!(dna, "DNA");
+        } else {
+            panic!("Wrong message type in pending");
+        }
+    }
+}

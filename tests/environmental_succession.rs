@@ -67,11 +67,11 @@ async fn test_biodiversity_hotspots() {
         let mut e = primordium_lib::model::lifecycle::create_entity(15.0, 15.0, 0);
         let lid = uuid::Uuid::new_v4();
         e.metabolism.lineage_id = lid;
-        e.intel.genotype.lineage_id = lid;
+        std::sync::Arc::make_mut(&mut e.intel.genotype).lineage_id = lid;
         e.physics.vx = 0.0;
         e.physics.vy = 0.0;
         e.physics.max_speed = 0.0; // Force them to stay put for the hotspot test
-        e.intel.genotype.max_speed = 0.0;
+        std::sync::Arc::make_mut(&mut e.intel.genotype).max_speed = 0.0;
         e.metabolism.energy = 1000.0;
         e.metabolism.max_energy = 1000.0;
         world.spawn_entity(e);

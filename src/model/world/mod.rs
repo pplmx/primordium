@@ -16,6 +16,7 @@ fn default_rng() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(0)
 }
 
+pub mod finalize;
 pub mod init;
 pub mod logic;
 pub mod state;

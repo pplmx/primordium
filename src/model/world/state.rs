@@ -17,6 +17,13 @@ pub type EntityComponents<'a> = (
     &'a mut primordium_data::Health,
 );
 
+pub struct SpatialHashResult {
+    pub entity_id_map: HashMap<uuid::Uuid, usize>,
+    pub entity_handles: Vec<hecs::Entity>,
+    pub food_handles: Vec<hecs::Entity>,
+    pub food_data: Vec<(f64, f64, f32)>,
+}
+
 #[derive(Clone, Default)]
 pub struct EntityDecision {
     pub outputs: [f32; 12],
@@ -57,7 +64,7 @@ impl World {
                             self.tick,
                             self.config.metabolism.maturity_age,
                         ),
-                        genotype: Some(Arc::new(intel.genotype.clone())),
+                        genotype: Some(Arc::clone(&intel.genotype)),
                     });
                 }
             }
@@ -183,7 +190,7 @@ impl World {
                         .0
                         .iter()
                         .enumerate()
-                        .filter(|(_, &v)| v.abs() > 0.001)
+                        .filter(|(_, v)| v.abs() > 0.001)
                         .map(|(k, v)| (k as i32, *v))
                         .collect()
                 } else {
@@ -230,15 +237,7 @@ impl World {
         }
     }
 
-    #[allow(clippy::type_complexity)]
-    pub fn prepare_spatial_hash(
-        &mut self,
-    ) -> (
-        HashMap<uuid::Uuid, usize>,
-        Vec<hecs::Entity>,
-        Vec<hecs::Entity>,
-        Vec<(f64, f64, f32)>,
-    ) {
+    pub fn prepare_spatial_hash(&mut self) -> SpatialHashResult {
         let mut query = self.ecs.query::<(
             &primordium_data::Identity,
             &primordium_data::Position,
@@ -278,7 +277,11 @@ impl World {
         self.food_hash
             .build_parallel(&food_positions, self.width, self.height);
 
-        self.spatial_data_buffer = spatial_data;
-        (entity_id_map, entity_handles, food_handles, food_data)
+        SpatialHashResult {
+            entity_id_map,
+            entity_handles,
+            food_handles,
+            food_data,
+        }
     }
 }

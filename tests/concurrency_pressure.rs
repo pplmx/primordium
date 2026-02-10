@@ -20,8 +20,7 @@ async fn test_high_density_interaction_safety() {
         e.metabolism.energy = 100.0;
         e.metabolism.max_energy = 500.0;
         // High aggression to ensure they attack each other
-        e.intel
-            .genotype
+        std::sync::Arc::make_mut(&mut e.intel.genotype)
             .brain
             .connections
             .push(primordium_lib::model::brain::Connection {
@@ -63,10 +62,3 @@ async fn test_high_density_interaction_safety() {
         }
     }
 }
-
-/*
-#[tokio::test]
-async fn test_race_condition_predation_determinism() {
-    // ...
-}
-*/

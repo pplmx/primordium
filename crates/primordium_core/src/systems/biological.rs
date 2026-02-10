@@ -39,11 +39,12 @@ fn apply_genetic_drift<R: Rng>(
         && population_count < 10
         && rng.gen_bool(f64::from(config.evolution.drift_rate))
     {
+        let genotype = std::sync::Arc::make_mut(&mut intel.genotype);
         match rng.gen_range(0..4) {
-            0 => intel.genotype.metabolic_niche = rng.gen_range(0.0..1.0),
-            1 => intel.genotype.max_speed = rng.gen_range(0.5..1.5),
-            2 => intel.genotype.sensing_range = rng.gen_range(5.0..15.0),
-            _ => intel.genotype.max_energy = rng.gen_range(50.0..150.0),
+            0 => genotype.metabolic_niche = rng.gen_range(0.0..1.0),
+            1 => genotype.max_speed = rng.gen_range(0.5..1.5),
+            2 => genotype.sensing_range = rng.gen_range(5.0..15.0),
+            _ => genotype.max_energy = rng.gen_range(50.0..150.0),
         }
     }
 }

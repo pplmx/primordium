@@ -48,7 +48,7 @@ pub fn archive_if_legend_components(
             peak_energy: metabolism.peak_energy,
             birth_timestamp: "".to_string(),
             death_timestamp: Utc::now().to_rfc3339(),
-            genotype: intel.genotype.clone(),
+            genotype: (*intel.genotype).clone(),
             color_rgb: (physics.r, physics.g, physics.b),
         };
         Some(legend)
@@ -148,41 +148,51 @@ pub struct ReproductionContext<'a, R: Rng> {
     pub ancestral_genotype: Option<&'a primordium_data::Genotype>,
 }
 
-pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
-    pos: &primordium_data::Position,
-    energy: f64,
-    generation: u32,
-    genotype: &primordium_data::Genotype,
-    specialization: Option<Specialization>,
-    ctx: &mut ReproductionContext<R>,
-) -> (Entity, f32) {
-    let investment = genotype.reproductive_investment as f64;
-    let child_energy = energy * investment;
+pub struct AsexualReproductionContext<'a, R: Rng> {
+    pub pos: &'a primordium_data::Position,
+    pub energy: f64,
+    pub generation: u32,
+    pub genotype: &'a primordium_data::Genotype,
+    pub specialization: Option<Specialization>,
+    pub ctx: &'a mut ReproductionContext<'a, R>,
+}
 
-    let mut child_genotype = genotype.clone();
-    let stress_factor = (1.0 - (energy / genotype.max_energy)).max(0.0) as f32;
+pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
+    input: AsexualReproductionContext<R>,
+) -> (Entity, f32) {
+    let investment = input.genotype.reproductive_investment as f64;
+    let child_energy = input.energy * investment;
+
+    let mut child_genotype = std::sync::Arc::new(input.genotype.clone());
+    let stress_factor = (1.0 - (input.energy / input.genotype.max_energy)).max(0.0) as f32;
 
     intel::mutate_genotype(
         &mut child_genotype,
-        ctx.config,
-        ctx.population,
-        ctx.is_radiation_storm,
-        specialization,
-        ctx.rng,
-        ctx.ancestral_genotype,
-        stress_factor,
+        &intel::MutationParams {
+            config: input.ctx.config,
+            population: input.ctx.population,
+            is_radiation_storm: input.ctx.is_radiation_storm,
+            specialization: input.specialization,
+            ancestral_genotype: input.ctx.ancestral_genotype,
+            stress_factor,
+        },
+        input.ctx.rng,
     );
-    let dist = genotype.distance(&child_genotype);
-    if dist > ctx.config.evolution.speciation_threshold {
-        child_genotype.lineage_id = Uuid::from_u128(ctx.rng.gen());
+    let dist = input.genotype.distance(&child_genotype);
+    if dist > input.ctx.config.evolution.speciation_threshold {
+        std::sync::Arc::make_mut(&mut child_genotype).lineage_id =
+            Uuid::from_u128(input.ctx.rng.gen());
     }
 
     let mut baby = Entity {
         identity: primordium_data::Identity {
-            id: Uuid::from_u128(ctx.rng.gen()),
+            id: Uuid::from_u128(input.ctx.rng.gen()),
             parent_id: None,
         },
-        position: primordium_data::Position { x: pos.x, y: pos.y },
+        position: primordium_data::Position {
+            x: input.pos.x,
+            y: input.pos.y,
+        },
         velocity: primordium_data::Velocity::default(),
         appearance: primordium_data::Appearance {
             r: 100,
@@ -191,10 +201,10 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
             symbol: '●',
         },
         physics: Physics {
-            home_x: pos.x,
-            home_y: pos.y,
-            x: pos.x,
-            y: pos.y,
+            home_x: input.pos.x,
+            home_y: input.pos.y,
+            x: input.pos.x,
+            y: input.pos.y,
             vx: 0.0,
             vy: 0.0,
             r: 100,
@@ -210,8 +220,8 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
             prev_energy: child_energy,
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
-            birth_tick: ctx.tick,
-            generation: generation + 1,
+            birth_tick: input.ctx.tick,
+            generation: input.generation + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
             has_metamorphosed: false,
@@ -221,7 +231,7 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
         health: Health {
             pathogen: None,
             infection_timer: 0,
-            immunity: 0.0,
+            immunity: (input.energy / 200.0) as f32,
         },
         intel: Intel {
             genotype: child_genotype,
@@ -237,11 +247,11 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
             last_activations: primordium_data::Activations::default(),
             specialization: None,
             spec_meters: std::collections::HashMap::new(),
-            ancestral_traits: ctx.traits.clone(),
+            ancestral_traits: input.ctx.traits.clone(),
         },
     };
 
-    for trait_item in &ctx.traits {
+    for trait_item in &input.ctx.traits {
         match trait_item {
             AncestralTrait::AcuteSenses => {
                 baby.physics.sensing_range *= 1.2;
@@ -255,35 +265,38 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
     (baby, dist)
 }
 
-#[allow(clippy::too_many_arguments)]
+pub struct ParentData<'a> {
+    pub pos: &'a primordium_data::Position,
+    pub energy: f64,
+    pub generation: u32,
+    pub genotype: &'a primordium_data::Genotype,
+}
+
 pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
-    p1_pos: &primordium_data::Position,
-    p1_energy: f64,
-    p1_generation: u32,
-    p1_genotype: &primordium_data::Genotype,
-    _p2_pos: &primordium_data::Position,
-    p2_energy: f64,
-    p2_generation: u32,
-    p2_genotype: &primordium_data::Genotype,
+    p1: &ParentData<'_>,
+    p2: &ParentData<'_>,
     ctx: &mut ReproductionContext<R>,
 ) -> (Entity, f32) {
-    let investment = p1_genotype.reproductive_investment as f64;
-    let child_energy = (p1_energy + p2_energy) * investment / 2.0;
+    let investment = p1.genotype.reproductive_investment as f64;
+    let child_energy = (p1.energy + p2.energy) * investment / 2.0;
 
-    let mut child_genotype = p1_genotype.crossover_with_rng(p2_genotype, ctx.rng);
-    let combined_energy = (p1_energy + p2_energy) / 2.0;
-    let avg_max_energy = (p1_genotype.max_energy + p2_genotype.max_energy) / 2.0;
+    let mut child_genotype =
+        std::sync::Arc::new(p1.genotype.crossover_with_rng(p2.genotype, ctx.rng));
+    let combined_energy = (p1.energy + p2.energy) / 2.0;
+    let avg_max_energy = (p1.genotype.max_energy + p2.genotype.max_energy) / 2.0;
     let stress_factor = (1.0 - (combined_energy / avg_max_energy)).max(0.0) as f32;
 
     intel::mutate_genotype(
         &mut child_genotype,
-        ctx.config,
-        100,
-        ctx.is_radiation_storm,
-        None,
+        &intel::MutationParams {
+            config: ctx.config,
+            population: 100,
+            is_radiation_storm: ctx.is_radiation_storm,
+            specialization: None,
+            ancestral_genotype: ctx.ancestral_genotype,
+            stress_factor,
+        },
         ctx.rng,
-        ctx.ancestral_genotype,
-        stress_factor,
     );
 
     let mut baby = Entity {
@@ -292,22 +305,22 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
             parent_id: None,
         },
         position: primordium_data::Position {
-            x: p1_pos.x,
-            y: p1_pos.y,
+            x: p1.pos.x,
+            y: p1.pos.y,
         },
         velocity: primordium_data::Velocity::default(),
         appearance: primordium_data::Appearance::default(),
         physics: Physics {
-            x: p1_pos.x,
-            y: p1_pos.y,
+            x: p1.pos.x,
+            y: p1.pos.y,
             vx: 0.0,
             vy: 0.0,
             r: 100,
             g: 200,
             b: 100,
             symbol: '●',
-            home_x: p1_pos.x,
-            home_y: p1_pos.y,
+            home_x: p1.pos.x,
+            home_y: p1.pos.y,
             sensing_range: child_genotype.sensing_range,
             max_speed: child_genotype.max_speed,
         },
@@ -318,7 +331,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: ctx.tick,
-            generation: p1_generation.max(p2_generation) + 1,
+            generation: p1.generation.max(p2.generation) + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
             has_metamorphosed: false,
@@ -328,7 +341,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
         health: Health {
             pathogen: None,
             infection_timer: 0,
-            immunity: (p1_energy + p2_energy) as f32 / 200.0,
+            immunity: (p1.energy + p2.energy) as f32 / 200.0,
         },
         intel: Intel {
             genotype: child_genotype,

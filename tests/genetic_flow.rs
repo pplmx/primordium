@@ -74,13 +74,15 @@ async fn test_genetic_surge() {
     )>() {
         intel::mutate_genotype(
             &mut intel.genotype,
-            &world.config,
-            10,
-            false,
-            None,
+            &intel::MutationParams {
+                config: &world.config,
+                population: 10,
+                is_radiation_storm: false,
+                specialization: None,
+                ancestral_genotype: None,
+                stress_factor: 0.0,
+            },
             &mut rng,
-            None,
-            0.0,
         );
     }
 

@@ -26,7 +26,7 @@ async fn test_symbiosis_spring_force() {
         b: 0,
         rank: 0.5,
         status: primordium_lib::model::state::entity::EntityStatus::Bonded,
-        genotype: Some(std::sync::Arc::new(e2.intel.genotype.clone())),
+        genotype: Some(e2.intel.genotype.clone()),
     };
 
     let env = Environment::default();
