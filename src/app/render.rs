@@ -8,15 +8,31 @@ use ratatui::Frame;
 
 impl App {
     pub fn draw(&mut self, f: &mut Frame) {
-        let snapshot = match &self.latest_snapshot {
-            Some(s) => s,
-            None => return,
+        // Clone the snapshot first to release the borrow on self
+        let snapshot = if let Some(s) = self.latest_snapshot.as_ref() {
+            s.clone()
+        } else {
+            return;
         };
+        let snapshot = &snapshot;
 
+        self.draw_background(f);
+        let (main_layout_area, left_layout_vec) = self.create_layouts(f);
+        self.draw_main_content(f, snapshot, &left_layout_vec);
+        self.draw_sidebar(f, snapshot, &main_layout_area);
+        self.draw_overlays(f);
+    }
+
+    fn draw_background(&self, f: &mut Frame) {
         let bg_color = self.get_climate_bg_color();
         let main_block = Block::default().style(Style::default().bg(bg_color));
         f.render_widget(main_block, f.area());
+    }
 
+    fn create_layouts(
+        &mut self,
+        f: &mut Frame,
+    ) -> (ratatui::layout::Rect, Vec<ratatui::layout::Rect>) {
         let main_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -47,57 +63,110 @@ impl App {
 
         self.last_world_rect = left_layout[2];
 
+        let left_layout_vec: Vec<ratatui::layout::Rect> = left_layout.to_vec();
+        (main_layout[1], left_layout_vec)
+    }
+
+    fn draw_main_content(
+        &self,
+        f: &mut Frame,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
+        left_layout: &[ratatui::layout::Rect],
+    ) {
         if self.screensaver || self.cinematic_mode {
-            let world_widget = WorldWidget::new(snapshot, true, self.view_mode);
-            f.render_widget(world_widget, f.area());
-
-            if self.cinematic_mode {
-                f.render_widget(
-                    CinematicOverlayWidget {
-                        tick: snapshot.tick,
-                        carbon_level: snapshot.stats.carbon_level,
-                    },
-                    f.area(),
-                );
-            }
+            self.draw_cinematic_mode(f, snapshot);
         } else {
-            f.render_widget(
-                StatusWidget {
-                    snapshot,
-                    cpu_usage: self.env.cpu_usage as f64,
-                    ram_usage_percent: self.env.ram_usage_percent,
-                    app_memory_usage_mb: self.env.app_memory_usage_mb as f64,
-                    current_era: self.env.current_era,
-                    oxygen_level: self.env.oxygen_level,
-                    view_mode: self.view_mode,
-                    peer_count: self.network_state.peers.len(),
-                    migrations_received: self.network_state.migrations_received as u64,
-                    migrations_sent: self.network_state.migrations_sent as u64,
-                    is_online: self.network_state.client_id.is_some(),
-                    resource_icon: self.env.resource_state().icon().to_string(),
-                },
-                left_layout[0],
-            );
-
-            let pop_data: Vec<u64> = self.pop_history.iter().cloned().collect();
-            let cpu_data: Vec<u64> = self.cpu_history.iter().cloned().collect();
-            f.render_widget(
-                SparklinesWidget {
-                    pop_data: &pop_data,
-                    cpu_data: &cpu_data,
-                    current_era: self.env.current_era,
-                },
-                left_layout[1],
-            );
-
-            let world_widget = WorldWidget::new(snapshot, false, self.view_mode);
-            f.render_widget(world_widget, left_layout[2]);
-
-            let events: Vec<(String, Color)> = self.event_log.iter().cloned().collect();
-            f.render_widget(ChronicleWidget { events: &events }, left_layout[3]);
+            self.draw_normal_mode(f, snapshot, left_layout);
         }
+    }
 
-        let sidebar_area = main_layout[1];
+    fn draw_cinematic_mode(&self, f: &mut Frame, snapshot: &crate::model::snapshot::WorldSnapshot) {
+        let world_widget = WorldWidget::new(snapshot, true, self.view_mode);
+        f.render_widget(world_widget, f.area());
+
+        if self.cinematic_mode {
+            f.render_widget(
+                CinematicOverlayWidget {
+                    tick: snapshot.tick,
+                    carbon_level: snapshot.stats.carbon_level,
+                },
+                f.area(),
+            );
+        }
+    }
+
+    fn draw_normal_mode(
+        &self,
+        f: &mut Frame,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
+        left_layout: &[ratatui::layout::Rect],
+    ) {
+        self.draw_status_bar(f, snapshot, left_layout[0]);
+        self.draw_sparklines(f, left_layout[1]);
+        self.draw_world_canvas(f, snapshot, left_layout[2]);
+        self.draw_chronicle(f, left_layout[3]);
+    }
+
+    fn draw_status_bar(
+        &self,
+        f: &mut Frame,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
+        area: ratatui::layout::Rect,
+    ) {
+        f.render_widget(
+            StatusWidget {
+                snapshot,
+                cpu_usage: self.env.cpu_usage as f64,
+                ram_usage_percent: self.env.ram_usage_percent,
+                app_memory_usage_mb: self.env.app_memory_usage_mb as f64,
+                current_era: self.env.current_era,
+                oxygen_level: self.env.oxygen_level,
+                view_mode: self.view_mode,
+                peer_count: self.network_state.peers.len(),
+                migrations_received: self.network_state.migrations_received as u64,
+                migrations_sent: self.network_state.migrations_sent as u64,
+                is_online: self.network_state.client_id.is_some(),
+                resource_icon: self.env.resource_state().icon().to_string(),
+            },
+            area,
+        );
+    }
+
+    fn draw_sparklines(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+        let pop_data: Vec<u64> = self.pop_history.iter().cloned().collect();
+        let cpu_data: Vec<u64> = self.cpu_history.iter().cloned().collect();
+        f.render_widget(
+            SparklinesWidget {
+                pop_data: &pop_data,
+                cpu_data: &cpu_data,
+                current_era: self.env.current_era,
+            },
+            area,
+        );
+    }
+
+    fn draw_world_canvas(
+        &self,
+        f: &mut Frame,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
+        area: ratatui::layout::Rect,
+    ) {
+        let world_widget = WorldWidget::new(snapshot, false, self.view_mode);
+        f.render_widget(world_widget, area);
+    }
+
+    fn draw_chronicle(&self, f: &mut Frame, area: ratatui::layout::Rect) {
+        let events: Vec<(String, Color)> = self.event_log.iter().cloned().collect();
+        f.render_widget(ChronicleWidget { events: &events }, area);
+    }
+
+    fn draw_sidebar(
+        &self,
+        f: &mut Frame,
+        snapshot: &crate::model::snapshot::WorldSnapshot,
+        main_layout: &ratatui::layout::Rect,
+    ) {
+        let sidebar_area = *main_layout;
         if self.show_ancestry {
             f.render_widget(AncestryWidget { snapshot }, sidebar_area);
         } else if self.show_archeology {
@@ -141,7 +210,9 @@ impl App {
                 sidebar_area,
             );
         }
+    }
 
+    fn draw_overlays(&self, f: &mut Frame) {
         if self.show_help {
             f.render_widget(
                 HelpWidget {

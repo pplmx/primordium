@@ -246,3 +246,121 @@ config.world.seed = Some(42);  // 必须提供固定种子
 - 但不改变核心模拟性能（entity 感知与决策不受影响）
 
 验证确定性的测试：`tests/determinism_suite.rs`
+
+---
+
+## 8. Workspace 市架构重构 (Phase 65-66 Update)
+
+### 市结构概述
+
+项目已从单体 `src/` 结构重构为 **Cargo Workspace** 多市架构，实现模块化解耦与清晰的职责分离：
+
+```text
+primordium/
+├── Cargo.toml                    # Workspace 根配置
+├── crates/                       # 子市目录
+│   ├── primordium_data/          # 【数据层】纯数据结构定义
+│   ├── primordium_core/          # 【引擎层】仿真核心逻辑
+│   ├── primordium_io/            # 【I/O 层】持久化与日志
+│   ├── primordium_net/           # 【网络层】P2P 协议
+│   ├── primordium_observer/      # 【观测层】LLM 集成与叙事生成
+│   ├── primordium_server/        # 【服务器】中继服务器
+│   ├── primordium_tools/         # 【工具链】分析/验证 CLI
+│   └── primordium_tui/           # 【渲染层】TUI 实现
+├── src/                          # 【主应用】TUI 宿主
+│   ├── main.rs                   # 原生应用入口
+│   ├── lib.rs                    # WASM 库入口
+│   ├── app/                      # TUI 应用层
+│   ├── client/                   # Web 客户端
+│   └── model/                    # World 协调器 (使用 primordium_core)
+└── tests/                        # 集成测试
+```
+
+### 各市职责详解
+
+#### primordium_data (数据层)
+- **职责**: 纯数据类型定义，无业务逻辑
+- **内容**: `Entity`, `Genotype`, `Position`, `TerrainType` 等基础数据结构
+- **依赖**: 仅 `serde`, `uuid`
+- **特点**: 0 逻辑代码，100% 数据声明
+
+#### primordium_core (引擎层)
+- **职责**: 仿真核心逻辑与系统实现
+- **内容**:
+  - `systems/`: 各类仿真系统 (Biological, Social, Ecological, Civilization, etc.)
+  - `brain/`: NEAT-lite 神经网络实现
+  - `spatial_hash.rs`: 空间索引
+  - `lineage_registry.rs`: 谱系追踪
+- **依赖**: `primordium_data`, `rand`, `rayon`
+- **目标**: 支持 `#[cfg_attr(not(test), no_std)]`
+
+#### primordium_io (I/O 层)
+- **职责**: 持久化、历史记录、 fossils
+- **内容**:
+  - `history/`: 实时事件日志
+  - `storage/`: 状态保存/加载
+  - `serialization/`: HexDNA 协议实现
+  - `fossil.rs`: 考古学数据管理
+- **依赖**: `primordium_data`, `serde`, `chrono`
+
+#### primordium_net (网络层)
+- **职责**: P2P 跨 Universe 迁移协议
+- **内容**: `NetMessage` 类型定义与序列化
+- **依赖**: `primordium_data`, `serde`, `uuid`
+
+#### primordium_observer (观测层)
+- **职责**: LLM 集成与启发式叙事生成
+- **内容**: `SiliconScribe`, `Narrator` trait, `HeuristicNarrator`
+- **依赖**: `tokio`, `async-trait`
+
+#### primordium_server (服务器)
+- **职责**: P2P 中继服务器
+- **内容**: 基于 Axum 的 WebSocket 中继与 REST API
+- **依赖**: `primordium_net`, `axum`, `tokio`
+
+#### primordium_tools (工具链)
+- **职责**: 分析与验证 CLI 工具
+- **内容**: `analyze` (家族树重构), `verify` (区块链验证)
+- **依赖**: `primordium_data`, `primordium_io`
+
+#### primordium_tui (渲染层)
+- **职责**: TUI 抽象层与通用 Widget
+- **内容**: `WorldWidget`, `AncestryWidget`, `BrainWidget` 等
+- **依赖**: `ratatui`
+
+### 依赖流向
+
+```text
+┌─────────────────┐
+│   Application   │ (src/)
+│   (TUI / WASM)   │
+└────────┬────────┘
+         │
+    ┌────┴────┬───────────────┬──────────────┐
+    │         │               │              │
+┌───▼───┐ ┌──▼───┐      ┌────▼────┐   ┌────▼────┐
+│  TUI  │ │ Tools│      │  Server  │   │  Net    │
+└───┬───┘ └───┬───┘      └────┬────┘   └────┬────┘
+    │         │                 │              │
+    │         │                 │              │
+┌───▼─────────▼─────────────────▼──────────────▼─────┐
+│          primordium_core (引擎)                     │
+│            (依赖: primordium_data)                   │
+└────────────────────┬────────────────────────────────┘
+                     │
+         ┌────────────┼─────────────┐
+         │           │             │
+     ┌───▼────┐  ┌──▼────┐   ┌───▼────────┐
+     │   IO    │  │Observer │  │   Data     │
+     └─────────┘  └─────────┘   └────────────┘
+```
+
+### 重构收益
+
+1. **模块化**: 每个 crate 有明确的职责边界，降低编译耦合
+2. **复用性**: `primordium_data` 和 `primordium_core` 可被 WASM 和 CLI 工具共享
+3. **可测试性**: 独立 crate 可独立进行单元测试
+4. **依赖管理**: 通过 `Cargo.toml` 顶层配置统一管理依赖版本
+5. **并行编译**: 部分改动可触发部分 crate 重新编译，提升迭代速度
+
+---
