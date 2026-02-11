@@ -13,41 +13,6 @@ pub struct StatsContext<'a, T> {
     pub terrain: &'a crate::terrain::TerrainGrid,
 }
 
-pub fn update_population_stats_snapshots(ctx: StatsContext<crate::snapshot::EntitySnapshot>) {
-    ctx.stats.population = ctx.entities.len();
-    ctx.stats.food_count = ctx.food_count;
-    ctx.stats.top_fitness = ctx.top_fitness;
-    ctx.stats.carbon_level = ctx.carbon_level;
-    ctx.stats.mutation_scale = ctx.mutation_scale;
-    ctx.stats.global_fertility = ctx.terrain.average_fertility();
-    ctx.stats.max_generation = ctx.entities.iter().map(|e| e.generation).max().unwrap_or(0);
-    ctx.stats.lineage_counts.clear();
-    ctx.stats.biomass_h = 0.0;
-    ctx.stats.biomass_c = 0.0;
-    ctx.stats.biodiversity_hotspots = 0;
-
-    if ctx.entities.is_empty() {
-        ctx.stats.avg_brain_entropy = 0.0;
-        ctx.stats.species_count = 0;
-        return;
-    }
-
-    let mut sectors: HashMap<(i32, i32), HashSet<Uuid>> = HashMap::new();
-    for e in ctx.entities {
-        *ctx.stats.lineage_counts.entry(e.lineage_id).or_insert(0) += 1;
-        let tp = e.trophic_potential;
-        if tp < 0.4 {
-            ctx.stats.biomass_h += e.energy;
-        } else if tp > 0.6 {
-            ctx.stats.biomass_c += e.energy;
-        }
-        let sx = (e.x / 10.0) as i32;
-        let sy = (e.y / 10.0) as i32;
-        sectors.entry((sx, sy)).or_default().insert(e.lineage_id);
-    }
-    ctx.stats.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
-}
-
 pub fn update_population_stats(ctx: StatsContext<Entity>) {
     ctx.stats.population = ctx.entities.len();
     ctx.stats.food_count = ctx.food_count;
@@ -173,7 +138,7 @@ pub fn update_hall_of_fame(hof: &mut HallOfFame, entities: &[Entity], tick: u64)
 /// Read-only world state for statistics computation.
 pub struct StatsInput<'a> {
     pub tick: u64,
-    pub entities: &'a [crate::snapshot::EntitySnapshot],
+    pub entities: &'a [crate::snapshot::InternalEntitySnapshot],
     pub food_count: usize,
     pub carbon_level: f64,
     pub mutation_scale: f32,
@@ -197,4 +162,41 @@ pub fn update_stats(
             terrain: input.terrain,
         });
     }
+}
+
+pub fn update_population_stats_snapshots(
+    ctx: StatsContext<crate::snapshot::InternalEntitySnapshot>,
+) {
+    ctx.stats.population = ctx.entities.len();
+    ctx.stats.food_count = ctx.food_count;
+    ctx.stats.top_fitness = ctx.top_fitness;
+    ctx.stats.carbon_level = ctx.carbon_level;
+    ctx.stats.mutation_scale = ctx.mutation_scale;
+    ctx.stats.global_fertility = ctx.terrain.average_fertility();
+    ctx.stats.max_generation = ctx.entities.iter().map(|e| e.generation).max().unwrap_or(0);
+    ctx.stats.lineage_counts.clear();
+    ctx.stats.biomass_h = 0.0;
+    ctx.stats.biomass_c = 0.0;
+    ctx.stats.biodiversity_hotspots = 0;
+
+    if ctx.entities.is_empty() {
+        ctx.stats.avg_brain_entropy = 0.0;
+        ctx.stats.species_count = 0;
+        return;
+    }
+
+    let mut sectors: HashMap<(i32, i32), HashSet<Uuid>> = HashMap::new();
+    for e in ctx.entities {
+        *ctx.stats.lineage_counts.entry(e.lineage_id).or_insert(0) += 1;
+        let tp = e.trophic_potential;
+        if tp < 0.4 {
+            ctx.stats.biomass_h += e.energy;
+        } else if tp > 0.6 {
+            ctx.stats.biomass_c += e.energy;
+        }
+        let sx = (e.x / 10.0) as i32;
+        let sy = (e.y / 10.0) as i32;
+        sectors.entry((sx, sy)).or_default().insert(e.lineage_id);
+    }
+    ctx.stats.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
 }
