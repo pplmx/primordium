@@ -59,14 +59,14 @@ pub struct World {
     pub spatial_hash: SpatialHash,
     #[serde(skip, default = "SpatialHash::new_empty")]
     pub food_hash: SpatialHash,
-    pub pop_stats: PopulationStats,
-    pub hall_of_fame: HallOfFame,
-    pub terrain: TerrainGrid,
-    pub pheromones: PheromoneGrid,
-    pub sound: SoundGrid,
-    pub pressure: crate::model::pressure::PressureGrid,
-    pub influence: crate::model::influence::InfluenceGrid,
-    pub social_grid: Vec<u8>,
+    pub pop_stats: Arc<PopulationStats>,
+    pub hall_of_fame: Arc<HallOfFame>,
+    pub terrain: Arc<TerrainGrid>,
+    pub pheromones: Arc<PheromoneGrid>,
+    pub sound: Arc<SoundGrid>,
+    pub pressure: Arc<crate::model::pressure::PressureGrid>,
+    pub influence: Arc<crate::model::influence::InfluenceGrid>,
+    pub social_grid: Arc<Vec<u8>>,
     pub lineage_registry: LineageRegistry,
     pub fossil_registry: FossilRegistry,
     pub config: AppConfig,
@@ -93,18 +93,6 @@ pub struct World {
     pub entity_snapshots: Vec<crate::model::snapshot::InternalEntitySnapshot>,
 
     #[serde(skip)]
-    pub cached_terrain: Arc<TerrainGrid>,
-    #[serde(skip)]
-    pub cached_pheromones: Arc<PheromoneGrid>,
-    #[serde(skip)]
-    pub cached_sound: Arc<SoundGrid>,
-    #[serde(skip)]
-    pub cached_pressure: Arc<crate::model::pressure::PressureGrid>,
-    #[serde(skip)]
-    pub cached_influence: Arc<crate::model::influence::InfluenceGrid>,
-    #[serde(skip)]
-    pub cached_social_grid: Arc<Vec<u8>>,
-    #[serde(skip)]
     pub cached_rank_grid: Arc<Vec<f32>>,
     pub food_dirty: bool,
     #[serde(skip, default)]
@@ -129,9 +117,11 @@ mod tests {
         config.world.width = 10;
         config.world.height = 10;
         let mut world = World::new(0, config).expect("Failed to create world");
-        world
-            .terrain
-            .set_cell_type(5, 5, crate::model::terrain::TerrainType::Wall);
+        std::sync::Arc::make_mut(&mut world.terrain).set_cell_type(
+            5,
+            5,
+            crate::model::terrain::TerrainType::Wall,
+        );
         let mut entity = crate::model::lifecycle::create_entity(4.5, 4.5, 0);
         entity.velocity.vx = 1.0;
         entity.velocity.vy = 1.0;
