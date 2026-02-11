@@ -55,6 +55,7 @@ pub struct InternalEntitySnapshot {
     pub b: u8,
     pub rank: f32,
     pub status: EntityStatus,
+    pub trophic_potential: f32,
     #[serde(skip)]
     pub genotype: Option<Arc<primordium_data::Genotype>>,
 }
@@ -65,8 +66,8 @@ pub struct WorldSnapshot {
     pub tick: u64,
     pub entities: Vec<EntitySnapshot>,
     pub food: Vec<Food>,
-    pub stats: PopulationStats,
-    pub hall_of_fame: HallOfFame,
+    pub stats: Arc<PopulationStats>,
+    pub hall_of_fame: Arc<HallOfFame>,
     pub terrain: Arc<TerrainGrid>,
     pub pheromones: Arc<PheromoneGrid>,
     pub sound: Arc<SoundGrid>,
