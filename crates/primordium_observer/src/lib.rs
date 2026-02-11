@@ -70,6 +70,18 @@ impl Narrator for HeuristicNarrator {
                 "{} A New Dawn: a macro-evolutionary era begins. (Tick {})",
                 prefix, tick
             ),
+            "MigrationEvent" => format!(
+                "{} The Great Wandering: massive clusters are moving south. (Tick {})",
+                prefix, tick
+            ),
+            "WarEvent" => format!(
+                "{} Tribal Strife: conflict has erupted between dominant lineages. (Tick {})",
+                prefix, tick
+            ),
+            "CivilizationLevelUp" => format!(
+                "{} Civilizational Leap: a lineage has achieved a new tier of organization. (Tick {})",
+                prefix, tick
+            ),
             _ => format!("{} Epoch {}: {}", prefix, tick, description),
         }
     }
