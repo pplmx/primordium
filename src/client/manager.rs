@@ -278,31 +278,112 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_incoming_migrate_entity() {
+    fn test_handle_incoming_trade_offer() {
         let state = Arc::new(Mutex::new(NetworkState::default()));
         let pending = Arc::new(Mutex::new(Vec::new()));
-
-        let msg = NetMessage::MigrateEntity {
-            migration_id: Uuid::new_v4(),
-            dna: "DNA".to_string(),
-            energy: 100.0,
-            generation: 1,
-            species_name: "Name".to_string(),
-            fingerprint: "Fingerprint".to_string(),
-            checksum: "Checksum".to_string(),
+        let proposal = crate::model::infra::network::TradeProposal {
+            id: Uuid::new_v4(),
+            sender_id: Uuid::new_v4(),
+            offer_resource: crate::model::infra::network::TradeResource::Energy,
+            offer_amount: 100.0,
+            request_resource: crate::model::infra::network::TradeResource::Biomass,
+            request_amount: 50.0,
         };
 
-        NetworkManager::handle_incoming_message(&state, &pending, msg.clone());
+        NetworkManager::handle_incoming_message(
+            &state,
+            &pending,
+            NetMessage::TradeOffer(proposal.clone()),
+        );
 
         let s = state.lock().unwrap();
-        assert_eq!(s.migrations_received, 1);
+        assert_eq!(s.trade_offers.len(), 1);
+        assert_eq!(s.trade_offers[0].id, proposal.id);
+    }
+
+    #[test]
+    fn test_handle_incoming_trade_resolution() {
+        let state = Arc::new(Mutex::new(NetworkState::default()));
+        let pending = Arc::new(Mutex::new(Vec::new()));
+        let proposal_id = Uuid::new_v4();
+
+        {
+            let mut s = state.lock().unwrap();
+            s.trade_offers
+                .push(crate::model::infra::network::TradeProposal {
+                    id: proposal_id,
+                    sender_id: Uuid::new_v4(),
+                    offer_resource: crate::model::infra::network::TradeResource::Energy,
+                    offer_amount: 100.0,
+                    request_resource: crate::model::infra::network::TradeResource::Biomass,
+                    request_amount: 50.0,
+                });
+        }
+
+        // Accept
+        NetworkManager::handle_incoming_message(
+            &state,
+            &pending,
+            NetMessage::TradeAccept {
+                proposal_id,
+                acceptor_id: Uuid::new_v4(),
+            },
+        );
+
+        let s = state.lock().unwrap();
+        assert_eq!(s.trade_offers.len(), 0);
+    }
+
+    #[test]
+    fn test_handle_incoming_relief() {
+        let state = Arc::new(Mutex::new(NetworkState::default()));
+        let pending = Arc::new(Mutex::new(Vec::new()));
+        let lineage_id = Uuid::new_v4();
+
+        NetworkManager::handle_incoming_message(
+            &state,
+            &pending,
+            NetMessage::Relief {
+                lineage_id,
+                amount: 100.0,
+                sender_id: Uuid::new_v4(),
+            },
+        );
 
         let p = pending.lock().unwrap();
         assert_eq!(p.len(), 1);
-        if let NetMessage::MigrateEntity { dna, .. } = &p[0] {
-            assert_eq!(dna, "DNA");
+        if let NetMessage::Relief { amount, .. } = &p[0] {
+            assert_eq!(*amount, 100.0);
         } else {
-            panic!("Wrong message type in pending");
+            panic!("Expected Relief message");
         }
+    }
+
+    #[test]
+    fn test_pop_pending_limited() {
+        let manager = NetworkManager {
+            #[cfg(target_arch = "wasm32")]
+            ws: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            tx: None,
+            pending_migrations: Arc::new(Mutex::new(vec![
+                NetMessage::MigrateAck {
+                    migration_id: Uuid::new_v4(),
+                },
+                NetMessage::MigrateAck {
+                    migration_id: Uuid::new_v4(),
+                },
+                NetMessage::MigrateAck {
+                    migration_id: Uuid::new_v4(),
+                },
+            ])),
+            state: Arc::new(Mutex::new(NetworkState::default())),
+        };
+
+        let popped = manager.pop_pending_limited(2);
+        assert_eq!(popped.len(), 2);
+
+        let remaining = manager.pending_migrations.lock().unwrap();
+        assert_eq!(remaining.len(), 1);
     }
 }
