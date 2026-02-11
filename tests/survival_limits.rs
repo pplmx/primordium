@@ -27,7 +27,7 @@ async fn test_death_by_brain_bloat() {
     let mut e = lifecycle::create_entity(10.0, 10.0, 0);
     e.metabolism.energy = 100.0;
 
-    for i in 0..500 {
+    for i in 0..2500 {
         std::sync::Arc::make_mut(&mut e.intel.genotype)
             .brain
             .connections

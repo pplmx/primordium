@@ -99,7 +99,7 @@ pub fn create_genotype_random_with_rng<R: Rng>(rng: &mut R) -> Genotype {
         brain,
         sensing_range: 10.0,
         max_speed: 1.0,
-        max_energy: 100.0,
+        max_energy: rng.gen_range(400.0..600.0),
         lineage_id,
         metabolic_niche: 0.5,
         trophic_potential: 0.5,

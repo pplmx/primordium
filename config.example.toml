@@ -7,12 +7,12 @@ target_fps = 60
 width = 100
 height = 50
 initial_population = 100
-initial_food = 30
-max_food = 50
+initial_food = 100
+max_food = 200
 
 [metabolism]
-base_move_cost = 1.0
-base_idle_cost = 0.5
+base_move_cost = 0.2
+base_idle_cost = 0.1
 reproduction_threshold = 150.0
 food_value = 50.0
 
