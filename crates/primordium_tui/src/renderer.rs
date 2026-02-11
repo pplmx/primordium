@@ -63,6 +63,21 @@ impl<'a> WorldWidget<'a> {
         if entity.status == EntityStatus::Starving {
             return '†';
         }
+        if entity.status == EntityStatus::Infected {
+            return '☣';
+        }
+        if entity.status == EntityStatus::Hunting {
+            return '♦';
+        }
+        if entity.status == EntityStatus::Mating {
+            return '♥';
+        }
+        if entity.status == EntityStatus::Sharing {
+            return '♣';
+        }
+        if entity.status == EntityStatus::Bonded {
+            return '⚭';
+        }
 
         match (entity.specialization, entity.is_larva) {
             (Some(primordium_data::Specialization::Soldier), true) => '△',
@@ -403,10 +418,18 @@ mod tests {
         entity.status = EntityStatus::Starving;
         assert_eq!(WorldWidget::symbol_for_status(&entity), '†');
 
-        // Soldier
-        entity.status = EntityStatus::Foraging;
+        // Hunting
+        entity.status = EntityStatus::Hunting;
+        assert_eq!(WorldWidget::symbol_for_status(&entity), '♦');
+
+        // Soldier (Normal state overrides status if it's just Foraging, but special statuses like Hunting override Soldier)
+        entity.status = EntityStatus::Hunting;
         entity.is_larva = false;
         entity.specialization = Some(Specialization::Soldier);
+        assert_eq!(WorldWidget::symbol_for_status(&entity), '♦');
+
+        // Soldier (Foraging)
+        entity.status = EntityStatus::Foraging;
         assert_eq!(WorldWidget::symbol_for_status(&entity), '▲');
     }
 
