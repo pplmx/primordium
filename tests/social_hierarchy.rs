@@ -142,11 +142,13 @@ async fn test_soldier_damage_bonus() {
     soldier.metabolism.offspring_count = 20; // Boost calculated rank
     soldier.intel.last_aggression = 0.9; // Soldier
     soldier.metabolism.energy = 200.0;
+    soldier.metabolism.max_energy = 200.0;
     soldier.metabolism.trophic_potential = 1.0; // Hunter
 
     let mut victim = primordium_lib::model::lifecycle::create_entity(10.0, 10.0, 0);
     victim.metabolism.energy = 200.0; // Strong victim
-                                      // Ensure victim doesn't attack back
+    victim.metabolism.max_energy = 200.0;
+    // Ensure victim doesn't attack back
     {
         let brain = &mut std::sync::Arc::make_mut(&mut victim.intel.genotype).brain;
         brain.connections.clear();

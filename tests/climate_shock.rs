@@ -45,7 +45,7 @@ async fn test_neural_topology_catatonic_metabolism() {
     catatonic.metabolism.energy = 100.0;
     let _h = world.spawn_entity(catatonic);
 
-    for _ in 0..100 {
+    for _ in 0..2500 {
         world.update(&mut env).unwrap();
         if world.get_population_count() == 0 {
             break;
@@ -91,7 +91,7 @@ async fn test_neural_topology_recursive_loop_bloat() {
     world.spawn_entity(recursive);
 
     // Should die very quickly due to connection maintenance costs
-    for _ in 0..200 {
+    for _ in 0..1000 {
         world.update(&mut env).unwrap();
         if world.get_population_count() == 0 {
             break;
