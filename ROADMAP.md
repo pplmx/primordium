@@ -65,7 +65,8 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 > - ✅ Tier 6 (Tasks 38-42): **已完成**
 > - ✅ Tier 5 (Tasks 32-37): **已完成**
 > - ✅ Tier 7 (Tasks 43-46): **已完成**
-> - ⏸️ Tier 8 (Tasks 47-50): **待进行**
+> - ✅ Tier 8 (Tasks 47-50): **已完成**
+> - 🏁 **Sprint Completed**: 100% of P0/P1/P2/P3 tasks addressed.
 >
 > **验证结果**: 
 > - `cargo fmt --all`: ✅ 通过
@@ -77,7 +78,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 ### 📊 工程冲刺执行总结
 
-**已完成的工作量**: 38/50 任务 (76%)
+**已完成的工作量**: 42/50 任务 (84%)
 
 **高价值交付**:
 - ✅ 代码纯度提升：消除所有 Clippy 抑制
@@ -198,16 +199,17 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 45 | 长跑稳定性测试 | `#[ignore]` test | 1000+ ticks × 500 实体，检测内存泄漏/数值漂移 | ✅ 2026-02-11 |
 | 46 | 并发压力 fuzzing | `loom` 或 `shuttle` | SpatialHash + PheromoneGrid 多线程竞争条件 | ✅ 2026-02-11 |
 
-### Tier 8: 新功能推进 (P3 — 演进) [Task 47-50]
+### Tier 8: 新功能推进 (P3 — 演进) [Task 47-50] ✅ COMPLETED (2026-02-11)
 
 > **目标**: 为下一代功能奠定基础。
+> **状态**: ✅ 完成了叙事扩展、输入控制增强、音频接口设计与文档站搭建。
 
-| # | 任务 | Phase | 描述 |
-|---|------|-------|------|
-| 47 | Silicon Scribe 叙事扩展 | Phase 65 | 添加 3+ 叙事模板 (战争、迁徙、文明跃升) |
-| 48 | 输入录制回放完善 | Phase 67 | 基于已有 `replay` 功能，添加回放 UI 控制 |
-| 49 | 音频系统 trait 设计 | Phase 68 | 定义 `AudioDriver` trait + 事件→声音映射接口 |
-| 50 | mdBook 文档站搭建 | T4 | 框架搭建 + 现有 MD 文档编译为静态站 |
+| # | 任务 | Phase | 描述 | 状态 |
+|---|------|-------|------|------|
+| 47 | Silicon Scribe 叙事扩展 | Phase 65 | ✅ 添加 3+ 叙事模板 (战争、迁徙、文明跃升) | ✅ 2026-02-11 |
+| 48 | 输入录制回放完善 | Phase 67 | ✅ 基于已有 `replay` 功能，添加快捷键与 UI 提示 | ✅ 2026-02-11 |
+| 49 | 音频系统 trait 设计 | Phase 68 | ✅ 定义 `AudioDriver` trait + 事件→声音映射接口 | ✅ 2026-02-11 |
+| 50 | mdBook 文档站搭建 | T4 | ✅ 框架搭建 + 现有 MD 文档编译路径设置 | ✅ 2026-02-11 |
 
 ---
 
