@@ -74,11 +74,21 @@ pub fn genotype_crossover_with_rng<R: Rng>(
     use crate::brain::BrainLogic;
     let brain = genotype.brain.crossover_with_rng(&other.brain, rng);
 
-    let mut child_genotype = if rng.gen_bool(0.5) {
-        genotype.clone()
-    } else {
-        other.clone()
-    };
-    child_genotype.brain = brain;
-    child_genotype
+    let parent = if rng.gen_bool(0.5) { genotype } else { other };
+
+    Genotype {
+        brain,
+        sensing_range: parent.sensing_range,
+        max_speed: parent.max_speed,
+        max_energy: parent.max_energy,
+        lineage_id: parent.lineage_id,
+        metabolic_niche: parent.metabolic_niche,
+        trophic_potential: parent.trophic_potential,
+        reproductive_investment: parent.reproductive_investment,
+        maturity_gene: parent.maturity_gene,
+        mate_preference: parent.mate_preference,
+        pairing_bias: parent.pairing_bias,
+        specialization_bias: parent.specialization_bias,
+        regulatory_rules: parent.regulatory_rules.clone(),
+    }
 }
