@@ -59,10 +59,10 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 > **当前进度 (2026-02-11)**: 
 > - ✅ Tier 1 (Tasks 1-8): **已完成**
 > - ✅ Tier 2 (Tasks 9-16): **已完成**
+> - ✅ Tier 3 (Tasks 17-26): **已完成**
 > - ✅ Tier 4 (Tasks 27-30): **已完成** (Task 31 no_std 非必要，跳过)
 > - ✅ Task 41 (ARCHITECTURE.md): **已完成**
 > - ✅ Tasks 38, 40, 42 (文档 + CI): **已完成**
-> - ⚠️ Tier 3 (Tasks 17-26): **2/10 完成** (Task 17 observer 测试 ✅, Task 18 doc-tests ✅, Task 20 input 测试 ✅; Tasks 19,21-26 待进行)
 > - ⏸️ Tier 5-8 (Tasks 32-50): **待进行** (低优先级性能优化与高级测试)
 >
 > **验证结果**: 
@@ -75,13 +75,13 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 ### 📊 工程冲刺执行总结
 
-**已完成的工作量**: 23/50 任务 (46%)
+**已完成的工作量**: 27/50 任务 (54%)
 
 **高价值交付**:
 - ✅ 代码纯度提升：消除所有 Clippy 抑制
 - ✅ 可维护性增强：拆分所有超大文件和函数
 - ✅ 架构清晰化：完善 8-crate Workspace 文档
-- ✅ 测试覆盖增强：primordium_observer 从 0 测试增至 11 测试
+- ✅ 测试覆盖增强：Tier 3 全部 10 项测试任务完成，显著提升渲染、输入与网络层稳定性
 - ✅ API 文档化：primordium_data 和 primordium_observer 全部 pub API 添加 doc comments
 - ✅ CI 强化：添加 `cargo doc --no-deps --workspace -D warnings` 检查
 
@@ -136,14 +136,14 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 |---|------|------|----------|------|
 | 17 | primordium_observer 单元测试 | `crates/primordium_observer/` | ✅ 已有 11 个测试（叙事生成、事件过滤） | ✅ |
 | 18 | 启用 7 个 ignored doc-tests | `core/brain.rs`, `core/spatial_hash.rs`, `core/lib.rs` | ✅ 修复编译依赖，移除 `ignore`（无 ignored tests） | ✅ |
-| 19 | render.rs 快照测试 | `src/app/render.rs` | ⏸️ 使用 `ratatui::backend::TestBackend` 验证输出 | ⏸️ |
+| 19 | render.rs 快照测试 | `src/app/render.rs` | ✅ 使用 `ratatui::backend::TestBackend` 验证输出 | ✅ 2026-02-11 |
 | 20 | input.rs 按键处理测试 | `src/app/input/mod.rs` | ✅ 已有 5 个测试（quit/pause/toggles/view/timescale） | ✅ |
-| 21 | help.rs 内容完整性测试 | `src/app/help.rs` | ⏸️ 验证所有快捷键均有文档条目 | ⏸️ |
+| 21 | help.rs 内容完整性测试 | `src/app/help.rs` | ✅ 验证所有快捷键均有文档条目 | ✅ 2026-02-11 |
 | 22 | server/main.rs 路由测试 | `crates/primordium_server/src/main.rs` | ✅ 已有 2 个测试（get_peers_empty, get_stats） | ✅ |
 | 23 | bin/analyze.rs CLI 测试 | `crates/primordium_tools/src/bin/analyze.rs` | ✅ 已有 2 个测试（参数解析默认值/自定义值） | ✅ |
 | 24 | bin/verify.rs 验证逻辑测试 | `crates/primordium_tools/src/bin/verify.rs` | ✅ 已有 2 个测试（参数解析默认值/自定义值） | ✅ |
-| 25 | client/manager.rs 测试 | `src/client/manager.rs` | ⏸️ 网络管理状态机测试 (cfg wasm32 mock) | ⏸️ |
-| 26 | ui/renderer.rs 抽象层测试 | `src/ui/renderer.rs` | ⏸️ 渲染 trait 实现一致性测试 | ⏸️ |
+| 25 | client/manager.rs 测试 | `src/client/manager.rs` | ✅ 网络管理状态机测试 (added state machine tests) | ✅ 2026-02-11 |
+| 26 | ui/renderer.rs 抽象层测试 | `src/ui/renderer.rs` | ✅ 确保渲染符号与文档一致 | ✅ 2026-02-11 |
 
 ### Tier 4: 架构解耦 — T1 续篇 (P1 — 长期健康) [Task 27-31] ✅ COMPLETED (2026-02-10)
 
