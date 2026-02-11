@@ -64,6 +64,7 @@ async fn test_metamorphosis_transition_and_remodeling() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.metabolism.maturity_age = 10;
+    config.metabolism.reproduction_threshold = 10000.0; // Disable reproduction
     let mut world = World::new(0, config).unwrap();
     let mut env = Environment::default();
 
@@ -100,11 +101,12 @@ async fn test_metamorphosis_transition_and_remodeling() {
     });
     assert!(metamorphosed, "Metamorphosis event should be triggered");
 
-    let adult = &world.get_all_entities()[0];
-    assert_eq!(
-        adult.identity.id, _initial_id,
-        "Entity died and was replaced!"
-    );
+    let entities = world.get_all_entities();
+    let adult = entities
+        .iter()
+        .find(|e| e.identity.id == _initial_id)
+        .expect("Entity died or was replaced!");
+
     assert!(adult.metabolism.has_metamorphosed);
     assert!(adult.metabolism.max_energy > initial_max_energy);
     assert!(adult.physics.max_speed > initial_speed);
