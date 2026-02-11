@@ -9,13 +9,16 @@ use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 
-/// Trait for adding persistence capabilities to FossilRegistry
+/// Trait for adding persistence capabilities to [`FossilRegistry`].
 pub trait FossilPersistence {
+    /// Saves the fossil registry to a Gzip-compressed JSON file.
     fn save(&self, path: &str) -> Result<()>;
+    /// Loads a fossil registry from a file (supports both compressed and raw JSON).
     fn load(path: &str) -> Result<FossilRegistry>;
 }
 
 impl FossilPersistence for FossilRegistry {
+    /// Saves the registry using Gzip compression for efficient long-term storage.
     fn save(&self, path: &str) -> Result<()> {
         let path_buf = std::path::Path::new(path);
         let tmp_path = path_buf.with_extension("tmp");
@@ -30,6 +33,7 @@ impl FossilPersistence for FossilRegistry {
         Ok(())
     }
 
+    /// Loads the registry, automatically detecting if the target is compressed.
     fn load(path: &str) -> Result<FossilRegistry> {
         let path_gz = if path.ends_with(".gz") {
             path.to_string()
@@ -65,26 +69,39 @@ use std::thread;
 use crate::registry::LineagePersistence;
 use primordium_core::lineage_registry::LineageRegistry;
 
+/// Commands for the background logging thread.
 pub enum LogCommand {
+    /// Log a live event to `live.jsonl`.
     Event(LiveEvent),
+    /// Archive a legendary entity to `legends.json`.
     Legend(Box<Legend>),
+    /// Asynchronously save the lineage registry.
     SaveLineages(LineageRegistry, String),
+    /// Asynchronously save the fossil registry.
     SaveFossils(FossilRegistry, String),
+    /// Synchronise both registries to the SQLite storage backend.
     SyncToStorage(LineageRegistry, FossilRegistry),
+    /// Shutdown the logging thread.
     Stop,
 }
 
+/// Asynchronous logger for simulation events and historical records.
+///
+/// Uses a background thread to prevent disk I/O from blocking the main simulation loop.
 pub struct HistoryLogger {
     sender: Option<Sender<LogCommand>>,
     log_dir: String,
+    /// Handle to the SQLite storage manager, if available.
     pub storage: Option<StorageManager>,
 }
 
 impl HistoryLogger {
+    /// Creates a new logger using the default "logs" directory.
     pub fn new() -> Result<Self> {
         Self::new_at("logs")
     }
 
+    /// Creates a new logger at the specified directory.
     pub fn new_at(dir: &str) -> Result<Self> {
         if !std::path::Path::new(dir).exists() {
             std::fs::create_dir_all(dir)?;
@@ -169,6 +186,7 @@ impl HistoryLogger {
         })
     }
 
+    /// Creates a dummy logger that discards all logs. Useful for headless tests.
     pub fn new_dummy() -> Self {
         Self {
             sender: None,
@@ -177,6 +195,7 @@ impl HistoryLogger {
         }
     }
 
+    /// Queues a live event for logging.
     pub fn log_event(&self, event: LiveEvent) -> Result<()> {
         if let Some(ref tx) = self.sender {
             let _ = tx.send(LogCommand::Event(event));
@@ -184,6 +203,7 @@ impl HistoryLogger {
         Ok(())
     }
 
+    /// Archives a legendary entity.
     pub fn archive_legend(&self, legend: Legend) -> Result<()> {
         if let Some(ref tx) = self.sender {
             let _ = tx.send(LogCommand::Legend(Box::new(legend)));
@@ -191,6 +211,7 @@ impl HistoryLogger {
         Ok(())
     }
 
+    /// Triggers an asynchronous save of the lineage registry.
     pub fn save_lineages_async(&self, registry: LineageRegistry, path: String) -> Result<()> {
         if let Some(ref tx) = self.sender {
             let _ = tx.send(LogCommand::SaveLineages(registry, path));
@@ -198,6 +219,7 @@ impl HistoryLogger {
         Ok(())
     }
 
+    /// Triggers an asynchronous save of the fossil registry.
     pub fn save_fossils_async(&self, registry: FossilRegistry, path: String) -> Result<()> {
         if let Some(ref tx) = self.sender {
             let _ = tx.send(LogCommand::SaveFossils(registry, path));
@@ -205,6 +227,7 @@ impl HistoryLogger {
         Ok(())
     }
 
+    /// Synchronises registries with persistent storage in the background.
     pub fn sync_to_storage_async(
         &self,
         lin_reg: LineageRegistry,
@@ -216,6 +239,7 @@ impl HistoryLogger {
         Ok(())
     }
 
+    /// Retrieves all archived legends from the filesystem.
     pub fn get_all_legends(&self) -> Result<Vec<Legend>> {
         let file_path = format!("{}/legends.json", self.log_dir);
         let file = match File::open(file_path) {
@@ -232,6 +256,7 @@ impl HistoryLogger {
         Ok(legends)
     }
 
+    /// Constructs an ancestry tree from current living genotypes and historical records.
     pub fn get_ancestry_tree_from_genotypes(
         &self,
         living: &[std::sync::Arc<primordium_data::Genotype>],
@@ -241,12 +266,14 @@ impl HistoryLogger {
         Ok(AncestryTree::build(&legends, &raw_genotypes))
     }
 
+    /// Constructs an ancestry tree for the provided living entities.
     pub fn get_ancestry_tree(&self, living: &[Entity]) -> Result<AncestryTree> {
         let genotypes: Vec<_> = living.iter().map(|e| (*e.intel.genotype).clone()).collect();
         let legends = self.get_all_legends()?;
         Ok(AncestryTree::build(&legends, &genotypes))
     }
 
+    /// Loads all historical snapshots from the event log.
     pub fn get_snapshots(&self) -> Result<Vec<(u64, PopulationStats)>> {
         let file_path = format!("{}/live.jsonl", self.log_dir);
         let file = match File::open(file_path) {
@@ -265,6 +292,7 @@ impl HistoryLogger {
         Ok(snapshots)
     }
 
+    /// Loads the most recent N snapshots from the event log.
     pub fn get_snapshots_recent(&self, limit: usize) -> Result<Vec<(u64, PopulationStats)>> {
         let file_path = format!("{}/live.jsonl", self.log_dir);
         let file = match File::open(file_path) {
@@ -287,6 +315,7 @@ impl HistoryLogger {
         }
     }
 
+    /// Computes a cryptographic hash of all legends for integrity verification.
     pub fn compute_legends_hash(legends: &[Legend]) -> Result<String> {
         let json = serde_json::to_string(legends)?;
         let mut hasher = Sha256::new();

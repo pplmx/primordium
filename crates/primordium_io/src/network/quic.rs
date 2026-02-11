@@ -5,16 +5,23 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+/// Data structure for secure transfer of entity authority between worlds.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthorityTransfer {
+    /// Unique identifier of the entity being transferred.
     pub entity_id: uuid::Uuid,
+    /// Hex-encoded genotype data.
     pub dna: String,
+    /// Cryptographic signature ensuring data integrity and origin.
     pub signature: Vec<u8>,
+    /// Creation timestamp of the transfer request.
     pub timestamp: u64,
+    /// Anti-replay nonce.
     pub nonce: u64,
 }
 
 impl AuthorityTransfer {
+    /// Signs the transfer data using the provided Ed25519 secret key.
     pub fn sign(&mut self, secret_key_bytes: &[u8]) -> Result<()> {
         let key_array: [u8; 32] = secret_key_bytes
             .try_into()
@@ -26,6 +33,7 @@ impl AuthorityTransfer {
         Ok(())
     }
 
+    /// Verifies the signature using the provided Ed25519 public key.
     pub fn verify(&self, public_key_bytes: &[u8]) -> bool {
         let Ok(key_array) = public_key_bytes.try_into() else {
             return false;
@@ -50,33 +58,42 @@ impl AuthorityTransfer {
     }
 }
 
+/// Message types for the QUIC-based P2P protocol.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum NetMessage {
+    /// Initial connection handshake.
     Handshake { version: String, magic: u64 },
+    /// Discovery broadcast to announce peer existence.
     PeerAnnounce { id: uuid::Uuid, address: String },
+    /// Secure entity migration.
     MigrateEntity(AuthorityTransfer),
 }
 
+/// Persistent QUIC server for handling incoming P2P connections.
 pub struct QuicServer {
     endpoint: Endpoint,
 }
 
 impl QuicServer {
+    /// Initialises a new QUIC server bound to the specified address.
     pub fn new(addr: SocketAddr) -> Result<Self> {
         let (endpoint, _server_cert) = make_server_endpoint(addr)?;
         Ok(Self { endpoint })
     }
 
+    /// Asynchronously accepts a new incoming connection.
     pub async fn accept(&self) -> Option<quinn::Connection> {
         self.endpoint.accept().await?.await.ok()
     }
 }
 
+/// QUIC client for connecting to remote world instances.
 pub struct QuicClient {
     endpoint: Endpoint,
 }
 
 impl QuicClient {
+    /// Initialises a new QUIC client with relaxed certificate verification (self-signed).
     pub fn new() -> Result<Self> {
         let mut endpoint = Endpoint::client("0.0.0.0:0".parse()?)?;
         let crypto = rustls::ClientConfig::builder()
@@ -93,6 +110,7 @@ impl QuicClient {
         Ok(Self { endpoint })
     }
 
+    /// Attempts to connect to a remote peer.
     pub async fn connect(&self, addr: SocketAddr, server_name: &str) -> Result<quinn::Connection> {
         let connection = self
             .endpoint

@@ -5,16 +5,23 @@ use uuid::Uuid;
 
 /// A node in the Ancestry Tree representing an organism (living or dead).
 pub struct AncestryNode {
+    /// Unique identifier for the node.
     pub id: Uuid,
+    /// Display name of the entity.
     pub name: String,
+    /// Generational depth.
     pub generation: u32,
+    /// Trophic level (0.0=Herbivore, 1.0=Carnivore).
     pub trophic_potential: f32,
+    /// Number of offspring produced.
     pub offspring_count: u32,
+    /// Whether the entity is currently part of the living population.
     pub is_alive: bool,
 }
 
 /// The "Tree of Life" graph representing macroevolutionary branching.
 pub struct AncestryTree {
+    /// Directed graph of ancestry nodes.
     pub graph: DiGraph<AncestryNode, ()>,
     id_map: HashMap<Uuid, NodeIndex>,
 }
@@ -26,6 +33,7 @@ impl Default for AncestryTree {
 }
 
 impl AncestryTree {
+    /// Creates an empty ancestry tree.
     pub fn new() -> Self {
         Self {
             graph: DiGraph::new(),

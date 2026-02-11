@@ -4,12 +4,16 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
+/// Trait for adding persistence capabilities to [`LineageRegistry`].
 pub trait LineagePersistence {
+    /// Saves the lineage registry to a JSON file.
     fn save<P: AsRef<Path>>(&self, path: P) -> Result<()>;
+    /// Loads a lineage registry from a file.
     fn load<P: AsRef<Path>>(path: P) -> Result<LineageRegistry>;
 }
 
 impl LineagePersistence for LineageRegistry {
+    /// Atomically saves the registry to disk using a temporary file.
     fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let path = path.as_ref();
         let tmp_path = path.with_extension("tmp");
@@ -22,6 +26,7 @@ impl LineagePersistence for LineageRegistry {
         Ok(())
     }
 
+    /// Loads the registry from disk, returning a default instance if the file doesn't exist.
     fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
         if !path.as_ref().exists() {
             return Ok(Self::new());

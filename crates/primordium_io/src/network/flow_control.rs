@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+/// Thread-safe token bucket implementation for rate-limiting network operations.
 #[derive(Clone, Debug)]
 pub struct TokenBucket {
     capacity: f64,
@@ -10,6 +11,7 @@ pub struct TokenBucket {
 }
 
 impl TokenBucket {
+    /// Creates a new token bucket with specified capacity and refill rate (tokens per second).
     pub fn new(capacity: f64, refill_rate: f64) -> Self {
         Self {
             capacity,
@@ -19,6 +21,10 @@ impl TokenBucket {
         }
     }
 
+    /// Attempts to acquire the specified number of tokens.
+    ///
+    /// Returns `true` if tokens were available, `false` otherwise.
+    /// Automatically refills tokens based on elapsed time since last call.
     pub fn try_acquire(&self, amount: f64) -> bool {
         let mut tokens = self.tokens.lock().expect("Token bucket mutex poisoned");
         let mut last_refill = self

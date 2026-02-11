@@ -7,7 +7,9 @@ use std::sync::mpsc::{self, Sender};
 use std::thread;
 use uuid::Uuid;
 
+/// Commands for the background storage management thread.
 pub enum StorageCommand {
+    /// Inserts or updates a lineage record in the SQLite database.
     UpsertLineage {
         id: Uuid,
         start_tick: u64,
@@ -15,12 +17,14 @@ pub enum StorageCommand {
         is_extinct: bool,
         best_genotype: String,
     },
+    /// Records a fossil event (extinction or legend) in the database.
     RecordFossil {
         lineage_id: Uuid,
         tick: u64,
         genotype: String,
         reason: String,
     },
+    /// Saves a macro-state snapshot of the world.
     SaveSnapshot {
         tick: u64,
         pop_count: u32,
@@ -28,23 +32,35 @@ pub enum StorageCommand {
         energy_total: f64,
         world_data: Vec<u8>,
     },
+    /// Batch synchronises the entire lineage registry.
     BatchSyncLineages(LineageRegistry),
+    /// Batch synchronises the entire fossil registry.
     BatchSyncFossils(FossilRegistry),
+    /// Queries all fossils for a specific lineage (async response via MPSC).
     QueryFossils(Uuid, Sender<Vec<(u64, String)>>),
+    /// Queries the top lineages for the Hall of Fame.
     QueryHallOfFame(Sender<Vec<(Uuid, u32, bool)>>),
+    /// Queries a specific world snapshot by tick.
     QuerySnapshot(u64, Sender<Option<Vec<u8>>>),
+    /// Shutdown the storage thread.
     Stop,
 }
 
+/// Thread-safe manager for the persistent SQLite storage backend.
+///
+/// Uses an asynchronous command pattern to prevent database latency from
+/// affecting the simulation's tick rate.
 pub struct StorageManager {
     sender: Sender<StorageCommand>,
 }
 
 impl StorageManager {
+    /// Returns a new sender handle to communicate with the storage thread.
     pub fn clone_sender(&self) -> Sender<StorageCommand> {
         self.sender.clone()
     }
 
+    /// Initialises a new storage manager and spawns its background worker thread.
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let (tx, rx) = mpsc::channel();
         let path = path.as_ref().to_owned();
@@ -78,11 +94,11 @@ impl StorageManager {
                     } => {
                         let _ = conn.execute(
                             "INSERT INTO lineages (id, start_tick, civilization_level, is_extinct, best_genotype)
-                             VALUES (?1, ?2, ?3, ?4, ?5)
-                             ON CONFLICT(id) DO UPDATE SET
-                                civilization_level = excluded.civilization_level,
-                                is_extinct = excluded.is_extinct,
-                                best_genotype = excluded.best_genotype",
+                              VALUES (?1, ?2, ?3, ?4, ?5)
+                              ON CONFLICT(id) DO UPDATE SET
+                                 civilization_level = excluded.civilization_level,
+                                 is_extinct = excluded.is_extinct,
+                                 best_genotype = excluded.best_genotype",
                             params![id, start_tick, civilization_level, is_extinct, best_genotype],
                         );
                     }
@@ -94,7 +110,7 @@ impl StorageManager {
                     } => {
                         let _ = conn.execute(
                             "INSERT INTO fossils (lineage_id, tick, genotype, legend_reason)
-                             VALUES (?1, ?2, ?3, ?4)",
+                              VALUES (?1, ?2, ?3, ?4)",
                             params![lineage_id, tick, genotype, reason],
                         );
                     }
@@ -107,7 +123,7 @@ impl StorageManager {
                     } => {
                         let _ = conn.execute(
                             "INSERT INTO world_snapshots (tick, pop_count, carbon_level, energy_total, world_data)
-                             VALUES (?1, ?2, ?3, ?4, ?5)",
+                              VALUES (?1, ?2, ?3, ?4, ?5)",
                             params![tick, pop_count, carbon_level, energy_total, world_data],
                         );
                     }
@@ -120,11 +136,11 @@ impl StorageManager {
                         for (id, record) in &registry.lineages {
                             let _ = tx.execute(
                                 "INSERT INTO lineages (id, start_tick, civilization_level, is_extinct, best_genotype)
-                                 VALUES (?1, ?2, ?3, ?4, ?5)
-                                 ON CONFLICT(id) DO UPDATE SET
-                                    civilization_level = excluded.civilization_level,
-                                    is_extinct = excluded.is_extinct,
-                                    best_genotype = excluded.best_genotype",
+                                  VALUES (?1, ?2, ?3, ?4, ?5)
+                                  ON CONFLICT(id) DO UPDATE SET
+                                     civilization_level = excluded.civilization_level,
+                                     is_extinct = excluded.is_extinct,
+                                     best_genotype = excluded.best_genotype",
                                 params![
                                     id,
                                     record.first_appearance_tick,
@@ -144,7 +160,7 @@ impl StorageManager {
                         for fossil in &registry.fossils {
                             let _ = tx.execute(
                                 "INSERT INTO fossils (lineage_id, tick, genotype, legend_reason)
-                                 VALUES (?1, ?2, ?3, ?4)",
+                                  VALUES (?1, ?2, ?3, ?4)",
                                 params![
                                     fossil.lineage_id,
                                     fossil.extinct_tick,
@@ -211,6 +227,7 @@ impl StorageManager {
         Ok(Self { sender: tx })
     }
 
+    /// Queues a lineage update.
     pub fn upsert_lineage(
         &self,
         id: Uuid,
@@ -228,6 +245,7 @@ impl StorageManager {
         });
     }
 
+    /// Queues a fossil record entry.
     pub fn record_fossil(&self, lineage_id: Uuid, tick: u64, genotype: String, reason: String) {
         let _ = self.sender.send(StorageCommand::RecordFossil {
             lineage_id,
@@ -237,6 +255,7 @@ impl StorageManager {
         });
     }
 
+    /// Queues a world snapshot save.
     pub fn save_snapshot(
         &self,
         tick: u64,
@@ -254,16 +273,19 @@ impl StorageManager {
         });
     }
 
+    /// Queues a full synchronisation of the lineage registry.
     pub fn sync_lineages(&self, registry: LineageRegistry) {
         let _ = self
             .sender
             .send(StorageCommand::BatchSyncLineages(registry));
     }
 
+    /// Queues a full synchronisation of the fossil registry.
     pub fn sync_fossils(&self, registry: FossilRegistry) {
         let _ = self.sender.send(StorageCommand::BatchSyncFossils(registry));
     }
 
+    /// Asynchronously queries fossils for a specific lineage.
     pub fn query_fossils_async(
         &self,
         lineage_id: Uuid,
@@ -280,6 +302,7 @@ impl StorageManager {
         }
     }
 
+    /// Asynchronously queries the Hall of Fame.
     pub fn query_hall_of_fame_async(&self) -> Option<mpsc::Receiver<Vec<(Uuid, u32, bool)>>> {
         let (tx, rx) = mpsc::channel();
         if self
@@ -293,6 +316,7 @@ impl StorageManager {
         }
     }
 
+    /// Asynchronously queries a world snapshot by tick.
     pub fn query_snapshot_async(&self, tick: u64) -> Option<mpsc::Receiver<Option<Vec<u8>>>> {
         let (tx, rx) = mpsc::channel();
         if self
