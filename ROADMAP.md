@@ -62,9 +62,9 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 > - ✅ Tier 3 (Tasks 17-26): **已完成**
 > - ✅ Tier 4 (Tasks 27-30): **已完成** (Task 31 no_std 非必要，跳过)
 > - ✅ Task 41 (ARCHITECTURE.md): **已完成**
-> - ✅ Tasks 38, 40, 42 (文档 + CI): **已完成**
+> - ✅ Tier 6 (Tasks 38-42): **已完成**
 > - ✅ Tier 5 (Tasks 32-37): **已完成**
-> - ⏸️ Tier 6-8 (Tasks 38-50): **待进行** (部分 Tier 6 已完成)
+> - ⏸️ Tier 7-8 (Tasks 43-50): **待进行**
 >
 > **验证结果**: 
 > - `cargo fmt --all`: ✅ 通过
@@ -76,7 +76,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 ### 📊 工程冲刺执行总结
 
-**已完成的工作量**: 33/50 任务 (66%)
+**已完成的工作量**: 34/50 任务 (68%)
 
 **高价值交付**:
 - ✅ 代码纯度提升：消除所有 Clippy 抑制
@@ -172,14 +172,15 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 36 | Server proposal 消除拷贝 | `src/server/main.rs:224` | ✅ 使用 Arc<TradeProposal> 共享所有权 | ✅ 2026-02-11 |
 | 37 | Brain crossover 优化 | `core/brain.rs` | ✅ 优化 Crossover 逻辑，避免在替换 Brain 前克隆旧 Genotype | ✅ 2026-02-11 |
 
-### Tier 6: 文档完善 — T4 (P2 — 知识传承) [Task 38-42] ⚠️ 部分完成 (2026-02-11)
+### Tier 6: 文档完善 — T4 (P2 — 知识传承) [Task 38-42] ✅ COMPLETED (2026-02-11)
 
 > **目标**: 所有公开 API 有 doc comments，`cargo doc` 零警告。
+> **状态**: ✅ Workspace 中所有 8 个 crate 的公开 API 已全部完成文档化。
 
 | # | 任务 | Crate | 要求 | 状态 |
 |---|------|-------|------|------|
 | 38 | primordium_data doc comments | `crates/primordium_data/` | 所有 pub struct/enum/fn 添加 `///` | ✅ 2026-02-11 |
-| 39 | primordium_io doc comments | `crates/primordium_io/` | 所有 pub API 添加 `///` | ⏸️ |
+| 39 | primordium_io doc comments | `crates/primordium_io/` | 所有 pub API 添加 `///` | ✅ 2026-02-11 |
 | 40 | primordium_observer doc comments | `crates/primordium_observer/` | SiliconScribe + pub API | ✅ 2026-02-11 |
 | 41 | 更新 ARCHITECTURE.md | 项目根目录 | ✅ 反映当前 8-crate workspace 结构，添加依赖流向图 | ✅ 2026-02-10 |
 | 42 | CI 添加 `cargo doc` 检查 | `.github/workflows/ci.yml` | 添加 `cargo doc --no-deps --workspace -D warnings` | ✅ 2026-02-11 |
