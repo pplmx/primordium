@@ -800,6 +800,30 @@ toml = "0.8"
     - Functional: Instant simulation saves and network transfers.
     - Technical: Implement `rkyv` for memory-mapped persistence of **component tables** (Archetypes).
 
+### Phase 67: Logical Consistency & Physics (The "Garden of Eden" Fix) ⚙️
+
+**Goal:** Ensure the simulation is physically plausible and evolutionarily challenging.
+
+- **Task A: Spatial Exclusion & Crowding Penalty (Priority: High)**
+    - *Why*: Current "Ghost Physics" allows infinite entity stacking, making ID sorting the primary survival factor and negating the need for movement strategies.
+    - *How*:
+        - **Crowding Sensor**: Entities already detect density, but metabolic cost must scale exponentially with local density.
+        - **Soft Collision**: Implement `repulsion_force` in `Action` system. If `dist < 0.5`, apply force vector to push entities apart.
+        - **Metabolic Tax**: Add `crowding_tax = base_idle * (neighbor_count ^ 1.5)`. This forces dispersion without hard collision physics.
+
+- **Task B: Closed-Loop Thermodynamics (Priority: Medium)**
+    - *Why*: Food is currently created ex nihilo based on RNG. This allows for unchecked population explosions ("Malthusian Explosion").
+    - *How*:
+        - **Global Energy Pool**: A `f64` singleton tracking total energy in the universe (Entities + Food + Soil).
+        - **Zero-Sum Spawning**: New food can ONLY be spawned by draining the Global Energy Pool.
+        - **Conservation**: Death returns energy to Soil/Pool. Entropy (heat loss) permanently removes energy, requiring "Solar" injection (CPU coupled) at a fixed rate.
+
+- **Task C: Dynamic Evolutionary Pressure (Priority: Medium)**
+    - *Why*: The current "Abundance" rebalance makes survival too easy, stalling the evolution of complex brains.
+    - *How*:
+        - **Dynamic Difficulty Adjustment (DDA)**: Monitor `Average Fitness`. If fitness > threshold, automatically decrease `Solar Injection Rate` or increase `Metabolic Base Cost`.
+        - **Catastrophe Conservation**: As population rises, the probability of "Plagues" and "Wars" must increase non-linearly to maintain carrying capacity.
+
 ### 🎨 Creative Construction
 
 *Focus on the artistic and sensory experience.*
