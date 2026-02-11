@@ -10,7 +10,7 @@ async fn test_overgrazing_feedback_loop() {
     let mut env = Environment::default();
 
     let f0 = world.terrain.get_cell(10, 10).fertility;
-    world.pop_stats.biomass_h = 10000.0;
+    std::sync::Arc::make_mut(&mut world.pop_stats).biomass_h = 10000.0;
     world.update(&mut env).unwrap();
 
     let f1 = world.terrain.get_cell(10, 10).fertility;

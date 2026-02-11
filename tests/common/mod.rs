@@ -6,6 +6,7 @@ use primordium_lib::model::food::Food;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
+use std::sync::Arc;
 use uuid::Uuid;
 
 type TerrainMod = Box<dyn FnOnce(&mut World)>;
@@ -53,7 +54,7 @@ impl WorldBuilder {
 
     pub fn with_terrain(mut self, x: u16, y: u16, terrain_type: TerrainType) -> Self {
         self.terrain_mods.push(Box::new(move |world| {
-            world.terrain.set_cell_type(x, y, terrain_type);
+            Arc::make_mut(&mut world.terrain).set_cell_type(x, y, terrain_type);
         }));
         self
     }
@@ -61,16 +62,17 @@ impl WorldBuilder {
     pub fn with_outpost(mut self, x: u16, y: u16, owner_id: Uuid) -> Self {
         self.terrain_mods.push(Box::new(move |world| {
             let idx = world.terrain.index(x, y);
-            world.terrain.set_cell_type(x, y, TerrainType::Outpost);
-            world.terrain.cells[idx].owner_id = Some(owner_id);
-            world.terrain.cells[idx].energy_store = 500.0;
+            let terrain = Arc::make_mut(&mut world.terrain);
+            terrain.set_cell_type(x, y, TerrainType::Outpost);
+            terrain.cells[idx].owner_id = Some(owner_id);
+            terrain.cells[idx].energy_store = 500.0;
         }));
         self
     }
 
     pub fn with_fertility(mut self, fertility: f32) -> Self {
         self.terrain_mods.push(Box::new(move |world| {
-            for cell in &mut world.terrain.cells {
+            for cell in Arc::make_mut(&mut world.terrain).cells.iter_mut() {
                 cell.fertility = fertility;
             }
         }));

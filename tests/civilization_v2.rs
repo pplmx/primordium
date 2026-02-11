@@ -2,6 +2,7 @@ mod common;
 use common::{EntityBuilder, WorldBuilder};
 use primordium_core::systems::civilization;
 use primordium_lib::model::terrain::OutpostSpecialization;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -33,13 +34,13 @@ async fn test_contested_ownership() {
 
     // Manually override outpost energy to match original test condition
     let idx = world.terrain.index(25, 25);
-    world.terrain.cells[idx].energy_store = 100.0;
+    Arc::make_mut(&mut world.terrain).cells[idx].energy_store = 100.0;
 
     world.prepare_spatial_hash();
     world.capture_entity_snapshots();
 
     civilization::resolve_contested_ownership(
-        &mut world.terrain,
+        Arc::make_mut(&mut world.terrain),
         world.width,
         world.height,
         &world.spatial_hash,
@@ -71,11 +72,6 @@ async fn test_outpost_upgrades() {
     {
         let mut world_builder = WorldBuilder::new().with_outpost(10, 10, l_id);
 
-        // We need to set civ level to 2. WorldBuilder doesn't have this yet,
-        // but we can assume level 0 is fine if the logic just checks counts?
-        // Ah, logic checks `record.civilization_level >= 2`.
-        // We need to inject this state.
-
         for _ in 0..3 {
             world_builder = world_builder.with_entity(
                 EntityBuilder::new()
@@ -88,7 +84,7 @@ async fn test_outpost_upgrades() {
 
         let (mut world, _env) = world_builder.build();
 
-        // Manual setup for civ level (Builder gap)
+        // Manual setup for civ level
         world.lineage_registry.record_birth(l_id, 0, 0);
         if let Some(record) = world.lineage_registry.lineages.get_mut(&l_id) {
             record.civilization_level = 2;
@@ -98,7 +94,7 @@ async fn test_outpost_upgrades() {
         world.capture_entity_snapshots();
 
         civilization::resolve_outpost_upgrades(
-            &mut world.terrain,
+            Arc::make_mut(&mut world.terrain),
             world.width,
             world.height,
             &world.spatial_hash,
@@ -140,7 +136,7 @@ async fn test_outpost_upgrades() {
         world.capture_entity_snapshots();
 
         civilization::resolve_outpost_upgrades(
-            &mut world.terrain,
+            Arc::make_mut(&mut world.terrain),
             world.width,
             world.height,
             &world.spatial_hash,
@@ -160,16 +156,13 @@ async fn test_outpost_upgrades() {
 #[tokio::test]
 async fn test_dark_age_collapse_and_recovery() {
     let l_id = Uuid::new_v4();
-    let _idx_10_10 = 10 + 10 * 50; // Manual index calc for assertion (width=50 default)
 
     // Phase 1: Golden Age
-    // Establish a thriving outpost
     let mut world_builder =
         WorldBuilder::new()
             .with_outpost(10, 10, l_id)
-            .with_memory(l_id, "knowledge", 1.0); // High collective memory
+            .with_memory(l_id, "knowledge", 1.0);
 
-    // Add Alpha/Entities
     for i in 0..5 {
         world_builder = world_builder.with_entity(
             EntityBuilder::new()
@@ -183,52 +176,30 @@ async fn test_dark_age_collapse_and_recovery() {
     let (mut world, mut env) = world_builder.build();
     let idx = world.terrain.index(10, 10);
 
-    // Verify initial state
     assert!(world.terrain.cells[idx].energy_store > 0.0);
     assert_eq!(
         world.lineage_registry.get_memory_value(&l_id, "knowledge"),
         1.0
     );
 
-    // Phase 2: The Cataclysm (Kill everyone)
-    // We can simulate this by manually clearing the ECS
+    // Phase 2: The Cataclysm
     world.ecs.clear();
-    // And decaying memory
 
-    // Phase 3: Dark Age (Decay)
+    // Phase 3: Dark Age
     for _ in 0..100 {
-        // Run update logic that handles decay (environment update)
         world.lineage_registry.decay_memory(0.95);
-
-        // Simulate outpost decay (energy loss due to no maintenance)
-        // Actual game logic for outpost decay is in handle_outposts_ecs,
-        // which reduces energy if no owner is nearby.
-        // We need to run the full update loop or call the system.
-        // Since ECS is empty, update() is safe.
         world
             .update(&mut env)
             .expect("Update failed during Dark Age");
     }
 
-    // Verify Knowledge Lost
     let knowledge = world.lineage_registry.get_memory_value(&l_id, "knowledge");
-    assert!(
-        knowledge < 0.1,
-        "Collective memory did not decay enough (Val: {})",
-        knowledge
-    );
+    assert!(knowledge < 0.1);
 
-    // Verify Outpost Abandoned/Decayed
     let cell = &world.terrain.cells[idx];
-    // If logic works, energy should drain or ownership lost
-    // Outpost ownership persists until claimed by another, but energy drains.
-    // Let's check energy.
-    assert!(
-        cell.energy_store < 500.0,
-        "Outpost energy did not decay without maintenance"
-    );
+    assert!(cell.energy_store < 500.0);
 
-    // Phase 4: Recovery (New settlers)
+    // Phase 4: Recovery
     let new_settler = EntityBuilder::new()
         .at(10.0, 10.0)
         .lineage(l_id)
@@ -240,10 +211,6 @@ async fn test_dark_age_collapse_and_recovery() {
         world.update(&mut env).expect("Recovery update failed");
     }
 
-    // Verify recovery started (energy store increasing or stable, memory might not recover instantly)
     let cell_recovered = &world.terrain.cells[idx];
-    assert!(
-        cell_recovered.energy_store > 0.0,
-        "Outpost should be active again"
-    );
+    assert!(cell_recovered.energy_store > 0.0);
 }

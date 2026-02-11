@@ -22,7 +22,7 @@ async fn test_larval_gating_logic() {
     // Instead, we'll manually set the outputs in a way that would trigger commands if not gated.
 
     // We'll test by setting the terrain to Wall and see if the larva can Dig it.
-    world.terrain.set_cell_type(5, 5, TerrainType::Wall);
+    std::sync::Arc::make_mut(&mut world.terrain).set_cell_type(5, 5, TerrainType::Wall);
 
     // We'll give it enough energy
     larva.metabolism.energy = 100.0;

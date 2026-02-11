@@ -37,9 +37,9 @@ async fn test_barren_transition() {
         .build();
 
     for _ in 0..10 {
-        world.terrain.deplete(5.5, 5.5, 0.1);
+        std::sync::Arc::make_mut(&mut world.terrain).deplete(5.5, 5.5, 0.1);
     }
-    world.terrain.update(0.0, 0, 42);
+    std::sync::Arc::make_mut(&mut world.terrain).update(0.0, 0, 42);
     let terrain_type = world.terrain.get_cell(ix, iy).terrain_type;
     assert!(terrain_type == TerrainType::Barren || terrain_type == TerrainType::Desert);
 }

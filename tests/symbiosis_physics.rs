@@ -26,6 +26,7 @@ async fn test_symbiosis_spring_force() {
         b: 0,
         rank: 0.5,
         status: primordium_lib::model::state::entity::EntityStatus::Bonded,
+        trophic_potential: 0.5,
         genotype: Some(e2.intel.genotype.clone()),
     };
 

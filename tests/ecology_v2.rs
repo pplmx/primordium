@@ -150,8 +150,8 @@ async fn test_niche_partitioning_coexistence() {
         food: &food_data,
         food_hash: &world.food_hash,
         eaten_indices: &mut eaten_indices,
-        terrain: &mut world.terrain,
-        pheromones: &mut world.pheromones,
+        terrain: std::sync::Arc::make_mut(&mut world.terrain),
+        pheromones: std::sync::Arc::make_mut(&mut world.pheromones),
         config: &world.config,
         lineage_consumption: &mut lineage_consumption,
     };

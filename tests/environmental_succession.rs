@@ -43,9 +43,9 @@ async fn test_succession_and_carbon_cycle() {
 
     // Check for Forest transition
     // Manually set a cell to high fertility and biomass
-    world.terrain.set_cell_type(5, 5, TerrainType::Plains);
+    std::sync::Arc::make_mut(&mut world.terrain).set_cell_type(5, 5, TerrainType::Plains);
     for _ in 0..1000 {
-        world.terrain.add_biomass(5.0, 5.0, 10.0);
+        std::sync::Arc::make_mut(&mut world.terrain).add_biomass(5.0, 5.0, 10.0);
         world.update(&mut env).unwrap();
         if world.terrain.get_cell(5, 5).terrain_type == TerrainType::Forest {
             return; // Success
@@ -79,7 +79,7 @@ async fn test_biodiversity_hotspots() {
 
     for y in 10..20 {
         for x in 10..20 {
-            world.terrain.set_cell_type(x, y, TerrainType::Plains);
+            std::sync::Arc::make_mut(&mut world.terrain).set_cell_type(x, y, TerrainType::Plains);
         }
     }
 

@@ -17,7 +17,7 @@ async fn test_wall_collisions() {
     // Place a wall block to prevent tunneling
     for dx in 5..=7 {
         for dy in 5..=7 {
-            world.terrain.set_cell_type(dx, dy, TerrainType::Wall);
+            std::sync::Arc::make_mut(&mut world.terrain).set_cell_type(dx, dy, TerrainType::Wall);
         }
     }
 

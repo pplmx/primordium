@@ -67,7 +67,7 @@ async fn test_lineage_population_stats() {
     let entities = world.get_all_entities();
     let food_count = world.get_food_count();
     history::update_population_stats(history::StatsContext {
-        stats: &mut world.pop_stats,
+        stats: std::sync::Arc::make_mut(&mut world.pop_stats),
         entities: &entities,
         food_count,
         top_fitness: 0.0,

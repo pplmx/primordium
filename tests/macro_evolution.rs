@@ -36,8 +36,8 @@ async fn test_engineer_biological_irrigation_pressure() {
     let mut world = World::new(0, config).unwrap();
     let mut env = Environment::default();
 
-    world.terrain.set_cell_type(10, 10, TerrainType::River);
-    world.terrain.set_cell_type(11, 10, TerrainType::Plains);
+    std::sync::Arc::make_mut(&mut world.terrain).set_cell_type(10, 10, TerrainType::River);
+    std::sync::Arc::make_mut(&mut world.terrain).set_cell_type(11, 10, TerrainType::Plains);
 
     let mut eng = lifecycle::create_entity(11.0, 10.0, 0);
     eng.velocity.vx = 0.0;
@@ -76,16 +76,16 @@ async fn test_outpost_construction() {
     let mut rng = rand::thread_rng();
 
     let mut ctx = interaction::InteractionContext {
-        terrain: &mut world.terrain,
+        terrain: std::sync::Arc::make_mut(&mut world.terrain),
         env: &mut env,
-        pop_stats: &mut world.pop_stats,
+        pop_stats: std::sync::Arc::make_mut(&mut world.pop_stats),
         lineage_registry: &mut world.lineage_registry,
         fossil_registry: &mut world.fossil_registry,
         config: &world.config,
         tick: 0,
         width: world.width,
         height: world.height,
-        social_grid: &mut world.social_grid,
+        social_grid: std::sync::Arc::make_mut(&mut world.social_grid).as_mut_slice(),
         lineage_consumption: &mut lineage_cons,
         food_handles: &[],
         spatial_hash: &world.spatial_hash,
@@ -124,8 +124,8 @@ async fn test_outpost_energy_capacitor() {
     world.spawn_entity(donor);
 
     let idx = world.terrain.index(10, 10);
-    world.terrain.set_cell_type(10, 10, TerrainType::Outpost);
-    world.terrain.cells[idx].owner_id = Some(l_id);
+    std::sync::Arc::make_mut(&mut world.terrain).set_cell_type(10, 10, TerrainType::Outpost);
+    std::sync::Arc::make_mut(&mut world.terrain).cells[idx].owner_id = Some(l_id);
 
     world.update(&mut _env).unwrap();
 

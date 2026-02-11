@@ -33,13 +33,13 @@ async fn test_semantic_pheromone_roundtrip() {
         out
     };
     for d in res.pheromones {
-        world.pheromones.deposit(d.x, d.y, d.ptype, d.amount);
+        std::sync::Arc::make_mut(&mut world.pheromones).deposit(d.x, d.y, d.ptype, d.amount);
     }
     for d in res.sounds {
-        world.sound.deposit(d.x, d.y, d.amount);
+        std::sync::Arc::make_mut(&mut world.sound).deposit(d.x, d.y, d.amount);
     }
-    world.pheromones.update();
-    world.sound.update();
+    std::sync::Arc::make_mut(&mut world.pheromones).update();
+    std::sync::Arc::make_mut(&mut world.sound).update();
 
     // 2. Verify Signal A is in the grid
     let cell = world.pheromones.get_cell(10, 10);

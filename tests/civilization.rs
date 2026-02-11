@@ -44,10 +44,9 @@ async fn test_civilization_leveling_outposts() {
 
     for i in 0..5 {
         let idx = world.terrain.index(i as u16, 0);
-        world
-            .terrain
-            .set_cell_type(i as u16, 0, TerrainType::Outpost);
-        world.terrain.cells[idx].owner_id = Some(l_id);
+        let terrain = std::sync::Arc::make_mut(&mut world.terrain);
+        terrain.set_cell_type(i as u16, 0, TerrainType::Outpost);
+        terrain.cells[idx].owner_id = Some(l_id);
     }
 
     let outpost_counts = civilization::count_outposts_by_lineage(&world.terrain);
