@@ -61,6 +61,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 > - ✅ Tier 2 (Tasks 9-16): **已完成**
 > - ✅ Tier 4 (Tasks 27-30): **已完成** (Task 31 no_std 非必要，跳过)
 > - ✅ Task 41 (ARCHITECTURE.md): **已完成**
+> - ✅ Tasks 38, 40, 42 (文档 + CI): **已完成**
 > - ⚠️ Tier 3 (Tasks 17-26): **2/10 完成** (Task 17 observer 测试 ✅, Task 18 doc-tests ✅, Task 20 input 测试 ✅; Tasks 19,21-26 待进行)
 > - ⏸️ Tier 5-8 (Tasks 32-50): **待进行** (低优先级性能优化与高级测试)
 >
@@ -74,13 +75,15 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 ### 📊 工程冲刺执行总结
 
-**已完成的工作量**: 20/50 任务 (40%)
+**已完成的工作量**: 23/50 任务 (46%)
 
 **高价值交付**:
 - ✅ 代码纯度提升：消除所有 Clippy 抑制
 - ✅ 可维护性增强：拆分所有超大文件和函数
 - ✅ 架构清晰化：完善 8-crate Workspace 文档
 - ✅ 测试覆盖增强：primordium_observer 从 0 测试增至 11 测试
+- ✅ API 文档化：primordium_data 和 primordium_observer 全部 pub API 添加 doc comments
+- ✅ CI 强化：添加 `cargo doc --no-deps --workspace -D warnings` 检查
 
 **质量保证状态**:
 ```bash
@@ -168,17 +171,17 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 36 | Server proposal 消除拷贝 | `src/server/main.rs:224` | 使用 `Arc<Proposal>` 共享所有权 |
 | 37 | Brain crossover 优化 | `core/brain.rs` | 评估 11 处 clone() 可否减少 |
 
-### Tier 6: 文档完善 — T4 (P2 — 知识传承) [Task 38-42] ⚠️ 部分完成 (2026-02-10)
+### Tier 6: 文档完善 — T4 (P2 — 知识传承) [Task 38-42] ⚠️ 部分完成 (2026-02-11)
 
 > **目标**: 所有公开 API 有 doc comments，`cargo doc` 零警告。
 
 | # | 任务 | Crate | 要求 | 状态 |
 |---|------|-------|------|------|
-| 38 | primordium_data doc comments | `crates/primordium_data/` | 所有 pub struct/enum/fn 添加 `///` | ⏸️ |
+| 38 | primordium_data doc comments | `crates/primordium_data/` | 所有 pub struct/enum/fn 添加 `///` | ✅ 2026-02-11 |
 | 39 | primordium_io doc comments | `crates/primordium_io/` | 所有 pub API 添加 `///` | ⏸️ |
-| 40 | primordium_observer doc comments | `crates/primordium_observer/` | SiliconScribe + pub API | ⏸️ |
+| 40 | primordium_observer doc comments | `crates/primordium_observer/` | SiliconScribe + pub API | ✅ 2026-02-11 |
 | 41 | 更新 ARCHITECTURE.md | 项目根目录 | ✅ 反映当前 8-crate workspace 结构，添加依赖流向图 | ✅ 2026-02-10 |
-| 42 | CI 添加 `cargo doc` 检查 | `.github/workflows/ci.yml` | 添加 `cargo doc --no-deps --workspace -D warnings` | ⏸️ |
+| 42 | CI 添加 `cargo doc` 检查 | `.github/workflows/ci.yml` | 添加 `cargo doc --no-deps --workspace -D warnings` | ✅ 2026-02-11 |
 
 ### Tier 7: 高级测试 — T3 (P2 — 深度保障) [Task 43-46]
 
