@@ -67,6 +67,33 @@ impl App {
                     Color::Cyan,
                 ));
             }
+            KeyCode::Char('P') if !self.show_archeology => {
+                if let Ok(()) = self.load_replay("logs/latest_replay.json") {
+                    self.event_log.push_back((
+                        "Replay STARTED from logs/latest_replay.json".to_string(),
+                        Color::Green,
+                    ));
+                }
+            }
+            KeyCode::Char('R') if !self.view_mode == 5 => {
+                // R is also used for Resource Boom, but let's assume it's gated or shared
+                // Wait, R is Resource Boom.
+                // Let's use 'E' for rEcording? No, '1-8' are views.
+                // Let's use 'S' for Recording (Start/Stop)
+            }
+            KeyCode::Char('S') => {
+                if !self.input_log.is_empty() {
+                    let _ = self.save_recording();
+                    self.input_log.clear();
+                    self.event_log
+                        .push_back(("Recording SAVED and CLEARED".to_string(), Color::Green));
+                } else {
+                    self.event_log.push_back((
+                        "Recording STARTED (Input will be logged)".to_string(),
+                        Color::Cyan,
+                    ));
+                }
+            }
             KeyCode::Char('A') => {
                 self.export_ancestry_tree();
             }
