@@ -1,4 +1,7 @@
-# Primordium (原初之境)
+# Primordium (原初之境) 🧬
+
+> A massive-scale biological simulation engine powered by Rust, ECS, and NEAT neural networks.
+<!-- Automated check 2 -->
 
 [简体中文](./docs/README_zh.md) | [Changelog](./CHANGELOG.md)
 

@@ -10,6 +10,7 @@ use primordium_lib::model::world::World;
 async fn test_rank_accumulation() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
+    config.metabolism.reproduction_threshold = 10000.0; // Disable reproduction
     let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
 
