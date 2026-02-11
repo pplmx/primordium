@@ -47,7 +47,7 @@ impl World {
         self.capture_entity_snapshots_with_handles(&handles);
         self.pass_learning();
 
-        self.influence.update(&self.entity_snapshots);
+        Arc::make_mut(&mut self.influence).update(&self.entity_snapshots);
 
         let overmind_broadcasts = {
             let mut query = self.ecs.query::<EntityComponents>();
@@ -107,9 +107,9 @@ impl World {
 
                 systems::apply_actions_sequential(
                     all_outputs,
-                    &mut self.pheromones,
-                    &mut self.sound,
-                    &mut self.pressure,
+                    Arc::make_mut(&mut self.pheromones),
+                    Arc::make_mut(&mut self.sound),
+                    Arc::make_mut(&mut self.pressure),
                     env,
                 )
             };
@@ -253,10 +253,14 @@ impl World {
     }
 
     fn update_grids_and_environment(&mut self, env: &mut Environment) {
+        let phero = Arc::make_mut(&mut self.pheromones);
+        let snd = Arc::make_mut(&mut self.sound);
+        let press = Arc::make_mut(&mut self.pressure);
+
         rayon::join(
-            || self.pheromones.update(),
+            || phero.update(),
             || {
-                rayon::join(|| self.sound.update(), || self.pressure.update());
+                rayon::join(|| snd.update(), || press.update());
             },
         );
 
@@ -281,7 +285,7 @@ impl World {
         );
 
         if self.tick.is_multiple_of(50) {
-            for val in &mut self.social_grid {
+            for val in Arc::make_mut(&mut self.social_grid) {
                 *val = 0;
             }
         }
@@ -292,14 +296,16 @@ impl World {
         environment::handle_disasters(
             env,
             pop_count,
-            &mut self.terrain,
+            Arc::make_mut(&mut self.terrain),
             &mut self.rng,
             &self.config,
         );
 
-        let (_total_plant_biomass, total_sequestration) =
-            self.terrain
-                .update(self.pop_stats.biomass_h, self.tick, world_seed);
+        let (_total_plant_biomass, total_sequestration) = Arc::make_mut(&mut self.terrain).update(
+            self.pop_stats.biomass_h,
+            self.tick,
+            world_seed,
+        );
 
         let total_owned_forests = self
             .terrain
@@ -367,16 +373,16 @@ impl World {
             });
 
         let mut interaction_ctx = primordium_core::systems::interaction::InteractionContext {
-            terrain: &mut self.terrain,
+            terrain: Arc::make_mut(&mut self.terrain),
             env,
-            pop_stats: &mut self.pop_stats,
+            pop_stats: Arc::make_mut(&mut self.pop_stats),
             lineage_registry: &mut self.lineage_registry,
             fossil_registry: &mut self.fossil_registry,
             config: &self.config,
             tick: self.tick,
             width: self.width,
             height: self.height,
-            social_grid: &mut self.social_grid,
+            social_grid: Arc::make_mut(&mut self.social_grid).as_mut_slice(),
             lineage_consumption: &mut self.lineage_consumption,
             food_handles,
             spatial_hash: &self.spatial_hash,

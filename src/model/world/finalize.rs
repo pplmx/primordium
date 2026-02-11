@@ -6,6 +6,7 @@ use primordium_core::systems::{biological, civilization, history, social, stats}
 use primordium_data::{Entity, Health, Identity, Intel, Metabolism, Pathogen, Physics};
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
+use std::sync::Arc;
 
 type ProposalResult = (hecs::Entity, Vec<(hecs::Entity, Pathogen)>, bool);
 
@@ -126,9 +127,9 @@ impl World {
                 let fertilize_amount =
                     (met.max_energy * self.config.ecosystem.corpse_fertility_mult as f64) as f32
                         / 100.0;
-                self.terrain.fertilize(phys.x, phys.y, fertilize_amount);
-                self.terrain
-                    .add_biomass(phys.x, phys.y, fertilize_amount * 10.0);
+                let terrain = Arc::make_mut(&mut self.terrain);
+                terrain.fertilize(phys.x, phys.y, fertilize_amount);
+                terrain.add_biomass(phys.x, phys.y, fertilize_amount * 10.0);
 
                 let _ = self.ecs.despawn(handle);
             }
@@ -181,20 +182,20 @@ impl World {
                 &outpost_counts,
             );
             self.lineage_registry.prune();
-            let _ = self.logger.save_lineages_async(
-                self.lineage_registry.clone(),
-                format!("{}/lineages.json", self.log_dir),
-            );
-            let _ = self.logger.save_fossils_async(
-                self.fossil_registry.clone(),
-                format!("{}/fossils.json.gz", self.log_dir),
-            );
+            let reg_clone = self.lineage_registry.clone();
+            let fossil_clone = self.fossil_registry.clone();
+
             let _ = self
                 .logger
-                .sync_to_storage_async(self.lineage_registry.clone(), self.fossil_registry.clone());
+                .save_lineages_async(reg_clone.clone(), format!("{}/lineages.json", self.log_dir));
+            let _ = self.logger.save_fossils_async(
+                fossil_clone.clone(),
+                format!("{}/fossils.json.gz", self.log_dir),
+            );
+            let _ = self.logger.sync_to_storage_async(reg_clone, fossil_clone);
             let snap_ev = LiveEvent::Snapshot {
                 tick: self.tick,
-                stats: self.pop_stats.clone(),
+                stats: (*self.pop_stats).clone(),
                 timestamp: Utc::now().to_rfc3339(),
             };
             if let Some(ref storage) = self.logger.storage {
@@ -226,7 +227,7 @@ impl World {
 
     pub fn finalize_civilization(&mut self, entity_handles: &[hecs::Entity]) {
         civilization::handle_outposts_ecs(
-            &mut self.terrain,
+            Arc::make_mut(&mut self.terrain),
             &mut self.ecs,
             &civilization::OutpostContext {
                 entity_handles,
@@ -239,7 +240,7 @@ impl World {
         );
 
         civilization::resolve_contested_ownership(
-            &mut self.terrain,
+            Arc::make_mut(&mut self.terrain),
             self.width,
             self.height,
             &self.spatial_hash,
@@ -247,7 +248,7 @@ impl World {
             &self.lineage_registry,
         );
         civilization::resolve_outpost_upgrades(
-            &mut self.terrain,
+            Arc::make_mut(&mut self.terrain),
             self.width,
             self.height,
             &self.spatial_hash,
@@ -260,7 +261,7 @@ impl World {
             .is_multiple_of(self.config.world.power_grid_interval)
         {
             civilization::resolve_power_grid(
-                &mut self.terrain,
+                Arc::make_mut(&mut self.terrain),
                 self.width,
                 self.height,
                 &self.lineage_registry,
@@ -269,26 +270,20 @@ impl World {
     }
 
     pub fn finalize_stats(&mut self, env: &mut Environment, tick: u64) {
-        let snapshot = self.create_snapshot(None);
-        self.cached_terrain = snapshot.terrain;
-        self.cached_pheromones = snapshot.pheromones;
-        self.cached_sound = snapshot.sound;
-        self.cached_pressure = snapshot.pressure;
-        self.cached_influence = snapshot.influence;
-        self.cached_social_grid = snapshot.social_grid;
-        self.cached_rank_grid = snapshot.rank_grid;
+        // Optimization: update_stats only needs a slice of entity snapshots which we already have
+        let food_count = self.ecs.query::<&primordium_data::Food>().iter().count();
 
         stats::update_stats(
             &stats::StatsInput {
                 tick,
-                entities: &snapshot.entities,
-                food_count: snapshot.food.len(),
+                entities: &self.entity_snapshots,
+                food_count,
                 carbon_level: env.carbon_level,
                 mutation_scale: 1.0,
                 terrain: &self.terrain,
             },
-            &mut self.pop_stats,
-            &mut self.hall_of_fame,
+            Arc::make_mut(&mut self.pop_stats),
+            Arc::make_mut(&mut self.hall_of_fame),
         );
 
         history::handle_fossilization(

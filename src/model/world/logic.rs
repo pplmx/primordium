@@ -120,7 +120,8 @@ impl World {
                 env.oxygen_level = (env.oxygen_level + (amount as f64 * sign)).clamp(0.0, 100.0);
             }
             TradeResource::SoilFertility => {
-                self.terrain.add_global_fertility(amount * sign as f32);
+                std::sync::Arc::make_mut(&mut self.terrain)
+                    .add_global_fertility(amount * sign as f32);
             }
             TradeResource::Biomass => {
                 if incoming {
