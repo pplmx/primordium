@@ -64,6 +64,7 @@ impl World {
                             self.tick,
                             self.config.metabolism.maturity_age,
                         ),
+                        trophic_potential: metabolism.trophic_potential,
                         genotype: Some(Arc::clone(&intel.genotype)),
                     });
                 }
@@ -102,6 +103,10 @@ impl World {
         data.into_iter().map(|d| d.0).collect()
     }
 
+    /// Returns all entities in the simulation as owned structs.
+    ///
+    /// **WARNING**: This is an expensive operation (O(N) deep clones) and should
+    /// only be used for tests, serialization, or infrequent analysis.
     pub fn get_all_entities(&self) -> Vec<primordium_data::Entity> {
         let mut entities = Vec::new();
         let sorted_handles = self.get_sorted_handles();
@@ -152,7 +157,7 @@ impl World {
         self.food_persist.sort_by_key(|f| (f.x, f.y));
     }
 
-    pub fn create_snapshot(&self, selected_id: Option<uuid::Uuid>) -> WorldSnapshot {
+    pub fn create_snapshot(&self, selected_id: Option<uuid::Uuid>) -> Arc<WorldSnapshot> {
         let mut entities = Vec::new();
 
         for (_handle, (identity, position, _velocity, physics, metabolism, intel, health)) in
@@ -219,22 +224,22 @@ impl World {
         }
         food.sort_by_key(|f| (f.x, f.y));
 
-        WorldSnapshot {
+        Arc::new(WorldSnapshot {
             tick: self.tick,
             entities,
             food,
-            stats: self.pop_stats.clone(),
-            hall_of_fame: self.hall_of_fame.clone(),
-            terrain: self.cached_terrain.clone(),
-            pheromones: self.cached_pheromones.clone(),
-            sound: self.cached_sound.clone(),
-            pressure: self.cached_pressure.clone(),
-            influence: self.cached_influence.clone(),
-            social_grid: self.cached_social_grid.clone(),
-            rank_grid: self.cached_rank_grid.clone(),
+            stats: Arc::clone(&self.pop_stats),
+            hall_of_fame: Arc::clone(&self.hall_of_fame),
+            terrain: Arc::clone(&self.terrain),
+            pheromones: Arc::clone(&self.pheromones),
+            sound: Arc::clone(&self.sound),
+            pressure: Arc::clone(&self.pressure),
+            influence: Arc::clone(&self.influence),
+            social_grid: Arc::clone(&self.social_grid),
+            rank_grid: Arc::clone(&self.cached_rank_grid),
             width: self.width,
             height: self.height,
-        }
+        })
     }
 
     pub fn prepare_spatial_hash(&mut self) -> SpatialHashResult {
