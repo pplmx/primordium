@@ -6,63 +6,29 @@ pub struct HelpWidget {
     pub help_tab: u8,
 }
 
-impl Widget for HelpWidget {
-    fn render(self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
-        let help_width = 60.min(area.width - 4);
-        let help_height = 20.min(area.height - 4);
-        let help_area = Rect::new(
-            (area.width - help_width) / 2,
-            (area.height - help_height) / 2,
-            help_width,
-            help_height,
-        );
-        Clear.render(help_area, buf);
-
-        let tab_titles = [
-            "[1]Controls",
-            "[2]Symbols",
-            "[3]Concepts",
-            "[4]Eras",
-            "[5]Visuals",
-            "[6]Research",
-            "[7]Civ",
-        ];
-        let mut tab_spans = Vec::new();
-        for (i, title) in tab_titles.iter().enumerate() {
-            if i == self.help_tab as usize {
-                tab_spans.push(ratatui::text::Span::styled(
-                    format!(" {} ", title),
-                    Style::default().bg(Color::Cyan).fg(Color::Black),
-                ));
-            } else {
-                tab_spans.push(ratatui::text::Span::styled(
-                    format!(" {} ", title),
-                    Style::default().fg(Color::DarkGray),
-                ));
-            }
-        }
-
-        let help_content: Vec<&str> = match self.help_tab {
+impl HelpWidget {
+    pub fn get_content(tab: u8) -> Vec<&'static str> {
+        match tab {
             0 => vec![
                 "",
                 " ⌨️  KEYBOARD CONTROLS",
                 " ─────────────────────────────────",
                 " [Q]       Quit simulation",
                 " [Space]   Pause / Resume",
-                " [z]       Toggle Cinematic Mode",
-                " [B]       Toggle Brain panel",
-                " [A]       Toggle Ancestry Tree",
-                " [Y]       Toggle Archeology Tool",
+                " [z/Z]     Toggle Cinematic Mode",
+                " [b]       Toggle Brain panel",
+                " [a]       Toggle Ancestry Tree",
+                " [y]       Toggle Archeology Tool",
                 " [+/-]     Speed up / Slow down (or edit gene)",
                 " [[/]]     Archeology Seek (Time)",
                 " [↑/↓]     Fossil Select (in Archeology)",
-                " [G]       Resurrect Fossil (Cloning)",
+                " [g/G]     Resurrect Fossil (Cloning)",
                 " [1-8]     Switch View modes",
-                " [J]       Toggle Social Brush (Peace/War)",
-                " [H]       Toggle this Help",
-                " [X]       Genetic Surge (mutate all)",
-                " [C]       Export selected DNA",
-                " [V]       Import DNA from file",
+                " [j/J]     Toggle Social Brush (Peace/War)",
+                " [h]       Toggle this Help",
+                " [x/X]     Genetic Surge (mutate all)",
+                " [c]       Export selected DNA",
+                " [v/V]     Import DNA from file",
                 "",
                 " 🧬 GENETIC ENGINEERING",
                 " ─────────────────────────────────",
@@ -71,18 +37,12 @@ impl Widget for HelpWidget {
                 "",
                 " ⚡ DIVINE INTERVENTION (Targeted)",
                 " ─────────────────────────────────",
-                " [M] Mutate  [K] Smite  [P] Reincarnate",
+                " [m] Mutate  [k] Smite  [p] Reincarnate",
                 "",
                 " 🛠️  DIVINE EDITOR (Brush)",
                 " ─────────────────────────────────",
                 " [!] Plains  [@] Mountain  [#] River",
                 " [$] Oasis   [%] Wall      [^] Barren",
-                "",
-                " 鼠标控制 (MOUSE CONTROLS)",
-                " ─────────────────────────────────",
-                " Left Click   Select entity",
-                " Left Drag    Paint Terrain",
-                " Right Click  Spawn food cluster",
             ],
 
             1 => vec![
@@ -193,8 +153,64 @@ impl Widget for HelpWidget {
                 " 🛡️ Ancestral Traits: Long-lived lineages",
                 "    evolve persistent epigenetic bonuses.",
             ],
+            7 => vec![
+                "",
+                " ⚡ DIVINE MACROS & PERSISTENCE",
+                " ─────────────────────────────────",
+                " [W] Save state   [O] Load state",
+                " [B] Backup World [A] Export Ancestry Tree",
+                " [C] Export Brain [P] Toggle Auto-Play",
+                " [F] Relief Energy (Lineage broadcast)",
+                "",
+                " 🌋 GLOBAL DISASTERS & BOOMS",
+                " ─────────────────────────────────",
+                " [L] Mass Extinction (90% wipe)",
+                " [K] Toggle Heat Wave (Scorching)",
+                " [R] Resource Boom (100x food)",
+            ],
             _ => vec![""],
-        };
+        }
+    }
+}
+
+impl Widget for HelpWidget {
+    fn render(self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
+        let help_width = 60.min(area.width - 4);
+        let help_height = 20.min(area.height - 4);
+        let help_area = Rect::new(
+            (area.width - help_width) / 2,
+            (area.height - help_height) / 2,
+            help_width,
+            help_height,
+        );
+        Clear.render(help_area, buf);
+
+        let tab_titles = [
+            "[1]Controls",
+            "[2]Symbols",
+            "[3]Concepts",
+            "[4]Eras",
+            "[5]Visuals",
+            "[6]Research",
+            "[7]Civ",
+            "[8]Divine",
+        ];
+        let mut tab_spans = Vec::new();
+        for (i, title) in tab_titles.iter().enumerate() {
+            if i == self.help_tab as usize {
+                tab_spans.push(ratatui::text::Span::styled(
+                    format!(" {} ", title),
+                    Style::default().bg(Color::Cyan).fg(Color::Black),
+                ));
+            } else {
+                tab_spans.push(ratatui::text::Span::styled(
+                    format!(" {} ", title),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+        }
+
+        let help_content = Self::get_content(self.help_tab);
 
         let mut lines: Vec<ratatui::text::Line> = Vec::new();
         lines.push(ratatui::text::Line::from(tab_spans));
@@ -210,37 +226,74 @@ impl Widget for HelpWidget {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn test_help_tab_count() {}
+    fn test_help_tab_count() {
+        let widget = HelpWidget { help_tab: 0 };
+        // We have tabs 0 to 6
+        assert_eq!(widget.help_tab, 0);
+    }
 
     #[test]
     fn test_keyboard_shortcuts_documented() {
-        let _required_shortcuts = [
+        let mut all_help_text = String::new();
+        for i in 0..8 {
+            let content = HelpWidget::get_content(i);
+            for line in content {
+                all_help_text.push_str(line);
+                all_help_text.push(' ');
+            }
+        }
+
+        let required_shortcuts = [
             "[Q]",
             "[Space]",
-            "[z]",
+            "[z/Z]",
+            "[b]",
             "[B]",
+            "[a]",
             "[A]",
-            "[Y]",
+            "[y]",
             "[+/-]",
             "[[/]]",
             "[↑/↓]",
-            "[G]",
+            "[g/G]",
             "[1-8]",
-            "[J]",
-            "[H]",
-            "[X]",
+            "[j/J]",
+            "[h]",
+            "[x/X]",
+            "[c]",
             "[C]",
-            "[V]",
-            "[M]",
-            "[K]",
-            "[P]",
+            "[v/V]",
+            "[m]",
+            "[k]",
+            "[p]",
             "[!]",
             "[@]",
             "[#]",
             "[$]",
             "[%]",
             "[^]",
+            "[W]",
+            "[O]",
+            "[F]",
+            "[L]",
+            "[R]",
+            "[P]",
         ];
+
+        // Tab check
+        for i in 0..8 {
+            let _content = HelpWidget::get_content(i);
+        }
+
+        for shortcut in required_shortcuts {
+            assert!(
+                all_help_text.contains(shortcut),
+                "Shortcut {} is not documented in help content",
+                shortcut
+            );
+        }
     }
 }
