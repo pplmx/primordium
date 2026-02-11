@@ -3,6 +3,7 @@ use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 use primordium_tui::renderer::WorldWidget;
 use rand::Rng;
 use ratatui::style::Color;
+use std::sync::Arc;
 
 impl App {
     pub fn handle_mouse(&mut self, mouse: MouseEvent) {
@@ -80,11 +81,13 @@ impl App {
                     let ix = (wx as usize).min(self.world.width as usize - 1);
                     let iy = (wy as usize).min(self.world.height as usize - 1);
                     let width = self.world.width as usize;
-                    self.world.social_grid[iy * width + ix] = self.social_brush;
+                    Arc::make_mut(&mut self.world.social_grid)[iy * width + ix] = self.social_brush;
                 } else {
-                    self.world
-                        .terrain
-                        .set_cell_type(wx as u16, wy as u16, self.brush_type);
+                    Arc::make_mut(&mut self.world.terrain).set_cell_type(
+                        wx as u16,
+                        wy as u16,
+                        self.brush_type,
+                    );
                 }
             }
         }

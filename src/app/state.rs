@@ -4,6 +4,7 @@ use ratatui::layout::Rect;
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use sysinfo::System;
 use uuid::Uuid;
@@ -79,7 +80,7 @@ pub struct App {
     pub event_log: VecDeque<(String, Color)>,
 
     pub network_state: crate::model::infra::network::NetworkState,
-    pub latest_snapshot: Option<crate::model::snapshot::WorldSnapshot>,
+    pub latest_snapshot: Option<Arc<crate::model::snapshot::WorldSnapshot>>,
     pub network: Option<crate::client::manager::NetworkManager>,
 
     pub hof_query_rx: Option<std::sync::mpsc::Receiver<Vec<(Uuid, u32, bool)>>>,

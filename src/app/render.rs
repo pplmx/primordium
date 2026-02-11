@@ -5,12 +5,13 @@ use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Block;
 use ratatui::Frame;
+use std::sync::Arc;
 
 impl App {
     pub fn draw(&mut self, f: &mut Frame) {
-        // Clone the snapshot first to release the borrow on self
+        // Just clone the Arc, which is cheap
         let snapshot = if let Some(s) = self.latest_snapshot.as_ref() {
-            s.clone()
+            Arc::clone(s)
         } else {
             return;
         };
