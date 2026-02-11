@@ -1,0 +1,12 @@
+[book]
+authors = ["Primordium Contributors"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Primordium Technical Manual"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output.html]
+git-repository-url = "https://github.com/pplmx/primordium"
