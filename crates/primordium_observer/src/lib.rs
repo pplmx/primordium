@@ -1,18 +1,29 @@
+//! The Silicon Scribe narrative system for the Primordium simulation.
+//!
+//! Provides async narration generation and history management via mpsc channels.
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
+/// A single narrative entry describing a simulation event.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Narration {
+    /// The simulation tick when this event occurred.
     pub tick: u64,
+    /// The category or type of event (e.g., "ExtinctionEvent", "NewEra").
     pub event_type: String,
+    /// The human-readable narrative text describing the event.
     pub text: String,
+    /// The severity or importance of the event (0.0 to 1.0).
     pub severity: f32,
 }
 
+/// Trait for generating narrative text from simulation events.
 #[async_trait]
 pub trait Narrator: Send + Sync {
+    /// Generates a narrative string for a given simulation event.
     async fn generate_narration(
         &self,
         tick: u64,
@@ -22,6 +33,7 @@ pub trait Narrator: Send + Sync {
     ) -> String;
 }
 
+/// A template-based narrator that generates stylized narratives for known event types.
 pub struct HeuristicNarrator;
 
 #[async_trait]
@@ -63,8 +75,11 @@ impl Narrator for HeuristicNarrator {
     }
 }
 
+/// Async narrative engine that manages narration generation and history via mpsc channels.
 pub struct SiliconScribe {
+    /// Thread-safe collection of generated narrations.
     pub narrations: Arc<Mutex<Vec<Narration>>>,
+    /// Maximum number of narrations to retain in history.
     pub max_history: usize,
     tx: mpsc::UnboundedSender<NarrationRequest>,
 }
@@ -83,6 +98,7 @@ impl Default for SiliconScribe {
 }
 
 impl SiliconScribe {
+    /// Creates a new SiliconScribe with the given narrator implementation.
     pub fn new(narrator: Box<dyn Narrator>) -> Self {
         let narrations = Arc::new(Mutex::new(Vec::new()));
         let (tx, mut rx) = mpsc::unbounded_channel::<NarrationRequest>();
@@ -126,6 +142,7 @@ impl SiliconScribe {
         }
     }
 
+    /// Queues a narration request for async processing.
     pub fn narrate(&self, tick: u64, event_type: &str, description: &str, severity: f32) {
         let _ = self.tx.send(NarrationRequest {
             tick,
@@ -135,6 +152,7 @@ impl SiliconScribe {
         });
     }
 
+    /// Consumes and returns all generated narrations, clearing the history.
     pub fn consume_narrations(&self) -> Vec<Narration> {
         if let Ok(mut list) = self.narrations.lock() {
             std::mem::take(&mut *list)
