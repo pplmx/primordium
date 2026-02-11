@@ -21,7 +21,7 @@ pub struct FeedingContext<'a> {
 
 pub struct SpawnFoodContext<'a> {
     pub world: &'a mut hecs::World,
-    pub env: &'a Environment,
+    pub env: &'a mut Environment,
     pub terrain: &'a TerrainGrid,
     pub config: &'a crate::config::AppConfig,
     pub width: u16,
@@ -40,8 +40,9 @@ pub fn spawn_food_ecs(ctx: &mut SpawnFoodContext, rng: &mut impl Rng) {
         .load(std::sync::atomic::Ordering::Relaxed);
 
     let can_spawn = food_count < ctx.config.world.max_food;
+    let cost = ctx.config.metabolism.food_energy_cost;
 
-    if can_spawn {
+    if can_spawn && ctx.env.available_energy >= cost {
         let spawn_attempts = if ctx.config.ecosystem.spawn_rate_limit_enabled {
             ctx.config.ecosystem.max_food_per_tick
         } else {
@@ -49,6 +50,11 @@ pub fn spawn_food_ecs(ctx: &mut SpawnFoodContext, rng: &mut impl Rng) {
         };
 
         for _ in 0..spawn_attempts {
+            // Re-check energy in loop? No, deduction per spawn.
+            if ctx.env.available_energy < cost {
+                break;
+            }
+
             let x = rng.gen_range(1..ctx.width - 1);
             let y = rng.gen_range(1..ctx.height - 1);
             let terrain_mod = ctx.terrain.food_spawn_modifier(f64::from(x), f64::from(y));
@@ -70,6 +76,8 @@ pub fn spawn_food_ecs(ctx: &mut SpawnFoodContext, rng: &mut impl Rng) {
                 ));
                 ctx.food_count_ptr
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+                ctx.env.available_energy -= cost;
             }
         }
     }

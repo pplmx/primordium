@@ -69,6 +69,8 @@ async fn test_metamorphosis_transition_and_remodeling() {
 
     // 1. Create a larva close to maturity
     let mut larva = lifecycle::create_entity(5.0, 5.0, 0);
+    larva.metabolism.energy = 2000.0;
+    larva.metabolism.max_energy = 2000.0;
     larva.metabolism.has_metamorphosed = false;
     larva.metabolism.birth_tick = 0;
     std::sync::Arc::make_mut(&mut larva.intel.genotype).maturity_gene = 1.0;
@@ -99,6 +101,10 @@ async fn test_metamorphosis_transition_and_remodeling() {
     assert!(metamorphosed, "Metamorphosis event should be triggered");
 
     let adult = &world.get_all_entities()[0];
+    assert_eq!(
+        adult.identity.id, _initial_id,
+        "Entity died and was replaced!"
+    );
     assert!(adult.metabolism.has_metamorphosed);
     assert!(adult.metabolism.max_energy > initial_max_energy);
     assert!(adult.physics.max_speed > initial_speed);

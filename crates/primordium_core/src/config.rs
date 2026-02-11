@@ -71,6 +71,7 @@ pub struct MetabolismConfig {
     pub adult_speed_multiplier: f64,
     pub adult_sensing_multiplier: f64,
     pub metamorphosis_trigger_maturity: f32,
+    pub food_energy_cost: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -156,6 +157,7 @@ pub struct EcosystemConfig {
     pub spawn_rate_limit_enabled: bool,
     pub max_entities_per_tick: usize,
     pub max_food_per_tick: usize,
+    pub solar_energy_rate: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -204,6 +206,7 @@ impl Default for AppConfig {
                 adult_speed_multiplier: 1.2,
                 adult_sensing_multiplier: 1.2,
                 metamorphosis_trigger_maturity: 0.8,
+                food_energy_cost: 100.0,
             },
             evolution: EvolutionConfig {
                 mutation_rate: 0.1,
@@ -271,6 +274,7 @@ impl Default for AppConfig {
                 spawn_rate_limit_enabled: false,
                 max_entities_per_tick: 10,
                 max_food_per_tick: 5,
+                solar_energy_rate: 100.0,
             },
             target_fps: 60,
             game_mode: GameMode::Standard,
@@ -331,6 +335,10 @@ impl AppConfig {
         anyhow::ensure!(
             self.metabolism.food_value > 0.0,
             "Food value must be positive"
+        );
+        anyhow::ensure!(
+            self.metabolism.food_energy_cost >= 0.0,
+            "Food energy cost must be non-negative"
         );
 
         // Evolution validation
@@ -395,6 +403,10 @@ impl AppConfig {
         anyhow::ensure!(
             self.ecosystem.max_food_per_tick > 0,
             "Max food per tick must be positive"
+        );
+        anyhow::ensure!(
+            self.ecosystem.solar_energy_rate >= 0.0,
+            "Solar energy rate must be non-negative"
         );
 
         // Target FPS validation

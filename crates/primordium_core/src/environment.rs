@@ -137,6 +137,8 @@ pub struct Environment {
     pub oxygen_level: f64,
     /// Memory usage of the Primordium process in MB
     pub app_memory_usage_mb: f32,
+    /// Global energy pool available for spawning food/life
+    pub available_energy: f64,
 }
 
 impl Default for Environment {
@@ -159,6 +161,7 @@ impl Default for Environment {
             carbon_level: 300.0,
             oxygen_level: 21.0,
             app_memory_usage_mb: 0.0,
+            available_energy: 10000.0,
         }
     }
 }
@@ -185,6 +188,7 @@ impl Environment {
         self.ram_usage_percent = 60.0 + (t.cos() * 10.0);
         self.carbon_level = 300.0;
         self.oxygen_level = 21.0;
+        self.available_energy = 10000.0;
     }
 
     pub fn add_carbon(&mut self, amount: f64) {

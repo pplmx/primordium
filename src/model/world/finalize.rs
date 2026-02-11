@@ -92,14 +92,19 @@ impl World {
             }
         }
 
-        self.process_deaths(&proposals, tick);
+        self.process_deaths(&proposals, tick, env);
         self.process_births(new_babies);
         self.finalize_snapshots(env, events);
         self.finalize_civilization(entity_handles);
         self.finalize_stats(env, tick);
     }
 
-    pub fn process_deaths(&mut self, proposals: &[ProposalResult], tick: u64) {
+    pub fn process_deaths(
+        &mut self,
+        proposals: &[ProposalResult],
+        tick: u64,
+        env: &mut Environment,
+    ) {
         let mut dead_handles = Vec::new();
         for (handle, _, is_dead) in proposals {
             if *is_dead {
@@ -127,6 +132,12 @@ impl World {
                 let fertilize_amount =
                     (met.max_energy * self.config.ecosystem.corpse_fertility_mult as f64) as f32
                         / 100.0;
+
+                // Return energy to global pool (Energy recycling)
+                // Remaining energy + 50% of body mass (max_energy)
+                let recycled_energy = met.energy + met.max_energy * 0.5;
+                env.available_energy += recycled_energy;
+
                 let terrain = Arc::make_mut(&mut self.terrain);
                 terrain.fertilize(phys.x, phys.y, fertilize_amount);
                 terrain.add_biomass(phys.x, phys.y, fertilize_amount * 10.0);

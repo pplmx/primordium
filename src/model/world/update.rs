@@ -323,6 +323,7 @@ impl World {
         );
         env.add_carbon(pop_count as f64 * self.config.ecosystem.carbon_emission_rate);
         env.consume_oxygen(pop_count as f64 * self.config.metabolism.oxygen_consumption_rate);
+        env.available_energy += self.config.ecosystem.solar_energy_rate;
         env.tick();
 
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut self.rng);
