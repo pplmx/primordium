@@ -74,7 +74,7 @@ run_check() {
         fi
         echo ""
         rm -f "$tmp_file"
-        
+
         if [ "$non_blocking" = "true" ]; then
             return 0
         fi

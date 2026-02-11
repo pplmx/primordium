@@ -74,7 +74,7 @@ rcgen = "0.13"
 # Development Dependencies
 # ============================================================================
 [dev-dependencies]
-husky-rs = "0.2.2"
+husky-rs = "0.3.2"
 proptest = "1.4"
 proptest-derive = "0.4"
 tower = { version = "0.5", features = ["util"] }
