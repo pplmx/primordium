@@ -83,6 +83,7 @@ async fn test_metamorphosis_transition_and_remodeling() {
     let initial_max_energy = larva.metabolism.max_energy;
     let initial_speed = larva.physics.max_speed;
 
+    let _initial_id = larva.identity.id;
     world.spawn_entity(larva);
 
     world.tick = 10;

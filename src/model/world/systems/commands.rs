@@ -488,13 +488,15 @@ pub fn generate_commands_for_entity(
         });
     }
 
-    if !met.has_metamorphosed
-        && (ctx.tick - met.birth_tick)
-            > (ctx.config.metabolism.maturity_age as f32
-                * intel.genotype.maturity_gene
-                * ctx.config.metabolism.metamorphosis_trigger_maturity) as u64
-    {
-        acc.push(InteractionCommand::Metamorphosis { target_idx: i });
+    if !met.has_metamorphosed {
+        let age = ctx.tick.saturating_sub(met.birth_tick);
+        let threshold = (ctx.config.metabolism.maturity_age as f32
+            * intel.genotype.maturity_gene
+            * ctx.config.metabolism.metamorphosis_trigger_maturity) as u64;
+
+        if age > threshold {
+            acc.push(InteractionCommand::Metamorphosis { target_idx: i });
+        }
     }
 
     acc
