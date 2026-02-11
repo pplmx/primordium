@@ -78,18 +78,30 @@ proptest! {
     #[test]
     fn test_genotype_hex_roundtrip(genotype in arb_genotype()) {
         let hex = genotype.to_hex();
-        let decoded = Genotype::from_hex(&hex).expect("Failed to decode HexDNA");
+        let mut decoded = Genotype::from_hex(&hex).expect("Failed to decode HexDNA");
+        decoded.brain.initialize_node_idx_map();
 
-        prop_assert!((genotype.sensing_range - decoded.sensing_range).abs() < 0.000001);
-        prop_assert!((genotype.max_speed - decoded.max_speed).abs() < 0.000001);
+        // Use epsilon for float comparisons due to JSON serialization precision
+        prop_assert!((genotype.sensing_range - decoded.sensing_range).abs() < 1e-10);
+        prop_assert!((genotype.max_speed - decoded.max_speed).abs() < 1e-10);
+        prop_assert!((genotype.max_energy - decoded.max_energy).abs() < 1e-10);
+
         prop_assert_eq!(genotype.lineage_id, decoded.lineage_id);
+        prop_assert_eq!(genotype.metabolic_niche, decoded.metabolic_niche);
+        prop_assert_eq!(genotype.trophic_potential, decoded.trophic_potential);
+        prop_assert_eq!(genotype.reproductive_investment, decoded.reproductive_investment);
+        prop_assert_eq!(genotype.maturity_gene, decoded.maturity_gene);
 
+        // Brain comparison
+        prop_assert_eq!(genotype.brain.nodes.len(), decoded.brain.nodes.len());
         prop_assert_eq!(genotype.brain.connections.len(), decoded.brain.connections.len());
-        for (a, b) in genotype.brain.connections.iter().zip(decoded.brain.connections.iter()) {
-            prop_assert_eq!(a.from, b.from);
-            prop_assert_eq!(a.to, b.to);
-            prop_assert!((a.weight - b.weight).abs() < 0.0001);
-            prop_assert_eq!(a.enabled, b.enabled);
+
+        for (c1, c2) in genotype.brain.connections.iter().zip(decoded.brain.connections.iter()) {
+            prop_assert_eq!(c1.from, c2.from);
+            prop_assert_eq!(c1.to, c2.to);
+            prop_assert!((c1.weight - c2.weight).abs() < 0.0001);
+            prop_assert_eq!(c1.enabled, c2.enabled);
+            prop_assert_eq!(c1.innovation, c2.innovation);
         }
     }
 
