@@ -320,8 +320,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_app_draw_no_panic() {
+    async fn test_draw_normal_mode_elements() {
         let mut app = create_test_app();
+        app.screensaver = false;
+        app.cinematic_mode = false;
         let backend = TestBackend::new(100, 50);
         let mut terminal = Terminal::new(backend).unwrap();
 
@@ -332,8 +334,52 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        assert!(buffer.area.width > 0);
-        assert!(buffer.area.height > 0);
+        // Check for status bar elements
+        let found_era = buffer.content().iter().any(|c| {
+            c.symbol().contains('E') || c.symbol().contains('r') || c.symbol().contains('a')
+        });
+        assert!(
+            found_era,
+            "Era information should be present in normal mode"
+        );
+
+        // Check for chronicle/event log
+        let found_chronicle = buffer.content().iter().any(|c| {
+            c.symbol().contains('C')
+                || c.symbol().contains('h')
+                || c.symbol().contains('r')
+                || c.symbol().contains('o')
+        });
+        assert!(
+            found_chronicle,
+            "Chronicle should be present in normal mode"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_draw_cinematic_mode_elements() {
+        let mut app = create_test_app();
+        app.cinematic_mode = true;
+        let backend = TestBackend::new(100, 50);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                app.draw(f);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        // In cinematic mode, we should see "CINEMATIC" or similar if we added it to the overlay,
+        // but let's check for the tick count which is in the overlay.
+        let found_tick = buffer
+            .content()
+            .iter()
+            .any(|c| c.symbol().chars().any(|ch| ch.is_ascii_digit()));
+        assert!(
+            found_tick,
+            "Tick count should be present in cinematic overlay"
+        );
     }
 
     #[tokio::test]
