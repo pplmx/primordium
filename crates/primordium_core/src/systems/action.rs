@@ -177,6 +177,8 @@ pub fn action_system_components_with_modifiers(
         output.overmind_broadcast = Some((*entity.id, outputs[11]));
     }
 
+    handle_repulsion(entity.position, entity.velocity, entity.id, ctx);
+
     handle_movement_components(MovementContext {
         position: entity.position,
         velocity: entity.velocity,
@@ -407,6 +409,46 @@ pub struct MovementContext<'a> {
     pub terrain: &'a TerrainGrid,
     pub width: u16,
     pub height: u16,
+}
+
+fn handle_repulsion(
+    position: &primordium_data::Position,
+    velocity: &mut primordium_data::Velocity,
+    id: &uuid::Uuid,
+    ctx: &ActionContext,
+) {
+    if ctx.config.world.repulsion_force <= 0.0 {
+        return;
+    }
+
+    let radius = 0.5; // Repulsion radius
+    let force_mult = ctx.config.world.repulsion_force;
+
+    ctx.spatial_hash
+        .query_callback(position.x, position.y, radius, |idx| {
+            let neighbor = &ctx.snapshots[idx];
+            if neighbor.id != *id {
+                let dx = position.x - neighbor.x;
+                let dy = position.y - neighbor.y;
+                let dist_sq = dx * dx + dy * dy;
+
+                if dist_sq < radius * radius && dist_sq > 0.0001 {
+                    let dist = dist_sq.sqrt();
+                    let push = (radius - dist) / radius; // 0.0 to 1.0
+                    let force = push * force_mult;
+
+                    velocity.vx += (dx / dist) * force;
+                    velocity.vy += (dy / dist) * force;
+                } else if dist_sq <= 0.0001 {
+                    // Exact overlap - push in random direction based on ID hash or pseudo-random
+                    // To be deterministic, use ID byte logic
+                    let hash = id.as_bytes()[0] as f64;
+                    let angle = hash * 0.1;
+                    velocity.vx += angle.cos() * force_mult * 0.5;
+                    velocity.vy += angle.sin() * force_mult * 0.5;
+                }
+            }
+        });
 }
 
 pub fn handle_movement_components(ctx: MovementContext) {

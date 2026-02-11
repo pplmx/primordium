@@ -27,6 +27,8 @@ async fn test_hunter_competition_impact() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
     config.world.deterministic = true;
+    config.metabolism.crowding_cost = 0.0;
+    config.world.repulsion_force = 0.0;
     let log_dir1 = "logs_test_stability1";
     let _ = std::fs::remove_dir_all(log_dir1);
     let mut world = World::new_at(0, config.clone(), log_dir1).expect("Failed to create world");
@@ -80,11 +82,11 @@ async fn test_hunter_competition_impact() {
     }
 
     let entities1 = world.get_all_entities();
-    let hunter_after1 = entities1
+    let max_energy1 = entities1
         .iter()
-        .find(|e| e.metabolism.trophic_potential > 0.9)
-        .expect("Hunter missing");
-    let energy1 = hunter_after1.metabolism.energy;
+        .filter(|e| e.metabolism.trophic_potential > 0.9)
+        .map(|e| e.metabolism.energy)
+        .fold(f64::NEG_INFINITY, f64::max); // Use max to find the one who ate
 
     // High competition scenario: 40 hunters + 1 prey (spread out to avoid hunters killing each other)
     let log_dir2 = "logs_test_stability2";
@@ -129,16 +131,16 @@ async fn test_hunter_competition_impact() {
     }
 
     let entities2 = world2.get_all_entities();
-    let hunter_after2 = entities2
+    let max_energy2 = entities2
         .iter()
-        .find(|e| e.metabolism.trophic_potential > 0.9)
-        .expect("Hunter missing");
-    let energy2 = hunter_after2.metabolism.energy;
+        .filter(|e| e.metabolism.trophic_potential > 0.9)
+        .map(|e| e.metabolism.energy)
+        .fold(f64::NEG_INFINITY, f64::max);
 
     assert!(
-        energy2 < energy1,
+        max_energy2 < max_energy1,
         "High competition should reduce energy gain from kill. Energy1 (1 hunter): {}, Energy2 (40 hunters): {}",
-        energy1,
-        energy2
+        max_energy1,
+        max_energy2
     );
 }

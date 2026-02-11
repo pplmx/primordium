@@ -50,6 +50,7 @@ pub struct WorldConfig {
     pub deterministic: bool,
     pub fossil_interval: u64,
     pub power_grid_interval: u64,
+    pub repulsion_force: f64,
 }
 
 /// Entity metabolism and energy management configuration.
@@ -60,6 +61,7 @@ pub struct WorldConfig {
 pub struct MetabolismConfig {
     pub base_move_cost: f64,
     pub base_idle_cost: f64,
+    pub crowding_cost: f64,
     pub reproduction_threshold: f64,
     pub food_value: f64,
     pub maturity_age: u64,
@@ -187,10 +189,12 @@ impl Default for AppConfig {
                 deterministic: false,
                 fossil_interval: 1000,
                 power_grid_interval: 10,
+                repulsion_force: 0.5,
             },
             metabolism: MetabolismConfig {
                 base_move_cost: 0.2,
                 base_idle_cost: 0.1,
+                crowding_cost: 0.1,
                 reproduction_threshold: 150.0,
                 food_value: 50.0,
                 maturity_age: 150,
@@ -302,6 +306,10 @@ impl AppConfig {
             self.world.max_food <= 10000,
             "Max food too large (max 10000)"
         );
+        anyhow::ensure!(
+            self.world.repulsion_force >= 0.0,
+            "Repulsion force must be non-negative"
+        );
 
         // Metabolism validation
         anyhow::ensure!(
@@ -311,6 +319,10 @@ impl AppConfig {
         anyhow::ensure!(
             self.metabolism.base_idle_cost >= 0.0,
             "Base idle cost must be non-negative"
+        );
+        anyhow::ensure!(
+            self.metabolism.crowding_cost >= 0.0,
+            "Crowding cost must be non-negative"
         );
         anyhow::ensure!(
             self.metabolism.reproduction_threshold > 0.0,
