@@ -14,7 +14,7 @@ async fn test_world_snapshot_rkyv_roundtrip() {
     let path = "test_snapshot.rkyv";
 
     // Save
-    save_rkyv(&snapshot, path).expect("Failed to save rkyv snapshot");
+    save_rkyv(&*snapshot, path).expect("Failed to save rkyv snapshot");
 
     // Load
     let loaded: primordium_lib::model::snapshot::WorldSnapshot =

@@ -2,8 +2,10 @@ use crate::error::{IoError, Result};
 use rkyv::de::deserializers::SharedDeserializeMap;
 use rkyv::ser::serializers::AllocSerializer;
 use rkyv::ser::Serializer;
+use rkyv::util::AlignedVec;
 use rkyv::{Archive, Deserialize, Serialize};
 use std::fs::File;
+use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 
@@ -48,10 +50,21 @@ where
         + for<'a> rkyv::CheckBytes<rkyv::validation::validators::DefaultValidator<'a>>,
     P: AsRef<Path>,
 {
-    let bytes = std::fs::read(&path).map_err(|e| {
+    let mut file = File::open(&path).map_err(|e| {
+        IoError::FileSystem(e).with_context(format!("opening file: {:?}", path.as_ref()))
+    })?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).map_err(|e| {
         IoError::FileSystem(e).with_context(format!("reading file: {:?}", path.as_ref()))
     })?;
-    let archived = rkyv::check_archived_root::<T>(&bytes)
+
+    let mut aligned = AlignedVec::with_capacity(bytes.len());
+    aligned.extend_from_slice(&bytes);
+
+    // Ensure the AlignedVec has at least 8-byte alignment
+    // (AlignedVec usually has 16, but let's be sure or check if it's the culprit)
+
+    let archived = rkyv::check_archived_root::<T>(&aligned)
         .map_err(|e| IoError::rkyv(format!("validation failed: {:?}", e)))?;
     let mut deserializer = SharedDeserializeMap::default();
     let deserialized: T = archived
