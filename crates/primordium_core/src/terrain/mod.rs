@@ -135,8 +135,8 @@ impl TerrainGrid {
     }
 
     pub fn get(&self, x: f64, y: f64) -> &TerrainCell {
-        let ix = (x as u16).min(self.width - 1);
-        let iy = (y as u16).min(self.height - 1);
+        let ix = x.max(0.0).min(self.width as f64 - 1.0) as u16;
+        let iy = y.max(0.0).min(self.height as f64 - 1.0) as u16;
         &self.cells[self.index(ix, iy)]
     }
 
@@ -149,8 +149,8 @@ impl TerrainGrid {
     }
 
     pub fn get_cell(&self, x: u16, y: u16) -> &TerrainCell {
-        let ix = x.min(self.width - 1);
-        let iy = y.min(self.height - 1);
+        let ix = x.min(self.width.wrapping_sub(1));
+        let iy = y.min(self.height.wrapping_sub(1));
         &self.cells[self.index(ix, iy)]
     }
 
