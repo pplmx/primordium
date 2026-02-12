@@ -30,6 +30,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1.0", features = ["time"] }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
