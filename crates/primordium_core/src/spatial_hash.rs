@@ -222,8 +222,10 @@ impl SpatialHash {
                     let ny = cy as i32 + dy;
                     if nx >= 0 && nx < self.cols as i32 && ny >= 0 && ny < self.rows as i32 {
                         let n_idx = (ny as usize * self.cols) + nx as usize;
-                        if let Some(&d) = self.lineage_density[n_idx].get(&lid) {
-                            total += d;
+                        if n_idx < self.lineage_density.len() {
+                            if let Some(&d) = self.lineage_density[n_idx].get(&lid) {
+                                total += d;
+                            }
                         }
                     }
                 }
@@ -263,6 +265,10 @@ impl SpatialHash {
     where
         F: FnMut(usize),
     {
+        if !x.is_finite() || !y.is_finite() || !radius.is_finite() || radius < 0.0 {
+            return;
+        }
+
         let min_cx = ((x - radius) / self.cell_size).floor() as i32;
         let max_cx = ((x + radius) / self.cell_size).floor() as i32;
         let min_cy = ((y - radius) / self.cell_size).floor() as i32;
@@ -289,6 +295,10 @@ impl SpatialHash {
     }
 
     pub fn count_nearby(&self, x: f64, y: f64, radius: f64) -> usize {
+        if !x.is_finite() || !y.is_finite() || !radius.is_finite() || radius < 0.0 {
+            return 0;
+        }
+
         let mut count = 0;
         let min_cx = ((x - radius) / self.cell_size).floor() as i32;
         let max_cx = ((x + radius) / self.cell_size).floor() as i32;
@@ -337,6 +347,10 @@ impl SpatialHash {
         radius: f64,
         lineage_id: uuid::Uuid,
     ) -> usize {
+        if !x.is_finite() || !y.is_finite() || !radius.is_finite() || radius < 0.0 {
+            return 0;
+        }
+
         let mut count: usize = 0;
         let min_cx = ((x - radius) / self.cell_size).floor() as i32;
         let max_cx = ((x + radius) / self.cell_size).floor() as i32;
@@ -364,6 +378,11 @@ impl SpatialHash {
     #[inline]
     pub fn query_into(&self, x: f64, y: f64, radius: f64, result: &mut Vec<usize>) {
         result.clear();
+
+        if !x.is_finite() || !y.is_finite() || !radius.is_finite() || radius < 0.0 {
+            return;
+        }
+
         let min_cx = ((x - radius) / self.cell_size).floor() as i32;
         let max_cx = ((x + radius) / self.cell_size).floor() as i32;
         let min_cy = ((y - radius) / self.cell_size).floor() as i32;
