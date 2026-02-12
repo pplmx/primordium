@@ -44,7 +44,7 @@ pub fn mutate_with_config<R: Rng>(
 
     let topo_rate = config.evolution.mutation_rate * 0.1;
 
-    if rng.gen::<f32>() < topo_rate {
+    if rng.gen::<f32>() < topo_rate && brain.connections.len() < config.brain.max_connections {
         let from_idx = rng.gen_range(0..brain.nodes.len());
         let to_idx = rng.gen_range(0..brain.nodes.len());
         let from = brain.nodes[from_idx].id;

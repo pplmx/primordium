@@ -107,6 +107,8 @@ pub struct BrainConfig {
     pub coupling_spring_constant: f64,
     pub alpha_following_force: f64,
     pub pruning_threshold: f32,
+    pub max_nodes: usize,
+    pub max_connections: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -230,6 +232,8 @@ impl Default for AppConfig {
                 coupling_spring_constant: 0.05,
                 alpha_following_force: 0.02,
                 pruning_threshold: 0.01,
+                max_nodes: 128,
+                max_connections: 512,
             },
             social: SocialConfig {
                 rank_weights: [0.3, 0.3, 0.1, 0.3],

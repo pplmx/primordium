@@ -99,6 +99,26 @@ impl Season {
             Season::Winter => Season::Spring,
         }
     }
+
+    fn smooth_step(t: f64) -> f64 {
+        t * t * (3.0 - 2.0 * t)
+    }
+
+    #[must_use]
+    pub fn food_multiplier_smooth(&self, next: Season, progress: f64) -> f64 {
+        let t = Self::smooth_step(progress.clamp(0.0, 1.0));
+        let from = self.food_multiplier();
+        let to = next.food_multiplier();
+        from + (to - from) * t
+    }
+
+    #[must_use]
+    pub fn metabolism_multiplier_smooth(&self, next: Season, progress: f64) -> f64 {
+        let t = Self::smooth_step(progress.clamp(0.0, 1.0));
+        let from = self.metabolism_multiplier();
+        let to = next.metabolism_multiplier();
+        from + (to - from) * t
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -128,8 +148,10 @@ pub struct Environment {
     pub radiation_timer: u32,
     pub current_era: Era,
     pub current_season: Season,
+    pub next_season: Season,
     pub season_tick: u64,
     pub season_duration: u64,
+    pub transition_duration: u64,
     pub world_time: u64,
     pub day_cycle_ticks: u64,
     pub god_climate_override: Option<ClimateState>,
@@ -153,8 +175,10 @@ impl Default for Environment {
             radiation_timer: 0,
             current_era: Era::Primordial,
             current_season: Season::Spring,
+            next_season: Season::Summer,
             season_tick: 0,
             season_duration: 10000,
+            transition_duration: 1000,
             world_time: 0,
             day_cycle_ticks: 2000,
             god_climate_override: None,
@@ -224,6 +248,32 @@ impl Environment {
             1.0 - (x * x * 4.0)
         } else {
             0.1
+        }
+    }
+
+    #[must_use]
+    pub fn current_food_multiplier(&self) -> f64 {
+        let transition_start = self.season_duration - self.transition_duration;
+        if self.season_tick >= transition_start {
+            let progress =
+                (self.season_tick - transition_start) as f64 / self.transition_duration as f64;
+            self.current_season
+                .food_multiplier_smooth(self.next_season, progress)
+        } else {
+            self.current_season.food_multiplier()
+        }
+    }
+
+    #[must_use]
+    pub fn current_metabolism_multiplier(&self) -> f64 {
+        let transition_start = self.season_duration - self.transition_duration;
+        if self.season_tick >= transition_start {
+            let progress =
+                (self.season_tick - transition_start) as f64 / self.transition_duration as f64;
+            self.current_season
+                .metabolism_multiplier_smooth(self.next_season, progress)
+        } else {
+            self.current_season.metabolism_multiplier()
         }
     }
 
@@ -310,8 +360,7 @@ impl Environment {
             1.0
         };
 
-        let mut final_mult =
-            base * era_mult * self.current_season.metabolism_multiplier() * circadian;
+        let mut final_mult = base * era_mult * self.current_metabolism_multiplier() * circadian;
 
         if self.is_hypoxia() {
             final_mult *= 1.5;
@@ -333,7 +382,7 @@ impl Environment {
         if self.is_abundance() {
             base *= 2.0;
         }
-        base * self.current_season.food_multiplier()
+        base * self.current_food_multiplier()
     }
 
     pub fn carbon_stress_factor(&self) -> f64 {

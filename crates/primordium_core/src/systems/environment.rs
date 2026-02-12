@@ -51,11 +51,12 @@ pub fn update_era(
     pop_stats: &PopulationStats,
     config: &AppConfig,
 ) {
-    // Season cycling
+    // Season cycling with smooth transitions
     env.season_tick += 1;
     if env.season_tick >= env.season_duration {
         env.season_tick = 0;
-        env.current_season = env.current_season.next();
+        env.current_season = env.next_season;
+        env.next_season = env.current_season.next();
     }
 
     // Era Transition Logic
