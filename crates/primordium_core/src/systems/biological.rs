@@ -7,6 +7,7 @@ use primordium_data::{Health, Intel, Metabolism, Pathogen, Physics, Specializati
 use rand::Rng;
 use std::collections::HashSet;
 
+#[allow(clippy::too_many_arguments)]
 pub fn biological_system_components<R: Rng>(
     metabolism: &mut Metabolism,
     intel: &mut Intel,
@@ -14,13 +15,14 @@ pub fn biological_system_components<R: Rng>(
     _physics: &Physics,
     population_count: usize,
     config: &AppConfig,
+    tick: u64,
     rng: &mut R,
 ) {
     process_infection_components(health, metabolism);
     update_reputation_progress(intel);
     apply_genetic_drift(intel, population_count, config, rng);
     update_specialization_progress(intel, config);
-    apply_metabolic_maintenance(metabolism, intel, config);
+    apply_metabolic_maintenance(metabolism, intel, config, tick);
 }
 
 fn update_reputation_progress(intel: &mut Intel) {
@@ -40,11 +42,27 @@ fn apply_genetic_drift<R: Rng>(
         && rng.gen_bool(f64::from(config.evolution.drift_rate))
     {
         let genotype = std::sync::Arc::make_mut(&mut intel.genotype);
+
+        // Apply small perturbations instead of complete reset
+        let drift_amount = (config.evolution.drift_amount as f64).min(0.5);
         match rng.gen_range(0..4) {
-            0 => genotype.metabolic_niche = rng.gen_range(0.0..1.0),
-            1 => genotype.max_speed = rng.gen_range(0.5..1.5),
-            2 => genotype.sensing_range = rng.gen_range(5.0..15.0),
-            _ => genotype.max_energy = rng.gen_range(50.0..150.0),
+            0 => {
+                genotype.metabolic_niche = (genotype.metabolic_niche as f64
+                    + rng.gen_range(-drift_amount..drift_amount))
+                .clamp(0.0, 1.0) as f32;
+            }
+            1 => {
+                genotype.max_speed += rng.gen_range(-drift_amount * 0.5..drift_amount * 0.5);
+                genotype.max_speed = genotype.max_speed.clamp(0.5, 3.0);
+            }
+            2 => {
+                genotype.sensing_range += rng.gen_range(-drift_amount * 2.0..drift_amount * 2.0);
+                genotype.sensing_range = genotype.sensing_range.clamp(3.0, 15.0);
+            }
+            _ => {
+                genotype.max_energy += rng.gen_range(-drift_amount * 20.0..drift_amount * 20.0);
+                genotype.max_energy = genotype.max_energy.clamp(100.0, 500.0);
+            }
         }
     }
 }
@@ -71,12 +89,29 @@ fn update_specialization_progress(intel: &mut Intel, config: &AppConfig) {
     }
 }
 
-fn apply_metabolic_maintenance(metabolism: &mut Metabolism, intel: &Intel, config: &AppConfig) {
+fn apply_metabolic_maintenance(
+    metabolism: &mut Metabolism,
+    intel: &Intel,
+    config: &AppConfig,
+    tick: u64,
+) {
+    const NEONATE_PROTECTION_TICKS: u64 = 50;
+
+    let age = tick - metabolism.birth_tick;
+
     let brain_maintenance = (intel.genotype.brain.nodes.len() as f64
         * config.brain.hidden_node_cost)
         + (intel.genotype.brain.connections.len() as f64 * config.brain.connection_cost);
 
-    metabolism.energy -= brain_maintenance;
+    // Apply protection multiplier for neonates (gradual ramp-up)
+    let protection_multiplier = if age < NEONATE_PROTECTION_TICKS {
+        age as f64 / NEONATE_PROTECTION_TICKS as f64
+    } else {
+        1.0
+    };
+
+    let adjusted_maintenance = brain_maintenance * protection_multiplier.max(0.1);
+    metabolism.energy -= adjusted_maintenance;
 }
 
 pub fn try_infect_components<R: Rng>(

@@ -105,7 +105,7 @@ pub fn generate_bond_cmds<R: rand::Rng>(input: BondContext<R>) -> Vec<Interactio
         ) {
             if let Some(&p_idx) = input.id_map.get(&p_id) {
                 let partner_snap = &input.ctx.snapshots[p_idx];
-                if let Some(partner_genotype) = partner_snap.genotype.as_ref() {
+                if let Some(_partner_genotype) = partner_snap.genotype.as_ref() {
                     if input.met.energy > input.ctx.config.metabolism.reproduction_threshold
                         && partner_snap.energy > input.ctx.config.metabolism.reproduction_threshold
                     {
@@ -137,32 +137,25 @@ pub fn generate_bond_cmds<R: rand::Rng>(input: BondContext<R>) -> Vec<Interactio
 
                         let (baby, dist) = social::reproduce_sexual_parallel_components_decomposed(
                             &social::ParentData {
-                                pos: input.pos,
+                                pos: &Position {
+                                    x: input.pos.x,
+                                    y: input.pos.y,
+                                },
                                 energy: input.met.energy,
                                 generation: input.met.generation,
-                                genotype: &modified_genotype,
-                            },
-                            &social::ParentData {
-                                pos: &Position {
-                                    x: partner_snap.x,
-                                    y: partner_snap.y,
-                                },
-                                energy: partner_snap.energy,
-                                generation: partner_snap.generation,
-                                genotype: partner_genotype,
+                                genotype: &input.intel.genotype,
                             },
                             &mut repro_ctx,
                         );
-                        acc.push(InteractionCommand::Birth {
-                            parent_idx: input.i,
-                            baby: Box::new(baby),
-                            genetic_distance: dist,
-                        });
-                        acc.push(InteractionCommand::TransferEnergy {
-                            target_idx: p_idx,
-                            amount: -(partner_snap.energy
-                                * partner_genotype.reproductive_investment as f64),
-                        });
+
+                        // Only add Birth command if baby has positive energy
+                        if baby.metabolism.energy > 0.0 {
+                            acc.push(InteractionCommand::Birth {
+                                parent_idx: input.i,
+                                baby: Box::new(baby),
+                                genetic_distance: dist,
+                            });
+                        }
                     }
                 }
             }
@@ -204,18 +197,34 @@ pub fn generate_bond_cmds<R: rand::Rng>(input: BondContext<R>) -> Vec<Interactio
             let partner_snap = &input.ctx.snapshots[p_idx];
             let self_energy = input.met.energy;
             let partner_energy = partner_snap.energy;
-            if self_energy > partner_energy + 2.0 {
-                let diff = self_energy - partner_energy;
-                let amount = diff * input.ctx.config.social.sharing_fraction;
+            const SHARING_THRESHOLD: f64 = 2.0;
+
+            // Bidirectional sharing: energy flows from higher to lower
+            let energy_diff = self_energy - partner_energy;
+            if energy_diff.abs() > SHARING_THRESHOLD {
+                let direction = if energy_diff > 0.0 { 1.0 } else { -1.0 };
+                let amount = energy_diff.abs() * input.ctx.config.social.sharing_fraction;
+
                 if amount > 0.1 {
-                    acc.push(InteractionCommand::TransferEnergy {
-                        target_idx: p_idx,
-                        amount,
-                    });
-                    acc.push(InteractionCommand::TransferEnergy {
-                        target_idx: input.i,
-                        amount: -amount,
-                    });
+                    if direction > 0.0 {
+                        acc.push(InteractionCommand::TransferEnergy {
+                            target_idx: p_idx,
+                            amount,
+                        });
+                        acc.push(InteractionCommand::TransferEnergy {
+                            target_idx: input.i,
+                            amount: -amount,
+                        });
+                    } else {
+                        acc.push(InteractionCommand::TransferEnergy {
+                            target_idx: input.i,
+                            amount,
+                        });
+                        acc.push(InteractionCommand::TransferEnergy {
+                            target_idx: p_idx,
+                            amount: -amount,
+                        });
+                    }
                 }
             }
         }
@@ -299,16 +308,26 @@ pub fn generate_predation_cmds(input: PredationContext) -> Vec<InteractionComman
                             .max(input.ctx.config.social.min_defense_multiplier);
                         let success_chance = (multiplier * defense_mult).min(1.0) as f32;
 
-                        let competition_mult = (1.0
-                            - (input.biomass_c
-                                / input.ctx.config.ecosystem.predation_competition_scale))
-                            .max(input.ctx.config.ecosystem.predation_min_efficiency);
+                        let competition_mult = if input.biomass_c > 0.0 {
+                            // Use logarithmic scaling to prevent extreme edge cases
+                            let normalized_biomass = (input.biomass_c / 1000.0).ln().exp();
+                            (1.0 - normalized_biomass)
+                                .max(input.ctx.config.ecosystem.predation_min_efficiency)
+                        } else {
+                            1.0
+                        };
 
-                        let energy_gain = target_snap.energy
+                        // Calculate energy gain with base guarantee
+                        let base_gain = target_snap.energy
                             * input.ctx.config.ecosystem.predation_energy_gain_fraction
+                            * 0.2; // 20% minimum guarantee
+                        let variable_gain = target_snap.energy
+                            * input.ctx.config.ecosystem.predation_energy_gain_fraction
+                            * 0.8
                             * multiplier
                             * defense_mult
                             * competition_mult;
+                        let energy_gain = base_gain + variable_gain;
 
                         acc.push(InteractionCommand::Kill {
                             target_idx: t_idx,
@@ -366,11 +385,15 @@ pub fn generate_reproduction_cmds<R: rand::Rng>(
                 ctx: &mut repro_ctx,
             },
         );
-        acc.push(InteractionCommand::Birth {
-            parent_idx: input.i,
-            baby: Box::new(baby),
-            genetic_distance: dist,
-        });
+
+        // Only add Birth command if baby has positive energy
+        if baby.metabolism.energy > 0.0 {
+            acc.push(InteractionCommand::Birth {
+                parent_idx: input.i,
+                baby: Box::new(baby),
+                genetic_distance: dist,
+            });
+        }
     }
     acc
 }

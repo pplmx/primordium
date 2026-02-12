@@ -256,6 +256,12 @@ fn calculate_metabolic_cost<'a, 'b>(input: MetabolicCostInput<'a, 'b>) -> f64 {
         }
     }
 
+    // Carbon stress increases metabolic cost in high-carbon environments
+    let carbon_stress = input.ctx.env.carbon_stress_factor();
+    if carbon_stress > 0.0 {
+        idle_cost *= 1.0 + carbon_stress * 2.0;
+    }
+
     move_cost + signal_cost + idle_cost + input.activity_drain
 }
 

@@ -89,7 +89,7 @@ pub fn mutate_genotype<R: Rng>(
     }
 
     if let Some(ancestral) = params.ancestral_genotype {
-        let recall_chance = 0.01 + (params.stress_factor * 0.05);
+        let recall_chance = 0.05 + (params.stress_factor * 0.10);
         if rng.gen_bool(recall_chance as f64) {
             genotype.brain = ancestral.brain.clone();
             genotype.sensing_range = ancestral.sensing_range;

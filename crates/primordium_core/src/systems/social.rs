@@ -65,7 +65,19 @@ pub fn calculate_social_rank_components(
 ) -> f32 {
     let energy_score = (metabolism.energy / metabolism.max_energy).clamp(0.0, 1.0) as f32;
     let age = tick - metabolism.birth_tick;
-    let age_score = (age as f32 / config.social.age_rank_normalization).min(1.0);
+
+    // Age with decay: peaks at age_rank_normalization * 0.7, then slowly declines
+    // This prevents "elder exploit" where old age alone guarantees high rank
+    let peak_age = config.social.age_rank_normalization * 0.7;
+    let age_score_raw = (age as f32 / config.social.age_rank_normalization).min(1.0);
+    let age_score = if age as f32 > peak_age {
+        // Apply bell-curve decay after peak age
+        let excess = (age as f32 - peak_age) / (config.social.age_rank_normalization - peak_age);
+        (1.0 - excess.powi(2)).max(0.3) * age_score_raw
+    } else {
+        age_score_raw
+    };
+
     let offspring_score =
         (metabolism.offspring_count as f32 / config.social.offspring_rank_normalization).min(1.0);
     let rep_score = intel.reputation.clamp(0.0, 1.0);
@@ -82,8 +94,10 @@ pub fn start_tribal_split_components<R: Rng>(
     config: &AppConfig,
     rng: &mut R,
 ) -> Option<(u8, u8, u8)> {
+    // Redesigned split condition: High rank + High crowding = Alpha-led migration
+    // This ensures the fittest lead the new tribe, not the weakest
     if crowding > config.evolution.crowding_threshold
-        && intel.rank < config.social.sharing_threshold * 0.4
+        && intel.rank > config.social.sharing_threshold * 0.6
     {
         Some((
             rng.gen_range(0..255),
@@ -160,8 +174,233 @@ pub struct AsexualReproductionContext<'a, R: Rng> {
 pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
     input: AsexualReproductionContext<R>,
 ) -> (Entity, f32) {
-    let investment = input.genotype.reproductive_investment as f64;
-    let child_energy = input.energy * investment;
+    const MIN_PARENT_REMAINING: f64 = 20.0;
+    const SAFE_INVESTMENT_CAP: f64 = 0.7;
+
+    // Early exit: insufficient energy to reproduce safely
+    if input.energy < MIN_PARENT_REMAINING {
+        // Return a placeholder that will be filtered out by the caller
+        return (
+            Entity {
+                identity: primordium_data::Identity {
+                    id: uuid::Uuid::new_v4(),
+                    parent_id: None,
+                },
+                position: primordium_data::Position {
+                    x: input.pos.x,
+                    y: input.pos.y,
+                },
+                velocity: primordium_data::Velocity::default(),
+                appearance: primordium_data::Appearance::default(),
+                physics: primordium_data::Physics {
+                    home_x: input.pos.x,
+                    home_y: input.pos.y,
+                    x: input.pos.x,
+                    y: input.pos.y,
+                    vx: 0.0,
+                    vy: 0.0,
+                    r: 100,
+                    g: 200,
+                    b: 100,
+                    symbol: '●',
+                    sensing_range: input.genotype.sensing_range,
+                    max_speed: input.genotype.max_speed,
+                },
+                metabolism: primordium_data::Metabolism {
+                    trophic_potential: input.genotype.trophic_potential,
+                    energy: 0.0,
+                    prev_energy: 0.0,
+                    max_energy: input.genotype.max_energy,
+                    peak_energy: 0.0,
+                    birth_tick: input.ctx.tick,
+                    generation: input.generation + 1,
+                    offspring_count: 0,
+                    lineage_id: input.genotype.lineage_id,
+                    has_metamorphosed: false,
+                    is_in_transit: false,
+                    migration_id: None,
+                },
+                health: primordium_data::Health {
+                    pathogen: None,
+                    infection_timer: 0,
+                    immunity: 0.0,
+                },
+                intel: primordium_data::Intel {
+                    genotype: std::sync::Arc::new(input.genotype.clone()),
+                    last_hidden: [0.0; 6],
+                    last_aggression: 0.0,
+                    last_share_intent: 0.0,
+                    last_signal: 0.0,
+                    last_vocalization: 0.0,
+                    reputation: 1.0,
+                    rank: 0.5,
+                    bonded_to: None,
+                    last_inputs: [0.0; 29],
+                    last_activations: primordium_data::Activations::default(),
+                    specialization: None,
+                    spec_meters: std::collections::HashMap::new(),
+                    ancestral_traits: input.ctx.traits.clone(),
+                },
+            },
+            0.0,
+        );
+    }
+
+    let investment = (input.genotype.reproductive_investment as f64).min(SAFE_INVESTMENT_CAP);
+
+    // Calculate safe investment that leaves parent with minimum energy
+    let max_safe_invest =
+        ((input.energy - MIN_PARENT_REMAINING) / input.energy).clamp(0.1, SAFE_INVESTMENT_CAP);
+    let actual_investment = investment.min(max_safe_invest);
+
+    let child_energy = input.energy * actual_investment;
+    let parent_remaining = input.energy - child_energy;
+
+    // Skip reproduction if parent would be left with critical energy
+    if parent_remaining < MIN_PARENT_REMAINING {
+        return (
+            Entity {
+                identity: primordium_data::Identity {
+                    id: uuid::Uuid::from_u128(input.ctx.rng.gen()),
+                    parent_id: None,
+                },
+                position: primordium_data::Position {
+                    x: input.pos.x,
+                    y: input.pos.y,
+                },
+                velocity: primordium_data::Velocity::default(),
+                appearance: primordium_data::Appearance::default(),
+                physics: primordium_data::Physics {
+                    home_x: input.pos.x,
+                    home_y: input.pos.y,
+                    x: input.pos.x,
+                    y: input.pos.y,
+                    vx: 0.0,
+                    vy: 0.0,
+                    r: 100,
+                    g: 200,
+                    b: 100,
+                    symbol: '●',
+                    sensing_range: input.genotype.sensing_range,
+                    max_speed: input.genotype.max_speed,
+                },
+                metabolism: primordium_data::Metabolism {
+                    trophic_potential: input.genotype.trophic_potential,
+                    energy: 0.0,
+                    prev_energy: 0.0,
+                    max_energy: input.genotype.max_energy,
+                    peak_energy: 0.0,
+                    birth_tick: input.ctx.tick,
+                    generation: input.generation + 1,
+                    offspring_count: 0,
+                    lineage_id: input.genotype.lineage_id,
+                    has_metamorphosed: false,
+                    is_in_transit: false,
+                    migration_id: None,
+                },
+                health: primordium_data::Health {
+                    pathogen: None,
+                    infection_timer: 0,
+                    immunity: 0.0,
+                },
+                intel: primordium_data::Intel {
+                    genotype: std::sync::Arc::new(input.genotype.clone()),
+                    last_hidden: [0.0; 6],
+                    last_aggression: 0.0,
+                    last_share_intent: 0.0,
+                    last_signal: 0.0,
+                    last_vocalization: 0.0,
+                    reputation: 1.0,
+                    rank: 0.5,
+                    bonded_to: None,
+                    last_inputs: [0.0; 29],
+                    last_activations: primordium_data::Activations::default(),
+                    specialization: None,
+                    spec_meters: std::collections::HashMap::new(),
+                    ancestral_traits: input.ctx.traits.clone(),
+                },
+            },
+            0.0,
+        );
+    }
+
+    let investment = (input.genotype.reproductive_investment as f64).min(SAFE_INVESTMENT_CAP);
+
+    // Calculate safe investment that leaves parent with minimum energy
+    let max_safe_invest =
+        ((input.energy - MIN_PARENT_REMAINING) / input.energy).clamp(0.1, SAFE_INVESTMENT_CAP);
+    let actual_investment = investment.min(max_safe_invest);
+
+    let child_energy = input.energy * actual_investment;
+    let parent_remaining = input.energy - child_energy;
+
+    // Skip reproduction if parent would be left with critical energy
+    if parent_remaining < MIN_PARENT_REMAINING {
+        return (
+            Entity {
+                identity: primordium_data::Identity {
+                    id: uuid::Uuid::new_v4(),
+                    parent_id: None,
+                },
+                position: primordium_data::Position {
+                    x: input.pos.x,
+                    y: input.pos.y,
+                },
+                velocity: primordium_data::Velocity::default(),
+                appearance: primordium_data::Appearance::default(),
+                physics: primordium_data::Physics {
+                    home_x: input.pos.x,
+                    home_y: input.pos.y,
+                    x: input.pos.x,
+                    y: input.pos.y,
+                    vx: 0.0,
+                    vy: 0.0,
+                    r: 100,
+                    g: 200,
+                    b: 100,
+                    symbol: '●',
+                    sensing_range: input.genotype.sensing_range,
+                    max_speed: input.genotype.max_speed,
+                },
+                metabolism: primordium_data::Metabolism {
+                    trophic_potential: input.genotype.trophic_potential,
+                    energy: 0.0,
+                    prev_energy: 0.0,
+                    max_energy: input.genotype.max_energy,
+                    peak_energy: 0.0,
+                    birth_tick: input.ctx.tick,
+                    generation: input.generation + 1,
+                    offspring_count: 0,
+                    lineage_id: input.genotype.lineage_id,
+                    has_metamorphosed: false,
+                    is_in_transit: false,
+                    migration_id: None,
+                },
+                health: primordium_data::Health {
+                    pathogen: None,
+                    infection_timer: 0,
+                    immunity: 0.0,
+                },
+                intel: primordium_data::Intel {
+                    genotype: std::sync::Arc::new(input.genotype.clone()),
+                    last_hidden: [0.0; 6],
+                    last_aggression: 0.0,
+                    last_share_intent: 0.0,
+                    last_signal: 0.0,
+                    last_vocalization: 0.0,
+                    reputation: 1.0,
+                    rank: 0.5,
+                    bonded_to: None,
+                    last_inputs: [0.0; 29],
+                    last_activations: primordium_data::Activations::default(),
+                    specialization: None,
+                    spec_meters: std::collections::HashMap::new(),
+                    ancestral_traits: input.ctx.traits.clone(),
+                },
+            },
+            0.0,
+        );
+    }
 
     let mut child_genotype = std::sync::Arc::new(input.genotype.clone());
     let stress_factor = (1.0 - (input.energy / input.genotype.max_energy)).max(0.0) as f32;
@@ -274,30 +513,250 @@ pub struct ParentData<'a> {
 
 pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
     p1: &ParentData<'_>,
-    p2: &ParentData<'_>,
     ctx: &mut ReproductionContext<R>,
 ) -> (Entity, f32) {
-    let investment = p1.genotype.reproductive_investment as f64;
-    let child_energy = (p1.energy + p2.energy) * investment / 2.0;
+    const MIN_PARENT_REMAINING: f64 = 20.0;
+    const SAFE_INVESTMENT_CAP: f64 = 0.7;
 
-    let mut child_genotype =
-        std::sync::Arc::new(p1.genotype.crossover_with_rng(p2.genotype, ctx.rng));
-    let combined_energy = (p1.energy + p2.energy) / 2.0;
-    let avg_max_energy = (p1.genotype.max_energy + p2.genotype.max_energy) / 2.0;
-    let stress_factor = (1.0 - (combined_energy / avg_max_energy)).max(0.0) as f32;
+    // Early exit: insufficient energy to reproduce safely
+    if p1.energy < MIN_PARENT_REMAINING {
+        return (
+            Entity {
+                identity: primordium_data::Identity {
+                    id: uuid::Uuid::from_u128(ctx.rng.gen()),
+                    parent_id: None,
+                },
+                position: primordium_data::Position {
+                    x: p1.pos.x,
+                    y: p1.pos.y,
+                },
+                velocity: primordium_data::Velocity::default(),
+                appearance: primordium_data::Appearance::default(),
+                physics: primordium_data::Physics {
+                    home_x: p1.pos.x,
+                    home_y: p1.pos.y,
+                    x: p1.pos.x,
+                    y: p1.pos.y,
+                    vx: 0.0,
+                    vy: 0.0,
+                    r: 100,
+                    g: 200,
+                    b: 100,
+                    symbol: '●',
+                    sensing_range: p1.genotype.sensing_range,
+                    max_speed: p1.genotype.max_speed,
+                },
+                metabolism: primordium_data::Metabolism {
+                    trophic_potential: p1.genotype.trophic_potential,
+                    energy: 0.0,
+                    prev_energy: 0.0,
+                    max_energy: p1.genotype.max_energy,
+                    peak_energy: 0.0,
+                    birth_tick: ctx.tick,
+                    generation: p1.generation + 1,
+                    offspring_count: 0,
+                    lineage_id: p1.genotype.lineage_id,
+                    has_metamorphosed: false,
+                    is_in_transit: false,
+                    migration_id: None,
+                },
+                health: primordium_data::Health {
+                    pathogen: None,
+                    infection_timer: 0,
+                    immunity: 0.0,
+                },
+                intel: primordium_data::Intel {
+                    genotype: std::sync::Arc::new(p1.genotype.clone()),
+                    last_hidden: [0.0; 6],
+                    last_aggression: 0.0,
+                    last_share_intent: 0.0,
+                    last_signal: 0.0,
+                    last_vocalization: 0.0,
+                    reputation: 1.0,
+                    rank: 0.5,
+                    bonded_to: None,
+                    last_inputs: [0.0; 29],
+                    last_activations: primordium_data::Activations::default(),
+                    specialization: None,
+                    spec_meters: std::collections::HashMap::new(),
+                    ancestral_traits: ctx.traits.clone(),
+                },
+            },
+            0.0,
+        );
+    }
 
+    let investment = (p1.genotype.reproductive_investment as f64).min(SAFE_INVESTMENT_CAP);
+
+    // Calculate safe investment that leaves parent with minimum energy
+    let max_safe_invest =
+        ((p1.energy - MIN_PARENT_REMAINING) / p1.energy).clamp(0.1, SAFE_INVESTMENT_CAP);
+    let actual_investment = investment.min(max_safe_invest);
+
+    let child_energy = p1.energy * actual_investment;
+    let parent_remaining = p1.energy - child_energy;
+
+    // Skip reproduction if parent would be left with critical energy
+    if parent_remaining < MIN_PARENT_REMAINING {
+        return (
+            Entity {
+                identity: primordium_data::Identity {
+                    id: uuid::Uuid::from_u128(ctx.rng.gen()),
+                    parent_id: None,
+                },
+                position: primordium_data::Position {
+                    x: p1.pos.x,
+                    y: p1.pos.y,
+                },
+                velocity: primordium_data::Velocity::default(),
+                appearance: primordium_data::Appearance::default(),
+                physics: primordium_data::Physics {
+                    home_x: p1.pos.x,
+                    home_y: p1.pos.y,
+                    x: p1.pos.x,
+                    y: p1.pos.y,
+                    vx: 0.0,
+                    vy: 0.0,
+                    r: 100,
+                    g: 200,
+                    b: 100,
+                    symbol: '●',
+                    sensing_range: p1.genotype.sensing_range,
+                    max_speed: p1.genotype.max_speed,
+                },
+                metabolism: primordium_data::Metabolism {
+                    trophic_potential: p1.genotype.trophic_potential,
+                    energy: 0.0,
+                    prev_energy: 0.0,
+                    max_energy: p1.genotype.max_energy,
+                    peak_energy: 0.0,
+                    birth_tick: ctx.tick,
+                    generation: p1.generation + 1,
+                    offspring_count: 0,
+                    lineage_id: p1.genotype.lineage_id,
+                    has_metamorphosed: false,
+                    is_in_transit: false,
+                    migration_id: None,
+                },
+                health: primordium_data::Health {
+                    pathogen: None,
+                    infection_timer: 0,
+                    immunity: 0.0,
+                },
+                intel: primordium_data::Intel {
+                    genotype: std::sync::Arc::new(p1.genotype.clone()),
+                    last_hidden: [0.0; 6],
+                    last_aggression: 0.0,
+                    last_share_intent: 0.0,
+                    last_signal: 0.0,
+                    last_vocalization: 0.0,
+                    reputation: 1.0,
+                    rank: 0.5,
+                    bonded_to: None,
+                    last_inputs: [0.0; 29],
+                    last_activations: primordium_data::Activations::default(),
+                    specialization: None,
+                    spec_meters: std::collections::HashMap::new(),
+                    ancestral_traits: ctx.traits.clone(),
+                },
+            },
+            0.0,
+        );
+    }
+
+    let mut child_genotype = std::sync::Arc::new(p1.genotype.clone());
+
+    // Apply mutations
     intel::mutate_genotype(
         &mut child_genotype,
         &intel::MutationParams {
             config: ctx.config,
-            population: 100,
+            population: ctx.population,
             is_radiation_storm: ctx.is_radiation_storm,
             specialization: None,
             ancestral_genotype: ctx.ancestral_genotype,
-            stress_factor,
+            stress_factor: 0.0,
         },
         ctx.rng,
     );
+
+    let dist = p1.genotype.distance(&child_genotype);
+    if dist > ctx.config.evolution.speciation_threshold {
+        std::sync::Arc::make_mut(&mut child_genotype).lineage_id = Uuid::from_u128(ctx.rng.gen());
+    }
+
+    let _stress_factor = (1.0 - (p1.energy / p1.genotype.max_energy)).max(0.0) as f32;
+
+    let child_energy =
+        p1.energy * (p1.genotype.reproductive_investment as f64).min(SAFE_INVESTMENT_CAP);
+    let parent_remaining = p1.energy - child_energy;
+
+    if parent_remaining < MIN_PARENT_REMAINING || child_energy <= 0.0 {
+        return (
+            Entity {
+                identity: primordium_data::Identity {
+                    id: Uuid::from_u128(ctx.rng.gen()),
+                    parent_id: None,
+                },
+                position: primordium_data::Position {
+                    x: p1.pos.x,
+                    y: p1.pos.y,
+                },
+                velocity: primordium_data::Velocity::default(),
+                appearance: primordium_data::Appearance::default(),
+                physics: primordium_data::Physics {
+                    home_x: p1.pos.x,
+                    home_y: p1.pos.y,
+                    x: p1.pos.x,
+                    y: p1.pos.y,
+                    vx: 0.0,
+                    vy: 0.0,
+                    r: 100,
+                    g: 200,
+                    b: 100,
+                    symbol: '●',
+                    sensing_range: child_genotype.sensing_range,
+                    max_speed: child_genotype.max_speed,
+                },
+                metabolism: primordium_data::Metabolism {
+                    trophic_potential: child_genotype.trophic_potential,
+                    energy: 0.0,
+                    prev_energy: 0.0,
+                    max_energy: child_genotype.max_energy,
+                    peak_energy: 0.0,
+                    birth_tick: ctx.tick,
+                    generation: p1.generation + 1,
+                    offspring_count: 0,
+                    lineage_id: child_genotype.lineage_id,
+                    has_metamorphosed: false,
+                    is_in_transit: false,
+                    migration_id: None,
+                },
+                health: primordium_data::Health {
+                    pathogen: None,
+                    infection_timer: 0,
+                    immunity: 0.0,
+                },
+                intel: primordium_data::Intel {
+                    genotype: std::sync::Arc::new(p1.genotype.clone()),
+                    last_hidden: [0.0; 6],
+                    last_aggression: 0.0,
+                    last_share_intent: 0.0,
+                    last_signal: 0.0,
+                    last_vocalization: 0.0,
+                    reputation: 1.0,
+                    rank: 0.5,
+                    bonded_to: None,
+                    last_inputs: [0.0; 29],
+                    last_activations: primordium_data::Activations::default(),
+                    specialization: None,
+                    spec_meters: std::collections::HashMap::new(),
+                    ancestral_traits: ctx.traits.clone(),
+                },
+            },
+            dist,
+        );
+    }
 
     let mut baby = Entity {
         identity: primordium_data::Identity {
@@ -309,8 +768,15 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
             y: p1.pos.y,
         },
         velocity: primordium_data::Velocity::default(),
-        appearance: primordium_data::Appearance::default(),
+        appearance: primordium_data::Appearance {
+            r: 100,
+            g: 200,
+            b: 100,
+            symbol: '●',
+        },
         physics: Physics {
+            home_x: p1.pos.x,
+            home_y: p1.pos.y,
             x: p1.pos.x,
             y: p1.pos.y,
             vx: 0.0,
@@ -319,8 +785,6 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
             g: 200,
             b: 100,
             symbol: '●',
-            home_x: p1.pos.x,
-            home_y: p1.pos.y,
             sensing_range: child_genotype.sensing_range,
             max_speed: child_genotype.max_speed,
         },
@@ -331,7 +795,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
             max_energy: child_genotype.max_energy,
             peak_energy: child_energy,
             birth_tick: ctx.tick,
-            generation: p1.generation.max(p2.generation) + 1,
+            generation: p1.generation + 1,
             offspring_count: 0,
             lineage_id: child_genotype.lineage_id,
             has_metamorphosed: false,
@@ -341,7 +805,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
         health: Health {
             pathogen: None,
             infection_timer: 0,
-            immunity: (p1.energy + p2.energy) as f32 / 200.0,
+            immunity: (p1.energy / 200.0) as f32,
         },
         intel: Intel {
             genotype: child_genotype,
@@ -372,7 +836,8 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
             _ => {}
         }
     }
-    (baby, 0.1)
+
+    (baby, dist)
 }
 
 pub fn increment_spec_meter_components(

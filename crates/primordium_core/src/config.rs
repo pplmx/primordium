@@ -261,8 +261,8 @@ impl Default for AppConfig {
                 build_oxygen_cost: 0.03,
             },
             ecosystem: EcosystemConfig {
-                carbon_emission_rate: 0.01,
-                sequestration_rate: 0.00001,
+                carbon_emission_rate: 0.001,
+                sequestration_rate: 0.0005,
                 oxygen_consumption_unit: 0.05,
                 soil_depletion_unit: 0.01,
                 corpse_fertility_mult: 0.1,

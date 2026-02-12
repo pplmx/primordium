@@ -335,6 +335,28 @@ impl Environment {
         }
         base * self.current_season.food_multiplier()
     }
+
+    pub fn carbon_stress_factor(&self) -> f64 {
+        if self.carbon_level < 400.0 {
+            0.0
+        } else if self.carbon_level < 600.0 {
+            0.1
+        } else if self.carbon_level < 800.0 {
+            0.25
+        } else if self.carbon_level < 1200.0 {
+            0.5
+        } else {
+            0.75
+        }
+    }
+
+    pub fn carbon_enhanced_forest_growth_multiplier(&self) -> f64 {
+        if self.carbon_level > 500.0 {
+            (self.carbon_level / 500.0).min(2.5)
+        } else {
+            1.0
+        }
+    }
 }
 
 #[cfg(test)]

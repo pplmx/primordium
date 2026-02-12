@@ -58,6 +58,7 @@ impl World {
                         phys,
                         population_count,
                         config,
+                        tick,
                         &mut rng,
                     );
 
