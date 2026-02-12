@@ -96,6 +96,7 @@ pub fn learn(brain: &mut Brain, activations: &primordium_data::Activations, rein
             }
         };
 
+        let reinforcement = reinforcement.clamp(-10.0, 10.0);
         let delta = brain.learning_rate * reinforcement * pre * post;
         conn.weight += delta;
         conn.weight = conn.weight.clamp(-5.0, 5.0);

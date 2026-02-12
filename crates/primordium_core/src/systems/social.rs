@@ -71,9 +71,8 @@ pub fn calculate_social_rank_components(
     let peak_age = config.social.age_rank_normalization * 0.7;
     let age_score_raw = (age as f32 / config.social.age_rank_normalization).min(1.0);
     let age_score = if age as f32 > peak_age {
-        // Apply bell-curve decay after peak age
         let excess = (age as f32 - peak_age) / (config.social.age_rank_normalization - peak_age);
-        (1.0 - excess.powi(2)).max(0.3) * age_score_raw
+        (1.0 - excess.powi(2)).max(0.0) * age_score_raw
     } else {
         age_score_raw
     };
@@ -248,7 +247,18 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
 
     let investment = (input.genotype.reproductive_investment as f64).min(SAFE_INVESTMENT_CAP);
 
-    // Calculate safe investment that leaves parent with minimum energy
+    // Density-dependent birth rate limiting
+    let carrying_capacity =
+        input.ctx.config.world.width as f64 * input.ctx.config.world.height as f64;
+    let population_density = input.ctx.population as f64 / carrying_capacity;
+    let investment = if population_density > 0.1 {
+        let overcapacity_factor = (population_density - 0.1) / 0.9;
+        let penalty = overcapacity_factor * overcapacity_factor;
+        investment * (1.0 - penalty.max(0.0) * 0.8)
+    } else {
+        investment
+    };
+
     let max_safe_invest =
         ((input.energy - MIN_PARENT_REMAINING) / input.energy).clamp(0.1, SAFE_INVESTMENT_CAP);
     let actual_investment = investment.min(max_safe_invest);

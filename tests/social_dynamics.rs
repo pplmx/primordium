@@ -134,9 +134,9 @@ async fn test_inter_tribe_predation() {
     let mut e1 = EntityBuilder::new()
         .id(id1)
         .at(10.0, 10.0)
-        .color(255, 0, 0)
         .energy(5000.0)
-        .max_energy(10000.0)
+        .max_energy(6000.0)
+        .color(255, 0, 0)
         .with_behavior(TestBehavior::Aggressive)
         .lineage(Uuid::from_u128(777))
         .build();

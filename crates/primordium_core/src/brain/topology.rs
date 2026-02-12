@@ -127,18 +127,30 @@ pub fn initialize_node_idx_map(brain: &mut Brain) {
 
     let mut order = Vec::new();
     let mut visited = HashMap::new();
+    let max_depth = brain.nodes.len() + BRAIN_INPUTS + 100;
 
     fn dfs(
         u: usize,
         adj: &HashMap<usize, Vec<usize>>,
         visited: &mut HashMap<usize, u8>,
         order: &mut Vec<usize>,
+        depth: usize,
+        max_depth: usize,
     ) {
+        if depth > max_depth {
+            return;
+        }
+
         visited.insert(u, 1);
         if let Some(neighbors) = adj.get(&u) {
             for &v in neighbors {
                 if !visited.contains_key(&v) {
-                    dfs(v, adj, visited, order);
+                    dfs(v, adj, visited, order, depth + 1, max_depth);
+                }
+                // If neighbor is currently being visited (value 1), we found a cycle
+                // Mark it as visited to prevent infinite recursion
+                if visited.get(&v) == Some(&1) {
+                    visited.insert(v, 2);
                 }
             }
         }
@@ -148,12 +160,12 @@ pub fn initialize_node_idx_map(brain: &mut Brain) {
 
     for i in 0..BRAIN_INPUTS {
         if !visited.contains_key(&i) {
-            dfs(i, &adj, &mut visited, &mut order);
+            dfs(i, &adj, &mut visited, &mut order, 0, max_depth);
         }
     }
     for node in &brain.nodes {
         if !visited.contains_key(&node.id) {
-            dfs(node.id, &adj, &mut visited, &mut order);
+            dfs(node.id, &adj, &mut visited, &mut order, 0, max_depth);
         }
     }
     order.reverse();
@@ -167,10 +179,23 @@ pub fn initialize_node_idx_map(brain: &mut Brain) {
     let mut recurrent = Vec::new();
     let mut incoming = HashMap::new();
 
-    for (idx, conn) in brain.connections.iter().enumerate() {
+    let node_ids = brain
+        .nodes
+        .iter()
+        .map(|n| n.id)
+        .collect::<std::collections::HashSet<_>>();
+
+    for idx in 0..brain.connections.len() {
+        let conn = &mut brain.connections[idx];
         if !conn.enabled {
             continue;
         }
+
+        if !node_ids.contains(&conn.from) || !node_ids.contains(&conn.to) {
+            conn.enabled = false;
+            continue;
+        }
+
         let from_rank = node_ranks.get(&conn.from).unwrap_or(&0);
         let to_rank = node_ranks.get(&conn.to).unwrap_or(&0);
 
