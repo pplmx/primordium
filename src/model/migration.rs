@@ -1,5 +1,6 @@
 use crate::model::lifecycle;
 use crate::model::world::World;
+use anyhow::anyhow;
 use rand::Rng;
 
 impl World {
@@ -17,10 +18,30 @@ impl World {
             anyhow::bail!("Incompatible world fingerprint: {}", fingerprint);
         }
 
+        // Validate DNA format
+        let dna_trimmed = dna.trim();
+        if dna_trimmed.is_empty() {
+            return Err(anyhow!("Migration DNA cannot be empty"));
+        }
+        if !dna_trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(anyhow!(
+                "Invalid DNA hex string: contains non-hex character"
+            ));
+        }
+        if !dna_trimmed.len().is_multiple_of(2) {
+            return Err(anyhow!("Invalid DNA hex string: odd number of characters"));
+        }
+
+        if !energy.is_finite() {
+            return Err(anyhow!(
+                "Migration energy must be finite (not NaN or Infinity)"
+            ));
+        }
+
         // 2. Validate Integrity
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        hasher.update(dna.as_bytes());
+        hasher.update(dna_trimmed.as_bytes());
         hasher.update(energy.to_be_bytes());
         hasher.update(generation.to_be_bytes());
         let real_checksum = hex::encode(hasher.finalize());
@@ -53,7 +74,7 @@ impl World {
         entity.metabolism.energy = energy as f64;
         entity.metabolism.generation = generation;
 
-        let genotype = primordium_data::Genotype::from_hex(&dna)?;
+        let genotype = primordium_data::Genotype::from_hex(dna_trimmed)?;
         entity.intel.genotype = std::sync::Arc::new(genotype);
         crate::model::brain::BrainLogic::initialize_node_idx_map(
             &mut std::sync::Arc::make_mut(&mut entity.intel.genotype).brain,
