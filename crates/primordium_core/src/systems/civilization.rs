@@ -281,14 +281,21 @@ pub fn resolve_power_grid(
                 .map(move |&i| {
                     let current = terrain_ref.cells[i].energy_store;
                     let flow = (avg_energy - current) * 0.1;
-                    (i, flow)
+
+                    if flow < 0.0 {
+                        let clamped = flow.max(-current);
+                        (i, clamped)
+                    } else {
+                        (i, flow)
+                    }
                 })
                 .collect::<Vec<_>>()
         })
         .collect();
 
     for (i, flow) in changes {
-        terrain.cells[i].energy_store += flow;
+        let new_energy = terrain.cells[i].energy_store + flow;
+        terrain.cells[i].energy_store = new_energy.max(0.0);
     }
 }
 
