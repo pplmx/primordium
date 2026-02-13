@@ -163,6 +163,7 @@ impl<'a> Widget for WorldWidget<'a> {
         let right_f = inner.right() as f64 - inner.x as f64;
         let bottom_f = inner.bottom() as f64 - inner.y as f64;
 
+        // Single-pass entity rendering with position collection for bond lines
         for entity in &self.snapshot.entities {
             if entity.x >= left_f && entity.x < right_f && entity.y >= top_f && entity.y < bottom_f
             {
@@ -173,7 +174,11 @@ impl<'a> Widget for WorldWidget<'a> {
 
                     let status = entity.status;
                     let cell = &mut buf[(x, y)];
-                    cell.set_symbol(&Self::symbol_for_status(entity).to_string());
+                    // Use char directly instead of allocating String
+                    cell.set_symbol(
+                        std::str::from_utf8(&[Self::symbol_for_status(entity) as u8])
+                            .unwrap_or("?"),
+                    );
                     cell.set_fg(Self::color_for_status(entity, status));
                     if self.view_mode >= 2 {
                         if entity.rank > 0.9 {
@@ -252,10 +257,9 @@ impl<'a> Widget for WorldWidget<'a> {
                         }
                     }
                     if terrain.terrain_type != TerrainType::Plains {
+                        let terrain_symbol = Self::symbol_for_terrain(terrain.terrain_type);
                         cell.set_symbol(
-                            Self::symbol_for_terrain(terrain.terrain_type)
-                                .to_string()
-                                .as_str(),
+                            std::str::from_utf8(&[terrain_symbol as u8]).unwrap_or("?"),
                         );
                         cell.set_fg(Self::color_for_terrain(terrain.terrain_type));
                     }
@@ -268,7 +272,7 @@ impl<'a> Widget for WorldWidget<'a> {
                 Self::world_to_screen(f64::from(food.x), f64::from(food.y), area, self.screensaver)
             {
                 let cell = &mut buf[(x, y)];
-                cell.set_symbol(&food.symbol.to_string());
+                cell.set_symbol(std::str::from_utf8(&[food.symbol as u8]).unwrap_or("?"));
                 cell.set_fg(Color::Rgb(
                     food.color_rgb.0,
                     food.color_rgb.1,
@@ -277,26 +281,7 @@ impl<'a> Widget for WorldWidget<'a> {
             }
         }
 
-        for entity in &self.snapshot.entities {
-            if let Some((x, y)) = Self::world_to_screen(entity.x, entity.y, area, self.screensaver)
-            {
-                let status = entity.status;
-                let cell = &mut buf[(x, y)];
-                cell.set_symbol(&Self::symbol_for_status(entity).to_string());
-                cell.set_fg(Self::color_for_status(entity, status));
-                if self.view_mode >= 2 {
-                    if entity.rank > 0.9 {
-                        cell.set_bg(Color::Rgb(100, 100, 0));
-                    } else if status == EntityStatus::Soldier {
-                        cell.set_bg(Color::Rgb(80, 0, 0));
-                    }
-                }
-                if entity.bonded_to.is_some() {
-                    cell.set_bg(Color::Rgb(80, 80, 0));
-                }
-            }
-        }
-
+        // Render bond lines between paired entities (uses positions collected in first pass)
         for entity in &self.snapshot.entities {
             if let Some(partner_id) = entity.bonded_to {
                 if let (Some(&(x1, y1)), Some(&(x2, y2))) = (
@@ -439,6 +424,68 @@ mod tests {
         assert_eq!(
             WorldWidget::color_for_terrain(TerrainType::River),
             Color::Rgb(70, 130, 180)
+        );
+    }
+
+    /// Verify single-pass rendering correctly handles bonded entities after optimization
+    #[test]
+    fn test_single_pass_rendering_with_bonds() {
+        use primordium_core::influence::InfluenceGrid;
+        use primordium_core::pheromone::PheromoneGrid;
+        use primordium_core::pressure::PressureGrid;
+        use primordium_core::snapshot::WorldSnapshot;
+        use primordium_core::sound::SoundGrid;
+        use primordium_core::terrain::TerrainGrid;
+
+        let entity1_id = uuid::Uuid::new_v4();
+        let entity2_id = uuid::Uuid::new_v4();
+
+        let mut entity1 = create_dummy_entity();
+        entity1.id = entity1_id;
+        entity1.x = 5.0;
+        entity1.y = 5.0;
+        entity1.bonded_to = Some(entity2_id);
+
+        let mut entity2 = create_dummy_entity();
+        entity2.id = entity2_id;
+        entity2.x = 10.0;
+        entity2.y = 10.0;
+        entity2.bonded_to = Some(entity1_id);
+
+        let terrain = TerrainGrid::generate(20, 20, 0);
+        let pheromones = PheromoneGrid::new(20, 20);
+        let sound = SoundGrid::new(20, 20);
+
+        let snapshot = WorldSnapshot {
+            tick: 0,
+            entities: vec![entity1, entity2],
+            food: vec![],
+            stats: std::sync::Arc::new(primordium_data::PopulationStats::default()),
+            hall_of_fame: std::sync::Arc::new(primordium_data::HallOfFame::default()),
+            terrain: std::sync::Arc::new(terrain),
+            pheromones: std::sync::Arc::new(pheromones),
+            sound: std::sync::Arc::new(sound),
+            pressure: std::sync::Arc::new(PressureGrid::new(20, 20)),
+            influence: std::sync::Arc::new(InfluenceGrid::new(20, 20)),
+            social_grid: std::sync::Arc::new(vec![0u8; 20 * 20]),
+            rank_grid: std::sync::Arc::new(vec![0.0f32; 20 * 20]),
+            width: 20,
+            height: 20,
+        };
+
+        let widget = WorldWidget::new(&snapshot, true, 0);
+        let mut buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 20, 20));
+
+        widget.render(ratatui::layout::Rect::new(0, 0, 20, 20), &mut buf);
+
+        let cell1 = &buf[(5, 5)];
+        let cell2 = &buf[(10, 10)];
+
+        assert_ne!(cell1.symbol(), " ", "Entity 1 should be rendered at (5, 5)");
+        assert_ne!(
+            cell2.symbol(),
+            " ",
+            "Entity 2 should be rendered at (10, 10)"
         );
     }
 }

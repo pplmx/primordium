@@ -24,7 +24,7 @@ mod tests {
 
     fn create_test_app() -> App {
         let config = AppConfig::default();
-        let world = World::new(0, config.clone()).unwrap();
+        let world = World::new(0, config.clone()).expect("World creation should not fail in tests");
 
         App {
             running: true,

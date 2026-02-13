@@ -78,7 +78,8 @@ impl App {
                     }
                 }
             } else {
-                while event::poll(Duration::ZERO)? {
+                // Use 1ms poll interval to prevent busy-waiting while remaining responsive
+                while event::poll(Duration::from_millis(1))? {
                     let evt = event::read()?;
                     if !self.screensaver {
                         self.input_log.push(crate::app::state::InputEvent {
