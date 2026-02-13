@@ -132,6 +132,27 @@ pub fn action_system_components_with_modifiers(
         metabolism_mult
     };
 
+    let neighbor_count = {
+        let mut count = 0usize;
+        let sensing_range = entity.physics.sensing_range;
+        ctx.spatial_hash.query_callback(
+            entity.position.x,
+            entity.position.y,
+            sensing_range,
+            |idx| {
+                let s = &ctx.snapshots[idx];
+                if s.id != *entity.id {
+                    let dx = s.x - entity.position.x;
+                    let dy = s.y - entity.position.y;
+                    if (dx * dx + dy * dy) < sensing_range.powi(2) {
+                        count += 1;
+                    }
+                }
+            },
+        );
+        count
+    };
+
     let total_cost = calculate_metabolic_cost(MetabolicCostInput {
         intel: entity.intel,
         metabolism: entity.metabolism,
@@ -144,6 +165,7 @@ pub fn action_system_components_with_modifiers(
         effective_metabolism_mult,
         x: entity.position.x,
         y: entity.position.y,
+        neighbor_count,
     });
 
     entity.metabolism.energy -= total_cost;
@@ -202,6 +224,7 @@ struct MetabolicCostInput<'a, 'b> {
     effective_metabolism_mult: f64,
     x: f64,
     y: f64,
+    neighbor_count: usize,
 }
 
 fn calculate_metabolic_cost<'a, 'b>(input: MetabolicCostInput<'a, 'b>) -> f64 {
@@ -238,7 +261,10 @@ fn calculate_metabolic_cost<'a, 'b>(input: MetabolicCostInput<'a, 'b>) -> f64 {
         base_idle *= 1.0 - f64::from(input.ctx.config.ecosystem.corpse_fertility_mult);
     }
 
-    let mut idle_cost = (base_idle + brain_maintenance) * input.effective_metabolism_mult;
+    // Phase 67 Task C: Apply DDA multiplier to idle cost
+    let mut idle_cost = (base_idle + brain_maintenance)
+        * input.effective_metabolism_mult
+        * input.ctx.env.dda_base_idle_multiplier;
 
     if input.intel.bonded_to.is_some() {
         move_cost *= 0.9;
@@ -261,6 +287,14 @@ fn calculate_metabolic_cost<'a, 'b>(input: MetabolicCostInput<'a, 'b>) -> f64 {
     if carbon_stress > 0.0 {
         idle_cost *= 1.0 + carbon_stress * 2.0;
     }
+
+    // Phase 67 Task A: Exponential crowding tax to prevent ghost physics
+    // Formula: crowding_tax = base_idle * (neighbor_count ^ 1.5) * crowding_cost
+    // This forces dispersion without hard collision physics
+    let crowding_tax = base_idle
+        * (input.neighbor_count as f64).powf(1.5)
+        * input.ctx.config.metabolism.crowding_cost;
+    idle_cost += crowding_tax;
 
     move_cost + signal_cost + idle_cost + input.activity_drain
 }

@@ -66,6 +66,8 @@ pub struct PopulationStats {
     pub species_count: usize,
     /// Highest fitness score among all living entities.
     pub top_fitness: f64,
+    /// Mean fitness score across all living entities (for DDA).
+    pub avg_fitness: f64,
     /// Total biomass of herbivore-niche entities.
     pub biomass_h: f64,
     /// Total biomass of carnivore-niche entities.
@@ -100,6 +102,7 @@ impl Default for PopulationStats {
             avg_brain_entropy: 0.0,
             species_count: 0,
             top_fitness: 0.0,
+            avg_fitness: 0.0,
             biomass_h: 0.0,
             biomass_c: 0.0,
             food_count: 0,

@@ -74,6 +74,7 @@ async fn test_lineage_population_stats() {
         carbon_level: 0.0,
         mutation_scale: 0.1,
         terrain: &world.terrain,
+        tick: world.tick,
     });
 
     assert_eq!(world.pop_stats.lineage_counts.get(&l1), Some(&2));

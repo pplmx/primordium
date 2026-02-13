@@ -34,6 +34,8 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 6 | Phase 64: Genetic Memory & Evolutionary Rewind | ✅ |
 | 7 | Phase 66.7: Neural & Social Correction | ✅ |
 | 8 | Phase 66 Step 2-4: ECS + Parallelism + rkyv | ✅ |
+| 9 | Phase 67 Task A: Spatial Exclusion & Crowding Penalty | ✅ Exponential crowding tax |
+| 10 | Phase 67 Task C: Dynamic Evolutionary Pressure | ✅ DDA + Catastrophe Conservation |
 
 ### Next Up
 
@@ -804,25 +806,26 @@ toml = "0.8"
 
 **Goal:** Ensure the simulation is physically plausible and evolutionarily challenging.
 
-- **Task A: Spatial Exclusion & Crowding Penalty (Priority: High)**
+- **Task A: Spatial Exclusion & Crowding Penalty (Priority: High)** ✅ **COMPLETED (2026-02-13)**
     - *Why*: Current "Ghost Physics" allows infinite entity stacking, making ID sorting the primary survival factor and negating the need for movement strategies.
     - *How*:
         - **Crowding Sensor**: Entities already detect density, but metabolic cost must scale exponentially with local density.
-        - **Soft Collision**: Implement `repulsion_force` in `Action` system. If `dist < 0.5`, apply force vector to push entities apart.
-        - **Metabolic Tax**: Add `crowding_tax = base_idle * (neighbor_count ^ 1.5)`. This forces dispersion without hard collision physics.
+        - **Soft Collision**: ✅ `repulsion_force` implemented in `Action` system.
+        - **Metabolic Tax**: ✅ `crowding_tax = base_idle * (neighbor_count ^ 1.5) * crowding_cost` implemented in `calculate_metabolic_cost`.
 
-- **Task B: Closed-Loop Thermodynamics (Priority: Medium)**
+- **Task B: Closed-Loop Thermodynamics (Priority: Medium)** ⚠️ **PARTIALLY COMPLETE**
     - *Why*: Food is currently created ex nihilo based on RNG. This allows for unchecked population explosions ("Malthusian Explosion").
     - *How*:
-        - **Global Energy Pool**: A `f64` singleton tracking total energy in the universe (Entities + Food + Soil).
-        - **Zero-Sum Spawning**: New food can ONLY be spawned by draining the Global Energy Pool.
-        - **Conservation**: Death returns energy to Soil/Pool. Entropy (heat loss) permanently removes energy, requiring "Solar" injection (CPU coupled) at a fixed rate.
+        - **Global Energy Pool**: ✅ `Environment::available_energy` tracks spawn budget.
+        - **Zero-Sum Spawning**: ✅ Food spawning drains from pool.
+        - **Conservation**: ✅ Death returns energy to pool; Solar injection adds energy.
+        - **Missing**: Full thermodynamic accounting (Entities + Food + Soil as unified pool).
 
-- **Task C: Dynamic Evolutionary Pressure (Priority: Medium)**
+- **Task C: Dynamic Evolutionary Pressure (Priority: Medium)** ✅ **COMPLETED (2026-02-13)**
     - *Why*: The current "Abundance" rebalance makes survival too easy, stalling the evolution of complex brains.
     - *How*:
-        - **Dynamic Difficulty Adjustment (DDA)**: Monitor `Average Fitness`. If fitness > threshold, automatically decrease `Solar Injection Rate` or increase `Metabolic Base Cost`.
-        - **Catastrophe Conservation**: As population rises, the probability of "Plagues" and "Wars" must increase non-linearly to maintain carrying capacity.
+        - **Dynamic Difficulty Adjustment (DDA)**: ✅ Implemented in `Environment::update_dda()`. Monitors `avg_fitness`, adjusts `dda_solar_multiplier` and `dda_base_idle_multiplier` (0.5x-2.0x range) with gradual 0.1% per tick changes.
+        - **Catastrophe Conservation**: ✅ Implemented in `handle_disasters()`. Disaster probability scales non-linearly (`population_density_factor = 1.0 + ((pop-200)/500)^1.5`) with 50% cap.
 
 ### 🎨 Creative Construction
 

@@ -38,6 +38,7 @@ async fn test_lineage_registry_cleanup_on_extinction() {
         carbon_level: 0.0,
         mutation_scale: 0.1,
         terrain: &world.terrain,
+        tick: world.tick,
     });
     assert_eq!(world.pop_stats.lineage_counts.get(&l_id), Some(&1));
 
@@ -53,6 +54,7 @@ async fn test_lineage_registry_cleanup_on_extinction() {
         carbon_level: 0.0,
         mutation_scale: 0.1,
         terrain: &world.terrain,
+        tick: world.tick,
     });
 
     // Registry should show 0 or be empty for that ID

@@ -11,6 +11,7 @@ pub struct StatsContext<'a, T> {
     pub carbon_level: f64,
     pub mutation_scale: f32,
     pub terrain: &'a crate::terrain::TerrainGrid,
+    pub tick: u64,
 }
 
 pub fn update_population_stats(ctx: StatsContext<Entity>) {
@@ -96,6 +97,23 @@ pub fn update_population_stats(ctx: StatsContext<Entity>) {
         }
     }
     ctx.stats.species_count = representatives.len();
+
+    // Phase 67 Task C: Calculate average fitness for DDA
+    let mut total_fitness = 0.0;
+    let mut max_fitness = 0.0;
+    for e in ctx.entities {
+        let age = ctx.tick - e.metabolism.birth_tick;
+        // Fitness formula: age * 0.5 + offspring * 10 + current_energy * 0.2
+        let fitness = (age as f64 * 0.5)
+            + (e.metabolism.offspring_count as f64 * 10.0)
+            + (e.metabolism.energy * 0.2);
+        total_fitness += fitness;
+        if fitness > max_fitness {
+            max_fitness = fitness;
+        }
+    }
+    ctx.stats.avg_fitness = total_fitness / ctx.entities.len() as f64;
+    ctx.stats.top_fitness = max_fitness;
 }
 
 pub fn record_stat_death(stats: &mut PopulationStats, lifespan: u64) {
@@ -160,6 +178,7 @@ pub fn update_stats(
             carbon_level: input.carbon_level,
             mutation_scale: input.mutation_scale,
             terrain: input.terrain,
+            tick: input.tick,
         });
     }
 }
@@ -182,6 +201,7 @@ pub fn update_population_stats_snapshots(
     if ctx.entities.is_empty() {
         ctx.stats.avg_brain_entropy = 0.0;
         ctx.stats.species_count = 0;
+        ctx.stats.avg_fitness = 0.0;
         return;
     }
 
@@ -199,4 +219,19 @@ pub fn update_population_stats_snapshots(
         sectors.entry((sx, sy)).or_default().insert(e.lineage_id);
     }
     ctx.stats.biodiversity_hotspots = sectors.values().filter(|s| s.len() >= 5).count();
+
+    // Phase 67 Task C: Calculate average fitness for DDA
+    let mut total_fitness = 0.0;
+    let mut max_fitness = 0.0;
+    for e in ctx.entities {
+        let age = ctx.tick - e.birth_tick;
+        // Fitness formula: age * 0.5 + offspring * 10 + current_energy * 0.2
+        let fitness = (age as f64 * 0.5) + (e.offspring_count as f64 * 10.0) + (e.energy * 0.2);
+        total_fitness += fitness;
+        if fitness > max_fitness {
+            max_fitness = fitness;
+        }
+    }
+    ctx.stats.avg_fitness = total_fitness / ctx.entities.len() as f64;
+    ctx.stats.top_fitness = max_fitness;
 }

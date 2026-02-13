@@ -148,11 +148,27 @@ $$ Carbon_{sequestration} = \sum_{cells} (Biomass_{density} \times BiomeFactor \
 The net carbon change per tick is calculated as:
 $$ \Delta Carbon = Carbon_{emission} - Carbon_{sequestration} $$
 
-The system maintains `carbon_level` within bounds (0 to 2000), where:
-- **Low Carbon (0-400)**: Ice Age conditions, reduced metabolic activity
-- **Optimal Carbon (400-800)**: Temperate baseline conditions
-- **Elevated Carbon (800-1200)**: Warming phase begins
-- **Critical Carbon (>1200)**: Global warming cascade triggered
+The system maintains `carbon_level` within bounds (0 to 2000).
+
+**Carbon Stress Factor** (affects entity metabolism):
+| Carbon Level | Stress Factor | Effect |
+|--------------|---------------|--------|
+| 0-400 | 0.0 | No stress |
+| 400-600 | 0.1 | Mild stress |
+| 600-800 | 0.25 | Moderate stress |
+| 800-1200 | 0.5 | High stress |
+| >1200 | 0.75 | Critical stress |
+
+**Climate Coupling** (Carbon → Effective CPU → Climate State):
+Carbon acts as a forcing factor that amplifies CPU usage:
+$$ Carbon_{forcing} = \frac{Carbon_{level} - 300}{100} $$
+$$ CPU_{effective} = CPU_{actual} + Carbon_{forcing} \times 10 $$
+
+The climate state is then determined by `CPU_effective`:
+- Temperate: <30%
+- Warm: 30-60%
+- Hot: 60-80%
+- Scorching: >80%
 
 ##### Global Warming Cascade
 
@@ -381,10 +397,12 @@ A specialized phenotype emerges at the intersection of high rank and aggression.
 - **Role**: Soldiers are the dedicated defenders/invaders of the tribe.
 - **Combat Bonus**: Soldiers deal **1.5x damage**. In designated **War Zones**, this bonus increases to **2.0x**.
 
-#### Tribal Splitting (The Fracture)
-When varying success levels create tension in high-density areas, tribes can fracture.
-- **Trigger**: An entity with **Low Rank (<0.2)** in a **High Density (>0.8)** environment.
-- **Mechanism**: The entity initiates a "Schism", mutating its color significantly to founding a new, distinct tribe.
+#### Tribal Splitting (Alpha-Led Migration)
+When high-ranking entities face overcrowding, they lead the migration to form a new tribe—ensuring the fittest guide the expansion.
+
+- **Trigger**: An entity with **High Rank (> 0.6 × sharing_threshold)** in a **High Density (> crowding_threshold)** environment.
+- **Mechanism**: The Alpha initiates a "Schism", mutating its color significantly to founding a new, distinct tribe.
+- **Design Rationale**: Strong entities lead colonization; weaker members remain in established territory.
 - **Effect**: Reduces local competition by breaking the "Same Tribe" protection pact, allowing the new tribe to fight for resources or migrate away.
 
 ### Civilizational Infrastructure (Phase 60-63)

@@ -323,7 +323,17 @@ impl World {
         );
         env.add_carbon(pop_count as f64 * self.config.ecosystem.carbon_emission_rate);
         env.consume_oxygen(pop_count as f64 * self.config.metabolism.oxygen_consumption_rate);
-        env.available_energy += self.config.ecosystem.solar_energy_rate;
+
+        // Phase 67 Task C: Update DDA based on average fitness
+        let avg_fitness = self.pop_stats.avg_fitness;
+        let target_fitness = 500.0; // Target fitness threshold for DDA
+        env.update_dda(avg_fitness, target_fitness, pop_count);
+
+        // Apply DDA multiplier to solar energy injection
+        let effective_solar_rate =
+            self.config.ecosystem.solar_energy_rate * env.dda_solar_multiplier;
+        env.available_energy += effective_solar_rate;
+
         env.tick();
 
         biological::handle_pathogen_emergence(&mut self.active_pathogens, &mut self.rng);

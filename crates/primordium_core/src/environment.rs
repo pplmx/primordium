@@ -161,6 +161,10 @@ pub struct Environment {
     pub app_memory_usage_mb: f32,
     /// Global energy pool available for spawning food/life
     pub available_energy: f64,
+    /// Phase 67 Task C: DDA solar multiplier (adjusts solar_energy_rate dynamically)
+    pub dda_solar_multiplier: f64,
+    /// Phase 67 Task C: DDA base idle multiplier (adjusts base_idle_cost dynamically)
+    pub dda_base_idle_multiplier: f64,
 }
 
 impl Default for Environment {
@@ -186,6 +190,8 @@ impl Default for Environment {
             oxygen_level: 21.0,
             app_memory_usage_mb: 0.0,
             available_energy: 10000.0,
+            dda_solar_multiplier: 1.0,
+            dda_base_idle_multiplier: 1.0,
         }
     }
 }
@@ -213,6 +219,8 @@ impl Environment {
         self.carbon_level = 300.0;
         self.oxygen_level = 21.0;
         self.available_energy = 10000.0;
+        self.dda_solar_multiplier = 1.0;
+        self.dda_base_idle_multiplier = 1.0;
     }
 
     pub fn add_carbon(&mut self, amount: f64) {
@@ -405,6 +413,34 @@ impl Environment {
         } else {
             1.0
         }
+    }
+
+    /// Phase 67 Task C: Update DDA multipliers based on average fitness
+    /// If avg_fitness > target_fitness, increase difficulty (reduce solar, increase idle cost)
+    /// If avg_fitness < target_fitness, decrease difficulty (increase solar, reduce idle cost)
+    pub fn update_dda(&mut self, avg_fitness: f64, target_fitness: f64, population: usize) {
+        // Only adjust DDA when population is significant
+        if population < 10 {
+            return;
+        }
+
+        let fitness_ratio = avg_fitness / target_fitness;
+        let adjustment_rate = 0.001; // Slow, gradual adjustment
+
+        if fitness_ratio > 1.1 {
+            // Population too fit - increase difficulty
+            self.dda_solar_multiplier =
+                (self.dda_solar_multiplier * (1.0 - adjustment_rate)).max(0.5);
+            self.dda_base_idle_multiplier =
+                (self.dda_base_idle_multiplier * (1.0 + adjustment_rate)).min(2.0);
+        } else if fitness_ratio < 0.9 {
+            // Population struggling - decrease difficulty
+            self.dda_solar_multiplier =
+                (self.dda_solar_multiplier * (1.0 + adjustment_rate)).min(2.0);
+            self.dda_base_idle_multiplier =
+                (self.dda_base_idle_multiplier * (1.0 - adjustment_rate)).max(0.5);
+        }
+        // If fitness_ratio is within 0.9-1.1, maintain current difficulty
     }
 }
 

@@ -271,8 +271,10 @@ impl GenotypeLogic for Genotype {
     }
 
     fn relatedness(&self, other: &Self) -> f32 {
+        // Hamilton's Rule: r = 2^(-dist * 0.5)
+        // Exponential decay matches genetic relatedness more accurately than linear
         let dist = self.distance(other);
-        (1.0 - (dist / 10.0)).clamp(0.0, 1.0)
+        (2.0_f32.powf(-dist * 0.5)).clamp(0.0, 1.0)
     }
 
     fn to_hex(&self) -> String {
