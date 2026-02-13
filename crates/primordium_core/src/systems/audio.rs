@@ -39,10 +39,10 @@ pub struct AudioSpatialParams {
 pub trait AudioDriver: Send + Sync {
     /// Plays a one-shot sound effect.
     async fn play_effect(&self, event: AudioEvent, params: Option<AudioSpatialParams>);
-    
+
     /// Updates the background procedural music state.
     async fn update_ambient(&self, entropy: f32, biomass: f64);
-    
+
     /// Sets the master volume (0.0 to 1.0).
     fn set_volume(&self, volume: f32);
 }

@@ -79,6 +79,9 @@ mod tests {
             replay_queue: VecDeque::new(),
             replay_mode: false,
             dirty: true,
+
+            audio: crate::app::AudioSystem::new(),
+            event_bus: crate::app::EventBus::new(),
         }
     }
 

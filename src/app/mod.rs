@@ -1,9 +1,13 @@
+pub mod audio;
+pub mod events;
 pub mod input;
 pub mod onboarding;
 pub mod render;
 pub mod shutdown;
 pub mod state;
 
+pub use audio::AudioSystem;
+pub use events::{EventBus, WorldEvent};
 pub use shutdown::ShutdownManager;
 pub use state::App;
 

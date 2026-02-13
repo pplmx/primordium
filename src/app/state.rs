@@ -91,6 +91,11 @@ pub struct App {
     pub replay_mode: bool,
     // Dirty tracking for render optimization
     pub dirty: bool,
+
+    // Audio system (Phase 68 placeholder)
+    pub audio: crate::app::AudioSystem,
+    // Event bus for decoupled communication
+    pub event_bus: crate::app::EventBus,
 }
 
 impl App {
@@ -193,6 +198,9 @@ impl App {
             replay_queue: VecDeque::new(),
             replay_mode: false,
             dirty: true,
+
+            audio: crate::app::AudioSystem::new(),
+            event_bus: crate::app::EventBus::new(),
         })
     }
 
