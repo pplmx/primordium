@@ -113,6 +113,7 @@ impl App {
             if last_tick.elapsed() >= effective_tick_rate {
                 if !self.paused {
                     self.update_world()?;
+                    self.audio.process_queue();
                     self.dirty = true;
                 }
 
@@ -205,6 +206,10 @@ impl App {
     fn update_world(&mut self) -> Result<()> {
         let events = self.world.update(&mut self.env)?;
         self.latest_snapshot = Some(self.world.create_snapshot(self.selected_entity));
+
+        for event in &events {
+            self.audio.process_live_event(event);
+        }
 
         if let Some(net) = &self.network {
             self.network_state = net.get_state();

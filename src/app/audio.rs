@@ -1,4 +1,5 @@
 use primordium_core::systems::audio::{AudioDriver, AudioEvent, NullAudioDriver};
+use primordium_data::data::environment::LiveEvent;
 use std::collections::VecDeque;
 
 /// Audio system for Primordium TUI
@@ -61,6 +62,22 @@ impl AudioSystem {
     pub fn queue_event(&mut self, event: AudioEvent) {
         if self.enabled {
             self.event_queue.push_back(event);
+        }
+    }
+
+    pub fn process_live_event(&mut self, event: &LiveEvent) {
+        match event {
+            LiveEvent::Birth { .. } => self.queue_event(AudioEvent::Birth),
+            LiveEvent::Death { .. } => self.queue_event(AudioEvent::Death),
+            LiveEvent::Metamorphosis { .. } => self.queue_event(AudioEvent::Metamorphosis),
+            LiveEvent::ClimateShift { .. } => self.queue_event(AudioEvent::ClimateShift),
+            LiveEvent::TribalSplit { .. } => self.queue_event(AudioEvent::Birth),
+            LiveEvent::Snapshot { .. } | LiveEvent::Narration { .. } => {
+                self.queue_event(AudioEvent::AmbientShift)
+            }
+            LiveEvent::Extinction { .. } | LiveEvent::EcoAlert { .. } => {
+                self.queue_event(AudioEvent::AmbientShift)
+            }
         }
     }
 
