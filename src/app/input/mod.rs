@@ -78,6 +78,7 @@ mod tests {
             input_log: Vec::new(),
             replay_queue: VecDeque::new(),
             replay_mode: false,
+            dirty: true,
         }
     }
 

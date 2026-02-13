@@ -50,11 +50,15 @@ impl App {
             let effective_tick_rate =
                 Duration::from_secs_f64(tick_rate.as_secs_f64() / self.time_scale);
 
-            tui.terminal.draw(|f| {
-                self.draw(f);
-            })?;
+            // Only redraw when dirty (world updated or input received)
+            if self.dirty {
+                tui.terminal.draw(|f| {
+                    self.draw(f);
+                })?;
+                self.dirty = false;
+                self.frame_count += 1;
+            }
 
-            self.frame_count += 1;
             if self.last_fps_update.elapsed() >= Duration::from_secs(1) {
                 self.update_hardware_metrics();
             }
@@ -66,9 +70,11 @@ impl App {
                             match evt.event {
                                 Event::Key(key) if key.kind == KeyEventKind::Press => {
                                     self.handle_key(key);
+                                    self.dirty = true;
                                 }
                                 Event::Mouse(mouse) => {
                                     self.handle_mouse(mouse);
+                                    self.dirty = true;
                                 }
                                 _ => {}
                             }
@@ -78,7 +84,6 @@ impl App {
                     }
                 }
             } else {
-                // Use 1ms poll interval to prevent busy-waiting while remaining responsive
                 while event::poll(Duration::from_millis(1))? {
                     let evt = event::read()?;
                     if !self.screensaver {
@@ -90,9 +95,11 @@ impl App {
                     match evt {
                         Event::Key(key) if key.kind == KeyEventKind::Press => {
                             self.handle_key(key);
+                            self.dirty = true;
                         }
                         Event::Mouse(mouse) => {
                             self.handle_mouse(mouse);
+                            self.dirty = true;
                         }
                         _ => {}
                     }
@@ -102,6 +109,7 @@ impl App {
             if last_tick.elapsed() >= effective_tick_rate {
                 if !self.paused {
                     self.update_world()?;
+                    self.dirty = true;
                 }
 
                 if self.show_archeology

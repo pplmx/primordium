@@ -89,6 +89,8 @@ pub struct App {
     pub input_log: Vec<InputEvent>,
     pub replay_queue: VecDeque<InputEvent>,
     pub replay_mode: bool,
+    // Dirty tracking for render optimization
+    pub dirty: bool,
 }
 
 impl App {
@@ -190,6 +192,7 @@ impl App {
             input_log: Vec::new(),
             replay_queue: VecDeque::new(),
             replay_mode: false,
+            dirty: true,
         })
     }
 

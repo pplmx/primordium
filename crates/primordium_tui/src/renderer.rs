@@ -156,12 +156,20 @@ impl<'a> Widget for WorldWidget<'a> {
 
         let inner = Self::get_inner_area(area, self.screensaver);
 
-        let mut screen_positions = HashMap::with_capacity(self.snapshot.entities.len());
-
         let left_f = inner.left() as f64 - inner.x as f64;
         let top_f = inner.top() as f64 - inner.y as f64;
         let right_f = inner.right() as f64 - inner.x as f64;
         let bottom_f = inner.bottom() as f64 - inner.y as f64;
+
+        // Check if any entities have bonds before allocating HashMap
+        let has_bonds = self.snapshot.entities.iter().any(|e| e.bonded_to.is_some());
+
+        // Only allocate HashMap if needed for bond rendering
+        let mut screen_positions: HashMap<uuid::Uuid, (u16, u16)> = if has_bonds {
+            HashMap::with_capacity(self.snapshot.entities.len())
+        } else {
+            HashMap::new()
+        };
 
         // Single-pass entity rendering with position collection for bond lines
         for entity in &self.snapshot.entities {
@@ -170,11 +178,12 @@ impl<'a> Widget for WorldWidget<'a> {
                 if let Some((x, y)) =
                     Self::world_to_screen(entity.x, entity.y, area, self.screensaver)
                 {
-                    screen_positions.insert(entity.id, (x, y));
+                    if has_bonds {
+                        screen_positions.insert(entity.id, (x, y));
+                    }
 
                     let status = entity.status;
                     let cell = &mut buf[(x, y)];
-                    // Use char directly instead of allocating String
                     cell.set_symbol(
                         std::str::from_utf8(&[Self::symbol_for_status(entity) as u8])
                             .unwrap_or("?"),

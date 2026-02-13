@@ -315,6 +315,7 @@ mod tests {
             input_log: Vec::new(),
             replay_queue: VecDeque::new(),
             replay_mode: false,
+            dirty: true,
         };
         app.latest_snapshot = Some(app.world.create_snapshot(None));
         app
