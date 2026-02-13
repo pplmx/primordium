@@ -259,4 +259,42 @@ impl LineageRegistry {
                 || record.best_legend_id.is_some()
         });
     }
+
+    pub fn prune_extinct_old(&mut self, current_tick: u64, extinction_age_threshold: u64) {
+        let extinct_age = |record: &LineageRecord, tick: u64| -> u64 {
+            if !record.is_extinct {
+                return 0;
+            }
+            tick.saturating_sub(record.first_appearance_tick)
+        };
+
+        self.lineages.retain(|_, record| {
+            !record.is_extinct
+                || record.best_legend_id.is_some()
+                || extinct_age(record, current_tick) < extinction_age_threshold
+        });
+    }
+
+    pub fn prune_by_count(&mut self, max_lineages: usize) {
+        if self.lineages.len() <= max_lineages {
+            return;
+        }
+
+        let mut lineage_vec: Vec<_> = self.lineages.iter().collect();
+        lineage_vec.sort_by_key(|&(_, record)| {
+            let is_active = !record.is_extinct;
+            let has_legend = record.best_legend_id.is_some();
+            let total_entities = record.total_entities_produced;
+
+            (!is_active, !has_legend, std::cmp::Reverse(total_entities))
+        });
+
+        let keep_count = max_lineages;
+        let mut keep_ids: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
+        for &(id, _) in lineage_vec.iter().take(keep_count) {
+            keep_ids.insert(*id);
+        }
+
+        self.lineages.retain(|id, _| keep_ids.contains(id));
+    }
 }

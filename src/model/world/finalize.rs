@@ -235,6 +235,18 @@ impl World {
             );
             self.lineage_registry.prune();
         }
+
+        if self
+            .tick
+            .is_multiple_of(self.config.world.lineage_prune_interval)
+        {
+            self.lineage_registry.prune_extinct_old(
+                self.tick,
+                self.config.world.lineage_extinction_age_threshold,
+            );
+            self.lineage_registry
+                .prune_by_count(self.config.world.max_lineages);
+        }
     }
 
     pub fn finalize_civilization(&mut self, entity_handles: &[hecs::Entity]) {

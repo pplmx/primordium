@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Defines the fundamental parameters of the simulation world including
 /// dimensions, initial population, and hardware-coupled environmental triggers.
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorldConfig {
     pub width: u16,
     pub height: u16,
@@ -51,6 +51,34 @@ pub struct WorldConfig {
     pub fossil_interval: u64,
     pub power_grid_interval: u64,
     pub repulsion_force: f64,
+    pub lineage_prune_interval: u64,
+    pub max_lineages: usize,
+    pub lineage_extinction_age_threshold: u64,
+}
+
+impl Default for WorldConfig {
+    fn default() -> Self {
+        Self {
+            width: 100,
+            height: 50,
+            initial_population: 100,
+            initial_food: 100,
+            max_food: 200,
+            disaster_chance: 0.01,
+            heat_wave_cpu: 80.0,
+            ice_age_cpu: 10.0,
+            abundance_ram: 40.0,
+            apex_fitness_req: 8000.0,
+            seed: None,
+            deterministic: false,
+            fossil_interval: 1000,
+            power_grid_interval: 10,
+            repulsion_force: 0.5,
+            lineage_prune_interval: 10000,
+            max_lineages: 500,
+            lineage_extinction_age_threshold: 20000,
+        }
+    }
 }
 
 /// Entity metabolism and energy management configuration.
@@ -194,6 +222,9 @@ impl Default for AppConfig {
                 fossil_interval: 1000,
                 power_grid_interval: 10,
                 repulsion_force: 0.5,
+                lineage_prune_interval: 10000,
+                max_lineages: 500,
+                lineage_extinction_age_threshold: 20000,
             },
             metabolism: MetabolismConfig {
                 base_move_cost: 0.2,
