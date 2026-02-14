@@ -366,6 +366,25 @@ impl App {
                 self.event_log.pop_front();
             }
         }
+
+        if let Some((top_lineage_id, _population)) = self
+            .world
+            .pop_stats
+            .lineage_counts
+            .iter()
+            .max_by_key(|&(_, count)| count)
+        {
+            if let Some(lineage) = self.world.lineage_registry.lineages.get(top_lineage_id) {
+                if let Some(genotype) = &lineage.max_fitness_genotype {
+                    self.audio.update_top_lineage_genotype(
+                        *top_lineage_id,
+                        genotype,
+                        self.world.tick,
+                    );
+                }
+            }
+        }
+
         Ok(())
     }
 }
