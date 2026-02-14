@@ -64,20 +64,24 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                 let attacker_handle = entity_handles[attacker_idx];
 
                 let mut target_info = None;
-                if let (Ok(target_identity), Ok(target_metabolism)) = (
+                if let (Ok(target_identity), Ok(target_metabolism), Ok(target_physics)) = (
                     world.get::<&primordium_data::Identity>(target_handle),
                     world.get::<&Metabolism>(target_handle),
+                    world.get::<&primordium_data::Physics>(target_handle),
                 ) {
                     if !killed_ids.contains(&target_identity.id) {
                         target_info = Some((
                             target_identity.id,
                             target_metabolism.birth_tick,
                             target_metabolism.offspring_count,
+                            target_physics.x,
+                            target_physics.y,
                         ));
                     }
                 }
 
-                if let Some((tid, target_birth, target_offspring)) = target_info {
+                if let Some((tid, target_birth, target_offspring, target_x, target_y)) = target_info
+                {
                     let u = tid.as_u128();
                     let mut seed = ctx
                         .tick
@@ -103,6 +107,8 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                             tick: ctx.tick,
                             timestamp: Utc::now().to_rfc3339(),
                             cause: cause.clone(),
+                            x: Some(target_x),
+                            y: Some(target_y),
                         };
                         events.push(ev);
 
@@ -154,6 +160,8 @@ pub fn process_interaction_commands_ecs<R: Rng>(
                     gen: baby.metabolism.generation,
                     tick: ctx.tick,
                     timestamp: chrono::Utc::now().to_rfc3339(),
+                    x: Some(baby.physics.x),
+                    y: Some(baby.physics.y),
                 };
                 events.push(ev);
 

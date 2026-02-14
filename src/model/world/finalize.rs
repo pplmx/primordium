@@ -93,7 +93,7 @@ impl World {
             }
         }
 
-        self.process_deaths(&proposals, tick, env);
+        self.process_deaths(&proposals, tick, env, events);
         self.process_births(new_babies);
         self.finalize_snapshots(env, events);
         self.finalize_civilization(entity_handles);
@@ -105,6 +105,7 @@ impl World {
         proposals: &[ProposalResult],
         tick: u64,
         env: &mut Environment,
+        events: &mut Vec<LiveEvent>,
     ) {
         let mut dead_handles = Vec::new();
         for (handle, _, is_dead) in proposals {
@@ -119,6 +120,19 @@ impl World {
                 .remove::<(Metabolism, Identity, Physics, Intel)>(handle)
             {
                 self.lineage_registry.record_death(met.lineage_id);
+
+                // Create Death event for starvation deaths
+                let ev = LiveEvent::Death {
+                    id: identity.id,
+                    age: tick - met.birth_tick,
+                    offspring: met.offspring_count,
+                    tick,
+                    timestamp: Utc::now().to_rfc3339(),
+                    cause: "Starvation".to_string(),
+                    x: Some(phys.x),
+                    y: Some(phys.y),
+                };
+                events.push(ev);
 
                 if let Some(legend) =
                     social::archive_if_legend_components(&identity, &met, &intel, &phys, tick)

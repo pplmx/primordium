@@ -208,7 +208,13 @@ impl App {
         self.latest_snapshot = Some(self.world.create_snapshot(self.selected_entity));
 
         for event in &events {
-            self.audio.process_live_event(event);
+            let (x, y) = match event {
+                primordium_data::LiveEvent::Birth { x, y, .. } => (*x, *y),
+                primordium_data::LiveEvent::Death { x, y, .. } => (*x, *y),
+                _ => (None, None),
+            };
+
+            self.audio.process_live_event_with_position(event, x, y);
         }
 
         if let Some(net) = &self.network {
