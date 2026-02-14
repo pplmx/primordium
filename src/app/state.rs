@@ -141,6 +141,9 @@ impl App {
             .ok()
             .and_then(|m| m.modified().ok());
 
+        let mut audio = crate::app::AudioSystem::new();
+        audio.set_world_dimensions(world.width, world.height);
+
         Ok(Self {
             running: true,
             paused: false,
@@ -199,7 +202,7 @@ impl App {
             replay_mode: false,
             dirty: true,
 
-            audio: crate::app::AudioSystem::new(),
+            audio,
             event_bus: crate::app::EventBus::new(),
         })
     }
