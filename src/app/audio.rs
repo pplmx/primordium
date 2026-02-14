@@ -11,10 +11,31 @@ use primordium_data::data::genotype::Genotype;
 use std::collections::VecDeque;
 use uuid::Uuid;
 
+pub struct SpatialAudioEvent {
+    pub event: AudioEvent,
+    pub left_pan: f32,
+    pub right_pan: f32,
+    pub distance: f64,
+    pub max_distance: f64,
+}
+
+impl SpatialAudioEvent {
+    pub fn apply_stereo(&self, mono_sample: f32) -> (f32, f32) {
+        let normalized_distance = (self.distance / self.max_distance).min(1.0);
+        let attenuation = 1.0 / (1.0 + normalized_distance * normalized_distance);
+        let attenuated = mono_sample * attenuation as f32;
+
+        let left = attenuated * self.left_pan;
+        let right = attenuated * self.right_pan;
+        (left, right)
+    }
+}
+
 pub struct AudioSystem {
     pub enabled: bool,
     pub volume: f32,
     event_queue: VecDeque<AudioEvent>,
+    spatial_queue: VecDeque<SpatialAudioEvent>,
     engine: Option<engine::AudioEngine>,
     current_entropy: f32,
     current_biomass: f32,
@@ -37,6 +58,7 @@ impl Default for AudioSystem {
             top_lineage_genotype: None,
             world_width: 1000,
             world_height: 1000,
+            spatial_queue: VecDeque::with_capacity(32),
         }
     }
 }
@@ -177,29 +199,16 @@ impl AudioSystem {
                 self.world_height,
             );
 
-            let sample = if let Some(engine) = &mut self.engine {
-                let mut buffer = [0.0_f32; 1];
-                engine.render_block(&mut buffer);
-                buffer[0]
-            } else {
-                0.0
+            let spatial_event = SpatialAudioEvent {
+                event,
+                left_pan: left,
+                right_pan: right,
+                distance: self.calculate_distance(x, y),
+                max_distance: self.max_distance(),
             };
 
-            let _left_sample = spatial::SpatialAudio::apply_distance_attenuation(
-                sample * left,
-                self.calculate_distance(x, y),
-                self.max_distance(),
-            );
-            let _right_sample = spatial::SpatialAudio::apply_distance_attenuation(
-                sample * right,
-                self.calculate_distance(x, y),
-                self.max_distance(),
-            );
-            // TODO: Stereo spatial audio requires engine refactor to support stereo output
-            // Current mono audio engine doesn't use spatial samples yet
-
             if self.enabled {
-                self.event_queue.push_back(event);
+                self.spatial_queue.push_back(spatial_event);
             }
         } else {
             self.queue_event(event);
@@ -221,6 +230,7 @@ impl AudioSystem {
     pub fn process_queue(&mut self) {
         if !self.enabled {
             self.event_queue.clear();
+            self.spatial_queue.clear();
             return;
         }
 
@@ -229,6 +239,12 @@ impl AudioSystem {
             engine.set_biomass(self.current_biomass);
             engine.enable_background(true);
 
+            // Process spatial events
+            while let Some(spatial_ev) = self.spatial_queue.pop_front() {
+                engine.queue_event(spatial_ev.event);
+            }
+
+            // Process non-spatial events
             while let Some(event) = self.event_queue.pop_front() {
                 engine.queue_event(event);
             }

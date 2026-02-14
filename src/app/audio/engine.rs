@@ -34,6 +34,10 @@ pub struct AudioEngine {
     background_running: bool,
     active_event_sfx: Option<Vec<f32>>,
     event_sfx_index: usize,
+    #[allow(dead_code)]
+    active_spatial_sfx: Option<(AudioEvent, f32, f32)>,
+    spatial_sfx_left_gain: f32,
+    spatial_sfx_right_gain: f32,
 }
 
 impl AudioEngine {
@@ -53,6 +57,9 @@ impl AudioEngine {
             background_running: false,
             active_event_sfx: None,
             event_sfx_index: 0,
+            active_spatial_sfx: None,
+            spatial_sfx_left_gain: 1.0,
+            spatial_sfx_right_gain: 1.0,
         })
     }
 
@@ -91,6 +98,44 @@ impl AudioEngine {
         }
     }
 
+    pub fn render_block_stereo(&mut self, out_buffer: &mut [f32; 2]) {
+        let mut mix_left = 0.0;
+        let mut mix_right = 0.0;
+
+        if self.background_running {
+            let sample = self
+                .entropy_synth
+                .render_sample(self.current_entropy, self.current_biomass);
+            mix_left += 0.3 * sample;
+            mix_right += 0.3 * sample;
+        }
+
+        if self.bio_music.is_playing() {
+            if let Some(s) = self.bio_music.next_sample() {
+                mix_left += 0.5 * s;
+                mix_right += 0.5 * s;
+            }
+        }
+
+        if let Some(ref sfx) = self.active_event_sfx {
+            if self.event_sfx_index < sfx.len() {
+                mix_left += 0.8 * self.spatial_sfx_left_gain * sfx[self.event_sfx_index];
+                mix_right += 0.8 * self.spatial_sfx_right_gain * sfx[self.event_sfx_index];
+                self.event_sfx_index += 1;
+            } else {
+                self.active_event_sfx = None;
+                self.event_sfx_index = 0;
+            }
+        }
+
+        out_buffer[0] = mix_left;
+        out_buffer[1] = mix_right;
+
+        while let Ok(event) = self.event_receiver.try_recv() {
+            self.handle_event(event);
+        }
+    }
+
     fn handle_event(&mut self, event: AudioEvent) {
         let waveform = self.event_sfx.generate_waveform(event);
         if !waveform.is_empty() {
@@ -101,6 +146,11 @@ impl AudioEngine {
 
     pub fn queue_event(&self, event: AudioEvent) {
         let _ = self.event_queue.send(event);
+    }
+
+    pub fn set_spatial_sfx_gain(&mut self, left: f32, right: f32) {
+        self.spatial_sfx_left_gain = left;
+        self.spatial_sfx_right_gain = right;
     }
 
     pub fn set_entropy(&mut self, entropy: f32) {
