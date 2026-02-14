@@ -33,6 +33,7 @@ primordium_tui = { path = "crates/primordium_tui" }
 primordium_io = { path = "crates/primordium_io" }
 # Error handling
 anyhow = "1.0"
+thiserror = "1.0"
 
 # Serialization & Data
 serde = { version = "1.0", features = ["derive", "rc"] }
