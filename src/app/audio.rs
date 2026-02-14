@@ -20,6 +20,8 @@ pub struct AudioSystem {
     current_biomass: f32,
     top_lineage_id: Option<Uuid>,
     top_lineage_genotype: Option<Genotype>,
+    world_width: u16,
+    world_height: u16,
 }
 
 impl Default for AudioSystem {
@@ -33,6 +35,8 @@ impl Default for AudioSystem {
             current_biomass: 1000.0_f32,
             top_lineage_id: None,
             top_lineage_genotype: None,
+            world_width: 1000,
+            world_height: 1000,
         }
     }
 }
@@ -93,12 +97,15 @@ impl AudioSystem {
         x: Option<f64>,
         y: Option<f64>,
     ) {
-        #[allow(unused_variables)]
-        let _ = (x, y);
-
         match event {
-            LiveEvent::Birth { .. } => self.queue_event(AudioEvent::Birth),
-            LiveEvent::Death { .. } => self.queue_event(AudioEvent::Death),
+            LiveEvent::Birth { .. } => {
+                let audio_event = AudioEvent::Birth;
+                self.queue_event_spatial(audio_event, x, y);
+            }
+            LiveEvent::Death { .. } => {
+                let audio_event = AudioEvent::Death;
+                self.queue_event_spatial(audio_event, x, y);
+            }
             LiveEvent::Metamorphosis { .. } => self.queue_event(AudioEvent::Metamorphosis),
             LiveEvent::ClimateShift { .. } => self.queue_event(AudioEvent::ClimateShift),
             LiveEvent::TribalSplit { .. } => self.queue_event(AudioEvent::Birth),
@@ -109,9 +116,7 @@ impl AudioSystem {
                     stats.biomass_h + stats.biomass_c,
                 );
             }
-            LiveEvent::Narration { .. } => {
-                self.queue_event(AudioEvent::AmbientShift);
-            }
+            LiveEvent::Narration { .. } => self.queue_event(AudioEvent::AmbientShift),
             LiveEvent::Extinction { .. } | LiveEvent::EcoAlert { .. } => {
                 self.queue_event(AudioEvent::AmbientShift)
             }
@@ -156,6 +161,61 @@ impl AudioSystem {
         if let Some(engine) = &mut self.engine {
             engine.load_bio_music(&melody, tempo_bpm);
         }
+    }
+
+    pub fn set_world_dimensions(&mut self, width: u16, height: u16) {
+        self.world_width = width;
+        self.world_height = height;
+    }
+
+    fn queue_event_spatial(&mut self, event: AudioEvent, x: Option<f64>, y: Option<f64>) {
+        if let (Some(x), Some(y)) = (x, y) {
+            let (left, right) = self::spatial::SpatialAudio::calculate_stereo_panning(
+                x,
+                y,
+                self.world_width,
+                self.world_height,
+            );
+
+            let sample = if let Some(engine) = &mut self.engine {
+                let mut buffer = [0.0_f32; 1];
+                engine.render_block(&mut buffer);
+                buffer[0]
+            } else {
+                0.0
+            };
+
+            let _left_sample = spatial::SpatialAudio::apply_distance_attenuation(
+                sample * left,
+                self.calculate_distance(x, y),
+                self.max_distance(),
+            );
+            let _right_sample = spatial::SpatialAudio::apply_distance_attenuation(
+                sample * right,
+                self.calculate_distance(x, y),
+                self.max_distance(),
+            );
+            // TODO: Stereo spatial audio requires engine refactor to support stereo output
+            // Current mono audio engine doesn't use spatial samples yet
+
+            if self.enabled {
+                self.event_queue.push_back(event);
+            }
+        } else {
+            self.queue_event(event);
+        }
+    }
+
+    fn calculate_distance(&self, x: f64, y: f64) -> f64 {
+        let _max_dist =
+            ((self.world_width as f64).powf(2.0) + (self.world_height as f64).powf(2.0)).sqrt();
+        let dx = x - self.world_width as f64 / 2.0;
+        let dy = y - self.world_height as f64 / 2.0;
+        (dx * dx + dy * dy).sqrt()
+    }
+
+    fn max_distance(&self) -> f64 {
+        ((self.world_width as f64).powf(2.0) + (self.world_height as f64).powf(2.0)).sqrt()
     }
 
     pub fn process_queue(&mut self) {
