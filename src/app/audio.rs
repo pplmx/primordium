@@ -1,4 +1,5 @@
 pub mod bio_music;
+pub mod bio_music_algorithm;
 pub mod engine;
 pub mod entropy_synth;
 pub mod event_sfx;
@@ -6,7 +7,9 @@ pub mod spatial;
 
 use primordium_core::systems::audio::AudioEvent;
 use primordium_data::data::environment::LiveEvent;
+use primordium_data::data::genotype::Genotype;
 use std::collections::VecDeque;
+use uuid::Uuid;
 
 pub struct AudioSystem {
     pub enabled: bool,
@@ -15,6 +18,8 @@ pub struct AudioSystem {
     engine: Option<engine::AudioEngine>,
     current_entropy: f32,
     current_biomass: f32,
+    top_lineage_id: Option<Uuid>,
+    top_lineage_genotype: Option<Genotype>,
 }
 
 impl Default for AudioSystem {
@@ -26,6 +31,8 @@ impl Default for AudioSystem {
             engine: None,
             current_entropy: 0.5,
             current_biomass: 1000.0_f32,
+            top_lineage_id: None,
+            top_lineage_genotype: None,
         }
     }
 }
@@ -80,19 +87,74 @@ impl AudioSystem {
         }
     }
 
-    pub fn process_live_event(&mut self, event: &LiveEvent) {
+    pub fn process_live_event_with_position(
+        &mut self,
+        event: &LiveEvent,
+        x: Option<f64>,
+        y: Option<f64>,
+    ) {
+        #[allow(unused_variables)]
+        let _ = (x, y);
+
         match event {
             LiveEvent::Birth { .. } => self.queue_event(AudioEvent::Birth),
             LiveEvent::Death { .. } => self.queue_event(AudioEvent::Death),
             LiveEvent::Metamorphosis { .. } => self.queue_event(AudioEvent::Metamorphosis),
             LiveEvent::ClimateShift { .. } => self.queue_event(AudioEvent::ClimateShift),
             LiveEvent::TribalSplit { .. } => self.queue_event(AudioEvent::Birth),
-            LiveEvent::Snapshot { .. } | LiveEvent::Narration { .. } => {
-                self.queue_event(AudioEvent::AmbientShift)
+            LiveEvent::Snapshot { stats, .. } => {
+                self.queue_event(AudioEvent::AmbientShift);
+                self.update_entropy_parameters(
+                    stats.avg_brain_entropy,
+                    stats.biomass_h + stats.biomass_c,
+                );
+            }
+            LiveEvent::Narration { .. } => {
+                self.queue_event(AudioEvent::AmbientShift);
             }
             LiveEvent::Extinction { .. } | LiveEvent::EcoAlert { .. } => {
                 self.queue_event(AudioEvent::AmbientShift)
             }
+        }
+    }
+
+    pub fn process_live_event(&mut self, event: &LiveEvent) {
+        self.process_live_event_with_position(event, None, None);
+    }
+
+    fn update_entropy_parameters(&mut self, avg_brain_entropy: f64, total_biomass: f64) {
+        self.current_entropy = avg_brain_entropy.clamp(0.0, 1.0) as f32;
+        self.current_biomass = total_biomass as f32;
+    }
+
+    pub fn update_top_lineage_genotype(
+        &mut self,
+        lineage_id: Uuid,
+        genotype: &Genotype,
+        #[allow(unused_variables)] world_tick: u64,
+    ) {
+        let is_new_top = match self.top_lineage_id {
+            Some(id) => id != lineage_id,
+            None => true,
+        };
+
+        if is_new_top {
+            self.top_lineage_id = Some(lineage_id);
+            self.top_lineage_genotype = Some(genotype.clone());
+            self.generate_bio_music(genotype);
+        }
+    }
+
+    fn generate_bio_music(&mut self, genotype: &Genotype) {
+        if !self.enabled {
+            return;
+        }
+
+        let melody = self::bio_music_algorithm::BioMusicAlgorithm::genotype_to_melody(genotype);
+        let tempo_bpm = self::bio_music_algorithm::BioMusicAlgorithm::extract_tempo(genotype);
+
+        if let Some(engine) = &mut self.engine {
+            engine.load_bio_music(&melody, tempo_bpm);
         }
     }
 

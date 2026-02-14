@@ -49,7 +49,7 @@ mod tests {
     fn test_fm_sample_generation() {
         let mut synth = FMSynthesizer::new(44100.0);
         let sample = synth.render_sample(0.5, 1000.0);
-        assert!(sample >= -1.0 && sample <= 1.0);
+        assert!((-1.0..=1.0).contains(&sample));
     }
 
     #[test]
@@ -79,7 +79,7 @@ mod tests {
         for entropy in 0..11 {
             let sample = synth.render_sample(entropy as f32 / 10.0, 1000.0);
             assert!(
-                sample >= -1.0 && sample <= 1.0,
+                (-1.0..=1.0).contains(&sample),
                 "Sample {} out of bounds at entropy={}",
                 sample,
                 entropy

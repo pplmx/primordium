@@ -145,7 +145,7 @@ mod tests {
         engine.render_block(&mut buffer);
 
         for sample in buffer {
-            assert!(sample >= -1.0 && sample <= 1.0);
+            assert!((-1.0..=1.0).contains(&sample));
         }
     }
 

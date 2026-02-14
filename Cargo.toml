@@ -123,9 +123,6 @@ tower-http = { version = "0.5", features = ["fs", "cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Audio (non-WASM only)
-rodio = { version = "0.19", optional = true }
-
 # ============================================================================
 # Release Profile Optimization
 # ============================================================================
