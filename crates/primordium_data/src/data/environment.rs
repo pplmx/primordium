@@ -133,6 +133,8 @@ pub enum LiveEvent {
         gen: u32,
         tick: u64,
         timestamp: String,
+        x: Option<f64>,
+        y: Option<f64>,
     },
     /// An entity has died.
     Death {
@@ -142,6 +144,8 @@ pub enum LiveEvent {
         tick: u64,
         timestamp: String,
         cause: String,
+        x: Option<f64>,
+        y: Option<f64>,
     },
     /// An entity completed larval-to-adult metamorphosis.
     Metamorphosis {
