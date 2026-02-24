@@ -103,6 +103,30 @@ impl App {
                     self.onboarding_step = None;
                 }
             }
+            KeyCode::Char('u') => {
+                self.audio.toggle();
+                self.event_log.push_back((
+                    format!(
+                        "Audio {}",
+                        if self.audio.enabled {
+                            "enabled"
+                        } else {
+                            "disabled"
+                        }
+                    ),
+                    Color::Cyan,
+                ));
+            }
+            KeyCode::Char('{') => {
+                self.audio.decrease_volume();
+                self.event_log
+                    .push_back(("Audio volume decreased".to_string(), Color::Cyan));
+            }
+            KeyCode::Char('}') => {
+                self.audio.increase_volume();
+                self.event_log
+                    .push_back(("Audio volume increased".to_string(), Color::Cyan));
+            }
             KeyCode::Char('1') if !self.show_help && self.onboarding_step.is_none() => {
                 self.view_mode = 0;
                 self.event_log

@@ -32,6 +32,8 @@ Primordium runs in two environments:
 | `b` | Toggle **Neural Brain Visualization** |
 | `h` | Toggle **Help Overlay** |
 | `x` | Trigger **Genetic Surge** (Global Mutation) |
+| `u` | Toggle **Audio** (Procedural Soundscapes) |
+| `{` / `}`| Decrease / Increase audio volume |
 | `m` | **Mutate** selected entity |
 | `k` | **Smite** (Kill) selected entity |
 | `p` | **Reincarnate** (Reset DNA) selected entity |

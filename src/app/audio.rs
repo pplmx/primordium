@@ -107,6 +107,19 @@ impl AudioSystem {
         self.volume = volume.clamp(0.0, 1.0);
     }
 
+    pub fn adjust_volume(&mut self, delta: f32) {
+        let new_volume = (self.volume + delta).clamp(0.0, 1.0);
+        self.volume = new_volume;
+    }
+
+    pub fn increase_volume(&mut self) {
+        self.adjust_volume(0.25);
+    }
+
+    pub fn decrease_volume(&mut self) {
+        self.adjust_volume(-0.25);
+    }
+
     pub fn queue_event(&mut self, event: AudioEvent) {
         if self.enabled {
             self.event_queue.push_back(event);

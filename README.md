@@ -196,6 +196,8 @@ cargo run --release -- --mode screensaver
 | `[` / `]` | **Time Travel** (Navigate History Snapshots) |
 | `B` | Toggle Neural Brain Heatmap |
 | `H` | Toggle Help Overlay |
+| `U` | Toggle **Audio** (Procedural Soundscapes) |
+| `{` / `}`| Decrease / Increase audio volume |
 | `X` | Trigger **Genetic Surge** (Global Mutation) |
 | `M` | Mutate selected organism |
 | `K` | Smite (Remove) selected organism |
