@@ -123,8 +123,8 @@ impl QuicClient {
 
 fn make_server_endpoint(bind_addr: SocketAddr) -> Result<(Endpoint, Vec<u8>)> {
     let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
-    let cert_der = cert.serialize_der()?;
-    let priv_key = cert.serialize_private_key_der();
+    let cert_der = cert.cert.der().to_vec();
+    let priv_key = cert.signing_key.serialize_der().to_vec();
     let cert_chain = vec![rustls::Certificate(cert_der.clone())];
     let priv_key = rustls::PrivateKey(priv_key);
 

@@ -20,6 +20,6 @@ petgraph = "0.8.3"
 rusqlite = { version = "0.31.0", features = ["bundled", "uuid", "blob"] }
 quinn = { version = "0.10", features = ["rustls"] }
 rustls = { version = "0.21", features = ["quic", "dangerous_configuration"] }
-rcgen = "0.11"
+rcgen = "0.14"
 ed25519-dalek = { version = "2.0", features = ["serde"] }
 rand = "0.8"
