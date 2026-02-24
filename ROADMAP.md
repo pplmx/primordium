@@ -30,23 +30,106 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 2 | Phase 66: Data-Oriented Core (ECS Refactor) | ✅ Full pipeline |
 | 3 | Phase 66.5: Cognitive Hygiene & Resilience | ✅ Neural Pruning, Zero-Alloc |
 | 4 | T2: Engineering Excellence (CI/CD + Determinism) | ✅ CI + Release workflows |
-| 5 | Phase 65: The Silicon Scribe (Foundation) | ✅ Heuristic narration |
+| 5 | Phase 65: The Silicon Scribe (Foundation) | ✅ Heuristic narration (高级功能推迟) |
 | 6 | Phase 64: Genetic Memory & Evolutionary Rewind | ✅ |
 | 7 | Phase 66.7: Neural & Social Correction | ✅ |
 | 8 | Phase 66 Step 2-4: ECS + Parallelism + rkyv | ✅ |
 | 9 | Phase 67 Task A: Spatial Exclusion & Crowding Penalty | ✅ Exponential crowding tax |
 | 10 | Phase 67 Task C: Dynamic Evolutionary Pressure | ✅ DDA + Catastrophe Conservation |
+| 11 | 🔥 Engineering Sprint (50 Tasks) | ✅ 42/50 tasks (2026-02-11) |
+| 12 | Phase 68: The Song of Entropy (Audio) | ✅ FM Synth + Bio-Music + Spatial Stereo |
+| 13 | Phase 68.6: Stereo Audio Integration | ✅ Spatial panning + distance attenuation |
+| 14 | Security Hardening (2026-02-24) | ✅ bytes/time/rcgen/quinn upgrades |
 
-### Next Up
+### Next Up (2026-02-24 Re-prioritized)
 
-1. **🔥 Engineering Sprint (50 Tasks)** — 代码质量、重构、测试、架构 (详见下方)
-2. **Phase 68: The Song of Entropy (Audio)** — *Immersion*
-3. **Phase 69: Visual Synthesis (ASCII Raytracing)** — *Visual Polish*
-4. **Phase 70: The Galactic Federation (Central Server)** — *Online Universe*
+> **优先级原则**: 正确性 > 稳健性 > 测试覆盖 > 新功能。先还债，再建新。
+>
+> **质疑记录**:
+> - Phase 65 的 "Analyst Agent" (RAG + 向量数据库 + NL→SQL) **从未实现**，但 Phase 65 标记为 ✅。已修正为"基础完成，高级功能推迟"。
+> - CHANGELOG.md 中 `[Security Fixes] - 2026-02-24` 被重复 41 次，文件膨胀至 2354 行，属文档卫生事故。
+> - Phase 68 Audio 已上线但 **零测试覆盖**（6 个子模块），属高风险质量债务。
+> - `primordium_core/src/food.rs` 为空文件（0 行实际代码），是遗留存根。
+> - 4 个 `#[ignore]` 测试长期未修复（ecosystem_stability, evolution_validation, social_hierarchy, stability_long_haul）。
+> - `src/client/manager.rs` 有 7 处生产代码 `unwrap()` (Mutex lock)，存在 panic 风险。
+
+1. **🛡️ Quality Hardening Sprint** — 模拟正确性 + 测试债务 + 文档修复 (详见下方，含 Phase 67B 收尾)
+2. **Phase 69: Visual Synthesis (ASCII Raytracing)** — *视觉沉浸*
+3. **Phase 65.5: Silicon Scribe Advanced (RAG/Query)** — *高级观测能力* (推迟至需求明确)
+4. **Phase 70: The Galactic Federation (Central Server)** — *在线宇宙*
+
+## 🛡️ Quality Hardening Sprint (2026-02-24)
+
+> **触发原因**: Phase 68 上线后发现多处质量债务；热力学系统半完成状态；文档损坏；测试缺口。
+> **原则**: 正确性 > 稳健性 > 测试覆盖 > 新功能。先还债，再建新。
+>
+> **验证门** (每个任务完成后必须通过):
+> ```bash
+> cargo fmt --all
+> cargo clippy --workspace --all-targets --all-features -- -D warnings
+> cargo test --workspace --all-features
+> ```
+
+### Tier 1: 模拟正确性 (P0 — 核心逻辑)
+
+| # | 任务 | 位置 | 方案 | 状态 |
+|---|------|------|------|------|
+| 1 | 清理空文件 `food.rs` | `crates/primordium_core/src/food.rs` | 删除空存根或实现为 Food 组件的独立模块 | 🔴 |
+| 2 | Phase 67 Task B 收尾: 统一能量核算 | `environment.rs`, `ecological.rs` | 将 Entity 死亡返还能量、Soil 肥力消耗纳入 `available_energy` 池，实现闭环 | 🔴 |
+| 3 | 修复 `biological.rs` 的 `too_many_arguments` 抑制 | `systems/biological.rs:10` | 引入 Context 结构体消除 `#[allow(clippy::too_many_arguments)]` | 🔴 |
+| 4 | 消除 `audio.rs` / `audio/engine.rs` 的 `#[allow(...)]` | `src/app/audio.rs:174`, `src/app/audio/engine.rs` | 清理 unused_variables 和 dead_code 抑制 | 🔴 |
+
+### Tier 2: 生产安全性 (P0 — 防 Panic)
+
+| # | 任务 | 位置 | 方案 | 状态 |
+|---|------|------|------|------|
+| 5 | 替换 NetworkManager 7处 Mutex `unwrap()` | `src/client/manager.rs` | 改为 `.lock().map_err(...)` 或使用 `parking_lot::Mutex` | 🔴 |
+| 6 | 审计 Hall of Fame placeholder | `primordium_tui/src/views/hof.rs:21` | 移除虚假 SQLite 提示，改为真实状态显示 | 🔴 |
+
+### Tier 3: 测试债务 (P1 — Audio 零覆盖)
+
+| # | 任务 | 模块 | 测试类型 | 状态 |
+|---|------|------|----------|------|
+| 7 | Audio Engine 单元测试 | `src/app/audio/engine.rs` | 验证 render_block 输出、音量控制、事件队列 | 🔴 |
+| 8 | Entropy Synth 测试 | `src/app/audio/entropy_synth.rs` | 验证 FM 合成参数映射、输出范围 [-1.0, 1.0] | 🔴 |
+| 9 | Bio-Music 测试 | `src/app/audio/bio_music*.rs` | 验证基因组→旋律映射的确定性 | 🔴 |
+| 10 | Event SFX 测试 | `src/app/audio/event_sfx.rs` | 验证 Birth/Death 音效生成 | 🔴 |
+| 11 | Spatial Audio 测试 | `src/app/audio/spatial.rs` | 验证立体声 panning 计算、距离衰减 | 🔴 |
+
+### Tier 4: Flaky 测试修复 (P1 — CI 可靠性)
+
+| # | 任务 | 测试文件 | 方案 | 状态 |
+|---|------|----------|------|------|
+| 12 | 修复 `ecosystem_stability` flaky test | `tests/ecosystem_stability.rs` | 使用确定性种子 + 放宽断言或改统计验证 | 🔴 |
+| 13 | 修复 `evolution_validation` ignored test | `tests/evolution_validation.rs` | 分析 R/K dominance 不稳定原因，调整参数 | 🔴 |
+| 14 | 修复 `social_hierarchy` ignored test | `tests/social_hierarchy.rs` | 确保 rank 计算在确定性模式下可预测 | 🔴 |
+| 15 | 审计 `stability_long_haul` ignored test | `tests/stability_long_haul.rs` | 确认是否为有意的 long-run test，添加注释 | 🔴 |
+
+### Tier 5: 文档卫生 (P2 — 可维护性)
+
+| # | 任务 | 文件 | 方案 | 状态 |
+|---|------|------|------|------|
+| 16 | 修复 CHANGELOG.md 重复膨胀 | `CHANGELOG.md` | 删除重复 41次的 `[Security Fixes]`，保留唯一一份在文件顶部 | 🔴 |
+| 17 | 更新 ROADMAP 元数据 | `ROADMAP.md` 末尾 | 更新 `*Last updated*` 为 2026-02-24 | ✅ |
+| 18 | 修正 Phase 65 状态描述 | `ROADMAP.md` Phase 65 小节 | 明确标注 Analyst Agent 和 Interactive Query 为 "Deferred" | ✅ |
+
+### Tier 6: Phase 67 Task B 收尾 (P2 — 模拟完整性)
+
+> **当前状态**: `available_energy` 池已存在，食物生成已扣减。**缺失**: Entity 死亡返还能量、代谢消耗与 Soil 肥力的能量统一核算。
+
+| # | 任务 | 位置 | 方案 | 状态 |
+|---|------|------|------|------|
+| 19 | Entity 死亡能量返还 | `src/model/world/finalize.rs` | `process_deaths()` 中将剩余能量按比例注回 `available_energy` | 🔴 |
+| 20 | 代谢能量核算 | `systems/biological.rs` | 实体每 tick 代谢消耗记为热损耗，从全局池扣除 | 🔴 |
+| 21 | 全局能量仪表盘 | `src/app/render.rs` | TUI 状态栏显示全局能量池余额 | 🔴 |
+| 22 | 热力学集成测试 | `tests/thermodynamics.rs` | 验证 N tick 后能量守恒: ΣEntity + ΣFood + Pool ≈ Initial + SolarInput | 🔴 |
 
 ---
 
-## 🔥 Engineering Sprint — 50 Tasks (2026-02-10)
+<details>
+<summary>🔥 Engineering Sprint — 50 Tasks (2026-02-10) ✅ COMPLETED (42/50, 84%) — click to expand</summary>
+
+### 🔥 Engineering Sprint — 50 Tasks (2026-02-10)
 
 > **基线状态**: Clippy 0 warnings ✅ | Tests 全部通过 ✅ | 无 TODO/FIXME ✅ | 无 unsafe ✅ | 生产代码无 unwrap() ✅ (测试代码中有 24 处)
 >
@@ -213,7 +296,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 49 | 音频系统 trait 设计 | Phase 68 | ✅ 定义 `AudioDriver` trait + 事件→声音映射接口 | ✅ 2026-02-11 |
 | 50 | mdBook 文档站搭建 | T4 | ✅ 框架搭建 + 现有 MD 文档编译路径设置 | ✅ 2026-02-11 |
 
----
+</details>
 
 ## 📦 Technology Stack
 
@@ -772,18 +855,19 @@ toml = "0.8"
     - 🚧 **Data-Logic Split**: Moving towards ECS (Phase 66).
 
 ### Phase 65: The Silicon Scribe (LLM Integration) 🚀
-
 **Goal:** Ultimate Observability regarding "Why did this happen?".
 
-- **Narrator System**:
+- **Narrator System**: ✅ **COMPLETED**
     - Functional: Natural language event logs describing epic moments (e.g., "The Red Tribe migrated south due to famine").
-    - Technical: Async Rust bindings to local LLM (e.g., Llama 3) encapsulated in **`primordium_observer`** to prevent core bloat.
-- **Analyst Agent**:
+    - Technical: Async Rust bindings encapsulated in **`primordium_observer`** with `HeuristicNarrator` implementation.
+- **Analyst Agent**: ⏸️ **DEFERRED** (Phase 65.5)
     - Functional: RAG system allowing users to query simulation history.
     - Technical: Vector database integration for `logs/history.jsonl`.
-- **Interactive Query**:
+    - *Status*: Not implemented. Requires external vector DB dependency and significant engineering effort. Deferred until user demand is validated.
+- **Interactive Query**: ⏸️ **DEFERRED** (Phase 65.5)
     - Functional: "Show me the lineage that survived the Great Drought."
     - Technical: Natural Language to SQL/Filter converter for `primordium-analyze`.
+    - *Status*: Not implemented. Depends on Analyst Agent infrastructure.
 
 ### Phase 66: Data-Oriented Core (ECS Refactor) ⚡
 
@@ -931,5 +1015,5 @@ Primordium is an experiment in **emergent complexity**. You provide the rules, t
 
 Every run is unique. Every lineage is precious. Every extinction teaches us something.
 
-*Last updated: 2026-02-11*
+*Last updated: 2026-02-24*
 *Version: 0.0.1*
