@@ -239,13 +239,16 @@ impl AudioSystem {
             engine.set_biomass(self.current_biomass);
             engine.enable_background(true);
 
-            // Process spatial events
+            // Process spatial events with stereo panning
             while let Some(spatial_ev) = self.spatial_queue.pop_front() {
+                // Apply spatial panning before queuing the event
+                engine.set_spatial_sfx_gain(spatial_ev.left_pan, spatial_ev.right_pan);
                 engine.queue_event(spatial_ev.event);
             }
 
-            // Process non-spatial events
+            // Process non-spatial events (center-panned)
             while let Some(event) = self.event_queue.pop_front() {
+                engine.set_spatial_sfx_gain(1.0, 1.0); // Center pan
                 engine.queue_event(event);
             }
         }

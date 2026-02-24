@@ -102,6 +102,15 @@ Each entity possesses a **dynamic Graph-based (NEAT-lite)** brain. Through natur
 - **Hall of Fame**: Real-time leaderboard of the top 3 fittest organisms.
 - **Advanced Analytics**: Brain entropy, average lifespan, and dual-sparkline population dynamics.
 - **Specialization Visualizer**: Real-time TUI brain view mapping 11 outputs and caste progression meters.
+### 🔊 Procedural Audio Engine (Phase 68 v2 & 68.6)
+
+- **Entropy Synth**: FM synthesis driven by neural entropy creates evolving ambient soundscapes that reflect ecosystem stability.
+- **Bio-Music**: Dominant lineages' genetic codes are translated into unique melodies, making each civilization's voice distinct.
+- **Spatial Stereo Audio (Phase 68.6)**: Birth and death events have real positional audio with left/right panning and distance attenuation based on entity world coordinates.
+- **Event SFX**: Procedurally generated sound effects for organism life events synchronized with simulation state.
+- **Pure Rust Implementation**: Zero external audio dependencies – all synthesis, mixing, and spatial positioning computed locally.
+
+
 
 ### 🏔️ Ecosystem Dynamics
 

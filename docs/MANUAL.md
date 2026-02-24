@@ -202,6 +202,44 @@ Microscopic threats can emerge and spread:
 - **Dust Bowl**: Occurs during heat waves under high population stress, turning plains into barren wasteland.
 
 ---
+## 🔊 Procedural Audio (Phase 68 v2 & 68.6)
+
+Primordium features a pure Rust procedural audio engine that transforms simulation state into immersive soundscapes.
+
+### Audio Systems
+
+- **Entropy Synth**: Continuous ambient soundscape driven by neural network entropy. Low entropy produces calm drones, while high entropy creates chaotic modulations.
+- **Bio-Music**: The dominant lineage's genotype is translated into a unique melody sequence. Each civilization develops its own "voice" based on evolved traits.
+- **Event SFX**: Procedurally generated sound effects for birth, death, metamorphosis, and climate events.
+- **Spatial Positioning (Phase 68.6)**: Birth and death events feature real stereo positioning. Left/right panning is based on entity X position relative to world center, and distance attenuation dampens distant events.
+
+### How It Works
+
+1. **Data Collection**: Every tick, the system tracks:
+   - Average brain entropy across all entities
+   - Total biomass
+   - Dominant lineage genotype
+   - Event positions (x, y coordinates)
+
+2. **Synthesis**:
+   - **Entropy Synth**: Uses FM synthesis where modulation index is driven by biomass and carrier frequency varies with entropy.
+   - **Bio-Music**: Maps genome hex values to musical notes, rhythm, and scale.
+   - **Spatial Audio**: Calculates stereo panning (0.0-1.0 per channel) and applies distance-based attenuation (inverse square law).
+
+3. **Mixing**: All sources are mixed together with appropriate gain levels:
+   - Entropy Synth: 30% volume (ambient)
+   - Bio-Music: 50% volume (melody)
+   - Event SFX: 80% volume (foreground)
+
+### Spatial Hearing
+
+- **Birth Events**: When an entity is born, you hear a distinct sound panned left/right based on its X position.
+- **Death Events**: Entity deaths trigger a mournful tone with positioning and distance attenuation.
+- **Center-Panned**: Climate changes, era shifts, and ambient shifts play at equal volume in both channels.
+
+---
+
+
 
 ## ⚔️ Game Modes
 
