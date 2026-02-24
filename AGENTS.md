@@ -14,6 +14,10 @@
 | 用户手册、控制键位 | [`docs/MANUAL.md`](./docs/MANUAL.md) / [`docs/MANUAL_zh.md`](./docs/MANUAL_zh.md) |
 | 项目概述、快速开始 | [`README.md`](./README.md) / [`docs/README_zh.md`](./docs/README_zh.md) |
 | 版本变更记录 | [`CHANGELOG.md`](./CHANGELOG.md) |
+| 测试套件规范 | [`tests/AGENTS.md`](./tests/AGENTS.md) |
+| 核心引擎架构 | [`crates/primordium_core/AGENTS.md`](./crates/primordium_core/AGENTS.md) |
+| TUI 渲染系统 | [`crates/primordium_tui/AGENTS.md`](./crates/primordium_tui/AGENTS.md) |
+| I/O 与持久化 | [`crates/primordium_io/AGENTS.md`](./crates/primordium_io/AGENTS.md) |
 
 ---
 
@@ -44,64 +48,13 @@ src/
 
 ### Systems Execution Order
 
-`World::update` 每 tick 执行顺序:
-
-1. **Environment & Resources** — 硬件耦合、信息素/声音衰减、灾害、地形更新
-2. **Ecological** (spawn_food) — 食物生成
-3. **Prepare** (Rayon 并行) — 构建空间索引与实体快照
-4. **Learn & Rank** (Rayon 并行) — Hebbian 学习、社会等级计算
-5. **Perception & Intel** (Rayon 并行) — 感知计算与神经网络推理
-6. **Action** — 移动、边界、地形交互
-7. **Interaction** — 捕食、繁殖、共生、群体防御
-8. **Finalize** — 死亡处理、新生儿添加、统计更新
+→ See [`crates/primordium_core/AGENTS.md`](./crates/primordium_core/AGENTS.md) for detailed system relationships and parallel execution patterns.
 
 ---
 
-## 🧬 Entity Architecture (Phase 38)
+## 🧬 Entity Architecture
 
-Entities follow a Component-Based (CBE) model with a unified **Genotype**.
-
-### Structural Hierarchy
-
-- `Entity`
-    - `Physics`: Phenotype expression (sensing, speed).
-    - `Metabolism`: Phenotype expression (energy capacity, carbon emission).
-    - `Intel`: Decision center.
-        - `Genotype`: The inheritable payload (encodes the DNA).
-            - **Phenotypic Genes**: `sensing_range`, `max_speed`, `max_energy`, `metabolic_niche`.
-            - **Life History Genes**: `reproductive_investment`, `maturity_gene`.
-            - **Trophic Genes**: `trophic_potential` (0.0=Herbivore, 1.0=Carnivore).
-            - **Neural Genes**: `Brain` (Dynamic Graph-based NEAT-lite).
-
-### Environmental Succession (Phase 38)
-
-- **Dynamic Biomes**: Terrain cells transition between Plains, Forest, and Desert based on `fertility` and `plant_biomass`.
-- **Carbon Cycle**: Animals emit carbon; Forests sequestrate it. High `carbon_level` triggers global warming (shifting climate states).
-- **Biodiversity Hotspots**: Automatic detection of grid regions with high lineage density.
-- **Soil Feedback**: Overgrazing reduces fertility; biomass presence aids recovery (Succession).
-
-### Resilience & Stasis (Phase 39)
-
-- **Population-Aware Mutation**: Mutation scaling (0.5x to 3.0x) based on population density to balance exploration and exploitation.
-- **Genetic Drift**: Stochastic trait randomization in bottlenecked populations (<10 entities).
-
-### Archeology & History (Phase 40)
-
-- **Fossil Record**: Persistent archival of extinct legendary genotypes in `logs/fossils.json`.
-- **Snapshots**: Periodic macro-state capture (every 1,000 ticks) for history browsing.
-- **TUI Archeology**: Navigate world history with `[` / `]` keys in the `Y` view.
-
-### Massive Parallelism (Phase 41)
-
-- **Rayon Integration**: Parallelized Perception and Intel/Action systems.
-- **Command Proposals**: 3-pass update loop (Snapshot -> Parallel Proposals -> Sequential Apply).
-- **Spatial Scaling**: Optimized for 10,000+ entities via row-partitioned Spatial Hash.
-- **Systemic Modularization (Phase 65-66 Refinement)**: Civilization and History logic decoupled into standalone systems.
-
-### Life History Strategies (Phase 32)
-
-- **Investment**: `reproductive_investment` (0.1 to 0.9) defines the % of parent energy given to offspring.
-- **Maturation**: `maturity_gene` (0.5 to 2.0) scales the time needed to reach adulthood and the `max_energy` ceiling.
+→ See [`crates/primordium_core/AGENTS.md`](./crates/primordium_core/AGENTS.md) for detailed system relationships, parallel execution patterns, and core engine architecture.
 
 ### Brain Details (Phase 66 - Updated)
 
@@ -194,27 +147,7 @@ Entities follow a Component-Based (CBE) model with a unified **Genotype**.
 
 ## 🧪 Testing Strategy
 
-- **Unit Tests**: `src/model/**/*.rs`
-- **Integration Tests**: `tests/`
-
-| 文件 | 覆盖范围 |
-|------|----------|
-| `lifecycle.rs` | 生命周期、繁殖 |
-| `genetic_flow.rs` | HexDNA、Genetic Surge |
-| `ecology.rs` | 土壤肥力、营养级 |
-| `pathogens.rs` | 传染、免疫 |
-| `disasters.rs` | Dust Bowl、碰撞 |
-| `environment_coupling.rs` | 硬件耦合 (CPU→气候, RAM→资源) |
-| `migration_network.rs` | 实体迁移、P2P |
-| `persistence.rs` | 状态序列化 |
-| `social_v2.rs` | 社会行为、防御、信号 |
-| `lineage_persistence.rs` | 谱系注册、持久化、宏观指标 |
-| `environmental_succession.rs` | 环境演替、碳循环、多样性热点 |
-| `genetic_bottlenecks.rs` | 遗传瓶颈、动态突变、遗传漂变 |
-| `archeology.rs` | 考古学工具、化石记录、快照 |
-| `stress_test.rs` | 高负载基准 (1500+ 实体) |
-| `world_evolution.rs` | 时代演进、昼夜节律 |
-| `social_hierarchy.rs` | 社会等级、士兵阶层、部落分裂 |
+→ See [`tests/AGENTS.md`](./tests/AGENTS.md) for detailed conventions, running commands, and anti-patterns.
 
 ---
 
