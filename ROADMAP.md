@@ -74,18 +74,17 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 | # | 任务 | 位置 | 方案 | 状态 |
 |---|------|------|------|------|
-| 1 | 清理空文件 `food.rs` | `crates/primordium_core/src/food.rs` | 删除空存根或实现为 Food 组件的独立模块 | 🔴 |
-| 2 | Phase 67 Task B 收尾: 统一能量核算 | `environment.rs`, `ecological.rs` | 将 Entity 死亡返还能量、Soil 肥力消耗纳入 `available_energy` 池，实现闭环 | 🔴 |
-| 3 | 修复 `biological.rs` 的 `too_many_arguments` 抑制 | `systems/biological.rs:10` | 引入 Context 结构体消除 `#[allow(clippy::too_many_arguments)]` | 🔴 |
-| 4 | 消除 `audio.rs` / `audio/engine.rs` 的 `#[allow(...)]` | `src/app/audio.rs:174`, `src/app/audio/engine.rs` | 清理 unused_variables 和 dead_code 抑制 | 🔴 |
+YQ|| 1 | 清理空文件 `food.rs` | `crates/primordium_core/src/food.rs` | 删除空存根或实现为 Food 组件的独立模块 | ✅ |
+JK|| 2 | Phase 67 Task B 收尾: 统一能量核算 | `environment.rs`, `ecological.rs` | 将 Entity 死亡返还能量、Soil 肥力消耗纳入 `available_energy` 池，实现闭环 | ✅ |
+ZB|| 3 | 修复 `biological.rs` 的 `too_many_arguments` 抑制 | `systems/biological.rs:10` | 引入 Context 结构体消除 `#[allow(clippy::too_many_arguments)]` | ✅ |
+PH|| 4 | 消除 `audio.rs` / `audio/engine.rs` 的 `#[allow(...)]` | `src/app/audio.rs:174`, `src/app/audio/engine.rs` | 清理 unused_variables 和 dead_code 抑制 | ✅ |
 
 ### Tier 2: 生产安全性 (P0 — 防 Panic)
 
 | # | 任务 | 位置 | 方案 | 状态 |
 |---|------|------|------|------|
-| 5 | 替换 NetworkManager 7处 Mutex `unwrap()` | `src/client/manager.rs` | 改为 `.lock().map_err(...)` 或使用 `parking_lot::Mutex` | 🔴 |
-| 6 | 审计 Hall of Fame placeholder | `primordium_tui/src/views/hof.rs:21` | 移除虚假 SQLite 提示，改为真实状态显示 | 🔴 |
-
+ZV|| 5 | 替换 NetworkManager 7处 Mutex `unwrap()` | `src/client/manager.rs` | 改为 `.lock().map_err(...)` 或使用 `parking_lot::Mutex` | ✅ [澄清-生产代码无unwrap] |
+NW|| 6 | 审计 Hall of Fame placeholder | `primordium_tui/src/views/hof.rs:21` | 移除虚假 SQLite 提示，改为真实状态显示 | ✅ |
 ### Tier 3: 测试债务 (P1 — Audio 零覆盖)
 
 | # | 任务 | 模块 | 测试类型 | 状态 |
@@ -109,21 +108,19 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 | # | 任务 | 文件 | 方案 | 状态 |
 |---|------|------|------|------|
-| 16 | 修复 CHANGELOG.md 重复膨胀 | `CHANGELOG.md` | 删除重复 41次的 `[Security Fixes]`，保留唯一一份在文件顶部 | 🔴 |
-| 17 | 更新 ROADMAP 元数据 | `ROADMAP.md` 末尾 | 更新 `*Last updated*` 为 2026-02-24 | ✅ |
-| 18 | 修正 Phase 65 状态描述 | `ROADMAP.md` Phase 65 小节 | 明确标注 Analyst Agent 和 Interactive Query 为 "Deferred" | ✅ |
-
+TX|| 16 | 修复 CHANGELOG.md 重复膨胀 | `CHANGELOG.md` | 删除重复 41次的 `[Security Fixes]`，保留唯一一份在文件顶部 | ✅ |
+JZ|| 17 | 更新 ROADMAP 元数据 | `ROADMAP.md` 末尾 | 更新 `*Last updated*` 为 2026-02-24 | ✅ |
+YJ|| 18 | 修正 Phase 65 状态描述 | `ROADMAP.md` Phase 65 小节 | 明确标注 Analyst Agent 和 Interactive Query 为 "Deferred" | ✅ |
 ### Tier 6: Phase 67 Task B 收尾 (P2 — 模拟完整性)
 
-> **当前状态**: `available_energy` 池已存在，食物生成已扣减。**缺失**: Entity 死亡返还能量、代谢消耗与 Soil 肥力的能量统一核算。
+KM|> **当前状态**: `available_energy` 池已存在，食物生成已扣减。**已完成**: Entity 死亡返还能量、代谢消耗热损耗已纳入能量核算闭环。
 
 | # | 任务 | 位置 | 方案 | 状态 |
-|---|------|------|------|------|
-| 19 | Entity 死亡能量返还 | `src/model/world/finalize.rs` | `process_deaths()` 中将剩余能量按比例注回 `available_energy` | 🔴 |
-| 20 | 代谢能量核算 | `systems/biological.rs` | 实体每 tick 代谢消耗记为热损耗，从全局池扣除 | 🔴 |
-| 21 | 全局能量仪表盘 | `src/app/render.rs` | TUI 状态栏显示全局能量池余额 | 🔴 |
-| 22 | 热力学集成测试 | `tests/thermodynamics.rs` | 验证 N tick 后能量守恒: ΣEntity + ΣFood + Pool ≈ Initial + SolarInput | 🔴 |
-
+|---|------|------|------|----|
+NR|| 19 | Entity 死亡能量返还 | `src/model/world/finalize.rs` | `process_deaths()` 中将剩余能量按比例注回 `available_energy` | ✅ |
+WY|| 20 | 代谢能量核算 | `systems/biological.rs` | 实体每 tick 代谢消耗记为热损耗，从全局池扣除 | ✅ |
+SB|| 21 | 全局能量仪表盘 | `src/app/render.rs` | TUI 状态栏显示全局能量池余额 | 🔴 |
+WK|| 22 | 热力学集成测试 | `tests/thermodynamics.rs` | 验证 N tick 后能量守恒: ΣEntity + ΣFood + Pool ≈ Initial + SolarInput | ✅ |
 ---
 
 <details>
