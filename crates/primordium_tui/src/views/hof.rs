@@ -18,10 +18,11 @@ pub fn draw_hall_of_fame(f: &mut Frame, has_storage: bool, area: Rect) {
     f.render_widget(title, chunks[0]);
 
     if has_storage {
-        let placeholder = Paragraph::new("Fetching data from SQLite...")
+        let status = Paragraph::new("No legendary entities recorded yet")
+            .style(Style::default().fg(Color::Yellow))
             .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL));
-        f.render_widget(placeholder, chunks[1]);
+            .block(Block::default().borders(Borders::ALL).title("Status"));
+        f.render_widget(status, chunks[1]);
     } else {
         let error = Paragraph::new("No SQLite storage available.")
             .style(Style::default().fg(Color::Red))
