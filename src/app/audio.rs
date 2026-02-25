@@ -171,7 +171,7 @@ impl AudioSystem {
         &mut self,
         lineage_id: Uuid,
         genotype: &Genotype,
-        #[allow(unused_variables)] world_tick: u64,
+        _world_tick: u64,
     ) {
         let is_new_top = match self.top_lineage_id {
             Some(id) => id != lineage_id,

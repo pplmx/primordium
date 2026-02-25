@@ -19,10 +19,9 @@ pub enum AudioError {
     UnsupportedSampleRate,
 }
 
+#[allow(dead_code)] // Fields are used in tests and reserved for future audio configuration
 pub struct AudioEngine {
-    #[allow(dead_code)]
     sample_rate: f32,
-    #[allow(dead_code)]
     buffer_size: usize,
     entropy_synth: FMSynthesizer,
     bio_music: BioMusicGenerator,
@@ -34,8 +33,6 @@ pub struct AudioEngine {
     background_running: bool,
     active_event_sfx: Option<Vec<f32>>,
     event_sfx_index: usize,
-    #[allow(dead_code)]
-    active_spatial_sfx: Option<(AudioEvent, f32, f32)>,
     spatial_sfx_left_gain: f32,
     spatial_sfx_right_gain: f32,
 }
@@ -57,7 +54,6 @@ impl AudioEngine {
             background_running: false,
             active_event_sfx: None,
             event_sfx_index: 0,
-            active_spatial_sfx: None,
             spatial_sfx_left_gain: 1.0,
             spatial_sfx_right_gain: 1.0,
         })
