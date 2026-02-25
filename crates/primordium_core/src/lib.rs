@@ -47,9 +47,6 @@ pub mod brain;
 pub mod config;
 /// Environmental state management (climate, seasons, disasters)
 pub mod environment;
-/// Food resource management and spawning
-pub mod food;
-/// Historical event logging and fossil records
 pub mod history;
 /// Influence maps for collective intelligence and social coordination
 pub mod influence;

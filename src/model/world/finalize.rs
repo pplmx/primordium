@@ -8,7 +8,7 @@ use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use std::sync::Arc;
 
-type ProposalResult = (hecs::Entity, Vec<(hecs::Entity, Pathogen)>, bool);
+type ProposalResult = (hecs::Entity, Vec<(hecs::Entity, Pathogen)>, bool, f64);
 
 impl World {
     pub fn finalize_tick(
@@ -51,7 +51,7 @@ impl World {
 
                     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
 
-                    biological::biological_system_components(
+                    let metabolic_consumption = biological::biological_system_components(
                         met,
                         intel,
                         health,
@@ -80,12 +80,12 @@ impl World {
 
                     let is_dead = killed_ids.contains(&identity.id) || met.energy <= 0.0;
 
-                    (*handle, infections, is_dead)
+                    (*handle, infections, is_dead, metabolic_consumption)
                 })
                 .collect()
         };
 
-        for (_handle, infections, _) in &proposals {
+        for (_handle, infections, _, _) in &proposals {
             for (n_handle, pathogen) in infections {
                 if let Ok(mut n_health) = self.ecs.get::<&mut Health>(*n_handle) {
                     biological::try_infect_components(&mut n_health, pathogen, &mut self.rng);
@@ -94,6 +94,17 @@ impl World {
         }
 
         self.process_deaths(&proposals, tick, env, events);
+
+        // Phase 67 Task B: Aggregate metabolic consumption (heat loss)
+        let total_metabolic_consumption: f64 = proposals
+            .iter()
+            .map(|(_, _, _, consumption)| consumption)
+            .sum();
+
+        // Phase 67 Task B: Heat loss from metabolic consumption
+        // This is thermodynamically accounted as energy dissipated from the system
+        env.available_energy -= total_metabolic_consumption;
+
         self.process_births(new_babies);
         self.finalize_snapshots(env, events);
         self.finalize_civilization(entity_handles);
@@ -108,7 +119,7 @@ impl World {
         events: &mut Vec<LiveEvent>,
     ) {
         let mut dead_handles = Vec::new();
-        for (handle, _, is_dead) in proposals {
+        for (handle, _, is_dead, _) in proposals {
             if *is_dead {
                 dead_handles.push(*handle);
             }

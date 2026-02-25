@@ -17,12 +17,36 @@ pub fn biological_system_components<R: Rng>(
     config: &AppConfig,
     tick: u64,
     rng: &mut R,
-) {
+) -> f64 {
+    let mut metabolic_consumption = 0.0;
+
+    // Track pathogen consumption (before processing to capture lethality)
+    if let Some(p) = &health.pathogen {
+        metabolic_consumption += f64::from(p.lethality);
+    }
+
     process_infection_components(health, metabolism);
     update_reputation_progress(intel);
     apply_genetic_drift(intel, population_count, config, rng);
     update_specialization_progress(intel, config);
     apply_metabolic_maintenance(metabolism, intel, config, tick);
+
+    // Track brain maintenance consumption (recalculate to avoid side effects)
+    const NEONATE_PROTECTION_TICKS: u64 = 50;
+    let age = tick - metabolism.birth_tick;
+    let protection_multiplier = if age < NEONATE_PROTECTION_TICKS {
+        age as f64 / NEONATE_PROTECTION_TICKS as f64
+    } else {
+        1.0
+    };
+
+    let brain_maintenance = (intel.genotype.brain.nodes.len() as f64
+        * config.brain.hidden_node_cost)
+        + (intel.genotype.brain.connections.len() as f64 * config.brain.connection_cost);
+    let adjusted_maintenance = brain_maintenance * protection_multiplier.max(0.1);
+    metabolic_consumption += adjusted_maintenance;
+
+    metabolic_consumption
 }
 
 fn update_reputation_progress(intel: &mut Intel) {
