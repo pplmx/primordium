@@ -119,7 +119,7 @@ KM|> **当前状态**: `available_energy` 池已存在，食物生成已扣减�
 |---|------|------|------|----|
 NR|| 19 | Entity 死亡能量返还 | `src/model/world/finalize.rs` | `process_deaths()` 中将剩余能量按比例注回 `available_energy` | ✅ |
 WY|| 20 | 代谢能量核算 | `systems/biological.rs` | 实体每 tick 代谢消耗记为热损耗，从全局池扣除 | ✅ |
-SB|| 21 | 全局能量仪表盘 | `src/app/render.rs` | TUI 状态栏显示全局能量池余额 | 🔴 |
+|| 21 | 全局能量仪表盘 | `src/app/render.rs`, `crates/primordium_tui/src/views/status.rs` | TUI 状态栏显示 ⚡ 全局能量池余额 | ✅ |
 WK|| 22 | 热力学集成测试 | `tests/thermodynamics.rs` | 验证 N tick 后能量守恒: ΣEntity + ΣFood + Pool ≈ Initial + SolarInput | ✅ |
 ---
 
