@@ -17,6 +17,7 @@ pub struct StatusWidget<'a> {
     pub migrations_sent: u64,
     pub is_online: bool,
     pub resource_icon: String,
+    pub available_energy: f64,
 }
 
 impl<'a> Widget for StatusWidget<'a> {
@@ -24,6 +25,7 @@ impl<'a> Widget for StatusWidget<'a> {
         let status_lines = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
+                Constraint::Length(1),
                 Constraint::Length(1),
                 Constraint::Length(1),
                 Constraint::Length(1),
@@ -134,11 +136,18 @@ impl<'a> Widget for StatusWidget<'a> {
             },
         ];
 
-        Paragraph::new(ratatui::text::Line::from(hive_stats)).render(status_lines[3], buf);
+        Paragraph::new(ratatui::text::Line::from(hive_stats)).render(status_lines[4], buf);
 
+        let energy_info = vec![
+            ratatui::text::Span::styled("⚡ Energy: ", Style::default().fg(Color::Yellow)),
+            ratatui::text::Span::raw(format!("{:.0}", self.available_energy)),
+        ];
+        Paragraph::new(ratatui::text::Line::from(energy_info))
+            .style(Style::default().fg(Color::DarkGray))
+            .render(status_lines[3], buf);
         let legend = " [Space] Pause | [z] Cinematic | [M] Mutate | [K] Smite | [P] Reincarnate | [A] Ancestry | [Y] Archeology | [H] Help ";
         Paragraph::new(legend)
             .style(Style::default().fg(Color::DarkGray))
-            .render(status_lines[4], buf);
+            .render(status_lines[5], buf);
     }
 }

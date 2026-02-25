@@ -128,6 +128,7 @@ impl App {
                 migrations_sent: self.network_state.migrations_sent as u64,
                 is_online: self.network_state.client_id.is_some(),
                 resource_icon: self.env.resource_state().icon().to_string(),
+                available_energy: self.env.available_energy,
             },
             area,
         );
