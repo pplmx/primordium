@@ -134,8 +134,8 @@ async fn test_inter_tribe_predation() {
     let mut e1 = EntityBuilder::new()
         .id(id1)
         .at(10.0, 10.0)
-        .energy(5000.0)
-        .max_energy(6000.0)
+        .energy(10000.0)
+        .max_energy(12000.0)
         .color(255, 0, 0)
         .with_behavior(TestBehavior::Aggressive)
         .lineage(Uuid::from_u128(777))
@@ -148,7 +148,8 @@ async fn test_inter_tribe_predation() {
         .id(id2)
         .at(10.1, 10.1)
         .color(0, 0, 255)
-        .energy(100.0)
+        .energy(500.0)
+        .max_energy(1000.0)
         .lineage(Uuid::from_u128(888))
         .build();
     e2.metabolism.trophic_potential = 0.0;
