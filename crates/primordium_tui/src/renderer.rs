@@ -13,6 +13,8 @@ pub struct WorldWidget<'a> {
     screensaver: bool,
     view_mode: u8,
     density_enabled: bool,
+    glow_enabled: bool,
+    glow_intensity: f32,
 }
 
 impl<'a> WorldWidget<'a> {
@@ -21,12 +23,16 @@ impl<'a> WorldWidget<'a> {
         screensaver: bool,
         view_mode: u8,
         density_enabled: bool,
+        glow_enabled: bool,
+        glow_intensity: f32,
     ) -> Self {
         Self {
             snapshot,
             screensaver,
             view_mode,
             density_enabled,
+            glow_enabled,
+            glow_intensity,
         }
     }
 
@@ -118,6 +124,76 @@ impl<'a> WorldWidget<'a> {
         }
     }
 
+    /// Check if entity should glow (high energy or special status)
+    fn entity_is_bright(entity: &EntitySnapshot) -> bool {
+        // High energy entities (80%+ of max energy)
+        let high_energy = entity.energy / entity.max_energy.max(1.0) >= 0.8;
+        // Special statuses that should glow
+        let special_status = matches!(
+            entity.status,
+            EntityStatus::Mating | EntityStatus::Hunting | EntityStatus::Sharing
+        );
+        high_energy || special_status
+    }
+
+    /// Apply glow effect to neighboring cells
+    fn apply_glow(buf: &mut Buffer, area: Rect, bright_positions: &[(u16, u16)], intensity: f32) {
+        let glow_intensity = intensity.clamp(0.0, 1.0);
+        if glow_intensity <= 0.01 {
+            return;
+        }
+
+        for &(x, y) in bright_positions {
+            let center_cell = &buf[(x, y)];
+            let fg = center_cell.fg;
+            // Apply glow to 3x3 neighborhood (excluding center)
+            for dy in -1i16..=1 {
+                for dx in -1i16..=1 {
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+
+                    let nx = x as i16 + dx;
+                    let ny = y as i16 + dy;
+
+                    if nx >= area.left() as i16
+                        && nx < area.right() as i16
+                        && ny >= area.top() as i16
+                        && ny < area.bottom() as i16
+                    {
+                        let distance = ((dx * dx + dy * dy) as f32).sqrt() / 1.414; // normalize to 0-1
+                        let local_intensity = glow_intensity * (1.0 - distance).max(0.0) * 0.3;
+
+                        if local_intensity > 0.01 {
+                            let neighbor = &mut buf[(nx as u16, ny as u16)];
+                            // Blend colors: fade current fg toward bright fg
+                            let current = neighbor.fg;
+                            let blended = if let Color::Rgb(r1, g1, b1) = fg {
+                                if let Color::Rgb(r2, g2, b2) = current {
+                                    let r = (r2 as f32 * (1.0 - local_intensity)
+                                        + r1 as f32 * local_intensity)
+                                        as u8;
+                                    let g = (g2 as f32 * (1.0 - local_intensity)
+                                        + g1 as f32 * local_intensity)
+                                        as u8;
+                                    let b = (b2 as f32 * (1.0 - local_intensity)
+                                        + b1 as f32 * local_intensity)
+                                        as u8;
+                                    Color::Rgb(r, g, b)
+                                } else {
+                                    fg // replace non-RGB colors
+                                }
+                            } else {
+                                current // keep original if source not RGB
+                            };
+                            neighbor.set_fg(blended);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn color_for_terrain(t: TerrainType) -> Color {
         match t {
             TerrainType::Plains => Color::Reset,
@@ -194,6 +270,12 @@ impl<'a> Widget for WorldWidget<'a> {
             HashMap::new()
         };
 
+        // Collect bright entity positions for glow effect
+        let mut bright_positions: Vec<(u16, u16)> = if self.glow_enabled {
+            Vec::with_capacity(self.snapshot.entities.len())
+        } else {
+            Vec::new()
+        };
         // Single-pass entity rendering with position collection for bond lines
         for entity in &self.snapshot.entities {
             if entity.x >= left_f && entity.x < right_f && entity.y >= top_f && entity.y < bottom_f
@@ -205,6 +287,10 @@ impl<'a> Widget for WorldWidget<'a> {
                         screen_positions.insert(entity.id, (x, y));
                     }
 
+                    // Track bright entities for glow effect
+                    if self.glow_enabled && Self::entity_is_bright(entity) {
+                        bright_positions.push((x, y));
+                    }
                     let status = entity.status;
                     let cell = &mut buf[(x, y)];
                     if self.density_enabled {
@@ -373,6 +459,11 @@ impl<'a> Widget for WorldWidget<'a> {
                 }
             }
         }
+
+        // Apply glow effect after all rendering is complete
+        if self.glow_enabled && !bright_positions.is_empty() {
+            Self::apply_glow(buf, area, &bright_positions, self.glow_intensity);
+        }
     }
 }
 
@@ -519,7 +610,7 @@ mod tests {
             height: 20,
         };
 
-        let widget = WorldWidget::new(&snapshot, true, 0, false);
+        let widget = WorldWidget::new(&snapshot, true, 0, false, false, 0.5);
         let mut buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 20, 20));
 
         widget.render(ratatui::layout::Rect::new(0, 0, 20, 20), &mut buf);
