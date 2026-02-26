@@ -112,6 +112,7 @@ impl<'a> WorldWidget<'a> {
     }
 
     /// Computes character density (0-3) from entity energy ratio.
+    /// PERF: O(1) calculation, called once per visible entity.
     pub fn density_from_energy(energy: f64, max_energy: f64) -> usize {
         let ratio = (energy / max_energy.max(1.0)).clamp(0.0, 1.0);
         (ratio * 4.0).floor() as usize
