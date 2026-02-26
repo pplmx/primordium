@@ -7,7 +7,6 @@ use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 
 #[tokio::test]
-#[ignore]
 async fn test_rank_accumulation() {
     let mut config = AppConfig::default();
     config.world.initial_population = 0;
@@ -40,12 +39,12 @@ async fn test_rank_accumulation() {
     );
 
     // Past peak age (age_rank_normalization is 2000.0, peak is 1400)
-    world.tick = 1500;
+    world.tick = 2500;
     world.update(&mut env).expect("Update failed");
     let entities_aged = world.get_all_entities();
     let rank_aged = entities_aged[0].intel.rank;
 
-    let age = 600u64 - entities_aged[0].metabolism.birth_tick;
+    let age = world.tick - entities_aged[0].metabolism.birth_tick;
     let energy_score =
         (entities_aged[0].metabolism.energy / entities_aged[0].metabolism.max_energy) as f32;
     let offspring_score = entities_aged[0].metabolism.offspring_count as f32 / 500.0;
@@ -95,7 +94,7 @@ async fn test_tribal_split_under_pressure() {
     let mut world = World::new(0, config).expect("Failed to create world");
     let mut env = Environment::default();
 
-    let lid = uuid::Uuid::new_v4();
+    let lid = uuid::Uuid::from_u128(12345);
     world.lineage_registry.record_birth(lid, 0, 0);
 
     for i in 0..20 {

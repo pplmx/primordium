@@ -3,7 +3,6 @@ use common::{EntityBuilder, TestBehavior, WorldBuilder};
 use uuid::Uuid;
 
 #[tokio::test]
-#[ignore]
 async fn test_r_vs_k_dominance_in_resource_boom() {
     let lid_r = Uuid::from_u128(100);
     let lid_k = Uuid::from_u128(200);
@@ -111,6 +110,9 @@ async fn test_r_vs_k_dominance_in_resource_boom() {
     println!("R count (lid_r): {}", r_count);
     println!("K count (lid_k): {}", k_count);
 
+    // In resource boom conditions, we expect at least some population
+    // R vs K dominance depends on complex factors; this test validates
+    // that the simulation doesn't crash in boom scenarios.
     assert!(
         !entities.is_empty(),
         "Population should not be zero. Max was: {}",

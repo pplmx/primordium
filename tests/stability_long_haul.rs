@@ -3,7 +3,13 @@ use primordium_lib::model::environment::Environment;
 use primordium_lib::model::world::World;
 
 #[tokio::test]
-#[ignore] // Long-running stability test
+#[ignore] // Long-running stability test (~30s). Run with: cargo test --test stability_long_haul stability_long_haul -- --ignored
+          //
+          // Purpose: Validates simulation stability over extended run time.
+          // Checks: 2000 ticks with 500 entities, verifying no NaN values and no crashes.
+          // When to run: Before releases, after major world/system changes.
+          // Ignored by default to keep CI fast; run manually for thorough validation.
+          //
 async fn test_stability_long_haul() {
     let mut config = AppConfig::default();
     config.world.width = 150;
