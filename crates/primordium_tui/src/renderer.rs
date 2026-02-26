@@ -15,6 +15,7 @@ pub struct WorldWidget<'a> {
     density_enabled: bool,
     glow_enabled: bool,
     glow_intensity: f32,
+    density_variation: bool,
 }
 
 impl<'a> WorldWidget<'a> {
@@ -25,6 +26,7 @@ impl<'a> WorldWidget<'a> {
         density_enabled: bool,
         glow_enabled: bool,
         glow_intensity: f32,
+        density_variation: bool,
     ) -> Self {
         Self {
             snapshot,
@@ -33,6 +35,7 @@ impl<'a> WorldWidget<'a> {
             density_enabled,
             glow_enabled,
             glow_intensity,
+            density_variation,
         }
     }
 
@@ -191,6 +194,46 @@ impl<'a> WorldWidget<'a> {
                     }
                 }
             }
+        }
+    }
+
+    /// Get terrain density character based on terrain type and fertility
+    pub fn terrain_density_char(t: TerrainType, fertility: f32) -> char {
+        match t {
+            TerrainType::Plains => {
+                // Low fertility: ,, Rich: ░
+                if fertility < 0.5 {
+                    ','
+                } else {
+                    '░'
+                }
+            }
+            TerrainType::River => {
+                // Shallow: ., Deep: ≈
+                if fertility < 0.5 {
+                    '.'
+                } else {
+                    '≈'
+                }
+            }
+            TerrainType::Mountain => {
+                // Low: △, High: ▲
+                if fertility < 0.5 {
+                    '△'
+                } else {
+                    '▲'
+                }
+            }
+            TerrainType::Desert => {
+                // Low: ░, High: ▒
+                if fertility < 0.5 {
+                    '░'
+                } else {
+                    '▒'
+                }
+            }
+            // Other terrain types use standard symbol
+            _ => t.symbol(),
         }
     }
 
@@ -389,7 +432,11 @@ impl<'a> Widget for WorldWidget<'a> {
                         }
                     }
                     if terrain.terrain_type != TerrainType::Plains {
-                        let terrain_symbol = Self::symbol_for_terrain(terrain.terrain_type);
+                        let terrain_symbol = if self.density_variation {
+                            Self::terrain_density_char(terrain.terrain_type, terrain.fertility)
+                        } else {
+                            Self::symbol_for_terrain(terrain.terrain_type)
+                        };
                         cell.set_symbol(
                             std::str::from_utf8(&[terrain_symbol as u8]).unwrap_or("?"),
                         );
@@ -610,7 +657,7 @@ mod tests {
             height: 20,
         };
 
-        let widget = WorldWidget::new(&snapshot, true, 0, false, false, 0.5);
+        let widget = WorldWidget::new(&snapshot, true, 0, false, false, 0.5, false);
         let mut buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 20, 20));
 
         widget.render(ratatui::layout::Rect::new(0, 0, 20, 20), &mut buf);

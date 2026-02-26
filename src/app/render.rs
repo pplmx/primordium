@@ -85,6 +85,7 @@ impl App {
         let density_enabled = self.config.visual.sdf_rendering;
         let glow_enabled = self.config.visual.glow_enabled;
         let glow_intensity = self.config.visual.glow_intensity;
+        let density_variation = self.config.visual.density_variation;
         let world_widget = WorldWidget::new(
             snapshot,
             true,
@@ -92,6 +93,7 @@ impl App {
             density_enabled,
             glow_enabled,
             glow_intensity,
+            density_variation,
         );
         f.render_widget(world_widget, f.area());
 
@@ -166,6 +168,7 @@ impl App {
         let density_enabled = self.config.visual.sdf_rendering;
         let glow_enabled = self.config.visual.glow_enabled;
         let glow_intensity = self.config.visual.glow_intensity;
+        let density_variation = self.config.visual.density_variation;
         let world_widget = WorldWidget::new(
             snapshot,
             false,
@@ -173,6 +176,7 @@ impl App {
             density_enabled,
             glow_enabled,
             glow_intensity,
+            density_variation,
         );
         f.render_widget(world_widget, area);
     }
