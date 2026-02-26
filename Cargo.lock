@@ -2238,6 +2238,9 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "futures",
+ "primordium_core",
+ "primordium_data",
+ "primordium_io",
  "primordium_net",
  "reqwest",
  "serde",

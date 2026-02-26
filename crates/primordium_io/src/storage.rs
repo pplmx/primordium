@@ -2,10 +2,44 @@ use anyhow::Result;
 use primordium_core::lineage_registry::LineageRegistry;
 use primordium_data::FossilRegistry;
 use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::mpsc::{self, Sender};
 use std::thread;
 use uuid::Uuid;
+
+/// A genome record in the marketplace.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenomeRecord {
+    pub id: Uuid,
+    pub lineage_id: Option<Uuid>,
+    pub genotype: String,
+    pub author: String,
+    pub name: String,
+    pub description: String,
+    pub tags: String,
+    pub fitness_score: f64,
+    pub offspring_count: u32,
+    pub tick: u64,
+    pub downloads: u32,
+    pub created_at: String,
+}
+
+/// A seed (simulation config) record in the marketplace.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SeedRecord {
+    pub id: Uuid,
+    pub author: String,
+    pub name: String,
+    pub description: String,
+    pub tags: String,
+    pub config_json: String,
+    pub avg_tick_time: f64,
+    pub max_pop: u32,
+    pub performance_summary: String,
+    pub downloads: u32,
+    pub created_at: String,
+}
 
 /// Commands for the background storage management thread.
 pub enum StorageCommand {
@@ -42,6 +76,43 @@ pub enum StorageCommand {
     QueryHallOfFame(Sender<Vec<(Uuid, u32, bool)>>),
     /// Queries a specific world snapshot by tick.
     QuerySnapshot(u64, Sender<Option<Vec<u8>>>),
+    /// Submits a genome to the marketplace.
+    SubmitGenome {
+        id: Uuid,
+        lineage_id: Option<Uuid>,
+        genotype: String,
+        author: String,
+        name: String,
+        description: String,
+        tags: String,
+        fitness_score: f64,
+        offspring_count: u32,
+        tick: u64,
+    },
+    /// Submits a seed (simulation config) to the marketplace.
+    SubmitSeed {
+        id: Uuid,
+        author: String,
+        name: String,
+        description: String,
+        tags: String,
+        config_json: String,
+        avg_tick_time: f64,
+        max_pop: u32,
+        performance_summary: String,
+    },
+    /// Query genomes from marketplace.
+    QueryGenomes {
+        limit: Option<usize>,
+        sort_by: Option<String>, // 'fitness', 'downloads', 'tick'
+        reply_tx: Sender<Vec<GenomeRecord>>,
+    },
+    /// Query seeds from marketplace.
+    QuerySeeds {
+        limit: Option<usize>,
+        sort_by: Option<String>, // 'pop', 'downloads'
+        reply_tx: Sender<Vec<SeedRecord>>,
+    },
     /// Shutdown the storage thread.
     Stop,
 }
@@ -219,6 +290,141 @@ impl StorageManager {
                             stmt.query_row(params![tick], |row| row.get(0)).ok();
                         let _ = reply_tx.send(result);
                     }
+                    StorageCommand::SubmitGenome {
+                        id,
+                        lineage_id,
+                        genotype,
+                        author,
+                        name,
+                        description,
+                        tags,
+                        fitness_score,
+                        offspring_count,
+                        tick,
+                    } => {
+                        let lineage_id_str =
+                            lineage_id.map(|id| id.to_string()).unwrap_or_default();
+                        let _ = conn.execute(
+                            "INSERT INTO genome_submissions (id, lineage_id, genotype, author, name, description, tags, fitness_score, offspring_count, tick)
+                              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                            params![
+                                id, lineage_id_str, genotype, author, name, description, tags, fitness_score, offspring_count, tick
+                            ],
+                        );
+                    }
+                    StorageCommand::SubmitSeed {
+                        id,
+                        author,
+                        name,
+                        description,
+                        tags,
+                        config_json,
+                        avg_tick_time,
+                        max_pop,
+                        performance_summary,
+                    } => {
+                        let _ = conn.execute(
+                            "INSERT INTO seed_submissions (id, author, name, description, tags, config_json, avg_tick_time, max_pop, performance_summary)
+                              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                            params![
+                                id, author, name, description, tags, config_json, avg_tick_time, max_pop, performance_summary
+                            ],
+                        );
+                    }
+                    StorageCommand::QueryGenomes {
+                        limit,
+                        sort_by,
+                        reply_tx,
+                    } => {
+                        let order_by = match sort_by.as_deref() {
+                            Some("fitness") => "fitness_score DESC",
+                            Some("downloads") => "downloads DESC",
+                            Some("tick") => "tick DESC",
+                            _ => "created_at DESC",
+                        };
+
+                        let limit_clause =
+                            limit.map(|l| format!(" LIMIT {}", l)).unwrap_or_default();
+                        let query = format!(
+                            "SELECT id, lineage_id, genotype, author, name, description, tags, fitness_score, offspring_count, tick, downloads, created_at
+                             FROM genome_submissions ORDER BY {}{}",
+                            order_by, limit_clause
+                        );
+
+                        let mut stmt = match conn.prepare(&query) {
+                            Ok(s) => s,
+                            Err(_) => continue,
+                        };
+
+                        let rows = stmt.query_map([], |row| {
+                            let lineage_id_str: Option<String> = row.get(1)?;
+                            let lineage_id = lineage_id_str.and_then(|s| Uuid::parse_str(&s).ok());
+                            Ok(GenomeRecord {
+                                id: row.get(0)?,
+                                lineage_id,
+                                genotype: row.get(2)?,
+                                author: row.get(3)?,
+                                name: row.get(4)?,
+                                description: row.get(5)?,
+                                tags: row.get(6)?,
+                                fitness_score: row.get(7)?,
+                                offspring_count: row.get(8)?,
+                                tick: row.get(9)?,
+                                downloads: row.get(10)?,
+                                created_at: row.get(11)?,
+                            })
+                        });
+
+                        if let Ok(iter) = rows {
+                            let results: Vec<GenomeRecord> = iter.filter_map(Result::ok).collect();
+                            let _ = reply_tx.send(results);
+                        }
+                    }
+                    StorageCommand::QuerySeeds {
+                        limit,
+                        sort_by,
+                        reply_tx,
+                    } => {
+                        let order_by = match sort_by.as_deref() {
+                            Some("pop") => "max_pop DESC",
+                            Some("downloads") => "downloads DESC",
+                            _ => "created_at DESC",
+                        };
+
+                        let limit_clause =
+                            limit.map(|l| format!(" LIMIT {}", l)).unwrap_or_default();
+                        let query = format!(
+                            "SELECT id, author, name, description, tags, config_json, avg_tick_time, max_pop, performance_summary, downloads, created_at
+                             FROM seed_submissions ORDER BY {}{}",
+                            order_by, limit_clause
+                        );
+
+                        let mut stmt = match conn.prepare(&query) {
+                            Ok(s) => s,
+                            Err(_) => continue,
+                        };
+
+                        let rows = stmt.query_map([], |row| {
+                            Ok(SeedRecord {
+                                id: row.get(0)?,
+                                author: row.get(1)?,
+                                name: row.get(2)?,
+                                description: row.get(3)?,
+                                tags: row.get(4)?,
+                                config_json: row.get(5)?,
+                                avg_tick_time: row.get(6)?,
+                                max_pop: row.get(7)?,
+                                performance_summary: row.get(8)?,
+                                downloads: row.get(9)?,
+                                created_at: row.get(10)?,
+                            })
+                        });
+
+                        if let Ok(iter) = rows {
+                            let results: Vec<SeedRecord> = iter.filter_map(Result::ok).collect();
+                            let _ = reply_tx.send(results);
+                        }
+                    }
                     StorageCommand::Stop => break,
                 }
             }
@@ -329,6 +535,107 @@ impl StorageManager {
             None
         }
     }
+
+    // Phase 70: Marketplace submission functions
+    #[allow(clippy::too_many_arguments)]
+    /// Submits a genome to the marketplace.
+    pub fn submit_genome(
+        &self,
+        id: Uuid,
+        lineage_id: Option<Uuid>,
+        genotype: String,
+        author: String,
+        name: String,
+        description: String,
+        tags: String,
+        fitness_score: f64,
+        offspring_count: u32,
+        tick: u64,
+    ) {
+        let _ = self.sender.send(StorageCommand::SubmitGenome {
+            id,
+            lineage_id,
+            genotype,
+            author,
+            name,
+            description,
+            tags,
+            fitness_score,
+            offspring_count,
+            tick,
+        });
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    /// Submits a seed (simulation config) to the marketplace.
+    pub fn submit_seed(
+        &self,
+        id: Uuid,
+        author: String,
+        name: String,
+        description: String,
+        tags: String,
+        config_json: String,
+        avg_tick_time: f64,
+        max_pop: u32,
+        performance_summary: String,
+    ) {
+        let _ = self.sender.send(StorageCommand::SubmitSeed {
+            id,
+            author,
+            name,
+            description,
+            tags,
+            config_json,
+            avg_tick_time,
+            max_pop,
+            performance_summary,
+        });
+    }
+
+    /// Asynchronously queries genomes from marketplace.
+    pub fn query_genomes_async(
+        &self,
+        limit: Option<usize>,
+        sort_by: Option<String>,
+    ) -> Option<mpsc::Receiver<Vec<GenomeRecord>>> {
+        let (tx, rx) = mpsc::channel();
+        if self
+            .sender
+            .send(StorageCommand::QueryGenomes {
+                limit,
+                sort_by,
+                reply_tx: tx,
+            })
+            .is_ok()
+        {
+            Some(rx)
+        } else {
+            None
+        }
+    }
+
+    /// Asynchronously queries seeds from marketplace.
+    pub fn query_seeds_async(
+        &self,
+        limit: Option<usize>,
+        sort_by: Option<String>,
+    ) -> Option<mpsc::Receiver<Vec<SeedRecord>>> {
+        let (tx, rx) = mpsc::channel();
+        if self
+            .sender
+            .send(StorageCommand::QuerySeeds {
+                limit,
+                sort_by,
+                reply_tx: tx,
+            })
+            .is_ok()
+        {
+            Some(rx)
+        } else {
+            None
+        }
+    }
 }
 
 fn init_db(conn: &mut Connection) -> Result<()> {
@@ -372,6 +679,53 @@ fn init_db(conn: &mut Connection) -> Result<()> {
     )?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_fossils_lineage ON fossils(lineage_id)",
+        [],
+    )?;
+
+    // Phase 70: Marketplace tables for Global Registry
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS genome_submissions (
+            id TEXT PRIMARY KEY,
+            lineage_id TEXT,
+            genotype TEXT NOT NULL,
+            author TEXT,
+            name TEXT NOT NULL,
+            description TEXT,
+            tags TEXT,
+            fitness_score REAL,
+            offspring_count INTEGER,
+            tick INTEGER,
+            downloads INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(lineage_id) REFERENCES lineages(id)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS seed_submissions (
+            id TEXT PRIMARY KEY,
+            author TEXT,
+            name TEXT NOT NULL,
+            description TEXT,
+            tags TEXT,
+            config_json TEXT NOT NULL,
+            avg_tick_time REAL,
+            max_pop INTEGER,
+            performance_summary TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            downloads INTEGER DEFAULT 0
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_genomes_fitness ON genome_submissions(fitness_score DESC)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_seeds_pop ON seed_submissions(max_pop DESC)",
         [],
     )?;
 

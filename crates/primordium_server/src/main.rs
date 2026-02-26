@@ -8,6 +8,7 @@ use axum::{
     Json, Router,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
+use primordium_io::storage::StorageManager;
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -29,8 +30,9 @@ struct AppState {
     /// Total migrations processed by server
     total_migrations: Arc<Mutex<usize>>,
     active_trades: Arc<Mutex<HashMap<Uuid, Arc<TradeProposal>>>>,
+    /// Persistent storage for Hall of Fame and marketplace
+    storage: StorageManager,
 }
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::registry()
@@ -39,22 +41,39 @@ async fn main() {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
+    let (tx, _rx) = broadcast::channel::<String>(100);
+    let storage: StorageManager = match StorageManager::new("./registry.db") {
+        Ok(s) => {
+            tracing::info!("Initialized persistent storage: registry.db");
+            s
+        }
+        Err(e) => {
+            tracing::error!("Failed to initialize storage: {}", e);
+            std::process::exit(1);
+        }
+    };
 
-    let (tx, _rx) = broadcast::channel(100);
     let app_state = Arc::new(AppState {
         tx,
         peers: Arc::new(Mutex::new(HashMap::new())),
         total_migrations: Arc::new(Mutex::new(0)),
         active_trades: Arc::new(Mutex::new(HashMap::new())),
+        storage,
     });
 
     let app = Router::new()
         .route("/ws", get(websocket_handler))
         .route("/api/peers", get(get_peers))
         .route("/api/stats", get(get_stats))
+        .route("/api/registry/hall_of_fame", get(get_hall_of_fame))
+        .route(
+            "/api/registry/genomes",
+            get(get_genomes).post(submit_genome),
+        )
+        .route("/api/registry/seeds", get(get_seeds).post(submit_seed))
         .with_state(app_state);
-
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+
     tracing::info!("Primordium Relay Server listening on {}", addr);
     tracing::info!("    WebSocket: ws://{}/ws", addr);
     tracing::info!("    Peers API: http://{}/api/peers", addr);
@@ -110,6 +129,205 @@ async fn get_stats(State(state): State<Arc<AppState>>) -> Json<serde_json::Value
     }))
 }
 
+/// REST endpoint: Get Hall of Fame (Global Registry)
+async fn get_hall_of_fame(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let rx = match state.storage.query_hall_of_fame_async() {
+        Some(r) => r,
+        None => {
+            return Json(serde_json::json!({
+                "error": "failed to query storage"
+            }))
+            .into_response();
+        }
+    };
+
+    match rx.recv() {
+        Ok(hall_of_fame) => Json(serde_json::json!({
+            "hall_of_fame": hall_of_fame.iter().map(|(id, civ_level, is_extinct)| serde_json::json!({
+                "id": id.to_string(),
+                "civilization_level": civ_level,
+                "is_extinct": is_extinct
+            })).collect::<Vec<_>>()
+        })).into_response(),
+        Err(e) => Json(serde_json::json!({
+            "error": format!("failed to receive hall of fame: {}", e)
+        })).into_response(),
+    }
+}
+
+/// REST endpoint: Get genomes from marketplace
+async fn get_genomes(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let rx = match state
+        .storage
+        .query_genomes_async(Some(100), Some("fitness".to_string()))
+    {
+        Some(r) => r,
+        None => {
+            return Json(serde_json::json!({
+                "error": "failed to query genomes"
+            }))
+            .into_response();
+        }
+    };
+
+    match rx.recv() {
+        Ok(genomes) => Json(serde_json::json!({
+            "genomes": genomes
+        }))
+        .into_response(),
+        Err(e) => Json(serde_json::json!({
+            "error": format!("failed to receive genomes: {}", e)
+        }))
+        .into_response(),
+    }
+}
+/// REST endpoint: Submit genome to marketplace
+async fn submit_genome(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let id = Uuid::new_v4();
+    let genotype = payload
+        .get("genotype")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let author = payload
+        .get("author")
+        .and_then(|v| v.as_str())
+        .unwrap_or("anonymous")
+        .to_string();
+    let name = payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unnamed Genome")
+        .to_string();
+    let description = payload
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let tags = payload
+        .get("tags")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let fitness_score = payload
+        .get("fitness_score")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let offspring_count = payload
+        .get("offspring_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as u32;
+    let tick = payload.get("tick").and_then(|v| v.as_u64()).unwrap_or(0);
+
+    state.storage.submit_genome(
+        id,
+        None,
+        genotype,
+        author,
+        name,
+        description,
+        tags,
+        fitness_score,
+        offspring_count,
+        tick,
+    );
+
+    Json(serde_json::json!({
+        "success": true,
+        "id": id.to_string()
+    }))
+    .into_response()
+}
+
+/// REST endpoint: Get seeds from marketplace
+async fn get_seeds(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let rx = match state
+        .storage
+        .query_seeds_async(Some(100), Some("pop".to_string()))
+    {
+        Some(r) => r,
+        None => {
+            return Json(serde_json::json!({
+                "error": "failed to query seeds"
+            }))
+            .into_response();
+        }
+    };
+
+    match rx.recv() {
+        Ok(seeds) => Json(serde_json::json!({
+            "seeds": seeds
+        }))
+        .into_response(),
+        Err(e) => Json(serde_json::json!({
+            "error": format!("failed to receive seeds: {}", e)
+        }))
+        .into_response(),
+    }
+}
+/// REST endpoint: Submit seed to marketplace
+async fn submit_seed(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let id = Uuid::new_v4();
+    let author = payload
+        .get("author")
+        .and_then(|v| v.as_str())
+        .unwrap_or("anonymous")
+        .to_string();
+    let name = payload
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unnamed Seed")
+        .to_string();
+    let description = payload
+        .get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let tags = payload
+        .get("tags")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let config_json = payload
+        .get("config")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{}")
+        .to_string();
+    let avg_tick_time = payload
+        .get("avg_tick_time")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let max_pop = payload.get("max_pop").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let performance_summary = payload
+        .get("performance_summary")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    state.storage.submit_seed(
+        id,
+        author,
+        name,
+        description,
+        tags,
+        config_json,
+        avg_tick_time,
+        max_pop,
+        performance_summary,
+    );
+
+    Json(serde_json::json!({
+        "success": true,
+        "id": id.to_string()
+    }))
+    .into_response()
+}
 async fn websocket_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
@@ -343,14 +561,18 @@ mod tests {
     use tower::util::ServiceExt;
 
     fn create_app() -> Router {
-        let (tx, _rx) = broadcast::channel(100);
+        let (tx, _rx) = broadcast::channel::<String>(100);
+        let storage = StorageManager::new(":memory:").unwrap_or_else(|e| {
+            eprintln!("Failed to create in-memory storage: {}", e);
+            std::process::exit(1);
+        });
         let app_state = Arc::new(AppState {
             tx,
             peers: Arc::new(Mutex::new(HashMap::new())),
             total_migrations: Arc::new(Mutex::new(0)),
             active_trades: Arc::new(Mutex::new(HashMap::new())),
+            storage,
         });
-
         Router::new()
             .route("/api/peers", get(get_peers))
             .route("/api/stats", get(get_stats))

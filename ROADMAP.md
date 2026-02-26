@@ -40,8 +40,9 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 12 | Phase 68: The Song of Entropy (Audio) | ✅ FM Synth + Bio-Music + Spatial Stereo |
 | 13 | Phase 68.6: Stereo Audio Integration | ✅ Spatial panning + distance attenuation |
 | 14 | Security Hardening (2026-02-24) | ✅ bytes/time/rcgen/quinn upgrades |
+| 15 | Phase 69: Visual Synthesis (ASCII Raytracing) | ✅ Character density + glow + terrain variation |
 
-### Next Up (2026-02-24 Re-prioritized)
+### Next Up (2026-02-26)
 
 > **优先级原则**: 正确性 > 稳健性 > 测试覆盖 > 新功能。先还债，再建新。
 >
@@ -960,13 +961,17 @@ toml = "0.8"
 
 *Focus on platform reach and developer integration.*
 
-- **Phase 70: The Galactic Federation (Central Server)** 🏛️
+- **Phase 70: The Galactic Federation (Central Server)** 🏛️ **[MVP Complete (2026-02-26)**
     - **Goal**: A persistent, shared multiverse.
     - **Features**:
-        - `Global Registry`: Permanent storage of "Hall of Fame" genomes.
-        - `Marketplace`: Exchange "Seeds" (Simulation Configs) and "Specimens".
-
----
+        - `Global Registry`: Permanent storage of "Hall of Fame" genomes. ✅ (API: GET /api/registry/hall_of_fame)
+        - `Marketplace`: Exchange "Seeds" (Simulation Configs) and "Specimens". ✅ (API: GET/POST /api/registry/{genomes,seeds})
+    - **Implemented (Phase 70.1-70.6)**:
+        - SQLite database schema (`registry.db`) with `genome_submissions` and `seed_submissions` tables
+        - Global Registry API endpoints (hall_of_fame, genomes CRUD)
+        - Marketplace API endpoints (seeds CRUD)
+        - Integrated StorageManager into server AppState
+        - TODO: API authentication, documentation
 
 ## 🏗️ Technical Evolution
 
