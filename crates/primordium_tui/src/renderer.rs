@@ -12,14 +12,21 @@ pub struct WorldWidget<'a> {
     snapshot: &'a WorldSnapshot,
     screensaver: bool,
     view_mode: u8,
+    density_enabled: bool,
 }
 
 impl<'a> WorldWidget<'a> {
-    pub fn new(snapshot: &'a WorldSnapshot, screensaver: bool, view_mode: u8) -> Self {
+    pub fn new(
+        snapshot: &'a WorldSnapshot,
+        screensaver: bool,
+        view_mode: u8,
+        density_enabled: bool,
+    ) -> Self {
         Self {
             snapshot,
             screensaver,
             view_mode,
+            density_enabled,
         }
     }
 
@@ -93,6 +100,22 @@ impl<'a> WorldWidget<'a> {
 
     pub fn symbol_for_terrain(t: TerrainType) -> char {
         t.symbol()
+    }
+
+    /// Computes character density (0-3) from entity energy ratio.
+    pub fn density_from_energy(energy: f64, max_energy: f64) -> usize {
+        let ratio = (energy / max_energy.max(1.0)).clamp(0.0, 1.0);
+        (ratio * 4.0).floor() as usize
+    }
+
+    pub fn density_char(density: usize) -> char {
+        match density {
+            0 => '░',
+            1 => '▒',
+            2 => '▓',
+            3 => '█',
+            _ => '●',
+        }
     }
 
     pub fn color_for_terrain(t: TerrainType) -> Color {
@@ -184,11 +207,25 @@ impl<'a> Widget for WorldWidget<'a> {
 
                     let status = entity.status;
                     let cell = &mut buf[(x, y)];
-                    cell.set_symbol(
-                        std::str::from_utf8(&[Self::symbol_for_status(entity) as u8])
-                            .unwrap_or("?"),
-                    );
-                    cell.set_fg(Self::color_for_status(entity, status));
+                    if self.density_enabled {
+                        let density = Self::density_from_energy(entity.energy, entity.max_energy);
+                        let status_symbol = Self::symbol_for_status(entity);
+                        let symbol = match entity.status {
+                            EntityStatus::InTransit
+                            | EntityStatus::Starving
+                            | EntityStatus::Infected
+                            | EntityStatus::Hunting
+                            | EntityStatus::Mating
+                            | EntityStatus::Sharing => status_symbol,
+                            _ => Self::density_char(density),
+                        };
+                        cell.set_symbol(std::str::from_utf8(&[symbol as u8]).unwrap_or("?"));
+                    } else {
+                        cell.set_symbol(
+                            std::str::from_utf8(&[Self::symbol_for_status(entity) as u8])
+                                .unwrap_or("?"),
+                        );
+                    }
                     if self.view_mode >= 2 {
                         if entity.rank > 0.9 {
                             cell.set_bg(Color::Rgb(100, 100, 0));
@@ -482,7 +519,7 @@ mod tests {
             height: 20,
         };
 
-        let widget = WorldWidget::new(&snapshot, true, 0);
+        let widget = WorldWidget::new(&snapshot, true, 0, false);
         let mut buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 20, 20));
 
         widget.render(ratatui::layout::Rect::new(0, 0, 20, 20), &mut buf);

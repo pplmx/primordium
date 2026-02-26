@@ -82,9 +82,9 @@ impl App {
     }
 
     fn draw_cinematic_mode(&self, f: &mut Frame, snapshot: &crate::model::snapshot::WorldSnapshot) {
-        let world_widget = WorldWidget::new(snapshot, true, self.view_mode);
+        let density_enabled = self.config.visual.sdf_rendering;
+        let world_widget = WorldWidget::new(snapshot, true, self.view_mode, density_enabled);
         f.render_widget(world_widget, f.area());
-
         if self.cinematic_mode {
             f.render_widget(
                 CinematicOverlayWidget {
@@ -153,7 +153,8 @@ impl App {
         snapshot: &crate::model::snapshot::WorldSnapshot,
         area: ratatui::layout::Rect,
     ) {
-        let world_widget = WorldWidget::new(snapshot, false, self.view_mode);
+        let density_enabled = self.config.visual.sdf_rendering;
+        let world_widget = WorldWidget::new(snapshot, false, self.view_mode, density_enabled);
         f.render_widget(world_widget, area);
     }
 

@@ -173,6 +173,20 @@ pub struct TerraformConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct VisualConfig {
+    /// Enable SDF/character density rendering for entities
+    pub sdf_rendering: bool,
+    /// Enable bloom/glow effects (simulated CRT)
+    pub glow_enabled: bool,
+    /// Bloom intensity (0.0-1.0)
+    pub glow_intensity: f32,
+    /// Enable terrain density variation
+    pub density_variation: bool,
+    /// Color saturation multiplier (0.0-2.0)
+    pub color_saturation: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct EcosystemConfig {
     pub carbon_emission_rate: f64,
     pub sequestration_rate: f64,
@@ -199,6 +213,7 @@ pub struct AppConfig {
     pub social: SocialConfig,
     pub terraform: TerraformConfig,
     pub ecosystem: EcosystemConfig,
+    pub visual: VisualConfig,
     pub target_fps: u64,
     pub game_mode: GameMode,
 }
@@ -310,6 +325,13 @@ impl Default for AppConfig {
                 max_entities_per_tick: 10,
                 max_food_per_tick: 5,
                 solar_energy_rate: 100.0,
+            },
+            visual: VisualConfig {
+                sdf_rendering: true,
+                glow_enabled: false,
+                glow_intensity: 0.5,
+                density_variation: false,
+                color_saturation: 1.0,
             },
             target_fps: 60,
             game_mode: GameMode::Standard,
