@@ -1,155 +1,9 @@
 use crate::brain::GenotypeLogic;
-use crate::config::AppConfig;
-use crate::history::{Legend, LiveEvent, PopulationStats};
-use crate::pheromone::PheromoneGrid;
-use crate::snapshot::InternalEntitySnapshot;
-use crate::spatial_hash::SpatialHash;
 use crate::systems::intel;
-use chrono::Utc;
-use primordium_data::{
-    AncestralTrait, Entity, Health, Identity, Intel, Metabolism, Physics, Specialization,
-};
+use primordium_data::{AncestralTrait, Entity, Health, Intel, Metabolism, Physics, Specialization};
 use rand::Rng;
-use std::collections::HashSet;
+use std::f64;
 use uuid::Uuid;
-
-pub struct PredationContext<'a> {
-    pub snapshots: &'a [InternalEntitySnapshot],
-    pub killed_ids: &'a mut HashSet<Uuid>,
-    pub events: &'a mut Vec<LiveEvent>,
-    pub config: &'a AppConfig,
-    pub spatial_hash: &'a SpatialHash,
-    pub pheromones: &'a mut PheromoneGrid,
-    pub pop_stats: &'a mut PopulationStats,
-    // logger removed
-    pub tick: u64,
-    pub energy_transfers: &'a mut Vec<(usize, f64)>,
-    pub lineage_consumption: &'a mut Vec<(Uuid, f64)>,
-}
-
-pub fn archive_if_legend_components(
-    identity: &Identity,
-    metabolism: &Metabolism,
-    intel: &Intel,
-    physics: &Physics,
-    tick: u64,
-) -> Option<Legend> {
-    let lifespan = tick - metabolism.birth_tick;
-    if lifespan > 1000 || metabolism.offspring_count > 10 || metabolism.peak_energy > 300.0 {
-        let legend = Legend {
-            id: identity.id,
-            parent_id: identity.parent_id,
-            lineage_id: metabolism.lineage_id,
-            birth_tick: metabolism.birth_tick,
-            death_tick: tick,
-            lifespan,
-            generation: metabolism.generation,
-            offspring_count: metabolism.offspring_count,
-            peak_energy: metabolism.peak_energy,
-            birth_timestamp: "".to_string(),
-            death_timestamp: Utc::now().to_rfc3339(),
-            genotype: (*intel.genotype).clone(),
-            color_rgb: (physics.r, physics.g, physics.b),
-        };
-        Some(legend)
-    } else {
-        None
-    }
-}
-
-pub fn calculate_social_rank_components(
-    metabolism: &Metabolism,
-    intel: &Intel,
-    tick: u64,
-    config: &AppConfig,
-) -> f32 {
-    let energy_score = (metabolism.energy / metabolism.max_energy).clamp(0.0, 1.0) as f32;
-    let age = tick - metabolism.birth_tick;
-
-    // Age with decay: peaks at age_rank_normalization * 0.7, then slowly declines
-    // This prevents "elder exploit" where old age alone guarantees high rank
-    let peak_age = config.social.age_rank_normalization * 0.7;
-    let age_score_raw = (age as f32 / config.social.age_rank_normalization).min(1.0);
-    let age_score = if age as f32 > peak_age {
-        let excess = (age as f32 - peak_age) / (config.social.age_rank_normalization - peak_age);
-        (1.0 - excess.powi(2)).max(0.0) * age_score_raw
-    } else {
-        age_score_raw
-    };
-
-    let offspring_score =
-        (metabolism.offspring_count as f32 / config.social.offspring_rank_normalization).min(1.0);
-    let rep_score = intel.reputation.clamp(0.0, 1.0);
-
-    let w = config.social.rank_weights;
-    w[0] * energy_score + w[1] * age_score + w[2] * offspring_score + w[3] * rep_score
-}
-
-pub fn start_tribal_split_components<R: Rng>(
-    _phys: &Physics,
-    _met: &Metabolism,
-    intel: &Intel,
-    crowding: f32,
-    config: &AppConfig,
-    rng: &mut R,
-) -> Option<(u8, u8, u8)> {
-    // Redesigned split condition: High rank + High crowding = Alpha-led migration
-    // This ensures the fittest lead the new tribe, not the weakest
-    if crowding > config.evolution.crowding_threshold
-        && intel.rank > config.social.sharing_threshold * 0.6
-    {
-        Some((
-            rng.gen_range(0..255),
-            rng.gen_range(0..255),
-            rng.gen_range(0..255),
-        ))
-    } else {
-        None
-    }
-}
-
-pub fn are_same_tribe_components(phys1: &Physics, phys2: &Physics, config: &AppConfig) -> bool {
-    let dist = (phys1.r as i32 - phys2.r as i32).abs()
-        + (phys1.g as i32 - phys2.g as i32).abs()
-        + (phys1.b as i32 - phys2.b as i32).abs();
-    dist < config.social.tribe_color_threshold
-}
-
-pub fn handle_symbiosis_components(
-    idx: usize,
-    snapshots: &[InternalEntitySnapshot],
-    outputs: [f32; 12],
-    spatial_hash: &SpatialHash,
-    config: &AppConfig,
-) -> Option<Uuid> {
-    if outputs[8] > 0.5 {
-        let mut partner_id = None;
-        let self_snap = &snapshots[idx];
-
-        spatial_hash.query_callback(
-            self_snap.x,
-            self_snap.y,
-            config.social.territorial_range,
-            |t_idx| {
-                if idx != t_idx && partner_id.is_none() {
-                    let target_snap = &snapshots[t_idx];
-                    let color_dist = (self_snap.r as i32 - target_snap.r as i32).abs()
-                        + (self_snap.g as i32 - target_snap.g as i32).abs()
-                        + (self_snap.b as i32 - target_snap.b as i32).abs();
-
-                    if color_dist < config.social.tribe_color_threshold
-                        && target_snap.status != primordium_data::EntityStatus::Bonded
-                    {
-                        partner_id = Some(target_snap.id);
-                    }
-                }
-            },
-        );
-        partner_id
-    } else {
-        None
-    }
-}
 
 pub struct ReproductionContext<'a, R: Rng> {
     pub tick: u64,
@@ -413,7 +267,7 @@ pub fn reproduce_asexual_parallel_components_decomposed<R: Rng>(
     }
 
     let mut child_genotype = std::sync::Arc::new(input.genotype.clone());
-    let stress_factor = (1.0 - (input.energy / input.genotype.max_energy)).max(0.0) as f32;
+    let stress_factor = (1.0 - (input.energy / input.genotype.max_energy)).max(0.0_f64) as f32;
 
     intel::mutate_genotype(
         &mut child_genotype,
@@ -695,7 +549,7 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
         std::sync::Arc::make_mut(&mut child_genotype).lineage_id = Uuid::from_u128(ctx.rng.gen());
     }
 
-    let _stress_factor = (1.0 - (p1.energy / p1.genotype.max_energy)).max(0.0) as f32;
+    let _stress_factor = (1.0 - (p1.energy / p1.genotype.max_energy)).max(0.0_f64) as f32;
 
     let child_energy =
         p1.energy * (p1.genotype.reproductive_investment as f64).min(SAFE_INVESTMENT_CAP);
@@ -848,29 +702,4 @@ pub fn reproduce_sexual_parallel_components_decomposed<R: Rng>(
     }
 
     (baby, dist)
-}
-
-pub fn increment_spec_meter_components(
-    intel: &mut Intel,
-    spec: Specialization,
-    amount: f32,
-    config: &AppConfig,
-) {
-    if intel.specialization.is_none() {
-        let bias_idx = match spec {
-            Specialization::Soldier => 0,
-            Specialization::Engineer => 1,
-            Specialization::Provider => 2,
-        };
-        let meter = intel.spec_meters.entry(spec).or_insert(0.0);
-        *meter += amount * (1.0 + intel.genotype.specialization_bias[bias_idx]);
-        if *meter >= config.social.specialization_threshold {
-            intel.specialization = Some(spec);
-        }
-    }
-}
-
-pub fn is_legend_worthy_components(metabolism: &Metabolism, tick: u64) -> bool {
-    let lifespan = tick - metabolism.birth_tick;
-    lifespan > 1000 || metabolism.offspring_count > 10 || metabolism.peak_energy > 300.0
 }
