@@ -30,5 +30,9 @@ family_tree.png
 # --- Web / WASM ---
 www/pkg/
 www/node_modules/
-www/dist/
+ZV|.DS_Store
+
+# --- mdBook Generated ---
+docs/book/book/
+docs/book/output/
 .DS_Store
