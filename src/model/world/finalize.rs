@@ -72,7 +72,7 @@ impl World {
                         }
                     }
 
-                    let mut infections = Vec::new();
+                    let mut infections = Vec::with_capacity(self.active_pathogens.len() * 5);
                     if let Some(p) = &health.pathogen {
                         spatial_hash.query_callback(phys.x, phys.y, 2.0, |n_idx| {
                             let n_handle = entity_handles[n_idx];
@@ -122,7 +122,7 @@ impl World {
         env: &mut Environment,
         events: &mut Vec<LiveEvent>,
     ) {
-        let mut dead_handles = Vec::new();
+        let mut dead_handles = Vec::with_capacity(proposals.len());
         for (handle, _, is_dead, _) in proposals {
             if *is_dead {
                 dead_handles.push(*handle);

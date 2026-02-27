@@ -203,9 +203,10 @@ impl World {
                 .then(a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal))
         });
 
-        let mut handles = Vec::new();
-        let mut positions = Vec::new();
-        let mut nutrition_data = Vec::new();
+        let len = food_data.len();
+        let mut handles = Vec::with_capacity(len);
+        let mut positions = Vec::with_capacity(len);
+        let mut nutrition_data = Vec::with_capacity(len);
         for (x, y, handle, nutrient_type) in food_data {
             handles.push(handle);
             positions.push((x, y));
