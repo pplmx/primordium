@@ -1,4 +1,4 @@
-use crate::model::infra::network::{NetMessage, NetworkState};
+use primordium_net::{NetMessage, NetworkState};
 use std::sync::{Arc, Mutex};
 
 #[cfg(target_arch = "wasm32")]
@@ -257,7 +257,7 @@ mod tests {
         let pending = Arc::new(Mutex::new(Vec::new()));
         let mut peers = Vec::new();
         let peer_id = Uuid::new_v4();
-        peers.push(crate::model::infra::network::PeerInfo {
+        peers.push(primordium_net::PeerInfo {
             peer_id,
             entity_count: 10,
             migrations_sent: 0,
@@ -281,12 +281,12 @@ mod tests {
     fn test_handle_incoming_trade_offer() {
         let state = Arc::new(Mutex::new(NetworkState::default()));
         let pending = Arc::new(Mutex::new(Vec::new()));
-        let proposal = crate::model::infra::network::TradeProposal {
+        let proposal = primordium_net::TradeProposal {
             id: Uuid::new_v4(),
             sender_id: Uuid::new_v4(),
-            offer_resource: crate::model::infra::network::TradeResource::Energy,
+            offer_resource: primordium_net::TradeResource::Energy,
             offer_amount: 100.0,
-            request_resource: crate::model::infra::network::TradeResource::Biomass,
+            request_resource: primordium_net::TradeResource::Biomass,
             request_amount: 50.0,
         };
 
@@ -309,15 +309,14 @@ mod tests {
 
         {
             let mut s = state.lock().unwrap();
-            s.trade_offers
-                .push(crate::model::infra::network::TradeProposal {
-                    id: proposal_id,
-                    sender_id: Uuid::new_v4(),
-                    offer_resource: crate::model::infra::network::TradeResource::Energy,
-                    offer_amount: 100.0,
-                    request_resource: crate::model::infra::network::TradeResource::Biomass,
-                    request_amount: 50.0,
-                });
+            s.trade_offers.push(primordium_net::TradeProposal {
+                id: proposal_id,
+                sender_id: Uuid::new_v4(),
+                offer_resource: primordium_net::TradeResource::Energy,
+                offer_amount: 100.0,
+                request_resource: primordium_net::TradeResource::Biomass,
+                request_amount: 50.0,
+            });
         }
 
         // Accept

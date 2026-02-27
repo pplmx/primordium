@@ -1,6 +1,6 @@
 use crate::model::environment::Environment;
-use crate::model::history::PopulationStats;
 use crate::model::lineage_registry::LineageRegistry;
+use primordium_data::PopulationStats;
 use primordium_observer::SiliconScribe;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;

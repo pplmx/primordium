@@ -1,5 +1,5 @@
+use primordium_io::registry::LineagePersistence;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::history::LineagePersistence;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
 use std::fs;

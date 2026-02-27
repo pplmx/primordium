@@ -93,12 +93,9 @@ async fn test_metamorphosis_transition_and_remodeling() {
 
     let events = world.update(&mut env).unwrap();
 
-    let metamorphosed = events.iter().any(|e| {
-        matches!(
-            e,
-            primordium_lib::model::history::LiveEvent::Metamorphosis { .. }
-        )
-    });
+    let metamorphosed = events
+        .iter()
+        .any(|e| matches!(e, primordium_data::LiveEvent::Metamorphosis { .. }));
     assert!(metamorphosed, "Metamorphosis event should be triggered");
 
     let entities = world.get_all_entities();

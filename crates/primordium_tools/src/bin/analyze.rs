@@ -1,7 +1,7 @@
 use clap::Parser;
 use petgraph::graph::DiGraph;
-use primordium_core::history::{Legend, LiveEvent};
 use primordium_core::lineage_tree::AncestryTree;
+use primordium_data::{Legend, LiveEvent};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};

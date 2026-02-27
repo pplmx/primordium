@@ -18,8 +18,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::model::history::LiveEvent;
 use primordium_core::systems::environment as environment_system;
+use primordium_data::LiveEvent;
 use primordium_tui::Tui;
 use ratatui::style::Color;
 use sysinfo::Pid;
@@ -221,7 +221,7 @@ impl App {
             self.network_state = net.get_state();
 
             for msg in net.pop_pending_limited(5) {
-                use crate::model::infra::network::NetMessage;
+                use primordium_net::NetMessage;
                 match msg {
                     NetMessage::MigrateEntity {
                         migration_id,
@@ -320,7 +320,7 @@ impl App {
                     || phys.y > (height - 2.0);
 
                 if leaving {
-                    use crate::model::infra::network::NetMessage;
+                    use primordium_net::NetMessage;
                     use sha2::{Digest, Sha256};
                     let dna = intel.genotype.to_hex();
                     let energy = met.energy as f32;

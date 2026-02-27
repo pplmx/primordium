@@ -11,7 +11,7 @@ use crate::model::brain::{BrainLogic, GenotypeLogic};
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use crate::model::infra::network::NetMessage;
+use primordium_net::NetMessage;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]

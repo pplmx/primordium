@@ -1,8 +1,8 @@
 use crate::model::environment::Environment;
-use crate::model::history::LiveEvent;
 use crate::model::world::World;
 use chrono::Utc;
 use primordium_core::systems::{biological, civilization, history, social, stats};
+use primordium_data::LiveEvent;
 use primordium_data::{Entity, Health, Identity, Intel, Metabolism, Pathogen, Physics};
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;

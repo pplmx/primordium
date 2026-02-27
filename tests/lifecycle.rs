@@ -65,10 +65,7 @@ async fn test_reproduction_and_genetics() {
         let events = world.update(&mut env).expect("Update failed");
 
         for event in events {
-            if matches!(
-                event,
-                primordium_lib::model::history::LiveEvent::Birth { .. }
-            ) {
+            if matches!(event, primordium_data::LiveEvent::Birth { .. }) {
                 total_births += 1;
             }
         }

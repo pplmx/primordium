@@ -123,7 +123,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 |---|------|------|
 | 11 | Phase 65.5: Silicon Scribe Advanced (RAG/Query) | 工程量巨大 (向量数据库 + NL→SQL)，对终端模拟器用户价值存疑，无需求验证 |
 | 12 | 多语言 Wiki 同步 | 中英文文档存在不同步风险，但当前不阻塞核心开发 |
-| 13 | 清理 5 个空/re-export 存根文件 | Workspace 重构遗留，纯架构噪音 |
+| ~~13~~ | ~~清理 5 个空/re-export 存根文件~~ | ✅ 已完成: 删除了 `src/model/history.rs`, `src/model/infra/network.rs`, `crates/primordium_core/src/history.rs` 等重构遗留存根，调用方直接引用 `primordium_data`/`primordium_net` |
 <details>
 <summary>🛡️ Quality Hardening Sprint (2026-02-24) ✅ COMPLETED (22/22, 100%) — click to expand</summary>
 

@@ -1,5 +1,5 @@
-use crate::history::Legend;
 use chrono::Utc;
+use primordium_data::Legend;
 use primordium_data::{Identity, Intel, Metabolism, Physics};
 
 pub fn archive_if_legend_components(

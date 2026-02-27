@@ -1,7 +1,7 @@
 use primordium_core::systems::environment as environment_system;
+use primordium_data::PopulationStats;
 use primordium_lib::model::config::AppConfig;
 use primordium_lib::model::environment::{Environment, Era};
-use primordium_lib::model::history::PopulationStats;
 
 #[tokio::test]
 async fn test_era_transition_sequence() {

@@ -2604,6 +2604,7 @@ dependencies = [
  "clap",
  "petgraph 0.6.5",
  "primordium_core",
+ "primordium_data",
  "primordium_io",
  "serde",
  "serde_json",

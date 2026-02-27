@@ -1,8 +1,8 @@
 mod common;
 use common::EntityBuilder;
+use primordium_core::lineage_tree::AncestryTree;
+use primordium_data::Legend;
 use primordium_lib::model::brain;
-use primordium_lib::model::history::Legend;
-use primordium_lib::model::infra::lineage_tree::AncestryTree;
 use uuid::Uuid;
 
 #[tokio::test]

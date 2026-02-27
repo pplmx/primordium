@@ -42,7 +42,6 @@ pub mod lineage_registry {
     pub use primordium_core::lineage_registry::*;
 }
 
-pub mod history;
 pub mod influence {
     pub use primordium_core::influence::*;
 }
@@ -50,8 +49,6 @@ pub mod migration;
 pub mod observer;
 pub mod persistence;
 pub mod world;
-
-pub mod infra;
 
 pub mod state {
     pub use primordium_data::*;

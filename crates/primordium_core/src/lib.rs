@@ -47,7 +47,6 @@ pub mod brain;
 pub mod config;
 /// Environmental state management (climate, seasons, disasters)
 pub mod environment;
-pub mod history;
 /// Influence maps for collective intelligence and social coordination
 pub mod influence;
 /// Entity interaction handling (combat, bonding, sharing)

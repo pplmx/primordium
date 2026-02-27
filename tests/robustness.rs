@@ -1,5 +1,5 @@
+use primordium_core::systems::stats;
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::history;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::world::World;
 
@@ -30,7 +30,7 @@ async fn test_lineage_registry_cleanup_on_extinction() {
     // Update stats - lineage should be there
     let entities = world.get_all_entities();
     let food_count = world.get_food_count();
-    history::update_population_stats(history::StatsContext {
+    stats::update_population_stats(stats::StatsContext {
         stats: std::sync::Arc::make_mut(&mut world.pop_stats),
         entities: &entities,
         food_count,
@@ -46,7 +46,7 @@ async fn test_lineage_registry_cleanup_on_extinction() {
     world.ecs.clear();
     let entities = world.get_all_entities();
     let food_count = world.get_food_count();
-    history::update_population_stats(history::StatsContext {
+    stats::update_population_stats(stats::StatsContext {
         stats: std::sync::Arc::make_mut(&mut world.pop_stats),
         entities: &entities,
         food_count,

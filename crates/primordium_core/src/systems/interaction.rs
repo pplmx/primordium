@@ -1,7 +1,6 @@
 use crate::brain::BrainLogic;
 use crate::config::AppConfig;
 use crate::environment::Environment;
-use crate::history::{FossilRegistry, LiveEvent, PopulationStats};
 use crate::interaction::InteractionCommand;
 use crate::lifecycle;
 use crate::lineage_registry::LineageRegistry;
@@ -9,6 +8,7 @@ use crate::systems::{biological, social};
 use crate::terrain::{TerrainGrid, TerrainType};
 use chrono::Utc;
 use primordium_data::{Entity, Health, Intel, Metabolism, Physics, Specialization};
+use primordium_data::{FossilRegistry, LiveEvent, PopulationStats};
 use rand::{Rng, SeedableRng};
 use std::collections::HashSet;
 use uuid::Uuid;

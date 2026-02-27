@@ -48,7 +48,7 @@ async fn test_biomass_trade_overflow_protection() {
     // The system should clamp this to a reasonable amount (e.g., 100)
     world.apply_trade(
         &mut env,
-        primordium_lib::model::infra::network::TradeResource::Biomass,
+        primordium_net::TradeResource::Biomass,
         10000.0,
         true,
     );
@@ -61,7 +61,7 @@ async fn test_biomass_trade_overflow_protection() {
     // Test negative trade (outgoing) with 0 biomass
     world.apply_trade(
         &mut env,
-        primordium_lib::model::infra::network::TradeResource::Biomass,
+        primordium_net::TradeResource::Biomass,
         5000.0,
         false,
     );

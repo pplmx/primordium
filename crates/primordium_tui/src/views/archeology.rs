@@ -1,5 +1,5 @@
-use primordium_core::history::PopulationStats;
 use primordium_data::Fossil;
+use primordium_data::PopulationStats;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Paragraph, Widget};

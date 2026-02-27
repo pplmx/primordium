@@ -100,11 +100,11 @@ impl World {
     pub fn apply_trade(
         &mut self,
         env: &mut Environment,
-        resource: crate::model::infra::network::TradeResource,
+        resource: primordium_net::TradeResource,
         amount: f32,
         incoming: bool,
     ) {
-        use crate::model::infra::network::TradeResource;
+        use primordium_net::TradeResource;
         let sign = if incoming { 1.0 } else { -1.0 };
         match resource {
             TradeResource::Energy => {

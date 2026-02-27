@@ -1,8 +1,8 @@
 use crate::config::AppConfig;
-use crate::history::{LiveEvent, PopulationStats};
 use crate::pheromone::PheromoneGrid;
 use crate::snapshot::InternalEntitySnapshot;
 use crate::spatial_hash::SpatialHash;
+use primordium_data::{LiveEvent, PopulationStats};
 
 use primordium_data::{AncestralTrait, Specialization};
 use rand::Rng;

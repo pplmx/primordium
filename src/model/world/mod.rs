@@ -1,11 +1,12 @@
 use crate::model::config::AppConfig;
-use crate::model::history::{FossilRegistry, HallOfFame, HistoryLogger, PopulationStats};
 use crate::model::lineage_registry::LineageRegistry;
 use crate::model::observer::WorldObserver;
 use crate::model::pheromone::PheromoneGrid;
 use crate::model::sound::SoundGrid;
 use crate::model::spatial_hash::SpatialHash;
 use crate::model::terrain::TerrainGrid;
+use primordium_data::{FossilRegistry, HallOfFame, PopulationStats};
+use primordium_io::history::HistoryLogger;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
@@ -75,7 +76,7 @@ pub struct World {
     #[serde(skip, default = "WorldObserver::new")]
     pub observer: WorldObserver,
     #[serde(skip, default)]
-    pub best_legends: HashMap<uuid::Uuid, crate::model::history::Legend>,
+    pub best_legends: HashMap<uuid::Uuid, primordium_data::Legend>,
     #[serde(skip, default = "default_rng")]
     pub rng: ChaCha8Rng,
     #[serde(skip, default)]

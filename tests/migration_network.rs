@@ -1,6 +1,6 @@
 use primordium_lib::model::config::AppConfig;
-use primordium_lib::model::infra::network::{NetMessage, PeerInfo};
 use primordium_lib::model::world::World;
+use primordium_net::{NetMessage, PeerInfo};
 use sha2::Digest;
 use uuid::Uuid;
 

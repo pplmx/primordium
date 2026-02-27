@@ -369,7 +369,7 @@ impl App {
 
     fn propose_random_trade(&mut self) {
         let mut rng = rand::thread_rng();
-        use crate::model::infra::network::{TradeProposal, TradeResource};
+        use primordium_net::{TradeProposal, TradeResource};
         let offer_res = match rng.gen_range(0..4) {
             0 => TradeResource::Energy,
             1 => TradeResource::Oxygen,
@@ -622,7 +622,7 @@ impl App {
             }
             if let Some(l_id) = found_lid {
                 if let Some(net) = &self.network {
-                    use crate::model::infra::network::NetMessage;
+                    use primordium_net::NetMessage;
                     let msg = NetMessage::Relief {
                         lineage_id: l_id,
                         amount: 500.0,

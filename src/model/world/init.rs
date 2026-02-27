@@ -1,8 +1,4 @@
 use crate::model::config::AppConfig;
-use crate::model::history::{
-    FossilPersistence, FossilRegistry, HallOfFame, HistoryLogger, LineagePersistence,
-    PopulationStats,
-};
 use crate::model::lifecycle;
 use crate::model::lineage_registry::LineageRegistry;
 use crate::model::observer::WorldObserver;
@@ -12,6 +8,9 @@ use crate::model::spatial_hash::SpatialHash;
 use crate::model::terrain::TerrainGrid;
 use crate::model::world::World;
 use primordium_data::{Food, MetabolicNiche, Position};
+use primordium_data::{FossilRegistry, HallOfFame, PopulationStats};
+use primordium_io::history::{FossilPersistence, HistoryLogger};
+use primordium_io::registry::LineagePersistence;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::collections::HashMap;

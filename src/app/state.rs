@@ -67,7 +67,7 @@ pub struct App {
     // Phase 40: Archeology View
     pub show_archeology: bool,
     pub auto_play_history: bool, // NEW: Replay functionality
-    pub archeology_snapshots: Vec<(u64, crate::model::history::PopulationStats)>,
+    pub archeology_snapshots: Vec<(u64, primordium_data::PopulationStats)>,
     pub archeology_index: usize,
     pub selected_fossil_index: usize, // NEW
     pub onboarding_step: Option<u8>,  // None=done, Some(0-2)=onboarding screens
@@ -79,7 +79,7 @@ pub struct App {
     // Live Data
     pub event_log: VecDeque<(String, Color)>,
 
-    pub network_state: crate::model::infra::network::NetworkState,
+    pub network_state: primordium_net::NetworkState,
     pub latest_snapshot: Option<Arc<crate::model::snapshot::WorldSnapshot>>,
     pub network: Option<crate::client::manager::NetworkManager>,
 
@@ -192,7 +192,7 @@ impl App {
             last_sidebar_rect: Rect::default(),
             gene_editor_offset: 20,
             event_log: VecDeque::with_capacity(15),
-            network_state: crate::model::infra::network::NetworkState::default(),
+            network_state: primordium_net::NetworkState::default(),
             latest_snapshot,
             network: None,
             hof_query_rx: None,

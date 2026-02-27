@@ -1,7 +1,7 @@
 use crate::model::environment::Environment;
-use crate::model::history::LiveEvent;
 use crate::model::interaction::InteractionCommand;
 use hecs;
+use primordium_data::LiveEvent;
 use primordium_data::{Entity, Food, Identity, Intel, Metabolism, Physics, Position};
 use rand::SeedableRng;
 use rayon::prelude::*;
