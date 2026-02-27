@@ -43,8 +43,6 @@ jobs:
       run: cargo nextest run --workspace --all-features
     - name: Run doc tests
       run: cargo test --doc --workspace --all-features
-    - name: Run tests
-      run: cargo test --verbose
     - name: Check documentation
       run: cargo doc --no-deps --workspace -D warnings
 
