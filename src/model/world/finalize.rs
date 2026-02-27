@@ -51,15 +51,19 @@ impl World {
 
                     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
 
+                    let mut context = biological::BiologicalContext::new(
+                        population_count,
+                        config,
+                        tick,
+                        &mut rng,
+                    );
+
                     let metabolic_consumption = biological::biological_system_components(
                         met,
                         intel,
                         health,
                         phys,
-                        population_count,
-                        config,
-                        tick,
-                        &mut rng,
+                        &mut context,
                     );
 
                     for p in active_pathogens {

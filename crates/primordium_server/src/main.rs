@@ -9,7 +9,7 @@ use axum::{
     Json, Router,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
-use primordium_io::storage::StorageManager;
+use primordium_io::storage::{GenomeSubmit, SeedSubmit, StorageManager};
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -271,9 +271,9 @@ async fn submit_genome(
         .unwrap_or(0) as u32;
     let tick = payload.get("tick").and_then(|v| v.as_u64()).unwrap_or(0);
 
-    state.storage.submit_genome(
+    state.storage.submit_genome(GenomeSubmit {
         id,
-        None,
+        lineage_id: None,
         genotype,
         author,
         name,
@@ -282,7 +282,7 @@ async fn submit_genome(
         fitness_score,
         offspring_count,
         tick,
-    );
+    });
 
     Json(serde_json::json!({
         "success": true,
@@ -363,7 +363,7 @@ async fn submit_seed(
         .unwrap_or("")
         .to_string();
 
-    state.storage.submit_seed(
+    state.storage.submit_seed(SeedSubmit {
         id,
         author,
         name,
@@ -373,7 +373,7 @@ async fn submit_seed(
         avg_tick_time,
         max_pop,
         performance_summary,
-    );
+    });
 
     Json(serde_json::json!({
         "success": true,

@@ -125,6 +125,33 @@ pub struct StorageManager {
     sender: Sender<StorageCommand>,
 }
 
+/// Parameters for submitting a genome to the marketplace.
+pub struct GenomeSubmit {
+    pub id: Uuid,
+    pub lineage_id: Option<Uuid>,
+    pub genotype: String,
+    pub author: String,
+    pub name: String,
+    pub description: String,
+    pub tags: String,
+    pub fitness_score: f64,
+    pub offspring_count: u32,
+    pub tick: u64,
+}
+
+/// Parameters for submitting a seed to the marketplace.
+pub struct SeedSubmit {
+    pub id: Uuid,
+    pub author: String,
+    pub name: String,
+    pub description: String,
+    pub tags: String,
+    pub config_json: String,
+    pub avg_tick_time: f64,
+    pub max_pop: u32,
+    pub performance_summary: String,
+}
+
 impl StorageManager {
     /// Returns a new sender handle to communicate with the storage thread.
     pub fn clone_sender(&self) -> Sender<StorageCommand> {
@@ -537,59 +564,35 @@ impl StorageManager {
     }
 
     // Phase 70: Marketplace submission functions
-    #[allow(clippy::too_many_arguments)]
+
     /// Submits a genome to the marketplace.
-    pub fn submit_genome(
-        &self,
-        id: Uuid,
-        lineage_id: Option<Uuid>,
-        genotype: String,
-        author: String,
-        name: String,
-        description: String,
-        tags: String,
-        fitness_score: f64,
-        offspring_count: u32,
-        tick: u64,
-    ) {
+    pub fn submit_genome(&self, params: GenomeSubmit) {
         let _ = self.sender.send(StorageCommand::SubmitGenome {
-            id,
-            lineage_id,
-            genotype,
-            author,
-            name,
-            description,
-            tags,
-            fitness_score,
-            offspring_count,
-            tick,
+            id: params.id,
+            lineage_id: params.lineage_id,
+            genotype: params.genotype,
+            author: params.author,
+            name: params.name,
+            description: params.description,
+            tags: params.tags,
+            fitness_score: params.fitness_score,
+            offspring_count: params.offspring_count,
+            tick: params.tick,
         });
     }
 
-    #[allow(clippy::too_many_arguments)]
     /// Submits a seed (simulation config) to the marketplace.
-    pub fn submit_seed(
-        &self,
-        id: Uuid,
-        author: String,
-        name: String,
-        description: String,
-        tags: String,
-        config_json: String,
-        avg_tick_time: f64,
-        max_pop: u32,
-        performance_summary: String,
-    ) {
+    pub fn submit_seed(&self, params: SeedSubmit) {
         let _ = self.sender.send(StorageCommand::SubmitSeed {
-            id,
-            author,
-            name,
-            description,
-            tags,
-            config_json,
-            avg_tick_time,
-            max_pop,
-            performance_summary,
+            id: params.id,
+            author: params.author,
+            name: params.name,
+            description: params.description,
+            tags: params.tags,
+            config_json: params.config_json,
+            avg_tick_time: params.avg_tick_time,
+            max_pop: params.max_pop,
+            performance_summary: params.performance_summary,
         });
     }
 

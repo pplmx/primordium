@@ -106,7 +106,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 3 | Phase 70 完善: API 文档 + 速率限制 | MVP 缺失生产级防护；文档缺失降低可用性 | `crates/primordium_server/` |
 | 4 | Unmaintained 依赖清理 | ring/paste/rustls-pemfile/lru 的 RUSTSEC 警告；`cargo audit` CI 已检测但未修复 | `Cargo.toml` |
 | 5 | TUI 客户端集成 Phase 70 Registry | 服务端 Registry API 已就绪但 TUI 无连接/浏览 UI，功能孤岛 | `src/app/`, `src/client/` |
-| 6 | 消除残留 Clippy 抑制 (3 处) | `biological.rs`, `storage.rs` (x2) 的 `too_many_arguments`，与 "零 Clippy 抑制" 声明矛盾。引入 Context/Params 结构体 | `crates/primordium_core/`, `crates/primordium_io/` |
+| ~~6~~ | ~~消除残留 Clippy 抑制 (3 处)~~ | ✅ 已完成: `biological.rs` 引入 `BiologicalContext` 结构体；`storage.rs` 引入 `GenomeSubmit`/`SeedSubmit` 参数结构体，函数参数降至 1 个 | `crates/primordium_core/`, `crates/primordium_io/` |
 
 **P2 — 新功能 & 改进 (可规划)**
 

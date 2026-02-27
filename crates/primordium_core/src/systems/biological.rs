@@ -7,16 +7,38 @@ use primordium_data::{Health, Intel, Metabolism, Pathogen, Physics, Specializati
 use rand::Rng;
 use std::collections::HashSet;
 
-#[allow(clippy::too_many_arguments)]
+/// Context for biological system processing.
+pub struct BiologicalContext<'a, R: Rng> {
+    /// Global population count for drift calculations
+    pub population_count: usize,
+    /// Application configuration
+    pub config: &'a AppConfig,
+    /// Current simulation tick
+    pub tick: u64,
+    /// Random number generator
+    pub rng: &'a mut R,
+}
+
+impl<'a, R: Rng> BiologicalContext<'a, R> {
+    /// Create a new biological context
+    pub fn new(population_count: usize, config: &'a AppConfig, tick: u64, rng: &'a mut R) -> Self {
+        Self {
+            population_count,
+            config,
+            tick,
+            rng,
+        }
+    }
+}
+
+/// Process biological systems for an entity.
+/// Returns metabolic energy consumption for this tick.
 pub fn biological_system_components<R: Rng>(
     metabolism: &mut Metabolism,
     intel: &mut Intel,
     health: &mut Health,
     _physics: &Physics,
-    population_count: usize,
-    config: &AppConfig,
-    tick: u64,
-    rng: &mut R,
+    context: &mut BiologicalContext<'_, R>,
 ) -> f64 {
     let mut metabolic_consumption = 0.0;
 
@@ -27,13 +49,13 @@ pub fn biological_system_components<R: Rng>(
 
     process_infection_components(health, metabolism);
     update_reputation_progress(intel);
-    apply_genetic_drift(intel, population_count, config, rng);
-    update_specialization_progress(intel, config);
-    apply_metabolic_maintenance(metabolism, intel, config, tick);
+    apply_genetic_drift(intel, context.population_count, context.config, context.rng);
+    update_specialization_progress(intel, context.config);
+    apply_metabolic_maintenance(metabolism, intel, context.config, context.tick);
 
     // Track brain maintenance consumption (recalculate to avoid side effects)
     const NEONATE_PROTECTION_TICKS: u64 = 50;
-    let age = tick - metabolism.birth_tick;
+    let age = context.tick - metabolism.birth_tick;
     let protection_multiplier = if age < NEONATE_PROTECTION_TICKS {
         age as f64 / NEONATE_PROTECTION_TICKS as f64
     } else {
@@ -41,8 +63,8 @@ pub fn biological_system_components<R: Rng>(
     };
 
     let brain_maintenance = (intel.genotype.brain.nodes.len() as f64
-        * config.brain.hidden_node_cost)
-        + (intel.genotype.brain.connections.len() as f64 * config.brain.connection_cost);
+        * context.config.brain.hidden_node_cost)
+        + (intel.genotype.brain.connections.len() as f64 * context.config.brain.connection_cost);
     let adjusted_maintenance = brain_maintenance * protection_multiplier.max(0.1);
     metabolic_consumption += adjusted_maintenance;
 
