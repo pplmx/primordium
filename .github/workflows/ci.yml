@@ -37,6 +37,12 @@ jobs:
       run: cargo clippy --all-targets -- -D warnings
     - name: Build
       run: cargo build --release --verbose
+    - name: Install nextest
+      uses: taiki-e/install-action@nextest
+    - name: Run tests
+      run: cargo nextest run --workspace --all-features
+    - name: Run doc tests
+      run: cargo test --doc --workspace --all-features
     - name: Run tests
       run: cargo test --verbose
     - name: Check documentation
