@@ -1,29 +1,26 @@
 # Summary
 
 - [Introduction](introduction.md)
-  - [Quick Start](introduction.md#quick-start)
-  - [Key Features](introduction.md#key-features)
 
-- [User Manual](../MANUAL.md)
+- [User Manual](manual.md)
 
-- [中文手册](../MANUAL_zh.md)
+- [中文手册](manual_zh.md)
 
-- [Architecture Overview](../ARCHITECTURE.md)
-  - [Module Organization](../ARCHITECTURE.md#src)
-  - [System Execution Order](../ARCHITECTURE.md#systems-execution-order)
+- [Architecture Overview](architecture.md)
 
-- [Neural Brain](../wiki/BRAIN.md)
+- [Neural Brain](wiki-brain.md)
 
-- [Genetics](../wiki/GENETICS.md)
+- [Genetics](wiki-genetics.md)
 
-- [Ecosystem](../wiki/ECOSYSTEM.md)
+- [Ecosystem](wiki-ecosystem.md)
 
-- [History](../wiki/HISTORY.md)
+- [History](wiki-history.md)
 
 - [Testing Strategy](testing.md)
 
-- [Roadmap](../ROADMAP.md)
+- [Roadmap](roadmap.md)
 
-- [Changelog](../CHANGELOG.md)
+- [Changelog](changelog.md)
+  - [Changelog (Chinese)](changelog_zh.md)
 
 - [Contributing](https://github.com/pplmx/primordium/blob/main/.github/CONTRIBUTING.md)

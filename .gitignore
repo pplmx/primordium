@@ -36,3 +36,14 @@ ZV|.DS_Store
 docs/book/book/
 docs/book/output/
 .DS_Store
+docs/book/src/architecture.md
+docs/book/src/changelog.md
+docs/book/src/changelog_zh.md
+docs/book/src/manual.md
+docs/book/src/manual_zh.md
+docs/book/src/readme.md
+docs/book/src/roadmap.md
+docs/book/src/wiki-brain.md
+docs/book/src/wiki-ecosystem.md
+docs/book/src/wiki-genetics.md
+docs/book/src/wiki-history.md
