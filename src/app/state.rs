@@ -15,6 +15,18 @@ use crate::model::terrain::TerrainType;
 use crate::model::world::World;
 use primordium_data::GeneType;
 
+/// UI Display Mode - Controls information density and layout
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum UiMode {
+    /// Immersive: Maximized world view, minimal UI
+    Immersive,
+    /// Standard: Balanced information and viewport
+    #[default]
+    Standard,
+    /// Expert: Full dashboard with semantic blocks
+    Expert,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct InputEvent {
     pub tick: u64,
@@ -59,6 +71,7 @@ pub struct App {
     pub anchor_interval: Duration,
     pub is_anchoring: bool,
     // Modes
+    pub ui_mode: UiMode,
     pub screensaver: bool,
     pub cinematic_mode: bool,
     pub show_help: bool,
@@ -172,6 +185,7 @@ impl App {
             last_anchor_time: Instant::now(),
             anchor_interval: Duration::from_secs(3600),
             is_anchoring: false,
+            ui_mode: UiMode::default(),
             screensaver: false,
             cinematic_mode: false,
             show_help: false,

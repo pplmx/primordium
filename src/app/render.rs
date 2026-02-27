@@ -1,4 +1,4 @@
-use crate::app::state::App;
+use crate::app::state::{App, UiMode};
 use primordium_tui::renderer::WorldWidget;
 use primordium_tui::views::*;
 use ratatui::layout::{Constraint, Direction, Layout};
@@ -54,12 +54,7 @@ impl App {
 
         let left_layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(6),
-                Constraint::Length(4),
-                Constraint::Min(0),
-                Constraint::Length(7),
-            ])
+            .constraints(self.get_layout_constraints())
             .split(main_layout[0]);
 
         self.last_world_rect = left_layout[2];
@@ -271,6 +266,30 @@ impl App {
             Color::Rgb(5, 10, 5)
         }
     }
+
+    /// Get layout constraints based on current UI mode
+    fn get_layout_constraints(&self) -> Vec<Constraint> {
+        match self.ui_mode {
+            UiMode::Immersive => vec![
+                Constraint::Length(1), // Status
+                Constraint::Length(0), // Sparklines (hidden)
+                Constraint::Min(0),    // World (max)
+                Constraint::Length(0), // Chronicle (hidden)
+            ],
+            UiMode::Standard => vec![
+                Constraint::Length(6), // Status
+                Constraint::Length(4), // Sparklines
+                Constraint::Min(0),    // World
+                Constraint::Length(7), // Chronicle
+            ],
+            UiMode::Expert => vec![
+                Constraint::Length(2), // Status (compact)
+                Constraint::Length(2), // Sparklines (minimal)
+                Constraint::Min(0),    // World
+                Constraint::Length(0), // Chronicle (hidden)
+            ],
+        }
+    }
 }
 
 #[cfg(test)]
@@ -316,6 +335,7 @@ mod tests {
             last_anchor_time: Instant::now(),
             anchor_interval: std::time::Duration::from_secs(3600),
             is_anchoring: false,
+            ui_mode: UiMode::default(),
             screensaver: false,
             cinematic_mode: false,
             show_help: false,

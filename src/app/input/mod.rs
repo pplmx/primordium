@@ -14,6 +14,7 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::UiMode;
     use crate::model::config::AppConfig;
     use crate::model::environment::Environment;
     use crate::model::world::World;
@@ -54,6 +55,7 @@ mod tests {
             last_anchor_time: Instant::now(),
             anchor_interval: std::time::Duration::from_secs(3600),
             is_anchoring: false,
+            ui_mode: UiMode::default(),
             screensaver: false,
             cinematic_mode: false,
             show_help: false,

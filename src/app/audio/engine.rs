@@ -19,10 +19,9 @@ pub enum AudioError {
     UnsupportedSampleRate,
 }
 
-#[allow(dead_code)] // Fields are used in tests and reserved for future audio configuration
 pub struct AudioEngine {
-    sample_rate: f32,
-    buffer_size: usize,
+    _sample_rate: f32,
+    _buffer_size: usize,
     entropy_synth: FMSynthesizer,
     bio_music: BioMusicGenerator,
     event_sfx: EventSFXGenerator,
@@ -42,8 +41,8 @@ impl AudioEngine {
         let (tx, rx) = mpsc::channel();
 
         Ok(Self {
-            sample_rate: 44100.0,
-            buffer_size: 256,
+            _sample_rate: 44100.0,
+            _buffer_size: 256,
             entropy_synth: FMSynthesizer::new(44100.0),
             bio_music: BioMusicGenerator::new(44100.0),
             event_sfx: EventSFXGenerator::new(44100.0),
@@ -179,8 +178,8 @@ mod tests {
         let engine = AudioEngine::new();
         assert!(engine.is_ok());
         let engine = engine.unwrap();
-        assert_eq!(engine.sample_rate, 44100.0);
-        assert_eq!(engine.buffer_size, 256);
+        assert_eq!(engine._sample_rate, 44100.0);
+        assert_eq!(engine._buffer_size, 256);
     }
 
     #[test]

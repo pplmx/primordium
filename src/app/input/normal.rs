@@ -103,6 +103,17 @@ impl App {
                     self.onboarding_step = None;
                 }
             }
+            KeyCode::Tab => {
+                // Cycle through UI modes: Standard -> Immersive -> Expert -> Standard
+                use crate::app::state::UiMode;
+                self.ui_mode = match self.ui_mode {
+                    UiMode::Standard => UiMode::Immersive,
+                    UiMode::Immersive => UiMode::Expert,
+                    UiMode::Expert => UiMode::Standard,
+                };
+                self.event_log
+                    .push_back((format!("UI Mode: {:?}", self.ui_mode), Color::Cyan));
+            }
             KeyCode::Char('u') => {
                 self.audio.toggle();
                 self.event_log.push_back((
