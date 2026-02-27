@@ -115,7 +115,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 7 | Phase 71: Replay & Time Control | 完善 replay 功能，支持录制/回放/快进完整模拟会话；已有基础设施 |
 | 8 | WASM/Web 客户端现代化 | Web 端渲染器在 CI 编译通过但功能滞后于 TUI — Phase 68 Audio, Phase 69 Raytracing 未同步 |
 | 9 | `primordium_core` no_std 审计 | Engineering Sprint Task 31 暂停项；提升嵌入式/WASM 纯净性 |
-| 10 | 大文件拆分 (`social.rs` 876 LOC) | 最大系统文件，含 9 个 pub fn；可按子功能拆分为 symbiosis/reproduction/rank 子模块 |
+| ~~10~~ | ~~大文件拆分 (`social.rs` 876 LOC)~~ | ✅ 已完成: 拆分为 `rank`, `symbiosis`, `reproduction`, `legend`, `specialization` 子模块 | `crates/primordium_core/src/systems/social/` |
 
 **P3 — Backlog (需求明确后再启动)**
 
