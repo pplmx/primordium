@@ -6,6 +6,50 @@
 
 ---
 
+## [阶段 70: API 安全与质量加固] - 2026-02-27
+
+### API 认证与速率限制
+
+- **阶段 70 API 认证**: 添加了 `PRIMORDIUM_API_KEY` 环境变量进行 Bearer Token 认证
+  - POST 端点 (`submit_genome`, `submit_seed`) 受 `check_auth()` 保护
+  - GET 端点保持公开；未设置密钥时为开放模式
+  - 新增 5 个认证测试 (reject/accept/wrong-key/seeds/GET-public)
+
+### 依赖更新
+
+- **RUSTSEC-2026-0002**: 修复 lru crate 声浪问题 (0.12.5 → 0.16.3)
+  - 更新 ratatui 从 0.29 到 0.30 以解决该漏洞
+
+### 代码质量重构
+
+- 消除了 3 处 `clippy::too_many_arguments` 抑制:
+  - `biological.rs`: 引入 `BiologicalContext<R>` 结构体封装 population/config/tick/rng
+  - `storage.rs`: 引入 `GenomeSubmit` 和 `SeedSubmit` 参数结构体
+  - 函数参数从 8-11 个减少到 1 个
+
+### 测试改进
+
+- 修复了 `test_inter_tribe_predation` 偶发测试:
+  - 将 `EntityBuilder::build()` 改为使用 `create_entity_deterministic()` + ChaCha8Rng
+  - 验证 30/30 测试通过，全量测试 15 轮零失败
+
+### 质量保证
+
+- ✅ 所有测试通过 (150+ 测试)
+- ✅ 零 Clippy 警告
+- ✅ 代码已格式化
+- ✅ 性能门禁通过
+
+---
+
+## [阶段 49: 高级社会等级 (部落战争)] - 2026-01-24
+
+[English](../CHANGELOG.md)
+
+本文件记录了 **Primordium** 项目的所有重大变更。本项目遵循基于阶段的演进式开发周期。
+
+---
+
 ## [阶段 49: 高级社会等级 (部落战争) (Advanced Social Hierarchies - Tribal Warfare)] - 2026-01-24
 
 ### 演进飞跃：领袖与军队的崛起

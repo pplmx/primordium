@@ -6,6 +6,42 @@ All notable changes to the **Primordium** project will be documented in this fil
 
 ---
 
+## [Phase 70 API Security & Quality Hardening] - 2026-02-27
+
+### API Authentication & Rate Limiting
+
+- **Phase 70 API Authentication**: Added `PRIMORDIUM_API_KEY` environment variable for Bearer Token authentication
+    - POST endpoints (`submit_genome`, `submit_seed`) protected with `check_auth()`
+    - GET endpoints remain public; open mode when key unset
+    - Added 5 new auth tests (reject/accept/wrong-key/seeds/GET-public)
+
+### Dependency Updates
+
+- **RUSTSEC-2026-0002**: Fixed lru crate unsoundness (0.12.5 → 0.16.3)
+    - Updated ratatui from 0.29 to 0.30 to resolve the vulnerability
+
+### Code Quality Refactoring
+
+- Eliminated 3 `clippy::too_many_arguments` suppressions:
+    - `biological.rs`: Introduced `BiologicalContext<R>` struct for population/config/tick/rng
+    - `storage.rs`: Introduced `GenomeSubmit` and `SeedSubmit` parameter structs
+    - Reduced function parameters from 8-11 to 1
+
+### Test Improvements
+
+- Fixed `test_inter_tribe_predation` flaky test:
+    - Changed `EntityBuilder::build()` to use `create_entity_deterministic()` with ChaCha8Rng
+    - Verified 30/30 test passes, 15 full suite runs with zero failures
+
+### Quality Assurance
+
+- ✅ All tests passing (150+ tests)
+- ✅ Zero Clippy warnings
+- ✅ Code formatted
+- ✅ Performance gate passed
+
+---
+
 ## [Security Fixes] - 2026-02-24
 
 ### Dependency Security Updates
@@ -13,14 +49,14 @@ All notable changes to the **Primordium** project will be documented in this fil
 Fixed multiple security vulnerabilities in dependencies:
 
 - **RUSTSEC-2026-0007**: Upgraded `bytes` from 1.11.0 to 1.11.1
-  - Fixed integer overflow in `BytesMut::reserve`
+    - Fixed integer overflow in `BytesMut::reserve`
 - **RUSTSEC-2026-0009**: Upgraded `time` from 0.3.46 to 0.3.47
-  - Fixed Denial of Service via Stack Exhaustion
+    - Fixed Denial of Service via Stack Exhaustion
 - **RUSTSEC-2025-0009**: Upgraded `rcgen` from 0.11/0.13 to 0.14.7
-  - Fixed AES function panics with overflow checking
-  - ** Breaking Change**: Updated API calls in `src/app/network/quic.rs`:
-    - `cert.serialize_der()` → `cert.cert.der().to_vec()`
-    - `cert.serialize_private_key_der()` → `cert.signing_key.serialize_der().to_vec()`
+    - Fixed AES function panics with overflow checking
+    - **Breaking Change**: Updated API calls in `src/app/network/quic.rs`:
+        - `cert.serialize_der()` → `cert.cert.der().to_vec()`
+        - `cert.serialize_private_key_der()` → `cert.signing_key.serialize_der().to_vec()`
 
 ### Quality Assurance
 
@@ -37,20 +73,20 @@ Fixed multiple security vulnerabilities in dependencies:
 Completed Phase 68.6 stereo audio integration:
 
 - **Spatial Panning**: Birth and death events now have stereo audio positioning
-  - Left/right panning based on entity X position relative to world center
-  - Distance attenuation applied (inverse square law)
+    - Left/right panning based on entity X position relative to world center
+    - Distance attenuation applied (inverse square law)
 - **Queue Integration**: Fixed `process_queue()` to apply spatial gains before queuing events
-  - Spatial events: `set_spatial_sfx_gain(left_pan, right_pan)` before queueing
-  - Non-spatial events: Center-panned with `set_spatial_sfx_gain(1.0, 1.0)`
+    - Spatial events: `set_spatial_sfx_gain(left_pan, right_pan)` before queueing
+    - Non-spatial events: Center-panned with `set_spatial_sfx_gain(1.0, 1.0)`
 - **Dual Architecture**: Maintains mono `render_block()` for backward compatibility
 
 ### Documentation Updates
 
 - **README.md**: Added "Procedural Audio Engine" section with feature highlights
 - **MANUAL.md**: Added comprehensive "Procedural Audio" section explaining:
-  - Audio systems (Entropy Synth, Bio-Music, Event SFX, Spatial Positioning)
-  - How synthesis and mixing work
-  - Spatial hearing details for birth/death events
+    - Audio systems (Entropy Synth, Bio-Music, Event SFX, Spatial Positioning)
+    - How synthesis and mixing work
+    - Spatial hearing details for birth/death events
 
 ### Quality Assurance
 
@@ -58,17 +94,17 @@ Completed Phase 68.6 stereo audio integration:
 - ✅ Zero Clippy warnings
 - ✅ Code formatted
 
-
 ### Known Issues (Low Priority)
 
 The following security advisories remain as warnings (unmaintained crates):
+
 - `RUSTSEC-2025-0009`: ring 0.16.20 (requires quinn upgrade - pending phase 70)
 - `RUSTSEC-2024-0436`: paste 1.0.15 (unmaintained)
 - `RUSTSEC-2025-0010`: ring unmaintained warning
 - `RUSTSEC-2025-0134`: rustls-pemfile 1.0.4 (unmaintained)
 - `RUSTSEC-2026-0002`: lru (unmaintained)
 
-These are low-risk warnings about unmaintained crates. The critical ring issue is blocked by a required quinn library upgrade which will be addressed in Phase 70 (The Galactic Federation) when P2P networking infrastructure is refactored.
+These are low-risk warnings about unmaintained crates. The critical ring issue is blocked by a required quinn library upgrade which will be addressed in Phase 70 (The Galactic Federation) when P2P networking infrastructure is refactored
 ---
 
 ## [Engineering Sprint: Code Quality & Architecture Refinement] - 2026-02-10
@@ -80,35 +116,39 @@ These are low-risk warnings about unmaintained crates. The critical ring issue i
 #### 🛠️ Code Quality Achievements
 
 **Clippy Linting (Tier 1 - Tasks 1-8)**:
+
 - ✅ Eliminated all `#[allow(...)]` suppressions across the codebase
 - ✅ Zero Clippy warnings in all crates
 - ✅ Clean compilation with `-D warnings` strict gate
 
 **Function & File Modularity (Tier 2 - Tasks 9-16)**:
+
 - ✅ Split `App::draw` (381 lines) into 10 granular helper methods:
-  - `draw_background()`, `create_layouts()`, `draw_main_content()`, `draw_cinematic_mode()`, `draw_normal_mode()`
-  - `draw_status_bar()`, `draw_sparklines()`, `draw_world_canvas()`, `draw_chronicle()`, `draw_sidebar()`, `draw_overlays()`
+    - `draw_background()`, `create_layouts()`, `draw_main_content()`, `draw_cinematic_mode()`, `draw_normal_mode()`
+    - `draw_status_bar()`, `draw_sparklines()`, `draw_world_canvas()`, `draw_chronicle()`, `draw_sidebar()`, `draw_overlays()`
 - ✅ Verified all large files already pre-split:
-  - `brain.rs` → `brain/mod.rs` with 4 submodules
-  - `terrain.rs` → `terrain/mod.rs` + `succession.rs`
-  - `input.rs` → `input/normal.rs`
-  - `commands.rs` already split into `generate_*_cmds` functions
-  - `finalize.rs` already split into `process_*` and `finalize_*` functions
+    - `brain.rs` → `brain/mod.rs` with 4 submodules
+    - `terrain.rs` → `terrain/mod.rs` + `succession.rs`
+    - `input.rs` → `input/normal.rs`
+    - `commands.rs` already split into `generate_*_cmds` functions
+    - `finalize.rs` already split into `process_*` and `finalize_*` functions
 
 **Testing Infrastructure (Tier 3 - Partial)**:
+
 - ✅ `primordium_observer` enhanced from 1 to 11 comprehensive tests
-  - Coverage: All Narrator event types (Extinction, GreatFamine, ClimateShift, NewEra, Custom)
-  - `SiliconScribe` async queue and consumption testing
-  - Custom narrator implementation verification
-  - Severity-based prefix formatting validation
+    - Coverage: All Narrator event types (Extinction, GreatFamine, ClimateShift, NewEra, Custom)
+    - `SiliconScribe` async queue and consumption testing
+    - Custom narrator implementation verification
+    - Severity-based prefix formatting validation
 - ✅ Verified zero ignored doc-tests in codebase
 
 **Workspace Architecture Documentation (Tier 4 & Task 41)**:
+
 - ✅ Added comprehensive Workspace documentation to `ARCHITECTURE.md`
-  - Complete 8-crate structure overview
-  - Dependency flow diagram
-  - Each crate's responsibilities and relationships
-  - Refactoring benefits justification
+    - Complete 8-crate structure overview
+    - Dependency flow diagram
+    - Each crate's responsibilities and relationships
+    - Refactoring benefits justification
 
 #### 📊 Verification Gates Met
 
@@ -122,6 +162,7 @@ These are low-risk warnings about unmaintained crates. The critical ring issue i
 #### 📦 Architecture Update
 
 **8-Crate Workspace Status** (All Existing):
+
 - `primordium_data` - Pure data structures (6 lines, minimal)
 - `primordium_core` - Engine logic with systems
 - `primordium_io` - Persistence and logging
