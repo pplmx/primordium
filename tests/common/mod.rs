@@ -6,6 +6,7 @@ use primordium_lib::model::food::Food;
 use primordium_lib::model::lifecycle;
 use primordium_lib::model::state::environment::Environment;
 use primordium_lib::model::world::World;
+use rand::SeedableRng;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -258,7 +259,14 @@ impl EntityBuilder {
     }
 
     pub fn build(self) -> primordium_data::Entity {
-        let mut e = lifecycle::create_entity(self.x, self.y, 0);
+        // Use deterministic RNG seeded from entity fields to ensure reproducible brains.
+        // This prevents flaky tests caused by thread_rng() producing different brain weights.
+        let seed = self
+            .id
+            .map(|id| id.as_u128() as u64)
+            .unwrap_or((self.x.to_bits() ^ self.y.to_bits()).wrapping_mul(0x517CC1B727220A95));
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+        let mut e = lifecycle::create_entity_deterministic(self.x, self.y, 0, &mut rng);
         if let Some(id) = self.id {
             e.identity.id = id;
         }

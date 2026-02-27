@@ -41,25 +41,93 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | 13 | Phase 68.6: Stereo Audio Integration | ✅ Spatial panning + distance attenuation |
 | 14 | Security Hardening (2026-02-24) | ✅ bytes/time/rcgen/quinn upgrades |
 | 15 | Phase 69: Visual Synthesis (ASCII Raytracing) | ✅ Character density + glow + terrain variation |
+| 16 | 🛡️ Quality Hardening Sprint (22 Tasks) | ✅ 22/22 tasks (2026-02-26) |
+| 17 | Phase 67 Task B: Closed-Loop Thermodynamics | ✅ Energy conservation + Dashboard + Tests |
+| 18 | T3: The Testing Gauntlet | ✅ Property tests + determinism + long-haul |
+| 19 | T4: Knowledge Preservation (Documentation) | ✅ mdBook + cargo doc + deploy |
+| 20 | Phase 70: Galactic Federation (Central Server) | ✅ MVP — SQLite + Registry + Marketplace API |
 
-### Next Up (2026-02-26)
+### Next Up (2026-02-27)
 
 > **优先级原则**: 正确性 > 稳健性 > 测试覆盖 > 新功能。先还债，再建新。
+
+<details>
+<summary>📊 Codebase Health Snapshot (2026-02-27 Deep Audit) — click to expand</summary>
+
+#### 质量指标
+
+| 指标 | 状态 | 详情 |
+|------|------|------|
+| Clippy | ✅ 0 warnings | `-D warnings` strict gate |
+| Format | ✅ Clean | `cargo fmt --all` |
+| Tests | ✅ 293 tests (169 integration + 124 inline) | 5 `#[ignore]` (intentional benchmarks/long-run) |
+| TODO/FIXME | ✅ 0 instances | 已验证 |
+| unsafe blocks | ✅ 0 instances | |
+| unwrap() in prod | ✅ 0 instances | 全部 157 处均在 test code |
+| panic!() in prod | ✅ 0 instances | 全部 14 处均在 test code |
+| CI 覆盖 | ✅ | test + clippy + fmt + doc + WASM build + audit |
+
+#### 遗留技术债
+
+| 类别 | 数量 | 详情 | 优先级 |
+|------|------|------|--------|
+| `#[allow(clippy::too_many_arguments)]` | 3 处 | `biological.rs:10`, `storage.rs:540,569` — 函数参数过多，应引入 Context 结构体 | P2 |
+| `#[allow(dead_code)]` | 1 处 | `audio/engine.rs:22` — 注释为 "reserved for future" | P3 |
+| 空/re-export 存根文件 | 5 个 | `client/mod.rs`, `infra/mod.rs`, `infra/network.rs`, `ui/mod.rs`, `core/history.rs` — 纯 re-export 或 1 行 | P3 |
+| 大文件 (>500 LOC) | 9 个 | 最大: `social.rs` (876), `storage.rs` (733), `input/normal.rs` (702) | P3 |
+| WASM 客户端功能滞后 | 3 文件 | 编译通过 (CI) 但 Phase 68/69 功能未同步至 Web 端 | P2 |
+
+#### 质疑与修正记录
+
+> **第一轮分析 (2026-02-27 初)**:
+> - Phase 67B 标记为 ⚠️ PARTIALLY COMPLETE，但 Quality Sprint Tier 6 (Tasks 19-22) 已完成所有缺失项。状态已修正为 ✅。
+> - Phase 65.5 (RAG + 向量数据库 + NL→SQL) 工程量巨大且无用户需求验证。降至 P3-Backlog。
 >
-> **质疑记录**:
-> - Phase 65 的 "Analyst Agent" (RAG + 向量数据库 + NL→SQL) **从未实现**，但 Phase 65 标记为 ✅。已修正为"基础完成，高级功能推迟"。
-> - CHANGELOG.md 中 `[Security Fixes] - 2026-02-24` 被重复 41 次，文件膨胀至 2354 行，属文档卫生事故。
-  - Phase 68 Audio 测试覆盖质疑: ROADMAP 声称"零测试覆盖"但实际存在 24 个测试函数，建议降级至 P2-P3。
-> - `primordium_core/src/food.rs` 为空文件（0 行实际代码），是遗留存根。
-  - 4 个 `#[ignore]` 测试长期未修复（ecosystem_stability, evolution_validation, social_hierarchy, stability_long_haul），但因不阻塞 CI，建议降级至 P2-P3。
-> - `src/client/manager.rs` 有 7 处生产代码 `unwrap()` (Mutex lock)，存在 panic 风险。
+> **第二轮深度审计 (2026-02-27)**:
+> - 旧 ROADMAP 声称 `src/client/manager.rs` 有 7 处生产代码 `unwrap()` — **实际全部在 `#[cfg(test)]` 模块中**，无生产风险。已从质疑记录中移除。
+> - ~~`test_inter_tribe_predation` 在全量测试中间歇性失败（首次运行本轮失败，后续通过），属非确定性缺陷。~~ **已修复**: 根因为 `EntityBuilder::build()` 使用 `rand::thread_rng()` 导致脑权重非确定性，改用 `ChaCha8Rng` 种子化 RNG。
+> - 发现 3 处残留 `#[allow(clippy::too_many_arguments)]`，与 Engineering Sprint "消除所有 Clippy 抑制" 声明矛盾（Sprint 后新增代码引入）。
+> - 5 个空/re-export 存根文件为 Workspace 重构遗留，无功能影响。
+> - WASM 客户端在 CI 中编译通过，但 Phase 68 (Audio) 和 Phase 69 (Raytracing) 功能未同步，属功能滞后。
 
-1. **🛡️ Quality Hardening Sprint** — 模拟正确性 + 测试债务 + 文档修复 (详见下方，含 Phase 67B 收尾)
-2. **Phase 69: Visual Synthesis (ASCII Raytracing)** — *视觉沉浸*
-3. **Phase 65.5: Silicon Scribe Advanced (RAG/Query)** — *高级观测能力* (推迟至需求明确)
-4. **Phase 70: The Galactic Federation (Central Server)** — *在线宇宙*
+</details>
 
-## 🛡️ Quality Hardening Sprint (2026-02-24)
+**P0 — 正确性 & 安全 (必须立即修复)**
+
+| # | 任务 | 理由 | 位置 |
+|---|------|------|------|
+| ~~1~~ | ~~修复 `test_inter_tribe_predation` flaky test~~ | ✅ 已修复: `EntityBuilder::build()` 改用 `create_entity_deterministic()` + `ChaCha8Rng`，30/30 通过，全量测试 15 轮零失败 | `tests/common/mod.rs` |
+| 2 | Phase 70 API 认证 | 公开 API (genomes/seeds CRUD) 无 auth 接受任意数据提交，属安全漏洞 (AGENTS.md: 安全漏洞修复 = 高优先级)。建议方案: API Key 或 Bearer Token | `crates/primordium_server/` |
+
+**P1 — 稳健性 & 功能完善 (应尽快完成)**
+
+| # | 任务 | 理由 | 位置 |
+|---|------|------|------|
+| 3 | Phase 70 完善: API 文档 + 速率限制 | MVP 缺失生产级防护；文档缺失降低可用性 | `crates/primordium_server/` |
+| 4 | Unmaintained 依赖清理 | ring/paste/rustls-pemfile/lru 的 RUSTSEC 警告；`cargo audit` CI 已检测但未修复 | `Cargo.toml` |
+| 5 | TUI 客户端集成 Phase 70 Registry | 服务端 Registry API 已就绪但 TUI 无连接/浏览 UI，功能孤岛 | `src/app/`, `src/client/` |
+| 6 | 消除残留 Clippy 抑制 (3 处) | `biological.rs`, `storage.rs` (x2) 的 `too_many_arguments`，与 "零 Clippy 抑制" 声明矛盾。引入 Context/Params 结构体 | `crates/primordium_core/`, `crates/primordium_io/` |
+
+**P2 — 新功能 & 改进 (可规划)**
+
+| # | 任务 | 理由 |
+|---|------|------|
+| 7 | Phase 71: Replay & Time Control | 完善 replay 功能，支持录制/回放/快进完整模拟会话；已有基础设施 |
+| 8 | WASM/Web 客户端现代化 | Web 端渲染器在 CI 编译通过但功能滞后于 TUI — Phase 68 Audio, Phase 69 Raytracing 未同步 |
+| 9 | `primordium_core` no_std 审计 | Engineering Sprint Task 31 暂停项；提升嵌入式/WASM 纯净性 |
+| 10 | 大文件拆分 (`social.rs` 876 LOC) | 最大系统文件，含 9 个 pub fn；可按子功能拆分为 symbiosis/reproduction/rank 子模块 |
+
+**P3 — Backlog (需求明确后再启动)**
+
+| # | 任务 | 理由 |
+|---|------|------|
+| 11 | Phase 65.5: Silicon Scribe Advanced (RAG/Query) | 工程量巨大 (向量数据库 + NL→SQL)，对终端模拟器用户价值存疑，无需求验证 |
+| 12 | 多语言 Wiki 同步 | 中英文文档存在不同步风险，但当前不阻塞核心开发 |
+| 13 | 清理 5 个空/re-export 存根文件 | Workspace 重构遗留，纯架构噪音 |
+<details>
+<summary>🛡️ Quality Hardening Sprint (2026-02-24) ✅ COMPLETED (22/22, 100%) — click to expand</summary>
+
+### 🛡️ Quality Hardening Sprint (2026-02-24)
 
 > **触发原因**: Phase 68 上线后发现多处质量债务；热力学系统半完成状态；文档损坏；测试缺口。
 > **原则**: 正确性 > 稳健性 > 测试覆盖 > 新功能。先还债，再建新。
@@ -149,6 +217,9 @@ NR|| 19 | Entity 死亡能量返还 | `src/model/world/finalize.rs` | `process_d
 WY|| 20 | 代谢能量核算 | `systems/biological.rs` | 实体每 tick 代谢消耗记为热损耗，从全局池扣除 | ✅ |
 || 21 | 全局能量仪表盘 | `src/app/render.rs`, `crates/primordium_tui/src/views/status.rs` | TUI 状态栏显示 ⚡ 全局能量池余额 | ✅ |
 WK|| 22 | 热力学集成测试 | `tests/thermodynamics.rs` | 验证 N tick 后能量守恒: ΣEntity + ΣFood + Pool ≈ Initial + SolarInput | ✅ |
+
+</details>
+
 ---
 
 <details>
@@ -922,13 +993,13 @@ toml = "0.8"
         - **Soft Collision**: ✅ `repulsion_force` implemented in `Action` system.
         - **Metabolic Tax**: ✅ `crowding_tax = base_idle * (neighbor_count ^ 1.5) * crowding_cost` implemented in `calculate_metabolic_cost`.
 
-- **Task B: Closed-Loop Thermodynamics (Priority: Medium)** ⚠️ **PARTIALLY COMPLETE**
+- **Task B: Closed-Loop Thermodynamics (Priority: Medium)** ✅ **COMPLETED (2026-02-26)**
     - *Why*: Food is currently created ex nihilo based on RNG. This allows for unchecked population explosions ("Malthusian Explosion").
     - *How*:
         - **Global Energy Pool**: ✅ `Environment::available_energy` tracks spawn budget.
         - **Zero-Sum Spawning**: ✅ Food spawning drains from pool.
         - **Conservation**: ✅ Death returns energy to pool; Solar injection adds energy.
-        - **Missing**: Full thermodynamic accounting (Entities + Food + Soil as unified pool).
+        - **Unified Accounting**: ✅ Entity death returns energy to pool; metabolic heat loss deducted from global pool; TUI dashboard displays balance; integration test verifies conservation (Quality Sprint Tier 6, Tasks 19-22).
 
 - **Task C: Dynamic Evolutionary Pressure (Priority: Medium)** ✅ **COMPLETED (2026-02-13)**
     - *Why*: The current "Abundance" rebalance makes survival too easy, stalling the evolution of complex brains.
@@ -1045,5 +1116,5 @@ Primordium is an experiment in **emergent complexity**. You provide the rules, t
 
 Every run is unique. Every lineage is precious. Every extinction teaches us something.
 
-*Last updated: 2026-02-26*
+*Last updated: 2026-02-27 (Deep Audit)*
 *Version: 0.0.1*
