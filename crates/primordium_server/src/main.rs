@@ -3,6 +3,7 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         State,
     },
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::get,
     Json, Router,
@@ -32,6 +33,8 @@ struct AppState {
     active_trades: Arc<Mutex<HashMap<Uuid, Arc<TradeProposal>>>>,
     /// Persistent storage for Hall of Fame and marketplace
     storage: StorageManager,
+    /// API key for write endpoints (None = open mode)
+    api_key: Option<String>,
 }
 #[tokio::main]
 async fn main() {
@@ -53,12 +56,24 @@ async fn main() {
         }
     };
 
+    let api_key = std::env::var("PRIMORDIUM_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty());
+    if api_key.is_some() {
+        tracing::info!("API key authentication enabled for write endpoints");
+    } else {
+        tracing::warn!(
+            "No PRIMORDIUM_API_KEY set — write endpoints are open (unsafe for production)"
+        );
+    }
+
     let app_state = Arc::new(AppState {
         tx,
         peers: Arc::new(Mutex::new(HashMap::new())),
         total_migrations: Arc::new(Mutex::new(0)),
         active_trades: Arc::new(Mutex::new(HashMap::new())),
         storage,
+        api_key,
     });
 
     let app = Router::new()
@@ -181,11 +196,45 @@ async fn get_genomes(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         .into_response(),
     }
 }
+/// Validate API key from Authorization header.
+/// Returns None if auth passes, Some(Response) with 401 if it fails.
+/// When no api_key is configured (open mode), all requests are allowed.
+fn check_auth(state: &AppState, headers: &HeaderMap) -> Option<axum::response::Response> {
+    let expected = state.api_key.as_ref()?;
+
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .or_else(|| auth_header.strip_prefix("bearer "));
+
+    match token {
+        Some(t) if t == expected => None,
+        _ => {
+            tracing::warn!("Rejected write request: invalid or missing API key");
+            Some(
+                (
+                    StatusCode::UNAUTHORIZED,
+                    Json(serde_json::json!({ "error": "invalid or missing API key" })),
+                )
+                    .into_response(),
+            )
+        }
+    }
+}
+
 /// REST endpoint: Submit genome to marketplace
 async fn submit_genome(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
+    if let Some(resp) = check_auth(&state, &headers) {
+        return resp;
+    }
     let id = Uuid::new_v4();
     let genotype = payload
         .get("genotype")
@@ -271,8 +320,12 @@ async fn get_seeds(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 /// REST endpoint: Submit seed to marketplace
 async fn submit_seed(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
+    if let Some(resp) = check_auth(&state, &headers) {
+        return resp;
+    }
     let id = Uuid::new_v4();
     let author = payload
         .get("author")
@@ -572,6 +625,7 @@ mod tests {
             total_migrations: Arc::new(Mutex::new(0)),
             active_trades: Arc::new(Mutex::new(HashMap::new())),
             storage,
+            api_key: None,
         });
         Router::new()
             .route("/api/peers", get(get_peers))
@@ -619,5 +673,124 @@ mod tests {
         let stats: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(stats["online_count"], 0);
         assert_eq!(stats["total_migrations"], 0);
+    }
+
+    fn create_app_with_auth(key: &str) -> Router {
+        let (tx, _rx) = broadcast::channel::<String>(100);
+        let storage = StorageManager::new(":memory:").unwrap_or_else(|e| {
+            eprintln!("Failed to create in-memory storage: {}", e);
+            std::process::exit(1);
+        });
+        let app_state = Arc::new(AppState {
+            tx,
+            peers: Arc::new(Mutex::new(HashMap::new())),
+            total_migrations: Arc::new(Mutex::new(0)),
+            active_trades: Arc::new(Mutex::new(HashMap::new())),
+            storage,
+            api_key: Some(key.to_string()),
+        });
+        Router::new()
+            .route(
+                "/api/registry/genomes",
+                get(get_genomes).post(submit_genome),
+            )
+            .route("/api/registry/seeds", get(get_seeds).post(submit_seed))
+            .with_state(app_state)
+    }
+
+    #[tokio::test]
+    async fn test_submit_genome_rejected_without_key() {
+        let app = create_app_with_auth("test-secret-key");
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/registry/genomes")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(r#"{"genotype":"AABB"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_submit_genome_accepted_with_valid_key() {
+        let app = create_app_with_auth("test-secret-key");
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/registry/genomes")
+                    .header("content-type", "application/json")
+                    .header("authorization", "Bearer test-secret-key")
+                    .body(axum::body::Body::from(r#"{"genotype":"AABB"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["success"], true);
+    }
+
+    #[tokio::test]
+    async fn test_submit_genome_rejected_with_wrong_key() {
+        let app = create_app_with_auth("test-secret-key");
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/registry/genomes")
+                    .header("content-type", "application/json")
+                    .header("authorization", "Bearer wrong-key")
+                    .body(axum::body::Body::from(r#"{"genotype":"AABB"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_submit_seed_rejected_without_key() {
+        let app = create_app_with_auth("seed-key");
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/registry/seeds")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(r#"{"name":"test"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_get_genomes_open_without_auth() {
+        let app = create_app_with_auth("any-key");
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/registry/genomes")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // GET endpoints remain public even when auth is configured
+        assert_eq!(response.status(), StatusCode::OK);
     }
 }

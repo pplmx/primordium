@@ -97,7 +97,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 | # | 任务 | 理由 | 位置 |
 |---|------|------|------|
 | ~~1~~ | ~~修复 `test_inter_tribe_predation` flaky test~~ | ✅ 已修复: `EntityBuilder::build()` 改用 `create_entity_deterministic()` + `ChaCha8Rng`，30/30 通过，全量测试 15 轮零失败 | `tests/common/mod.rs` |
-| 2 | Phase 70 API 认证 | 公开 API (genomes/seeds CRUD) 无 auth 接受任意数据提交，属安全漏洞 (AGENTS.md: 安全漏洞修复 = 高优先级)。建议方案: API Key 或 Bearer Token | `crates/primordium_server/` |
+| ~~2~~ | ~~Phase 70 API 认证~~ | ✅ 已完成: 环境变量 `PRIMORDIUM_API_KEY` Bearer Token 认证，POST 端点 (`submit_genome`, `submit_seed`) 受保护，GET 端点保持公开，未设置时为开放模式。5 个新测试全部通过 | `crates/primordium_server/src/main.rs` |
 
 **P1 — 稳健性 & 功能完善 (应尽快完成)**
 
