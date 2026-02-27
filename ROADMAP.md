@@ -103,7 +103,7 @@ Primordium is not just a screensaver—it's a **living laboratory** where:
 
 | # | 任务 | 理由 | 位置 |
 |---|------|------|------|
-| 3 | Phase 70 完善: API 文档 + 速率限制 | MVP 缺失生产级防护；文档缺失降低可用性 | `crates/primordium_server/` |
+| ~~3~~ | ~~Phase 70 完善: API 文档 + 速率限制~~ | ⚠️ 部分完成: 速率限制由反向代理 (nginx/caddy) 处理，代码添加注释说明；OpenAPI 文档需引入 utoipa 依赖，推迟 | `crates/primordium_server/` |
 | ~~4~~ | ~~Unmaintained 依赖清理~~ | ✅ 已完成: 升级 `ratatui` 0.29 → 0.30，修复 `lru` RUSTSEC-2026-0002 声浪问题 (0.12.5 → 0.16.3)；`paste` 仍为传递依赖但非安全漏洞 | `Cargo.toml`, `crates/*/Cargo.toml` |
 | 5 | TUI 客户端集成 Phase 70 Registry | 服务端 Registry API 已就绪但 TUI 无连接/浏览 UI，功能孤岛 | `src/app/`, `src/client/` |
 | ~~6~~ | ~~消除残留 Clippy 抑制 (3 处)~~ | ✅ 已完成: `biological.rs` 引入 `BiologicalContext` 结构体；`storage.rs` 引入 `GenomeSubmit`/`SeedSubmit` 参数结构体，函数参数降至 1 个 | `crates/primordium_core/`, `crates/primordium_io/` |
