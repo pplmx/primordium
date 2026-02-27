@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-ratatui = "0.29"
+ratatui = "0.30"
 crossterm = { version = "0.28", features = ["serde"] }
 primordium_data = { path = "../primordium_data" }
 primordium_core = { path = "../primordium_core" }
