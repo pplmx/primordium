@@ -98,6 +98,14 @@ pub struct App {
 
     pub hof_query_rx: Option<std::sync::mpsc::Receiver<Vec<(Uuid, u32, bool)>>>,
     pub cached_hall_of_fame: Vec<(Uuid, u32, bool)>,
+    // Phase 70: Registry
+    pub show_registry: bool,
+    pub registry_client: Option<crate::client::registry::RegistryClient>,
+    pub registry_tab: u8,
+    pub cached_registry_hof: Vec<primordium_tui::views::registry::HallOfFameEntry>,
+    pub cached_registry_genomes: Vec<primordium_tui::views::registry::GenomeRecord>,
+    pub cached_registry_seeds: Vec<primordium_tui::views::registry::SeedRecord>,
+    pub registry_selected_index: usize,
 
     pub input_log: Vec<InputEvent>,
     pub replay_queue: VecDeque<InputEvent>,
@@ -211,6 +219,14 @@ impl App {
             network: None,
             hof_query_rx: None,
             cached_hall_of_fame: Vec::new(),
+            // Phase 70: Registry
+            show_registry: false,
+            registry_client: None,
+            registry_tab: 0,
+            cached_registry_hof: Vec::new(),
+            cached_registry_genomes: Vec::new(),
+            cached_registry_seeds: Vec::new(),
+            registry_selected_index: 0,
             input_log: Vec::new(),
             replay_queue: VecDeque::new(),
             replay_mode: false,
@@ -292,5 +308,33 @@ impl App {
             }
         }
         Ok(false)
+    }
+
+    /// Fetch Registry data from server (async, non-blocking)
+    pub fn fetch_registry_data(&mut self) {
+        let server_url = match &self.registry_client {
+            Some(c) => c.server_url().to_string(),
+            None => {
+                self.event_log.push_back((
+                    "Registry: Client not initialized".to_string(),
+                    ratatui::style::Color::Red,
+                ));
+                return;
+            }
+        };
+
+        self.event_log.push_back((
+            "Registry: Fetching data...".to_string(),
+            ratatui::style::Color::Cyan,
+        ));
+
+        tokio::spawn(async move {
+            let mut client =
+                crate::client::registry::RegistryClient::new(Some(server_url.clone()), None);
+
+            let _hof = client.get_hall_of_fame().await;
+            let _genomes = client.get_genomes(Some(20), Some("downloads")).await;
+            let _seeds = client.get_seeds(Some(20), Some("downloads")).await;
+        });
     }
 }
