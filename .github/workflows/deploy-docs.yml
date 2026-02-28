@@ -4,15 +4,13 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
-  workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: write
 
 concurrency:
-  group: ${{ workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -22,37 +20,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
       - name: Install mdBook
         uses: peaceiris/actions-mdbook@v2
         with:
-          mdbook-version: '0.4.40'
-          mdbook-mermaid-version: '0.12.6'
-
-      - name: Cache Cargo Registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache Cargo Index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache Cargo Build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          mdbook-version: "0.4.40"
+          mdbook-mermaid-version: "0.12.6"
 
       - name: Build Documentation
-        run: ./build-docs.sh
+        run: cd docs/book && mdbook build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
